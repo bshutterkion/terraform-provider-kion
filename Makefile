@@ -326,11 +326,11 @@ clean: ## Remove build artifacts (binary, release bin/, coverage files)
 
 #==============================================================================
 # CI/CD Targets
-# Mirrors the GitLab CI pipeline (.gitlab-ci.yml) for local validation
+# Local equivalents of .github/workflows/ci.yml's fmt/vet/lint/test-unit jobs
 #==============================================================================
 
 .PHONY: ci
-ci: ci-fmt ci-vet ci-lint ci-test ## Run all CI checks locally (mirrors GitLab pipeline)
+ci: ci-fmt ci-vet ci-lint ci-test ## Run all CI checks locally (mirrors ci.yml's fmt/vet/lint/test-unit jobs)
 	@echo ""
 	@echo "$(GREEN)All CI checks passed$(RESET)"
 

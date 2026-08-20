@@ -66,6 +66,7 @@ Resources embed `framework.ResourceWithConfigure` (data sources embed `framework
 .
 ├── cmd/
 │   ├── kgen/                   # Code generator CLI (schemas, crud, modules, examples, tests)
+│   ├── kmigrate/               # Rewrites configurations written for the previous provider
 │   ├── kconfig/                # Derives codegen/generator_config.yaml from the service packages
 │   ├── kalign/                 # Schema/SDK alignment checks
 │   └── kversions/              # Derives codegen/version_support.yaml from the SDK
@@ -85,9 +86,9 @@ Resources embed `framework.ResourceWithConfigure` (data sources embed `framework
 ├── modules/                    # 72 generated Terraform modules (one per resource)
 ├── examples/                   # Generated .tf examples (resources, data sources, provider)
 ├── docs/                       # Registry documentation (tfplugindocs)
-├── .gitlab-ci.yml              # GitLab CI pipeline
-├── .github/workflows/          # GitHub Actions (release only; GitLab CI is primary)
+├── .github/workflows/          # GitHub Actions: ci.yml gates, release.yml publishes
 ├── .golangci.yml               # Linter config (aligned with terraform-provider-aws)
+├── .goreleaser.yml             # Release artifact layout (Terraform Registry)
 ├── lefthook.yml                # Pre-push git hooks
 └── Makefile                    # build, test, lint, CI, install, codegen
 ```
@@ -98,7 +99,7 @@ The provider uses [kion-sdk-go](https://github.com/bshutterkion/kion-sdk-go) —
 
 Type conversion between Terraform Framework types (`types.String`, `types.Int64`, …) and SDK types (`generated.OptString`, `generated.OptUint64`, …) lives in `internal/flex`.
 
-The SDK is referenced through a `replace` directive in `go.mod` pointing at `../kion-sdk-go`, the **published Go mirror** of the SDK.
+The SDK's module path is `github.com/kionsoftware/kion-sdk-go`, and `go.mod` carries a **versioned** `replace` pointing it at `github.com/bshutterkion/kion-sdk-go`, where it is published today. Because the replace names a version rather than a filesystem path, the module proxy resolves it like any other dependency — **a plain clone builds with no sibling checkout**, and a release builds from exactly the version `go.mod` pins.
 
 **`spec/openapi3.json` is not committed** — it is gitignored. This repo is published for customers and ships the provider, not Kion's interface files. Because the generated code *is* committed, a plain clone still builds, tests, and regenerates modules, docs, and examples with no spec present.
 
@@ -153,9 +154,9 @@ Then add its entries to `codegen/` (paths, archetype, and a read shape if the re
 - [Go 1.25+](https://go.dev/doc/install)
 - [golangci-lint v2](https://golangci-lint.run/welcome/install/)
 - [lefthook](https://github.com/evilmartians/lefthook) (git hooks)
-- The SDK is resolved from the module proxy — no sibling checkout needed. Regenerating schemas additionally needs a local SDK spec (`SDK_SPEC`))
+- The SDK is resolved from the module proxy — no sibling checkout needed. Regenerating schemas additionally needs a local SDK spec (`SDK_SPEC`)
 - `make install-codegen-tools` — pinned tfplugingen-openapi, tfplugingen-framework, tfplugindocs
-- Terraform 1.14.8 and `terraform-docs`, for the module tests
+- Terraform 1.15.9 and `terraform-docs` 0.24.0, for the module tests (the versions `ci.yml`'s `modules` job pins)
 
 ### Common Commands
 
@@ -171,36 +172,38 @@ make install                  # Build + copy to ~/.terraform.d/plugins/
 make modules-check            # Fail if modules/ is stale
 ```
 
-Lefthook runs `make ci` as a pre-push hook.
+Lefthook runs `ci-fmt`, `ci-vet`, `ci-lint` and `ci-test` — the same four targets as `make ci` — as a pre-push hook. Note that a **tag-only** push matches no changed files, so lefthook skips them; release tags are gated by `ci.yml` on the pushed commit, not by the hook.
 
 ### Testing the generated modules locally
 
-`test:modules` is the CI job most likely to catch a regression, and it is reproducible locally. It builds the provider into a filesystem mirror, regenerates the modules to a scratch directory, then runs `terraform fmt -check`, a drift diff against `modules/`, `terraform validate`, and `terraform test` over every module. See the job in `.gitlab-ci.yml` — running the same steps locally is much faster than discovering a failure in CI.
+`modules` is the CI job most likely to catch a regression, and it is reproducible locally. It builds the provider into a filesystem mirror, regenerates the modules to a scratch directory, then runs `terraform fmt -check`, a drift diff against `modules/`, `terraform validate`, and `terraform test` over every module. `make modules-check` is the local equivalent; see the job in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — running the same steps locally is much faster than discovering a failure in CI.
 
 ## CI/CD
 
-### GitLab Pipeline
+GitHub Actions is the only pipeline. Two workflows, documented in detail in [`.github/workflows/README.md`](.github/workflows/README.md).
 
-Runs on merge requests targeting `main`. Stages: `quality`, `test`, `security`, `build`.
+### `ci.yml` — gates changes
 
-| Job | Description |
-|-----|-------------|
-| `quality:fmt` | `gofmt` formatting check |
-| `quality:vet` | `go vet ./...` |
-| `quality:lint` | `golangci-lint v2` |
-| `test:modules` | Module drift check + `terraform validate` + `terraform test` across all modules |
-| `test:unit` | Unit tests with race detection and coverage |
-| `sast`, `secret_detection` | GitLab security templates |
+Runs on pull requests and pushes to `main`. Every job runs in parallel, and the `ci` job is a required-status aggregator that fails if any of them did, so branch protection only needs to require that single check.
 
-The pipeline clones `kion-sdk-go` via CI job token for the `replace` directive.
+| Job | What it enforces | Local equivalent |
+|---|---|---|
+| `fmt` | `gofmt -s` is clean | `make ci-fmt` |
+| `vet` | `go vet ./...` | `make ci-vet` |
+| `lint` | `golangci-lint` v2 | `make ci-lint` |
+| `test-unit` | Unit tests, race detector, coverage | `make ci-test` |
+| `modules` | Generated modules build, validate, test, and are not stale | `make modules-check` |
+| `internal-refs` | No internal paths or hostnames in tracked files | `scripts/check-no-internal-refs.sh` |
+| `secrets` | Credential scan over the tree | — |
+| `codeql` | CodeQL analysis for Go | — |
 
-### GitHub Actions
+No SDK checkout step is needed: the `replace` is versioned, so the module proxy resolves it.
 
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| `release.yml` | Tag push (`v*`) | goreleaser → Terraform Registry |
+### `release.yml` — publishes
 
-GitLab is the primary pipeline; GitHub carries only the release, because the Registry publishes from a GitHub repo.
+| Trigger | Purpose |
+|---|---|
+| Tag push (`v*`) | goreleaser → GitHub release in the layout the Terraform Registry requires |
 
 ## Versioning and Releases
 
@@ -218,7 +221,7 @@ Releases come off `main`; there are no per-Kion release branches. If a released 
 
 ### Changelog
 
-Entries are YAML fragments under `.changes/unreleased/`, one per change, so concurrent merge requests never conflict on `CHANGELOG.md`. `CHANGELOG.md` holds released versions only.
+Entries are YAML fragments under `.changes/unreleased/`, one per change, so concurrent pull requests never conflict on `CHANGELOG.md`. `CHANGELOG.md` holds released versions only.
 
 ```bash
 make changelog-new        # add an entry for your change (interactive)
@@ -239,7 +242,9 @@ The tag triggers `release.yml`, which builds with goreleaser, signs `_SHA256SUMS
 
 Publishing needs two repository secrets: `GPG_PRIVATE_KEY` (the ASCII-armoured private key) and `PASSPHRASE` (its passphrase), with the matching public key registered on the Registry provider page.
 
-`go.mod` replaces `github.com/kionsoftware/kion-sdk-go` with `../kion-sdk-go`, so nothing compiles without the SDK beside this repo. The release workflow clones it from the SDK's GitHub mirror; set the `SDK_GITHUB_REPO` and `SDK_GITHUB_REF` repository variables to point elsewhere, and pin `SDK_GITHUB_REF` per release so a build is reproducible. That replace also has to go before this repo is public — a clone of it cannot build without the sibling — which needs the SDK published at its module path, `github.com/kionsoftware/kion-sdk-go`.
+The `replace` for `github.com/kionsoftware/kion-sdk-go` is versioned, so the release workflow needs no SDK checkout — the module proxy resolves it, and the build uses exactly the version `go.mod` pins. Do not reintroduce a clone step: a branch checkout would silently override that pin and make the release unreproducible.
+
+The replace itself is temporary. It exists only because the SDK is published at `github.com/bshutterkion/kion-sdk-go` rather than at its own module path; once it is published at `github.com/kionsoftware/kion-sdk-go`, drop the directive.
 
 ## Contributing
 
@@ -247,7 +252,7 @@ Publishing needs two repository secrets: `GPG_PRIVATE_KEY` (the ASCII-armoured p
 2. Make changes and ensure `make ci` passes
 3. Regenerate any affected generated surfaces (see [Code Generation](#code-generation))
 4. Run `make changelog-new` if the change is user-visible
-5. Submit a merge request
+5. Open a pull request
 
 For new resources, scaffold with `kgen service`, add the `codegen/` entries, and regenerate — do not hand-write CRUD.
 

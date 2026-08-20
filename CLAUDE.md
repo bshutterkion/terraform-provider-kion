@@ -21,7 +21,7 @@ make fmt                      # gofmt -s -w .
 make lint                     # golangci-lint run (config: .golangci.yml, aligned with AWS provider)
 make vet                      # go vet
 
-# CI (mirrors GitLab pipeline exactly)
+# CI (mirrors ci.yml's fmt/vet/lint/test-unit jobs)
 make ci                       # Run all: fmt, vet, lint, test
 make ci-fmt                   # Format check (no write)
 make ci-vet                   # go vet ./...
@@ -87,10 +87,10 @@ Provider accepts `api_url`, `api_key`, `auth_token` — all readable from enviro
 - Linting aligned with terraform-provider-aws (golangci-lint v2, `.golangci.yml`)
 - Generated `*_gen.go` files excluded from all linters
 - Service packages have targeted exclusions (revive, unused, staticcheck)
-- Lefthook pre-push hook runs `make ci` before allowing pushes
+- Lefthook pre-push hook runs `ci-fmt`/`ci-vet`/`ci-lint`/`ci-test` before allowing pushes (skipped on tag-only pushes, which match no files)
 
 ## CI/CD
 
-GitLab CI pipeline in `.gitlab-ci.yml`: runs on MRs targeting `main`. Stages: quality (fmt, vet, lint), test (unit with race detector + coverage), security (SAST, secret detection). Clones kion-sdk-go via CI job token for the replace directive. Local `make ci` runs the same checks. Lefthook pre-push hook enforces `make ci` before pushes.
+GitHub Actions only; there is no `.gitlab-ci.yml`. `.github/workflows/ci.yml` runs on pull requests and pushes to `main`: `fmt`, `vet`, `lint`, `test-unit` (race detector + coverage), `modules` (drift + `terraform validate`/`test`), `internal-refs`, `secrets`, `codeql`, and a `ci` aggregator job for branch protection. `.github/workflows/release.yml` runs goreleaser on a `v*` tag. No kion-sdk-go checkout is needed — the `replace` in `go.mod` is versioned, so the module proxy resolves it. Local `make ci` covers the first four jobs; the Lefthook pre-push hook runs them, except on tag-only pushes where it matches no files. See `.github/workflows/README.md`.
 
 Acceptance tests: 4 parallel workers, 120-minute timeout. Sweepers (`make sweep`) clean up orphaned `test-acc`-prefixed resources.
