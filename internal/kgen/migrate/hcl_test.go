@@ -58,6 +58,46 @@ resource "kion_project" "pr" {
 	}
 }
 
+// TestRewriteFile_readOnlyDrops covers the ReadOnlyDrops pass: an attribute the
+// new schema kept but made computed has to leave the config, or Terraform
+// rejects the block with "Invalid Configuration for Read-Only Attribute". The
+// surrounding settable attributes must survive untouched.
+func TestRewriteFile_readOnlyDrops(t *testing.T) {
+	src := `resource "kion_project_note" "n" {
+  name           = "note"
+  project_id     = 3
+  text           = "hello"
+  create_user_id = 1
+  last_updated   = "x"
+}
+`
+	out, changes, _, err := RewriteFile([]byte(src), map[string]Transform{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(out)
+	if strings.Contains(got, "create_user_id") {
+		t.Errorf("create_user_id is read-only in the new schema but was not dropped:\n%s", got)
+	}
+	if strings.Contains(got, "last_updated") {
+		t.Errorf("last_updated not dropped:\n%s", got)
+	}
+	for _, keep := range []string{"name", "project_id", "text"} {
+		if !strings.Contains(got, keep) {
+			t.Errorf("settable attribute %q was removed:\n%s", keep, got)
+		}
+	}
+	var reported bool
+	for _, c := range changes {
+		if strings.Contains(c, "create_user_id") && strings.Contains(c, "read-only") {
+			reported = true
+		}
+	}
+	if !reported {
+		t.Errorf("the read-only drop was not reported to the practitioner: %v", changes)
+	}
+}
+
 // TestRewriteFile_dynamicBlocks covers the `dynamic` form of a repeatable block.
 // Customers generate ownership blocks from a variable far more often than they
 // write them out, so the projection has to collapse the whole

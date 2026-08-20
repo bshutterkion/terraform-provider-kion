@@ -42,3 +42,27 @@ var ConfigDrops = map[string][]string{
 	"kion_project_note":           {"last_updated"},
 	"kion_service_control_policy": {"last_updated"},
 }
+
+// ReadOnlyDrops is ConfigDrops' sibling for the other way an old settable
+// attribute stops being writable: the new schema still HAS it, but only as a
+// computed (read-only) value the provider fills in. Terraform rejects those in
+// config with "Invalid Configuration for Read-Only Attribute", so they have to
+// come out of the .tf too — but ConfigDrops cannot hold them, because its guard
+// asserts the attribute is absent from the new schema and these are present.
+//
+// The same rewrite pass applies both tables; the only difference is the guard.
+//
+// EXCLUDED: every resource's `id`. SDKv2 injects a top-level optional+computed
+// `id` into every resource schema whether or not the provider declared one, so
+// all 33 old resources report it as settable. It is an artifact of the SDK, not
+// an attribute a practitioner writes, and the new provider declares it computed
+// as it always was — dropping it would be noise on every single block.
+//
+// TestReadOnlyDropsArePresentAndComputed keeps this in step with the snapshots,
+// both ways round: every entry must be settable in old and read-only in new, and
+// every attribute the snapshots show becoming read-only must have an entry.
+var ReadOnlyDrops = map[string][]string{
+	// The old resource made the note's author a required input; the new one takes
+	// it from the authenticated caller and reports it back.
+	"kion_project_note": {"create_user_id"},
+}

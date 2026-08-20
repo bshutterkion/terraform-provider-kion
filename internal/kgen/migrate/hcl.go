@@ -111,11 +111,12 @@ func RewriteFile(src []byte, ups map[string]Transform) ([]byte, []string, []stri
 			t, hasTransform = byOldType[rtype]
 		}
 		_, hasDrops := ConfigDrops[rtype]
+		_, hasRODrops := ReadOnlyDrops[rtype]
 		_, hasBlockConv := BlockToListAttr[rtype]
 		_, hasFold := AttrsToObject[rtype]
 		_, hasKV := MapToObjectList[rtype]
 		_, hasRequired := RequiredAdditions[rtype]
-		if !hasTransform && !hasDrops && !hasBlockConv && !hasFold && !hasKV && !hasRequired {
+		if !hasTransform && !hasDrops && !hasRODrops && !hasBlockConv && !hasFold && !hasKV && !hasRequired {
 			continue
 		}
 		body := block.Body()
@@ -134,6 +135,16 @@ func RewriteFile(src []byte, ups map[string]Transform) ([]byte, []string, []stri
 			if body.GetAttribute(dropA) != nil {
 				body.RemoveAttribute(dropA)
 				changes = append(changes, fmt.Sprintf("%s.%s: dropped obsolete attribute %s", rtype, rname, dropA))
+			}
+		}
+
+		// Drop attributes the new schema kept but made read-only (computed): the
+		// provider supplies the value now, so config may no longer set it.
+		for _, dropA := range ReadOnlyDrops[rtype] {
+			if body.GetAttribute(dropA) != nil {
+				body.RemoveAttribute(dropA)
+				changes = append(changes, fmt.Sprintf(
+					"%s.%s: dropped %s — read-only in the new schema", rtype, rname, dropA))
 			}
 		}
 

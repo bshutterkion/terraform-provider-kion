@@ -202,6 +202,79 @@ func TestConfigDropsAreSettableAndRemoved(t *testing.T) {
 	}
 }
 
+// TestReadOnlyDropsArePresentAndComputed is the guard behind ReadOnlyDrops, both
+// ways round. Forwards: every entry must be an old settable attribute that the
+// new schema still declares but only as computed — if it were absent it belongs
+// in ConfigDrops, and if it were still settable dropping it would corrupt valid
+// config. Backwards: every settable→read-only change in the snapshots must have
+// an entry, or kmigrate leaves config Terraform rejects with "Invalid
+// Configuration for Read-Only Attribute".
+//
+// `id` is excluded from the backwards half: SDKv2 injects an optional+computed
+// top-level `id` into every resource schema, so all 33 old resources report it
+// as settable when no provider code ever declared it (see ReadOnlyDrops).
+func TestReadOnlyDropsArePresentAndComputed(t *testing.T) {
+	oldS, err := LoadSchema(oldSnap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newS, err := LoadSchema(newSnap)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	readOnly := func(a Attr) bool { return a.Kind == "attr" && a.Computed && !a.Settable() }
+
+	// Forwards: each entry is real.
+	for rt, drops := range ReadOnlyDrops {
+		oldR, ok := oldS[rt]
+		if !ok {
+			t.Errorf("ReadOnlyDrops has %s which is not an old resource", rt)
+			continue
+		}
+		newR, ok := newS[rt]
+		if !ok {
+			t.Errorf("ReadOnlyDrops has %s which is not a new resource", rt)
+			continue
+		}
+		for _, a := range drops {
+			oa, ok := oldR.Attrs[a]
+			if !ok || oa.Kind != "attr" || !oa.Settable() {
+				t.Errorf("%s: ReadOnlyDrops %q is not a settable old attribute", rt, a)
+			}
+			na, ok := newR.Attrs[a]
+			if !ok {
+				t.Errorf("%s: ReadOnlyDrops %q is absent from the new schema — it belongs in ConfigDrops", rt, a)
+				continue
+			}
+			if !readOnly(na) {
+				t.Errorf("%s: ReadOnlyDrops %q is still settable in the new schema — dropping it would corrupt valid config", rt, a)
+			}
+		}
+	}
+
+	// Backwards: no settable → read-only change is missing an entry.
+	for rt, oldR := range oldS {
+		newR, ok := newS[rt]
+		if !ok {
+			continue
+		}
+		for name, oa := range oldR.Attrs {
+			if name == "id" || oa.Kind != "attr" || !oa.Settable() {
+				continue
+			}
+			na, ok := newR.Attrs[name]
+			if !ok || !readOnly(na) {
+				continue
+			}
+			if !contains(ReadOnlyDrops[rt], name) {
+				t.Errorf("%s.%s: settable in old, read-only in new, but ReadOnlyDrops has no entry — "+
+					"kmigrate would leave config Terraform rejects", rt, name)
+			}
+		}
+	}
+}
+
 // TestMapToObjectList_matchSchemas is the guard behind MapToObjectList, both
 // ways round: every entry must really be an old map that became a list of
 // objects with exactly the named fields, and every such change in the snapshots
