@@ -72,6 +72,12 @@ func (g *generator) generateBlended(dir, name string, ops resOps, idx sdkIndex, 
 			return 0, err
 		}
 	}
+	// A blended resource has no derived read, so any data source it ships is a
+	// hand-kept companion (project_note). Without this the companion was never
+	// emitted and dataSourceCompanionCtor above had nothing to register.
+	if err := g.emitCompanions(dir, name, force); err != nil {
+		return 0, err
+	}
 	return 1, nil
 }
 
