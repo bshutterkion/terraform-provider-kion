@@ -1,0 +1,35 @@
+# Compiled output.
+# The provider binary is built at the repo root — Terraform's local-install
+# path (`make install`) expects it there. All other tool/release binaries
+# build into ./bin/ (see `make build-tools`, `make release`).
+/terraform-provider-kion
+bin/
+# Safety net for stray root-level tool binaries from a manual `go build`.
+# Every one of these MUST keep its leading slash: a bare `kgen` matches any
+# path component, which would ignore the cmd/kgen and internal/kgen source
+# directories too. (`kconfig` was once unanchored and did exactly that.)
+/kgen
+/kalign
+/kconfig
+/kversions
+/kmigrate
+coverage.out
+coverage.html
+.DS_Store
+.envrc
+# transient codegen intermediates (make generate-schemas)
+.codegen-work/
+
+# Scratch dir for `make modules-check`
+/.modules-check
+
+# The OpenAPI spec is a local codegen input, never committed: this repo is
+# published for customers and ships the provider, not Kion's interface files.
+# `make refresh-spec` fetches it from the kion-sdk monorepo when regenerating.
+/spec/
+
+# goreleaser output
+/dist/
+
+# AI planning/design notes — working material, not part of the provider.
+docs/superpowers/

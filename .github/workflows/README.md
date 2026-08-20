@@ -1,0 +1,80 @@
+# GitHub Actions Workflows
+
+Two workflows. `ci.yml` gates changes; `release.yml` publishes them.
+
+## ci.yml
+
+**Triggers:** pull requests, and pushes to `main`.
+
+Every job runs independently and in parallel; `ci` is a required-status
+aggregator that fails if any of them did, so branch protection only needs to
+require the single `ci` check.
+
+| Job | What it enforces | Local equivalent |
+|---|---|---|
+| `fmt` | `gofmt -s` is clean | `make ci-fmt` |
+| `vet` | `go vet ./...` | `make ci-vet` |
+| `lint` | golangci-lint, config in `.golangci.yml` | `make ci-lint` |
+| `test-unit` | unit tests, race detector, coverage | `make ci-test` |
+| `modules` | generated Terraform modules build, validate, test, and are not stale | `make modules-check` |
+| `internal-refs` | no internal paths/hostnames in tracked files | `scripts/check-no-internal-refs.sh` |
+| `secrets` | credential scan over the tree | — |
+| `codeql` | GitHub CodeQL analysis for Go | — |
+
+`make ci` runs the first four locally. The Lefthook pre-push hook runs it
+before every push, so CI should rarely be the first place a failure appears.
+
+### The `modules` job
+
+This one is worth understanding because it is the slowest and the least
+obvious. It builds the provider, publishes it into a local filesystem mirror,
+regenerates `modules/` from the provider schema, injects docs with
+`terraform-docs`, and then asserts the working tree is unchanged. A diff means
+someone edited a resource without regenerating, so `modules/` no longer matches
+the schema it is supposed to describe. Regenerate and commit rather than
+hand-editing the output.
+
+### `internal-refs`
+
+This repository is public and takes outside contributions. The check blocks
+internal source paths, hostnames, and planning notes from being published —
+they are not secrets, but they leak detail nobody outside can act on, and once
+pushed they exist in every fork. The pattern list and the rationale for each
+entry live in `scripts/check-no-internal-refs.sh`.
+
+## release.yml
+
+**Triggers:** tags matching `v*`.
+
+Runs GoReleaser (config: `.goreleaser.yml`), which cross-compiles the provider,
+signs the checksum manifest with GPG, and attaches the artifacts to a GitHub
+release in the layout the Terraform Registry expects.
+
+**Required secrets** — the workflow will fail without them:
+
+| Secret | Purpose |
+|---|---|
+| `GPG_PRIVATE_KEY` | ASCII-armored private key whose public half is registered with the Terraform Registry |
+| `PASSPHRASE` | passphrase for that key |
+
+To cut a release: `make release-prepare`, then tag and push.
+
+```bash
+git tag vX.Y.Z && git push origin vX.Y.Z
+```
+
+`make release-snapshot` builds the artifacts locally without publishing, which
+is the cheap way to check a GoReleaser change before tagging.
+
+## Changing a workflow
+
+Validate before pushing — a broken workflow file is only reported after it is
+on the default branch:
+
+```bash
+actionlint .github/workflows/*.yml
+goreleaser check
+```
+
+Action versions are pinned to a major (`@v7`). Review them periodically;
+Dependabot is not configured for this repository.

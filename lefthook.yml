@@ -1,0 +1,10 @@
+pre-push:
+  commands:
+    ci-fmt:
+      run: make ci-fmt
+    ci-vet:
+      run: make ci-vet
+    ci-lint:
+      run: make ci-lint
+    ci-test:
+      run: make ci-test

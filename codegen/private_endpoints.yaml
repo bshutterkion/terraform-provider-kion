@@ -1,0 +1,265 @@
+# Private / unspecified backend endpoints reference
+# =================================================
+# Some resources' public OpenAPI spec (the v3/v4/beta surface that kion-sdk-go is
+# generated from) is INCOMPLETE — most often it publishes a create + a list but no
+# by-id read, while the backend actually reads via an internal (v1/v2) route the
+# spec never exposes. This file records the *real* endpoints, sourced from the
+# the backend controllers, so the CRUD work (generator or hand) knows what to call.
+#
+# The provider reaches endpoints the SDK lacks via raw HTTP
+# (internal/conns/kion_client.go — RawDelete today; add RawGet/RawPost/RawPatch as
+# needed). The base URL is the Kion host; prefix the path below.
+#
+# Prefix legend (the backend):
+#   /v1  = APIV1        internal (private)
+#   /v2  = APIV2        internal (private)
+#   /v3  = PublicAPIv1  public (in the spec + SDK)
+#   /v4  = PublicAPIv2  public (in the spec + SDK)
+#   /beta                public beta (in the spec + SDK)
+#
+# spec: public (in openapi3.json/SDK) | private (backend-only, needs raw HTTP)
+# {id} path params use the SDK/config convention, not the backend's :id.
+
+resources:
+
+  # Public create+update+delete at /beta, but the create body is untyped and there
+  # is NO public read — the read is the internal /v1 route returning a fully-typed
+  # Dashboard. Schema fields come from the model, not the spec.
+  dashboard:
+    reason: public /beta/dashboard is create-only + untyped body; read is private
+    create: { method: POST,   path: "/beta/dashboard",      spec: public }
+    read:   { method: GET,    path: "/v1/dashboard/{id}",   spec: private }
+    update: { method: PATCH,  path: "/beta/dashboard/{id}", spec: public }
+    delete: { method: DELETE, path: "/beta/dashboard/{id}", spec: public }
+
+  # Blended. Public spec exposes create + list + PATCH update, but no by-id read
+  # and no delete; those are internal /v1.
+  app_role:
+    reason: public spec has the list + PATCH but no by-id read and no delete
+    create: { method: POST,   path: "/v3/app-role",      spec: public }
+    read:   { method: GET,    path: "/v1/app-role/{id}", spec: private }
+    update: { method: PATCH,  path: "/v3/app-role/{id}", spec: public }
+    delete: { method: DELETE, path: "/v1/app-role/{id}", spec: private }
+
+  # Blended. Public spec (v3) has create + list + delete; the by-id read AND the
+  # update are internal /v2.
+  project_note:
+    reason: public spec read is list-only; by-id read + update are private
+    create: { method: POST,   path: "/v3/project-note",      spec: public }
+    read:   { method: GET,    path: "/v2/project-note/{id}", spec: private }
+    update: { method: PATCH,  path: "/v2/project-note/{id}", spec: private }
+    delete: { method: DELETE, path: "/v3/project-note/{id}", spec: public }
+
+  # Fully raw (unlike project_note's blend): no public surface at all — every op
+  # is internal /v2. Completes the note family alongside project_note + ou_note.
+  funding_source_note:
+    reason: no public spec surface; all CRUD is internal /v2
+    create: { method: POST,   path: "/v2/funding-source-note",      spec: private }
+    read:   { method: GET,    path: "/v2/funding-source-note/{id}", spec: private }
+    update: { method: PATCH,  path: "/v2/funding-source-note/{id}", spec: private }
+    delete: { method: DELETE, path: "/v2/funding-source-note/{id}", spec: private }
+
+  # Blended. Public v3 create/update/delete; the by-id read is private /v2
+  # (/v2/app-policy) because the public v3 GetByID omits the roles mapping. The
+  # private read returns permission_roles as {permission_id, role_ids[]}, which
+  # explodes into the model's flat roles pairs {permission_id, role_id}.
+  permission_scheme:
+    reason: public read omits the roles mapping; private /v2/app-policy has it
+    create: { method: POST,   path: "/v3/permission-scheme",      spec: public }
+    read:   { method: GET,    path: "/v2/app-policy/{id}",        spec: private }
+    update: { method: PUT,    path: "/v3/permission-scheme/{id}", spec: public }
+    delete: { method: DELETE, path: "/v3/permission-scheme/{id}", spec: public }
+    read_shape:
+      scalars:
+        - { tf: id,   from: "app_policy.id",   kind: id }
+        - { tf: name, from: "app_policy.name", kind: string }
+        - { tf: type, from: "app_policy.type", kind: string }
+      explode:
+        tf: roles
+        value_type: RolesValue
+        from: "permission_roles"
+        carry:
+          - { tf: permission_id, from: permission_id, kind: int }
+        each: { tf: role_id, from: role_ids, kind: int }
+
+  # Blended. Public v3 create/update/delete (custom billing source); the by-id
+  # read is private /v1/payer, which nests the record under custom_billing_source
+  # and tags the role field `role_name` (the model attr is bucket_access_role).
+  billing_source:
+    reason: no public by-id read; private /v1/payer nests + renames role_name
+    create: { method: POST,   path: "/v3/billing-source/custom",      spec: public }
+    read:   { method: GET,    path: "/v1/payer/{id}",                 spec: private }
+    update: { method: PATCH,  path: "/v3/billing-source/custom/{id}", spec: public }
+    delete: { method: DELETE, path: "/v3/billing-source/{id}",        spec: public }
+    read_shape:
+      scalars:
+        - { tf: id,                 from: "custom_billing_source.id",                 kind: id }
+        - { tf: name,               from: "custom_billing_source.name",               kind: string }
+        - { tf: billing_start_date, from: "custom_billing_source.billing_start_date", kind: int_string }
+      objects:
+        - tf: aws_connection
+          value_type: AwsConnectionValue
+          from: "custom_billing_source.aws_connection"
+          subs:
+            - { tf: account_number,     from: account_number, kind: string }
+            - { tf: bucket_access_role, from: role_name,      kind: string }
+            - { tf: storage_bucket,     from: storage_bucket, kind: string }
+            - { tf: storage_prefix,     from: storage_prefix, kind: string }
+            - { tf: storage_region,     from: storage_region, kind: string }
+        # Added in SDK 0.9.0. tenant_client_secret is write_only: Payer.Sanitize
+        # returns it as the literal "REDACTED",
+        # so flattening it would diff against the configured value forever.
+        - tf: azure_connection
+          value_type: AzureConnectionValue
+          from: "custom_billing_source.azure_connection"
+          subs:
+            - { tf: credentialed_billing_source_id, from: credentialed_billing_source_id, kind: int }
+            - { tf: storage_container,              from: storage_container,              kind: string }
+            - { tf: storage_prefix,                 from: storage_prefix,                 kind: string }
+            - { tf: storage_primary_endpoint,       from: storage_primary_endpoint,       kind: string }
+            - { tf: tenant_app_id,                  from: tenant_app_id,                  kind: string }
+            - { tf: tenant_cloud_partition_id,      from: tenant_cloud_partition_id,      kind: int }
+            - { tf: tenant_domain,                  from: tenant_domain,                  kind: string }
+            - { tf: tenant_client_secret,           from: tenant_client_secret,           kind: string, write_only: true }
+
+  # OCI billing source. Public create/update/delete; no public by-id read, so
+  # the read is the private /v1/payer/{id}, which nests the record under
+  # oci_billing_source.
+  #
+  # private_key is write_only: Payer.Sanitize replaces
+  # OCITenancyCredentials.PrivateKey with the literal "REDACTED"
+  #, so flattening it would diff forever.
+  billing_source_oci:
+    reason: no public by-id read; private /v1/payer nests under oci_billing_source
+    create: { method: POST,   path: "/v3/billing-source/oci",      spec: public }
+    read:   { method: GET,    path: "/v1/payer/{id}",              spec: private }
+    update: { method: PATCH,  path: "/v3/billing-source/oci/{id}", spec: public }
+    delete: { method: DELETE, path: "/v3/billing-source/{id}",     spec: public }
+    read_shape:
+      scalars:
+        - { tf: id,                 from: "oci_billing_source.id",                 kind: id }
+        - { tf: name,               from: "oci_billing_source.name",               kind: string }
+        - { tf: billing_start_date, from: "oci_billing_source.billing_start_date", kind: int_string }
+        - { tf: tenancy_ocid,       from: "oci_billing_source.tenancy_ocid",       kind: string }
+        - { tf: user_ocid,          from: "oci_billing_source.user_ocid",          kind: string }
+        - { tf: region,             from: "oci_billing_source.region",             kind: string }
+        - { tf: fingerprint,        from: "oci_billing_source.fingerprint",        kind: string }
+        - { tf: is_parent_tenancy,  from: "oci_billing_source.is_parent_tenancy",  kind: bool }
+        - { tf: private_key,        from: "oci_billing_source.oci_tenancy_credentials.private_key", kind: string, write_only: true }
+  # AWS billing source. Create + delete are public; there is no update endpoint
+  # and no public by-id read, so the read is private /v1/payer/{id}, nesting the
+  # record under aws_payer.
+  #
+  # key_id and key_secret are write_only: Payer.Sanitize replaces both with the
+  # literal "REDACTED".
+  billing_source_aws:
+    reason: no public by-id read and no update; private /v1/payer nests under aws_payer
+    create: { method: POST,   path: "/v3/billing-source/aws",  spec: public }
+    read:   { method: GET,    path: "/v1/payer/{id}",          spec: private }
+    delete: { method: DELETE, path: "/v3/billing-source/{id}", spec: public }
+    read_shape:
+      scalars:
+        - { tf: id,                 from: "aws_payer.id",                           kind: id }
+        - { tf: name,               from: "aws_payer.name",                         kind: string }
+        - { tf: aws_account_number, from: "aws_payer.account_number",               kind: string }
+        - { tf: billing_start_date, from: "aws_payer.billing_start_date",           kind: int_string }
+        - { tf: bucket_access_role, from: "aws_payer.bucket_access_role",           kind: string }
+        - { tf: billing_region,     from: "aws_payer.billing_region",               kind: string }
+        - { tf: cur_bucket,         from: "aws_payer.billing_report_bucket",        kind: string }
+        - { tf: cur_bucket_region,  from: "aws_payer.billing_report_bucket_region", kind: string }
+        - { tf: cur_name,           from: "aws_payer.billing_report_name",          kind: string }
+        - { tf: cur_prefix,         from: "aws_payer.billing_report_prefix",        kind: string }
+        - { tf: billing_bucket_account_number, from: "aws_payer.billing_bucket_account_number", kind: string }
+        - { tf: key_id,             from: "aws_payer.key_id",     kind: string, write_only: true }
+        - { tf: key_secret,         from: "aws_payer.key_secret", kind: string, write_only: true }
+
+  # GCP billing source. Same shape as AWS: public create + shared delete, no
+  # update endpoint, no public by-id read. The private read nests the record two
+  # levels deep, under gcp_billing_account.billing_account (the backend
+  # GCPBillingAccountAugmented.BillingAccount).
+  #
+  # The service-account key is not modelled: Sanitize replaces
+  # ServiceAccount.Key.KeyData with "REDACTED" and the
+  # create body references the key by service_account_id rather than inline.
+  billing_source_gcp:
+    reason: no public by-id read and no update; private /v1/payer nests under gcp_billing_account
+    create: { method: POST,   path: "/v3/billing-source/gcp",  spec: public }
+    read:   { method: GET,    path: "/v1/payer/{id}",          spec: private }
+    delete: { method: DELETE, path: "/v3/billing-source/{id}", spec: public }
+    read_shape:
+      scalars:
+        - { tf: id, from: "gcp_billing_account.billing_account.id", kind: id }
+      # Everything else lives inside the nested create object in the model, so it
+      # is flattened as one object rather than as top-level scalars.
+      objects:
+        - tf: gcp_billing_account_create
+          value_type: GcpBillingAccountCreateValue
+          from: "gcp_billing_account.billing_account"
+          subs:
+            - { tf: name,               from: name,               kind: string }
+            - { tf: gcp_id,             from: gcp_id,             kind: string }
+            - { tf: billing_start_date, from: billing_start_date, kind: int }
+            - { tf: is_reseller,        from: is_reseller,        kind: bool }
+            - { tf: service_account_id, from: service_account_id, kind: int }
+            # Not returned by the payer read in a form the generator can convert
+            # (a struct nested inside an already-nested object), so it carries
+            # the prior state value through rather than being dropped.
+            - { tf: big_query_export,                       from: big_query_export,                       kind: string, write_only: true }
+            - { tf: billing_account_attribution_account_id, from: billing_account_attribution_account_id, kind: string, write_only: true }
+            - { tf: use_focus,                              from: use_focus,                              kind: bool,   write_only: true }
+            - { tf: use_proprietary,                        from: use_proprietary,                        kind: bool,   write_only: true }
+
+  service_catalog:
+    reason: public surface is minimal; richer portfolio ops are private
+    create: { method: POST,   path: "/v3/service-catalog",                    spec: public }
+    read:   { method: GET,    path: "/v2/aws-service-catalog/portfolio/{id}", spec: private }
+    delete: { method: DELETE, path: "/v2/aws-service-catalog/portfolio/{id}", spec: private }
+
+  # Public /v3/*-cloud-access-role-exemption has create+delete but no read; the
+  # reads are internal /v1 lists under the parent OU/project.
+  ou_cloud_access_role_exemption:
+    reason: no public read; internal list under the parent OU
+    create: { method: POST,   path: "/v3/ou-cloud-access-role-exemption",      spec: public }
+    read:   { method: GET,    path: "/v1/ou/{id}/cloud-access-role-exemption", spec: private }
+    delete: { method: DELETE, path: "/v3/ou-cloud-access-role-exemption/{id}", spec: public }
+  project_cloud_access_role_exemption:
+    reason: no public read; internal list under the parent project
+    create: { method: POST,   path: "/v3/project-cloud-access-role-exemption",      spec: public }
+    read:   { method: GET,    path: "/v1/project/{id}/cloud-access-role-exemption", spec: private }
+    delete: { method: DELETE, path: "/v3/project-cloud-access-role-exemption/{id}", spec: public }
+
+  # Example of the public/private DUPLICATE pattern. ou_note is fully covered by the
+  # public spec (v3); a private v2 twin also exists. Listed to document the pattern
+  # the codebase already uses (e.g. conns RawDelete for SDK-uncovered routes).
+  ou_note:
+    reason: fully public (v3); private v2 twin exists — reference only
+    create: { method: POST,   path: "/v3/ou-note",      spec: public }
+    read:   { method: GET,    path: "/v3/ou-note/{id}", spec: public }
+    update: { method: PATCH,  path: "/v3/ou-note/{id}", spec: public }
+    delete: { method: DELETE, path: "/v3/ou-note/{id}", spec: public }
+    private_twin_delete: { method: DELETE, path: "/v2/ou-note/{id}" }
+
+# ---------------------------------------------------------------------------
+# List-read-only: the API has NO by-id read anywhere (public OR private) — only a
+# collection GET. Not a private-endpoint gap; the resource read has to be
+# "list-then-filter" (or the collection is the read). Recorded so nobody hunts for
+# a by-id endpoint that doesn't exist.
+list_read_only:
+  aws_resource_tag: { read: { method: GET, path: "/v3/aws-resource-tag" } }   # + POST, DELETE /{id}
+  billing_source:   { read: { method: GET, path: "/v4/billing-source" } }     # create is per-provider; DELETE /v3/billing-source/{id}
+  global_permission_mapping: { read: { method: GET, path: "/v3/global/permission-mapping" } }  # global singleton; index IS the read
+
+# ---------------------------------------------------------------------------
+# Verified fully public (checked against the backend; here to close the analysis —
+# these are NOT gaps, no private endpoint needed):
+#   budget                    — full /v3/budget CRUD (GET/POST/PUT/DELETE /{id})
+#   custom_variable_override  — public /v3/{account,ou,project}/{id}/custom-variable/{cv_id} (GET/PUT/DELETE)
+#   account, aws_account,     — public GET/PATCH/DELETE /v3/account/{id}; create is per-provider
+#     azure_account, gcp_account, custom_account
+#   ou_/project_/funding_source_permission_mapping — public /v3 index + PATCH upsert
+#     (schema handled by reconstruction in schema_overrides, not a private endpoint)
+#
+# Genuinely unsupportable as CRUD resources (no read endpoint at all / not a resource):
+#   forecast          — only POST /v1/spend-forecast (an RPC, not managed state)
+#   forecast_category — no backend routes or model at all
+#   app_config        — singleton settings (GET index + PATCH + per-key PUTs); not CRUD-shaped

@@ -1,0 +1,3 @@
+kind: BREAKING CHANGES
+body: "Provider SDK imports moved from `kion-sdk-go/generated` to per-version sub-packages. The provider builds against `generated/v3_16`; the root `kion` package no longer exports `NewClient`."
+time: 2026-08-12T09:00:00Z

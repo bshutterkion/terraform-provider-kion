@@ -1,0 +1,3 @@
+kind: FEATURES
+body: "Runtime Kion-version compatibility: the provider detects the connected Kion version at configure time and gates resources whose defining API operation does not exist on that release, instead of shipping a separate provider release line per Kion version."
+time: 2026-08-12T09:00:00Z

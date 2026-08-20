@@ -1,0 +1,59 @@
+name: Release
+
+# Triggered by pushing a tag: the Terraform Registry keys a release off the git
+# tag, so the tag is the release. Cut one with:
+#   make changelog-release VERSION=1.0.0
+#   git commit -am "release 1.0.0" && git tag v1.0.0 && git push --follow-tags
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # kion-sdk-go needs no checkout: the replace directive in go.mod is
+      # versioned, so the module proxy resolves it like any other dependency.
+      # A release must build from exactly the SDK version go.mod pins, which a
+      # branch clone would silently override — so do not reintroduce one.
+
+      - name: Install changie
+        run: go install github.com/miniscruff/changie@v1.21.1
+
+      # The notes for this tag are the changie version file batched when the
+      # release was cut. Fail loudly if it is missing rather than shipping a
+      # release with empty notes.
+      - name: Resolve release notes
+        id: notes
+        run: |
+          notes=".changes/$(changie latest).md"
+          test -f "$notes" || { echo "no changie version file at $notes — was 'make changelog-release VERSION=…' run?"; exit 1; }
+          echo "path=$notes" >> "$GITHUB_OUTPUT"
+
+      - name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@v7
+        id: gpg
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          version: v2.17.1
+          args: release --clean --release-notes=${{ steps.notes.outputs.path }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GPG_FINGERPRINT: ${{ steps.gpg.outputs.fingerprint }}

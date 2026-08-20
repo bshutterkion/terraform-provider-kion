@@ -1,0 +1,3 @@
+kind: FEATURES
+body: "`kgen` code generator with Go templates for resources, data sources, tests, and examples; `kmigrate` rewrites configurations written for the previous provider."
+time: 2026-08-12T09:00:00Z

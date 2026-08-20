@@ -1,0 +1,169 @@
+package cloud_rule_test
+
+import (
+	"context"
+	"fmt"
+	"strconv"
+	"testing"
+
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
+
+	"terraform-provider-kion/internal/acctest"
+	"terraform-provider-kion/internal/errs"
+
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+)
+
+func TestAccKionCloudRule_basic(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping long-running test in short mode")
+	}
+
+	ctx := acctest.Context(t)
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	resourceName := "kion_cloud_rule.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckCloudRuleDestroy(ctx),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCloudRuleConfig_basic(rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckCloudRuleExists(ctx, resourceName),
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttr(resourceName, "name", rName),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func TestAccKionCloudRule_update(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping long-running test in short mode")
+	}
+
+	ctx := acctest.Context(t)
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	resourceName := "kion_cloud_rule.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckCloudRuleDestroy(ctx),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCloudRuleConfig_basic(rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckCloudRuleExists(ctx, resourceName),
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+				),
+			},
+			{
+				Config: testAccCloudRuleConfig_update(rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckCloudRuleExists(ctx, resourceName),
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func testAccCheckCloudRuleExists(_ context.Context, name string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[name]
+		if !ok {
+			return fmt.Errorf("not found: %s", name)
+		}
+		if rs.Primary.ID == "" {
+			return fmt.Errorf("no ID set for %s", name)
+		}
+
+		conn, err := acctest.SharedClient()
+		if err != nil {
+			return fmt.Errorf("getting shared client: %w", err)
+		}
+
+		id, err := strconv.ParseInt(rs.Primary.ID, 10, 64)
+		if err != nil {
+			return fmt.Errorf("parsing ID: %w", err)
+		}
+
+		ctx := context.Background()
+		out, err := conn.Client.GetCloudRuleShow(ctx, generated.GetCloudRuleShowParams{ID: id})
+		if err != nil {
+			return fmt.Errorf("reading kion_cloud_rule (%d): %w", id, err)
+		}
+		if errs.IsNotFound(out) {
+			return fmt.Errorf("kion_cloud_rule (%d) not found", id)
+		}
+
+		return nil
+	}
+}
+
+func testAccCheckCloudRuleDestroy(_ context.Context) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		conn, err := acctest.SharedClient()
+		if err != nil {
+			return fmt.Errorf("getting shared client: %w", err)
+		}
+
+		for _, rs := range s.RootModule().Resources {
+			if rs.Type != "kion_cloud_rule" {
+				continue
+			}
+
+			id, err := strconv.ParseInt(rs.Primary.ID, 10, 64)
+			if err != nil {
+				return fmt.Errorf("parsing ID: %w", err)
+			}
+
+			ctx := context.Background()
+			out, err := conn.Client.GetCloudRuleShow(ctx, generated.GetCloudRuleShowParams{ID: id})
+			if errs.IsNotFound(out) {
+				continue
+			}
+			if err != nil {
+				return fmt.Errorf("reading kion_cloud_rule (%d): %w", id, err)
+			}
+
+			return fmt.Errorf("kion_cloud_rule (%d) still exists", id)
+		}
+
+		return nil
+	}
+}
+
+func testAccCloudRuleConfig_basic(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_cloud_rule" "test" {
+  name = %[1]q
+  owner_users { id = 1 }
+}
+`, rName)
+}
+
+func testAccCloudRuleConfig_update(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_cloud_rule" "test" {
+  name = %[1]q
+  concurrent_cft_sync = true
+  owner_users { id = 1 }
+}
+`, rName)
+}

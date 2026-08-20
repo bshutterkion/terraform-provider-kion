@@ -1,0 +1,29 @@
+resource "kion_app_config" "example" {
+  # Optional
+  # all_users_see_ou_names             = false
+  # allocation_mode                    = false
+  # allow_custom_permission_schemes    = false
+  # app_api_key_creation_enabled       = false
+  # app_api_key_lifespan               = 1
+  # app_api_key_limit                  = 1
+  # aws_access_key_creation_enabled    = false
+  # budget_mode                        = false
+  # cloud_rule_group_ownership_only    = false
+  # cost_savings_allow_terminate       = false
+  # cost_savings_enabled               = false
+  # cost_savings_post_token_life_hours = 1
+  # default_org_chart_view             = "example"
+  # enforce_funding                    = false
+  # enforce_funding_sources            = false
+  # event_driven_enabled               = false
+  # reserved_instances_enabled         = false
+  # resource_inventory_enabled         = false
+  # smtp_enabled                       = false
+  # smtp_from                          = "example"
+  # smtp_host                          = "example"
+  # smtp_password                      = "example"
+  # smtp_port                          = 1
+  # smtp_skip_verify                   = false
+  # smtp_username                      = "example"
+  # supported_aws_regions              = []
+}

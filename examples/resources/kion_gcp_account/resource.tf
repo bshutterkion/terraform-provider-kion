@@ -1,0 +1,13 @@
+resource "kion_gcp_account" "example" {
+  # Required
+  account_name            = "example"
+  google_cloud_project_id = "example"
+  payer_id                = 1
+  project_id              = 1
+  start_datecode          = "example"
+
+  # Optional
+  # account_alias        = "example"
+  # account_type_id      = 1
+  # skip_access_checking = false
+}

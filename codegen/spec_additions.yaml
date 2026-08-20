@@ -1,0 +1,222 @@
+# OpenAPI spec additions
+# =======================
+# Endpoints / schemas the public spec + SDK omit, transcribed from the backend
+# backend, so `kgen schemas` can generate resources the spec can't describe on its
+# own. `kgen schemas` MERGES these into spec/openapi3.json (in a working copy —
+# the checked-in spec, refreshed from the SDK, is left untouched) before running
+# tfplugingen. Paths deep-merge at the verb level (adding a GET keeps existing
+# PATCH/DELETE); component schemas add-or-overwrite by name.
+#
+# Retire an entry once the endpoint is published to the real OpenAPI spec upstream.
+# See codegen/private_endpoints.yaml for where each of these lives in the backend.
+
+paths:
+  # dashboard: public spec has an untyped create body and no read. Type the create
+  # body (settable fields) and add the private read so tfplugingen can generate it.
+  /beta/dashboard:
+    post:
+      operationId: PostDashboard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DashboardCreate"
+      responses:
+        "201":
+          description: Created
+  /beta/dashboard/{id}:
+    get:
+      operationId: GetDashboard
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardResponse"
+
+  # app_role: public spec has only the list; type the create body and add the
+  # by-id read.
+  /v3/app-role:
+    post:
+      operationId: PostAppRole
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppRoleCreate"
+      responses:
+        "201":
+          description: Created
+  /v3/app-role/{id}:
+    get:
+      operationId: GetAppRole
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppRoleResponse"
+
+  # project_note: public spec read is list-only; the by-id read is private /v2
+  # (backend model: ProjectNote in .../public/api/v3/.../project.go).
+  /v3/project-note:
+    post:
+      operationId: PostProjectNote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectNoteCreate"
+      responses:
+        "201":
+          description: Created
+  /v3/project-note/{id}:
+    get:
+      operationId: GetProjectNote
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectNoteResponse"
+
+  # funding_source_note: no public surface at all — every op is internal /v2.
+  # Type the create body + add the by-id read so tfplugingen can generate the
+  # schema; the raw_http archetype calls the /v2 routes over raw HTTP.
+  /v2/funding-source-note:
+    post:
+      operationId: PostFundingSourceNote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FundingSourceNoteCreate"
+      responses:
+        "201":
+          description: Created
+  /v2/funding-source-note/{id}:
+    get:
+      operationId: GetFundingSourceNote
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FundingSourceNoteResponse"
+
+components:
+  schemas:
+    DashboardCreate:
+      type: object
+      properties:
+        name: { type: string, description: Name of the dashboard. }
+        description: { type: string, description: Description of the dashboard. }
+        config: { type: string, description: JSON configuration (cards, layout). }
+        is_default: { type: boolean, description: Whether this is the default dashboard. }
+    DashboardResponse:
+      type: object
+      properties:
+        data: { $ref: "#/components/schemas/Dashboard" }
+    Dashboard:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: string }
+        config: { type: string }
+        is_default: { type: boolean }
+        created_by_user_id: { type: integer }
+        created_at: { type: string }
+        updated_at: { type: string }
+
+    AppRoleCreate:
+      type: object
+      properties:
+        name: { type: string, description: Name of the app role. }
+        disabled: { type: boolean, description: Whether the app role is disabled. }
+    AppRoleResponse:
+      type: object
+      properties:
+        data: { $ref: "#/components/schemas/AppRole" }
+    AppRole:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        system_managed: { type: boolean }
+        disabled: { type: boolean }
+
+    ProjectNoteCreate:
+      type: object
+      properties:
+        project_id: { type: integer, description: ID of the project. }
+        name: { type: string, description: Name of the note. }
+        text: { type: string, description: Body text of the note. }
+    ProjectNoteResponse:
+      type: object
+      properties:
+        data: { $ref: "#/components/schemas/ProjectNote" }
+    ProjectNote:
+      type: object
+      properties:
+        id: { type: integer }
+        project_id: { type: integer }
+        name: { type: string }
+        text: { type: string }
+    # funding_source_note has no public spec, so every field (incl. the computed
+    # audit fields) must be declared here for the model to include them.
+    FundingSourceNoteCreate:
+      type: object
+      properties:
+        funding_source_id: { type: integer, description: ID of the funding source the note belongs to. }
+        name: { type: string, description: Name of the note. }
+        text: { type: string, description: Body text of the note. }
+    FundingSourceNoteResponse:
+      type: object
+      properties:
+        data: { $ref: "#/components/schemas/FundingSourceNote" }
+    FundingSourceNote:
+      type: object
+      properties:
+        id: { type: integer }
+        funding_source_id: { type: integer }
+        name: { type: string }
+        text: { type: string }
+        create_user_id: { type: integer }
+        create_user_name: { type: string }
+        last_update_user_id: { type: integer }
+        last_update_user_name: { type: string }
+        created_at: { type: string }
+        updated_at: { type: string }

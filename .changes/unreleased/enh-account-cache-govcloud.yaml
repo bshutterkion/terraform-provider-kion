@@ -1,0 +1,3 @@
+kind: ENHANCEMENTS
+body: "Restored the `PostAccountCacheCreateNewAWS` endpoint with govcloud and organizational-unit support."
+time: 2026-08-12T09:00:00Z

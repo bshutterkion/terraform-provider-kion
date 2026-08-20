@@ -1,0 +1,1052 @@
+// Package schemas orchestrates Terraform schema code generation. It runs
+// HashiCorp's tfplugingen tools against the OpenAPI spec, applies our own
+// attribute renames (which tfplugingen can't do for body properties), and
+// distributes the generated *_schema_gen.go files — plus a ValidateImplementation
+// unit test per type — into the matching internal/service/<name>/ package.
+//
+// This replaces the former scripts/gen-schemas.sh. It shells out to
+// tfplugingen-openapi and tfplugingen-framework, which must be on PATH
+// (install with `make install-codegen-tools`).
+//
+// The two external boundaries — the filesystem (kfs.FS) and command execution
+// (Runner) — are injected so the pipeline is unit-testable against mocks.
+package schemas
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"go/ast"
+	"go/format"
+	"go/parser"
+	"go/token"
+	"maps"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+	"text/template"
+
+	"terraform-provider-kion/internal/kgen/kfs"
+
+	"gopkg.in/yaml.v3"
+)
+
+// Runner abstracts external command execution (tfplugingen, gofmt) so the
+// pipeline can be unit-tested without those tools installed.
+type Runner interface {
+	// LookPath returns an error if the named executable is not on PATH.
+	LookPath(name string) error
+	// Run executes name with args in dir, streaming stdout/stderr.
+	Run(dir, name string, args ...string) error
+}
+
+// Options configures a schema-generation run. Empty fields fall back to the
+// defaults below, resolved relative to the project root.
+type Options struct {
+	ProjectRoot string // resolved by walking up to go.mod if empty
+	Config      string // generator config for tfplugingen-openapi (default codegen/generator_config.yaml)
+	Spec        string // OpenAPI 3 spec (default spec/openapi3.json)
+	Renames     string // attribute-rename sidecar, optional (default codegen/renames.yaml)
+	Overrides   string // schema-override sidecar, optional (default codegen/schema_overrides.yaml)
+	Additions   string // OpenAPI spec-additions sidecar, optional (default codegen/spec_additions.yaml)
+}
+
+const (
+	defaultConfig    = "codegen/generator_config.yaml"
+	defaultSpec      = "spec/openapi3.json"
+	defaultRenames   = "codegen/renames.yaml"
+	defaultOverrides = "codegen/schema_overrides.yaml"
+	defaultAdditions = "codegen/spec_additions.yaml"
+	serviceDir       = "internal/service"
+	workDirName      = ".codegen-work"
+)
+
+// kind captures the resource-vs-datasource differences so the distribute logic
+// is written once.
+type kind struct {
+	fwSubcommand string
+	outDir       string
+	dirPrefix    string
+	srcSuffix    string
+	dstSuffix    string
+	schemaFuncRe *regexp.Regexp
+	ctorRe       *regexp.Regexp // finds the package's real constructor (New…Resource/DataSource)
+	ctorKind     string         // "resource" | "data-source", for messages
+	testSuffix   string
+	testTmpl     *template.Template
+}
+
+// generator holds the injected boundaries. Use Generate for the real thing.
+type generator struct {
+	fs  kfs.FS
+	run Runner
+}
+
+// Generate runs the full pipeline with the real filesystem and command runner,
+// returning the number of schema files written.
+func Generate(opts Options) (int, error) {
+	return (&generator{fs: kfs.OS{}, run: execRunner{}}).generate(opts)
+}
+
+func (g *generator) generate(opts Options) (int, error) {
+	root := opts.ProjectRoot
+	if root == "" {
+		var err error
+		if root, err = findProjectRoot(); err != nil {
+			return 0, err
+		}
+	}
+	cfg := abs(root, orDefault(opts.Config, defaultConfig))
+	spec := abs(root, orDefault(opts.Spec, defaultSpec))
+	renames := abs(root, orDefault(opts.Renames, defaultRenames))
+	overrides := abs(root, orDefault(opts.Overrides, defaultOverrides))
+	additions := abs(root, orDefault(opts.Additions, defaultAdditions))
+
+	for _, tool := range []string{"tfplugingen-openapi", "tfplugingen-framework"} {
+		if err := g.run.LookPath(tool); err != nil {
+			return 0, fmt.Errorf("%s not found on PATH — run: make install-codegen-tools", tool)
+		}
+	}
+	if _, err := g.fs.Stat(spec); err != nil {
+		return 0, fmt.Errorf("spec not found at %s (refresh it: make refresh-spec): %w", rel(root, spec), err)
+	}
+	if _, err := g.fs.Stat(cfg); err != nil {
+		return 0, fmt.Errorf("config not found at %s: %w", rel(root, cfg), err)
+	}
+
+	work := filepath.Join(root, workDirName)
+	if err := g.fs.RemoveAll(work); err != nil {
+		return 0, fmt.Errorf("clearing work dir: %w", err)
+	}
+	if err := g.fs.MkdirAll(work, 0o750); err != nil {
+		return 0, fmt.Errorf("creating work dir: %w", err)
+	}
+	defer func() {
+		if rerr := g.fs.RemoveAll(work); rerr != nil {
+			fmt.Printf("warning: clearing work dir %s: %v\n", work, rerr)
+		}
+	}()
+
+	// Merge OpenAPI spec additions (endpoints the public spec/SDK omit) into a
+	// working copy so tfplugingen can generate from them, leaving spec/openapi3.json
+	// (refreshed from the SDK) untouched.
+	inputSpec := spec
+	if addRaw, err := g.fs.ReadFile(additions); err == nil {
+		specRaw, rerr := g.fs.ReadFile(spec)
+		if rerr != nil {
+			return 0, rerr
+		}
+		merged, merr := mergeSpecAdditions(specRaw, addRaw)
+		if merr != nil {
+			return 0, fmt.Errorf("merging %s: %w", rel(root, additions), merr)
+		}
+		inputSpec = filepath.Join(work, "openapi3-merged.json")
+		if werr := g.fs.WriteFile(inputSpec, merged, 0o600); werr != nil {
+			return 0, werr
+		}
+		fmt.Printf("==> merged spec additions from %s\n", rel(root, additions))
+	} else if !os.IsNotExist(err) {
+		return 0, fmt.Errorf("reading %s: %w", rel(root, additions), err)
+	}
+
+	specJSON := filepath.Join(work, "provider-code-spec.json")
+	fmt.Printf("==> tfplugingen-openapi: %s + %s -> provider code spec\n", rel(root, cfg), rel(root, spec))
+	if err := g.run.Run(root, "tfplugingen-openapi", "generate", "--config", cfg, "--output", specJSON, inputSpec); err != nil {
+		return 0, err
+	}
+
+	if err := g.applyRenames(specJSON, renames); err != nil {
+		return 0, err
+	}
+	if err := g.applySchemaOverrides(specJSON, overrides); err != nil {
+		return 0, err
+	}
+
+	kinds := []kind{
+		{
+			fwSubcommand: "resources", outDir: filepath.Join(work, "out"),
+			dirPrefix: "resource_", srcSuffix: "_resource_gen.go", dstSuffix: "_schema_gen.go",
+			schemaFuncRe: regexp.MustCompile(`func ([A-Za-z0-9]+)ResourceSchema`),
+			ctorRe:       regexp.MustCompile(`func (New[A-Za-z0-9_]+Resource)\(\)\s+resource\.Resource`),
+			ctorKind:     "resource",
+			testSuffix:   "_schema_gen_test.go", testTmpl: resourceTestTmpl,
+		},
+		{
+			fwSubcommand: "data-sources", outDir: filepath.Join(work, "out-ds"),
+			dirPrefix: "datasource_", srcSuffix: "_data_source_gen.go", dstSuffix: "_data_source_schema_gen.go",
+			schemaFuncRe: regexp.MustCompile(`func ([A-Za-z0-9]+)DataSourceSchema`),
+			ctorRe:       regexp.MustCompile(`func (New[A-Za-z0-9_]+DataSource)\(\)\s+datasource\.DataSource`),
+			ctorKind:     "data-source",
+			testSuffix:   "_data_source_schema_gen_test.go", testTmpl: dataSourceTestTmpl,
+		},
+	}
+
+	var written []string
+	for _, k := range kinds {
+		fmt.Printf("==> tfplugingen-framework: generate %s\n", k.fwSubcommand)
+		if err := g.run.Run(root, "tfplugingen-framework", "generate", k.fwSubcommand, "--input", specJSON, "--output", k.outDir); err != nil {
+			return 0, err
+		}
+		w, err := g.distribute(root, k)
+		if err != nil {
+			return 0, err
+		}
+		written = append(written, w...)
+	}
+
+	if len(written) > 0 {
+		if err := g.run.Run(root, "gofmt", append([]string{"-w"}, written...)...); err != nil {
+			return 0, fmt.Errorf("gofmt: %w", err)
+		}
+	}
+	return len(written), nil
+}
+
+// distribute copies each generated *_gen.go into its service package (renaming
+// the package) and writes a matching schema unit test. Names without a service
+// package are skipped.
+func (g *generator) distribute(root string, k kind) ([]string, error) {
+	entries, err := g.fs.ReadDir(k.outDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil // nothing of this kind in the config
+		}
+		return nil, err
+	}
+
+	var written []string
+	for _, e := range entries {
+		if !e.IsDir() || !strings.HasPrefix(e.Name(), k.dirPrefix) {
+			continue
+		}
+		name := strings.TrimPrefix(e.Name(), k.dirPrefix)
+		pkgDir := filepath.Join(root, serviceDir, name)
+		if fi, err := g.fs.Stat(pkgDir); err != nil || !fi.IsDir() {
+			fmt.Printf("  skip %s — no service package at %s/%s (run kgen first)\n", name, serviceDir, name)
+			continue
+		}
+
+		src := filepath.Join(k.outDir, e.Name(), name+k.srcSuffix)
+		data, err := g.fs.ReadFile(src)
+		if err != nil {
+			return nil, fmt.Errorf("reading generated file for %s: %w", name, err)
+		}
+		content := strings.Replace(string(data), "package "+k.dirPrefix+name, "package "+name, 1)
+
+		m := k.schemaFuncRe.FindStringSubmatch(content)
+		// A service with both a resource and a data source emits colliding
+		// top-level declarations in each file — the `<Name>Model` plus any
+		// nested-object CustomTypes (e.g. ExpiresAtType/Value). Rename them in
+		// the data-source file so the two don't redeclare each other in the
+		// shared package. (Runs after the resource kind, so its schema file is
+		// already on disk.)
+		if k.dirPrefix == "datasource_" {
+			if m != nil {
+				content = strings.ReplaceAll(content, m[1]+"Model", m[1]+"DataSourceModel")
+			}
+			resourceSchema := filepath.Join(pkgDir, name+"_schema_gen.go")
+			if raw, rerr := g.fs.ReadFile(resourceSchema); rerr == nil {
+				content = renameSharedDecls(content, topLevelDecls(string(raw)))
+			}
+			// A list response can embed the same nested object at two paths,
+			// making tfplugingen emit that CustomType twice in one file. Drop the
+			// duplicates so the data source compiles.
+			content = dedupTopLevelDecls(content)
+		}
+
+		dst := filepath.Join(pkgDir, name+k.dstSuffix)
+		if err := g.fs.WriteFile(dst, []byte(content), 0o600); err != nil {
+			return nil, fmt.Errorf("writing %s: %w", dst, err)
+		}
+		fmt.Printf("  wrote %s\n", rel(root, dst))
+		written = append(written, dst)
+
+		if m == nil {
+			fmt.Printf("  WARN: could not derive PascalCase name for %s; skipped schema test\n", name)
+			continue
+		}
+		// The test calls the package's real constructor. Its casing (acronyms
+		// like AWS/IAM) is set by the scaffold, not tfplugingen's naive
+		// PascalCase, so discover it rather than assume New<Pascal>…().
+		ctor, ok := g.findConstructor(pkgDir, k)
+		if !ok {
+			fmt.Printf("  WARN: no %s constructor in %s; skipped schema test\n", k.ctorKind, name)
+			continue
+		}
+		testFile := filepath.Join(pkgDir, name+k.testSuffix)
+		if err := g.writeTest(testFile, k.testTmpl, name, m[1], ctor); err != nil {
+			return nil, err
+		}
+		fmt.Printf("  wrote %s\n", rel(root, testFile))
+		written = append(written, testFile)
+	}
+	return written, nil
+}
+
+// dedupTopLevelDecls removes duplicate top-level declarations, which
+// tfplugingen emits when the same nested object type appears at more than one
+// path in a single schema (e.g. a `cloud_rule` object embedded in two places),
+// producing "X redeclared in this block". The first declaration of each name is
+// kept. Import decls are always kept. If src can't be parsed it is returned
+// unchanged.
+func dedupTopLevelDecls(src string) string {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "x.go", src, parser.ParseComments)
+	if err != nil {
+		return src
+	}
+	seen := map[string]bool{}
+	kept := f.Decls[:0]
+	for _, d := range f.Decls {
+		keys := declNames(d)
+		if len(keys) == 0 { // imports, or anything unkeyed — always keep
+			kept = append(kept, d)
+			continue
+		}
+		allSeen := true
+		for _, k := range keys {
+			if !seen[k] {
+				allSeen = false
+			}
+		}
+		if allSeen {
+			continue // every name already declared — drop this duplicate
+		}
+		for _, k := range keys {
+			seen[k] = true
+		}
+		kept = append(kept, d)
+	}
+	f.Decls = kept
+	var buf bytes.Buffer
+	if err := format.Node(&buf, fset, f); err != nil {
+		return src
+	}
+	return buf.String()
+}
+
+// declNames returns dedup keys for a top-level declaration: methods keyed by
+// receiver type + name, funcs by name, types/vars/consts by name. Imports return
+// nil (never deduped).
+func declNames(d ast.Decl) []string {
+	switch t := d.(type) {
+	case *ast.FuncDecl:
+		if t.Recv != nil && len(t.Recv.List) > 0 {
+			return []string{"m:" + recvTypeName(t.Recv.List[0].Type) + "." + t.Name.Name}
+		}
+		return []string{"f:" + t.Name.Name}
+	case *ast.GenDecl:
+		if t.Tok == token.IMPORT {
+			return nil
+		}
+		var keys []string
+		for _, s := range t.Specs {
+			switch sp := s.(type) {
+			case *ast.TypeSpec:
+				keys = append(keys, "t:"+sp.Name.Name)
+			case *ast.ValueSpec:
+				for _, n := range sp.Names {
+					keys = append(keys, "v:"+n.Name)
+				}
+			}
+		}
+		return keys
+	}
+	return nil
+}
+
+// recvTypeName returns the base type name of a method receiver (unwrapping a
+// pointer receiver).
+func recvTypeName(e ast.Expr) string {
+	if star, ok := e.(*ast.StarExpr); ok {
+		e = star.X
+	}
+	if id, ok := e.(*ast.Ident); ok {
+		return id.Name
+	}
+	return ""
+}
+
+// topLevelDeclRe matches top-level type and func declarations (not methods,
+// whose signature starts with `func (`).
+var topLevelDeclRe = regexp.MustCompile(`(?m)^(?:type|func) (\w+)`)
+
+// topLevelDecls returns the names of top-level types and funcs declared in src.
+func topLevelDecls(src string) []string {
+	var out []string
+	for _, m := range topLevelDeclRe.FindAllStringSubmatch(src, -1) {
+		out = append(out, m[1])
+	}
+	return out
+}
+
+// renameSharedDecls suffixes, in dsContent, every identifier in decls that also
+// appears there — so a data source's generated CustomTypes don't redeclare the
+// resource's in the shared package. Word-boundary matching renames the type,
+// its methods' receivers, its constructors, and all references consistently.
+func renameSharedDecls(dsContent string, decls []string) string {
+	for _, name := range decls {
+		re := regexp.MustCompile(`\b` + regexp.QuoteMeta(name) + `\b`)
+		dsContent = re.ReplaceAllString(dsContent, name+"DataSource")
+	}
+	return dsContent
+}
+
+// mergeSpecAdditions merges OpenAPI fragments (a YAML sidecar) into the JSON
+// spec: top-level `paths` and `components.{schemas,responses,parameters}`.
+// Addition entries add-or-overwrite by key. It exists because the public spec /
+// SDK omits some endpoints (e.g. a resource's private by-id read), so we supply
+// those endpoints — transcribed from the backend — for tfplugingen to generate
+// from. Returns the merged spec as JSON.
+func mergeSpecAdditions(specRaw, additionsRaw []byte) ([]byte, error) {
+	var spec map[string]any
+	if err := json.Unmarshal(specRaw, &spec); err != nil {
+		return nil, fmt.Errorf("parsing spec: %w", err)
+	}
+	var add map[string]any
+	if err := yaml.Unmarshal(additionsRaw, &add); err != nil {
+		return nil, fmt.Errorf("parsing spec additions: %w", err)
+	}
+	// Merge paths deep (one level): add-or-overwrite verbs within an existing
+	// path, so adding a GET to a path that already has PATCH/DELETE keeps them.
+	if addPaths, ok := add["paths"].(map[string]any); ok {
+		specPaths, ok := spec["paths"].(map[string]any)
+		if !ok {
+			specPaths = map[string]any{}
+			spec["paths"] = specPaths
+		}
+		for path, verbs := range addPaths {
+			addVerbs, aok := verbs.(map[string]any)
+			existing, eok := specPaths[path].(map[string]any)
+			if aok && eok {
+				maps.Copy(existing, addVerbs)
+			} else {
+				specPaths[path] = verbs
+			}
+		}
+	}
+	if addComps, ok := add["components"].(map[string]any); ok {
+		specComps, ok := spec["components"].(map[string]any)
+		if !ok {
+			specComps = map[string]any{}
+			spec["components"] = specComps
+		}
+		for _, section := range []string{"schemas", "responses", "parameters"} {
+			mergeStringMap(specComps, addComps, section)
+		}
+	}
+	return json.Marshal(spec)
+}
+
+// mergeStringMap merges src[key] into dst[key] (both string-keyed maps); src
+// entries add or overwrite. dst[key] is created if absent.
+func mergeStringMap(dst, src map[string]any, key string) {
+	srcMap, ok := src[key].(map[string]any)
+	if !ok {
+		return
+	}
+	dstMap, ok := dst[key].(map[string]any)
+	if !ok {
+		dstMap = map[string]any{}
+		dst[key] = dstMap
+	}
+	maps.Copy(dstMap, srcMap)
+}
+
+// applyRenames rewrites attribute `name` fields in the provider code spec per
+// the sidecar map, before framework generation. tfplugingen's own `aliases`
+// only rename operation parameters, so this covers body-property renames. The
+// sidecar is optional; a missing file is a no-op.
+func (g *generator) applyRenames(specPath, renamesPath string) error {
+	raw, err := g.fs.ReadFile(renamesPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("reading renames %s: %w", renamesPath, err)
+	}
+	// Keyed by resource/data-source name -> { oas_attribute_name: terraform_name }.
+	var renames map[string]map[string]string
+	if err := yaml.Unmarshal(raw, &renames); err != nil {
+		return fmt.Errorf("parsing renames %s: %w", renamesPath, err)
+	}
+	if len(renames) == 0 {
+		return nil
+	}
+
+	specRaw, err := g.fs.ReadFile(specPath)
+	if err != nil {
+		return err
+	}
+	var spec map[string]any
+	if err := json.Unmarshal(specRaw, &spec); err != nil {
+		return fmt.Errorf("parsing provider code spec: %w", err)
+	}
+
+	fmt.Printf("==> applying attribute renames from %s\n", filepath.Base(renamesPath))
+	for _, section := range []string{"resources", "datasources"} {
+		list, ok := spec[section].([]any)
+		if !ok {
+			continue
+		}
+		for _, item := range list {
+			obj, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			nm, ok := obj["name"].(string)
+			if !ok {
+				continue
+			}
+			rmap, ok := renames[nm]
+			if !ok {
+				continue
+			}
+			schema, ok := obj["schema"].(map[string]any)
+			if !ok {
+				continue
+			}
+			attrs, ok := schema["attributes"].([]any)
+			if !ok {
+				continue
+			}
+			for _, a := range attrs {
+				am, ok := a.(map[string]any)
+				if !ok {
+					continue
+				}
+				an, ok := am["name"].(string)
+				if !ok {
+					continue
+				}
+				if newName, ok := rmap[an]; ok {
+					am["name"] = newName
+				}
+			}
+		}
+	}
+
+	out, err := json.MarshalIndent(spec, "", "  ")
+	if err != nil {
+		return err
+	}
+	return g.fs.WriteFile(specPath, out, 0o600)
+}
+
+// schemaOverridesFile is the codegen/schema_overrides.yaml sidecar: per-type
+// customizations the OpenAPI spec can't express (type overrides, plan modifiers,
+// defaults, computed/optional changes, resource description). It is applied to
+// the provider code spec before framework generation, so the emitted Go carries
+// them and the resource can consume the generated schema directly.
+type schemaOverridesFile struct {
+	Resources   map[string]schemaOverride `yaml:"resources"`
+	DataSources map[string]schemaOverride `yaml:"data_sources"`
+}
+
+type schemaOverride struct {
+	Description string                       `yaml:"description"` // schema-level description
+	Attributes  map[string]attributeOverride `yaml:"attributes"`
+}
+
+type attributeOverride struct {
+	Remove                   bool                         `yaml:"remove"`                     // drop the attribute entirely (e.g. a list-query param that leaked into a resource schema)
+	Type                     string                       `yaml:"type"`                       // retype the attribute, e.g. int64 -> string
+	ElementType              string                       `yaml:"element_type"`               // element type for list/map/set, e.g. string
+	ComputedOptionalRequired string                       `yaml:"computed_optional_required"` // computed|optional|required|computed_optional
+	Description              string                       `yaml:"description"`
+	PlanModifiers            []string                     `yaml:"plan_modifiers"` // e.g. stringplanmodifier.UseStateForUnknown()
+	CustomType               *customTypeOverride          `yaml:"custom_type"`    // wrap a scalar in a framework custom type (e.g. jsontypes.Normalized)
+	Attributes               map[string]attributeOverride `yaml:"attributes"`     // nested attributes for single_nested/set_nested/list_nested
+}
+
+// customTypeOverride wraps a scalar attribute in a Terraform framework custom
+// type — e.g. jsontypes.Normalized for a JSON-string attribute that must
+// compare semantically rather than byte-for-byte. It maps to the provider code
+// spec's `custom_type` object, which tfplugingen-framework emits as the
+// attribute's CustomType and the model field's Go type.
+type customTypeOverride struct {
+	Import    string `yaml:"import"`     // import path, e.g. github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes
+	Alias     string `yaml:"alias"`      // optional import alias
+	Type      string `yaml:"type"`       // attr.Type expression, e.g. jsontypes.NormalizedType{}
+	ValueType string `yaml:"value_type"` // value Go type, e.g. jsontypes.Normalized
+}
+
+// planModifierBase is the import prefix for the framework's typed plan-modifier
+// packages (stringplanmodifier, int64planmodifier, ...). The override lists a
+// call like "stringplanmodifier.UseStateForUnknown()"; the package before the
+// dot names both the alias and the final import path segment.
+const planModifierBase = "github.com/hashicorp/terraform-plugin-framework/resource/schema/"
+
+// applySchemaOverrides rewrites the provider code spec per the sidecar, covering
+// what tfplugingen cannot derive from the spec. Runs after applyRenames so keys
+// match the final (possibly renamed) attribute names. A missing file is a no-op.
+func (g *generator) applySchemaOverrides(specPath, overridesPath string) error {
+	var ov schemaOverridesFile
+	switch raw, err := g.fs.ReadFile(overridesPath); {
+	case err == nil:
+		if err := yaml.Unmarshal(raw, &ov); err != nil {
+			return fmt.Errorf("parsing schema overrides %s: %w", overridesPath, err)
+		}
+	case os.IsNotExist(err):
+		// No sidecar — still apply the global string-id default below.
+	default:
+		return fmt.Errorf("reading schema overrides %s: %w", overridesPath, err)
+	}
+
+	specRaw, err := g.fs.ReadFile(specPath)
+	if err != nil {
+		return err
+	}
+	var spec map[string]any
+	if err := json.Unmarshal(specRaw, &spec); err != nil {
+		return fmt.Errorf("parsing provider code spec: %w", err)
+	}
+
+	// Global string-id default: mirror terraform-provider-aws's
+	// framework.IDAttribute() — every resource's id is a computed string with
+	// UseStateForUnknown (the API models ids as int64, but the shipped SDKv2
+	// provider and TF convention use string ids for import + state parity).
+	// Resources whose sidecar overrides id explicitly keep their own settings.
+	explicitID := make(map[string]bool)
+	for name, so := range ov.Resources {
+		if _, ok := so.Attributes["id"]; ok {
+			explicitID[name] = true
+		}
+	}
+	if err := applyStringIDDefault(spec["resources"], explicitID); err != nil {
+		return err
+	}
+
+	fmt.Printf("==> applying schema overrides from %s\n", filepath.Base(overridesPath))
+	for _, section := range []struct {
+		key string
+		set map[string]schemaOverride
+	}{
+		{"resources", ov.Resources},
+		{"datasources", ov.DataSources},
+	} {
+		if err := applyOverrideSection(spec[section.key], section.set); err != nil {
+			return err
+		}
+	}
+
+	out, err := json.MarshalIndent(spec, "", "  ")
+	if err != nil {
+		return err
+	}
+	return g.fs.WriteFile(specPath, out, 0o600)
+}
+
+// stdStringID is the AWS framework.IDAttribute() convention applied to every
+// resource id absent an explicit override.
+var stdStringID = attributeOverride{
+	Type:                     "string",
+	ComputedOptionalRequired: "computed",
+	PlanModifiers:            []string{"stringplanmodifier.UseStateForUnknown()"},
+}
+
+// applyStringIDDefault retypes each resource's id attribute to the standard
+// computed string id, skipping resources with an explicit id override.
+func applyStringIDDefault(node any, explicitID map[string]bool) error {
+	list, ok := node.([]any)
+	if !ok {
+		return nil
+	}
+	for _, item := range list {
+		obj, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, ok := obj["name"].(string)
+		if !ok || explicitID[name] {
+			continue
+		}
+		schemaObj, ok := obj["schema"].(map[string]any)
+		if !ok {
+			continue
+		}
+		attrs, ok := schemaObj["attributes"].([]any)
+		if !ok {
+			continue
+		}
+		for _, a := range attrs {
+			am, ok := a.(map[string]any)
+			if !ok || am["name"] != "id" {
+				continue
+			}
+			if err := applyAttrOverride(am, stdStringID); err != nil {
+				return fmt.Errorf("%s.id: %w", name, err)
+			}
+		}
+	}
+	return nil
+}
+
+func applyOverrideSection(node any, overrides map[string]schemaOverride) error {
+	if len(overrides) == 0 {
+		return nil
+	}
+	list, ok := node.([]any)
+	if !ok {
+		return nil
+	}
+	for _, item := range list {
+		obj, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		name, ok := obj["name"].(string)
+		if !ok {
+			continue
+		}
+		so, ok := overrides[name]
+		if !ok {
+			continue
+		}
+		schemaObj, ok := obj["schema"].(map[string]any)
+		if !ok {
+			continue
+		}
+		if so.Description != "" {
+			schemaObj["description"] = so.Description
+		}
+		// A resource may have no attributes array (e.g. an association whose body
+		// was fully dropped); start from empty so the add-missing loop can
+		// repopulate it.
+		attrs, ok := schemaObj["attributes"].([]any)
+		if !ok {
+			attrs = []any{}
+		}
+		present := make(map[string]bool, len(attrs))
+		kept := attrs[:0:0]
+		removed := false
+		for _, a := range attrs {
+			am, ok := a.(map[string]any)
+			if !ok {
+				kept = append(kept, a)
+				continue
+			}
+			an, ok := am["name"].(string)
+			if !ok {
+				kept = append(kept, a)
+				continue
+			}
+			if ao, ok := so.Attributes[an]; ok && ao.Remove {
+				removed = true
+				continue // drop this attribute (e.g. a leaked list-query param)
+			}
+			present[an] = true
+			kept = append(kept, a)
+			ao, ok := so.Attributes[an]
+			if !ok {
+				continue
+			}
+			if err := applyAttrOverride(am, ao); err != nil {
+				return fmt.Errorf("%s.%s: %w", name, an, err)
+			}
+		}
+		if removed {
+			attrs = kept
+			schemaObj["attributes"] = attrs
+		}
+
+		// Insert overrides for attributes absent from the spec — e.g. a
+		// polymorphic field tfplugingen dropped, re-expressed as typed
+		// sub-attributes. Sorted for deterministic output.
+		missing := make([]string, 0, len(so.Attributes))
+		for an := range so.Attributes {
+			if !present[an] && !so.Attributes[an].Remove {
+				missing = append(missing, an)
+			}
+		}
+		sort.Strings(missing)
+		for _, an := range missing {
+			node := map[string]any{"name": an}
+			if err := applyAttrOverride(node, so.Attributes[an]); err != nil {
+				return fmt.Errorf("%s.%s: %w", name, an, err)
+			}
+			attrs = append(attrs, node)
+		}
+		if len(missing) > 0 {
+			schemaObj["attributes"] = attrs
+		}
+	}
+	return nil
+}
+
+// applyAttrOverride mutates a single attribute node. Each node is
+// {"name": ..., "<type>": {computed_optional_required, description, ...}}; the
+// type override renames that inner key, carrying the settings across.
+func applyAttrOverride(attr map[string]any, ao attributeOverride) error {
+	var curType string
+	for k := range attr {
+		if k != "name" {
+			curType = k
+			break
+		}
+	}
+	typeObj, ok := attr[curType].(map[string]any)
+	if !ok {
+		typeObj = map[string]any{}
+	}
+	if ao.Type != "" && ao.Type != curType {
+		delete(attr, curType)
+		attr[ao.Type] = typeObj
+		// The prior type may have carried structural keys that don't apply to
+		// the new one — single_nested's `attributes` and generated `custom_type`,
+		// or list/map's `element_type`. Drop them when retyping to a scalar so
+		// the node is a valid scalar attribute; a replacement custom_type (if
+		// any) is re-added below.
+		if !isNestedType(ao.Type) {
+			delete(typeObj, "attributes")
+			delete(typeObj, "nested_object")
+			delete(typeObj, "element_type")
+			delete(typeObj, "custom_type")
+		}
+	}
+	if ao.ElementType != "" {
+		typeObj["element_type"] = map[string]any{ao.ElementType: map[string]any{}}
+	}
+	if ao.CustomType != nil {
+		ct := map[string]any{
+			"type":       ao.CustomType.Type,
+			"value_type": ao.CustomType.ValueType,
+		}
+		if ao.CustomType.Import != "" {
+			imp := map[string]any{"path": ao.CustomType.Import}
+			if ao.CustomType.Alias != "" {
+				imp["alias"] = ao.CustomType.Alias
+			}
+			ct["import"] = imp
+		}
+		typeObj["custom_type"] = ct
+	}
+	if ao.ComputedOptionalRequired != "" {
+		typeObj["computed_optional_required"] = ao.ComputedOptionalRequired
+	}
+	if ao.Description != "" {
+		typeObj["description"] = ao.Description
+	}
+	if len(ao.PlanModifiers) > 0 {
+		pms := make([]any, 0, len(ao.PlanModifiers))
+		for _, pm := range ao.PlanModifiers {
+			imp, err := planModifierImport(pm)
+			if err != nil {
+				return err
+			}
+			pms = append(pms, map[string]any{
+				"custom": map[string]any{
+					"imports":           []any{map[string]any{"path": imp}},
+					"schema_definition": pm,
+				},
+			})
+		}
+		typeObj["plan_modifiers"] = pms
+	}
+	if len(ao.Attributes) > 0 {
+		// Recursively build nested attribute nodes (sorted for determinism).
+		names := make([]string, 0, len(ao.Attributes))
+		for n := range ao.Attributes {
+			names = append(names, n)
+		}
+		sort.Strings(names)
+		children := make([]any, 0, len(names))
+		for _, cn := range names {
+			child := map[string]any{"name": cn}
+			if err := applyAttrOverride(child, ao.Attributes[cn]); err != nil {
+				return fmt.Errorf("%s.%s: %w", curType, cn, err)
+			}
+			children = append(children, child)
+		}
+		// single_nested holds `attributes` directly; list/set_nested wrap them
+		// in a nested_object, per the tfplugingen provider code spec.
+		switch ao.Type {
+		case "set_nested", "list_nested":
+			typeObj["nested_object"] = map[string]any{"attributes": children}
+		default:
+			typeObj["attributes"] = children
+		}
+	}
+	return nil
+}
+
+// isNestedType reports whether a provider-code-spec attribute type holds child
+// attributes or an element type (as opposed to a scalar like string/int64).
+func isNestedType(t string) bool {
+	switch t {
+	case "single_nested", "list_nested", "set_nested", "object", "list", "map", "set":
+		return true
+	}
+	return false
+}
+
+func planModifierImport(call string) (string, error) {
+	dot := strings.IndexByte(call, '.')
+	if dot <= 0 {
+		return "", fmt.Errorf("plan modifier %q must be of the form pkg.Func()", call)
+	}
+	return planModifierBase + call[:dot], nil
+}
+
+func (g *generator) writeTest(path string, tmpl *template.Template, pkg, pascal, ctor string) error {
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, struct{ Pkg, Pascal, Ctor string }{pkg, pascal, ctor}); err != nil {
+		return err
+	}
+	return g.fs.WriteFile(path, buf.Bytes(), 0o600)
+}
+
+// findConstructor scans a service package's hand-written source (skipping
+// generated and test files) for the exported constructor whose name and return
+// type match this kind, e.g. `func NewAWSIAMPolicyResource() resource.Resource`.
+// The generated test must call that real name — its acronym casing won't match
+// tfplugingen's naive PascalCase derived from the snake_case config key.
+func (g *generator) findConstructor(pkgDir string, k kind) (string, bool) {
+	entries, err := g.fs.ReadDir(pkgDir)
+	if err != nil {
+		return "", false
+	}
+	for _, e := range entries {
+		n := e.Name()
+		if e.IsDir() || !strings.HasSuffix(n, ".go") ||
+			strings.HasSuffix(n, "_gen.go") || strings.HasSuffix(n, "_test.go") {
+			continue
+		}
+		data, err := g.fs.ReadFile(filepath.Join(pkgDir, n))
+		if err != nil {
+			continue
+		}
+		if mm := k.ctorRe.FindSubmatch(data); mm != nil {
+			return string(mm[1]), true
+		}
+	}
+	return "", false
+}
+
+// execRunner is the production Runner backed by os/exec.
+type execRunner struct{}
+
+func (execRunner) LookPath(name string) error {
+	_, err := exec.LookPath(name)
+	return err
+}
+
+func (execRunner) Run(dir, name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%s %s: %w", name, strings.Join(args, " "), err)
+	}
+	return nil
+}
+
+func findProjectRoot() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", fmt.Errorf("could not find project root (no go.mod found)")
+		}
+		dir = parent
+	}
+}
+
+func orDefault(v, def string) string {
+	if v == "" {
+		return def
+	}
+	return v
+}
+
+func abs(root, p string) string {
+	if filepath.IsAbs(p) {
+		return p
+	}
+	return filepath.Join(root, p)
+}
+
+func rel(root, p string) string {
+	if r, err := filepath.Rel(root, p); err == nil {
+		return r
+	}
+	return p
+}
+
+var resourceTestTmpl = template.Must(template.New("restest").Parse(`// Code generated by kgen schemas. DO NOT EDIT.
+
+package {{.Pkg}}
+
+import (
+	"context"
+	"testing"
+
+	// Aliased to avoid collision with the acceptance-testing import
+	// "github.com/hashicorp/terraform-plugin-testing/helper/resource".
+	fwresource "github.com/hashicorp/terraform-plugin-framework/resource"
+)
+
+// Test{{.Pascal}}ResourceSchema validates the generated schema via ValidateImplementation.
+func Test{{.Pascal}}ResourceSchema(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	schemaRequest := fwresource.SchemaRequest{}
+	schemaResponse := &fwresource.SchemaResponse{}
+
+	{{.Ctor}}().Schema(ctx, schemaRequest, schemaResponse)
+
+	if schemaResponse.Diagnostics.HasError() {
+		t.Fatalf("Schema method diagnostics: %+v", schemaResponse.Diagnostics)
+	}
+
+	diagnostics := schemaResponse.Schema.ValidateImplementation(ctx)
+
+	if diagnostics.HasError() {
+		t.Fatalf("Schema validation diagnostics: %+v", diagnostics)
+	}
+}
+`))
+
+var dataSourceTestTmpl = template.Must(template.New("dstest").Parse(`// Code generated by kgen schemas. DO NOT EDIT.
+
+package {{.Pkg}}
+
+import (
+	"context"
+	"testing"
+
+	fwdatasource "github.com/hashicorp/terraform-plugin-framework/datasource"
+)
+
+// Test{{.Pascal}}DataSourceSchema validates the generated data-source schema.
+func Test{{.Pascal}}DataSourceSchema(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	schemaRequest := fwdatasource.SchemaRequest{}
+	schemaResponse := &fwdatasource.SchemaResponse{}
+
+	{{.Ctor}}().Schema(ctx, schemaRequest, schemaResponse)
+
+	if schemaResponse.Diagnostics.HasError() {
+		t.Fatalf("Schema method diagnostics: %+v", schemaResponse.Diagnostics)
+	}
+
+	diagnostics := schemaResponse.Schema.ValidateImplementation(ctx)
+
+	if diagnostics.HasError() {
+		t.Fatalf("Schema validation diagnostics: %+v", diagnostics)
+	}
+}
+`))

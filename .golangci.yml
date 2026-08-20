@@ -1,0 +1,106 @@
+# golangci-lint v2 configuration
+# Aligned with hashicorp/terraform-provider-aws linter choices.
+# https://golangci-lint.run/docs/configuration/file/
+
+version: "2"
+
+run:
+  timeout: 30m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    # --- Correctness ---
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+    # --- Style & quality ---
+    - asciicheck
+    - dogsled
+    - errname
+    - errorlint
+    - misspell
+    - nakedret
+    - predeclared
+    - revive
+    - unconvert
+    - wastedassign
+    - whitespace
+
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        - shadow
+        - fieldalignment
+
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+      exclude-functions:
+        - (*os.File).Close
+        # Diagnostic writes to stderr / an injected io.Writer — the write error
+        # is not actionable in CLI tooling. Matches terraform-provider-aws.
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+
+    staticcheck:
+      checks: ["all"]
+
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: if-return
+        - name: increment-decrement
+        - name: var-naming
+        - name: var-declaration
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unreachable-code
+        - name: redefines-builtin-id
+
+    misspell:
+      locale: US
+
+    dogsled:
+      max-blank-identifiers: 3
+
+  exclusions:
+    rules:
+      # HashiCorp-generated schema files — skip all linters
+      - path: _gen\.go$
+        linters:
+          - all
+      # Service packages are generated scaffolds — suppress style and naming
+      - path: internal/service/
+        linters:
+          - revive
+          - unused
+          - staticcheck
+
+formatters:
+  enable:
+    - gofmt
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

@@ -1,0 +1,3 @@
+kind: NOTES
+body: "Releases are built by goreleaser from a tag push, producing the artifact set the Terraform Registry requires: per-platform zips, a GPG-signed `_SHA256SUMS`, and the registry manifest. Changelog entries are changie fragments under `.changes/unreleased/`, batched into `CHANGELOG.md` when a release is cut."
+time: 2026-08-12T09:00:00Z

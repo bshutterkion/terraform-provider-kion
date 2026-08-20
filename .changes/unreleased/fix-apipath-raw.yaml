@@ -1,0 +1,3 @@
+kind: BUG FIXES
+body: "Fixed the raw HTTP endpoints (`app_role`, `billing_source`, `billing_source_aws`, `billing_source_gcp`, `billing_source_oci`, `dashboard`, `funding_source_note`, `permission_scheme`, `project_note`) appending a hardcoded `/api` on top of the already-resolved API root — requesting `/api/api/…` under a default configuration and ignoring `apipath`. `apipath` now applies to the SDK and the raw endpoints alike."
+time: 2026-08-12T09:00:00Z

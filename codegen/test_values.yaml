@@ -1,0 +1,14 @@
+# Sample create/update attribute values for generated acceptance tests, per
+# resource. Values are rendered verbatim as the RHS of each HCL attribute and
+# passed through fmt.Sprintf(..., rName): use "%[1]s" where a value must be
+# unique per test run (the acctest random suffix).
+resources:
+  label:
+    create:
+      color: "#0088ff"
+      key: "test-acc-%[1]s"
+      value: "test-acc-%[1]s"
+    update:
+      color: "#ff0000"
+      key: "test-acc-%[1]s-upd"
+      value: "test-acc-%[1]s-upd"
