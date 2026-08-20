@@ -149,6 +149,10 @@ jobs:
       TF_IN_AUTOMATION: 'true'
       TF_CLI_CONFIG_FILE: ${{ github.workspace }}/.tfdev/dev.tfrc
       TFDOCS_VERSION: 0.24.0
+      # Referenced by setup-terraform below. Without it the input is empty and
+      # the action installs whatever is latest, so a Terraform release could
+      # break this job with no change to the repo.
+      TF_VERSION: 1.15.9
     steps:
       - uses: actions/checkout@v7
 
