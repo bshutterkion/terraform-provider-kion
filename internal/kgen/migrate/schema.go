@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 )
 
 // Attr is one attribute or nested block of a resource schema.
@@ -19,6 +20,11 @@ type Attr struct {
 	Required  bool   // attr must be set in config
 	Computed  bool   // attr is set by the provider
 	NestedObj bool   // attr: has a nested_type (object/collection of objects)
+	// Nested is the nested_type's nesting mode and attribute names, so a
+	// config-rewrite table that names fields inside a nested object (cft's
+	// tag_key/tag_value) can be checked against the schema.
+	NestedMode  string
+	NestedAttrs []string
 }
 
 // Settable reports whether a user can write this attribute in config (so a
@@ -64,7 +70,7 @@ func LoadSchema(path string) (map[string]Resource, error) {
 		for rtype, rs := range ps.ResourceSchemas {
 			r := Resource{Attrs: map[string]Attr{}}
 			for name, a := range rs.Block.Attributes {
-				r.Attrs[name] = Attr{
+				attr := Attr{
 					Kind:      "attr",
 					TypeJSON:  string(a.Type),
 					Optional:  a.Optional,
@@ -72,6 +78,21 @@ func LoadSchema(path string) (map[string]Resource, error) {
 					Computed:  a.Computed,
 					NestedObj: len(a.NestedType) > 0,
 				}
+				if attr.NestedObj {
+					var nt struct {
+						NestingMode string                     `json:"nesting_mode"`
+						Attributes  map[string]json.RawMessage `json:"attributes"`
+					}
+					if err := json.Unmarshal(a.NestedType, &nt); err != nil {
+						return nil, fmt.Errorf("parse %s: nested_type of %s.%s: %w", path, rtype, name, err)
+					}
+					attr.NestedMode = nt.NestingMode
+					for n := range nt.Attributes {
+						attr.NestedAttrs = append(attr.NestedAttrs, n)
+					}
+					sort.Strings(attr.NestedAttrs)
+				}
+				r.Attrs[name] = attr
 			}
 			for name, b := range rs.Block.BlockTypes {
 				r.Attrs[name] = Attr{Kind: "block", Nesting: b.NestingMode}

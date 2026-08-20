@@ -65,10 +65,35 @@ them. The main patterns:
   nested attributes: `project_funding { … }` → `project_funding = [{ … }]`.
 - `azure_policy`'s `name`/`description`/`policy`/`parameters` were folded into a
   nested `azure_policy = { … }` object.
+- `aws_cloudformation_template`'s `tags` went from a map to a list of objects:
+  `tags = { env = "prod" }` → `tags = [{ tag_key = "env", tag_value = "prod" }]`.
 - Obsolete attributes the new schema dropped (e.g. `last_updated`,
   `gcp_iam_role.system_managed_policy`) are removed.
 
-`kmigrate` reports every change it makes. Run `terraform fmt` afterward.
+All of the block conversions above also handle the `dynamic` form, which is how
+most configurations generate a repeatable block. An attribute has no `dynamic`
+equivalent, so the whole construct collapses into a for expression over the same
+`for_each`:
+
+```hcl
+# before
+dynamic "owner_users" {
+  for_each = var.owner_user_ids
+  content {
+    id = owner_users.value
+  }
+}
+
+# after
+owner_user_ids = [for owner_users in var.owner_user_ids : owner_users]
+```
+
+A resource that mixes literal and dynamic blocks of the same name gets a
+`concat(…)` of the two.
+
+`kmigrate` reports every change it makes, and prints anything it could not
+convert — a dynamic block missing the field the projection reads, for instance —
+as a follow-up rather than guessing. Run `terraform fmt` afterward.
 
 The back-compat aliases `kion_aws_iam_policy` and `kion_aws_cloudformation_template`
 keep working under the new provider — both their state and config migrate
@@ -85,7 +110,9 @@ on the next refresh from the Kion API):
 - Some computed fields that the old provider stored but the new one derives
   (e.g. `last_updated`) are dropped and repopulated by Read.
 - `kion_aws_cloudformation_template`: `regions` changed from a set to a list; if
-  ordering shifts, it is cosmetic. Its old `tags` attribute was removed.
+  ordering shifts, it is cosmetic. Its `tags` attribute changed shape from a map
+  to a list of objects (see the config changes above); `kmigrate` rewrites the
+  config for you.
 
 ## What migrates automatically
 
