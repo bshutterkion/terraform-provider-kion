@@ -1,3 +1,0 @@
-kind: BUG FIXES
-body: "Fixed SDK fixspec silently dropping 9 of 13 query-string-discriminated operations (`PostAwsAccount`, `PostAzureSubscription`, `PostGoogleCloudAccount`, and others)."
-time: 2026-08-12T09:00:00Z

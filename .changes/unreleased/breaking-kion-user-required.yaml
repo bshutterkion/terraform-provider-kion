@@ -1,3 +1,0 @@
-kind: BREAKING CHANGES
-body: "`kion_user` now requires `email`, `first_name`, `idms_id`, `last_name`, and `username`. The previous provider's `kion_user` had no configurable attributes at all — only a computed `id`, with read and delete and no create — so it could only adopt an existing user for deletion. The new resource is full CRUD. Existing state migrates without action (the read repopulates the new attributes), but an existing `resource \"kion_user\"` block must gain the five arguments or `terraform plan` fails with \"Missing required argument\". `kmigrate` reports each affected block; it cannot fill the values in."
-time: 2026-08-12T09:00:00Z

@@ -1,3 +1,0 @@
-kind: ENHANCEMENTS
-body: "`kmigrate` now reports blocks missing an attribute the new schema requires and the old provider had no equivalent for — today only `kion_user`. It cannot supply the values, so these are listed separately from the edits it made, under \"block(s) need attention before `terraform plan` will pass\". Rename targets are excluded, since the rewrite fills those in from the old name. A guard test derives the set from the schema snapshots, so a future spec that makes an existing resource require something new fails the build until it is recorded."
-time: 2026-08-12T09:00:00Z
