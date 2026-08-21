@@ -144,11 +144,16 @@ type ResourceModel struct {
 	Model   string       // model type, e.g. "LabelModel"
 	IDField ModelField   // the tfsdk:"id" model field
 	Fields  []ModelField // model fields excluding id
-	Create  OpModel      //
-	Read    OpModel      //
-	Update  *OpModel     // nil if resource has no update
-	Delete  *OpModel     // nil if resource has no delete
-	List    *listModel   // nil if no resolvable list endpoint
+	// RecordSubFields are the sub-attributes of a record-wrapper object attribute
+	// (azure_policy's AzurePolicyValue{description,name,parameters,policy}),
+	// promoted to top-level ModelFields. Non-empty only when the model nests the
+	// whole record under one object attribute; see recordSubFields.
+	RecordSubFields []ModelField
+	Create          OpModel    //
+	Read            OpModel    //
+	Update          *OpModel   // nil if resource has no update
+	Delete          *OpModel   // nil if resource has no delete
+	List            *listModel // nil if no resolvable list endpoint
 	// ListDowngrade explains why List is nil even though the config declared a
 	// data-source collection read — i.e. why this data source lost its `filter`
 	// block and fell back to id-only. Empty when List resolved (or when no
@@ -180,6 +185,18 @@ type ResourceModel struct {
 	Assocs []*assocMembershipBind
 	// Slice member syncs ([]int64 add/remove endpoints, e.g. user_group users).
 	SliceMembers []*sliceMemberBind
+}
+
+// projectedFields is the model attribute set the data source and sweeper project
+// onto the record: the flat model fields plus any promoted record-wrapper
+// sub-attributes. Identical to Fields for every flat-model resource.
+func (rm ResourceModel) projectedFields() []ModelField {
+	if len(rm.RecordSubFields) == 0 {
+		return rm.Fields
+	}
+	out := make([]ModelField, 0, len(rm.Fields)+len(rm.RecordSubFields))
+	out = append(out, rm.Fields...)
+	return append(out, rm.RecordSubFields...)
 }
 
 // Source is the AST boundary — mockable, reads only.

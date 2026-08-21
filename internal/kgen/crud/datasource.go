@@ -199,7 +199,7 @@ func buildDSData(rm ResourceModel) (dsData, error) {
 		d.IDSDKGo = view.Paths["id"]
 	}
 
-	for _, mf := range rm.Fields {
+	for _, mf := range rm.projectedFields() {
 		rf, onRecord := respByJSON[mf.TFSDK]
 		path := view.Paths[mf.TFSDK]
 		if !onRecord {
@@ -333,12 +333,17 @@ func buildListDSData(rm ResourceModel) (listDSData, error) {
 	if err != nil {
 		return listDSData{}, err
 	}
+	view := buildRecordView(rm)
 	// The dual-mode list objects carry an id; without one in the response the
 	// list can't expose it, so degrade to the id-only data source.
 	if !base.HasRespID {
+		// An empty field set means the read payload's OpenAPI schema declares no
+		// properties at all — nothing the generator can do, the spec must be fixed.
+		if len(view.Fields) == 0 {
+			return listDSData{}, fmt.Errorf("%s dual-mode data source: read payload %s has no fields at all (empty OpenAPI schema)", rm.Name, rm.Read.RespPayload)
+		}
 		return listDSData{}, fmt.Errorf("%s dual-mode data source: response has no id field", rm.Name)
 	}
-	view := buildRecordView(rm)
 	lm := rm.List
 	// The id is special-cased: it is always exposed as an Int64 and the list
 	// objects key off it, so an id the templates cannot unwrap is fatal here.

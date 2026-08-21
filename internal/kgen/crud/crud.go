@@ -273,6 +273,11 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		byTF[mf.TFSDK] = mf
 	}
 
+	// A model that nests the whole record under one object attribute exposes none
+	// of the record's fields at the top level; promote them so the data source and
+	// sweeper can still project the record.
+	rm.RecordSubFields = recordSubFields(g.src, schemaGen, rm.Read.RespWrapperGo, byTF)
+
 	// Create-under-parent: the create op's id param is the parent id from a model
 	// attribute (not a literal discriminator). Overrides the literal create-param
 	// path resolved above.

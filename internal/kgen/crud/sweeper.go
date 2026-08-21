@@ -88,6 +88,9 @@ func buildRealSweepData(rm ResourceModel) (realSweepData, error) {
 	view := buildRecordView(rm)
 	idField, ok := view.Fields["id"]
 	if !ok {
+		if len(view.Fields) == 0 {
+			return realSweepData{}, fmt.Errorf("%s sweeper: read payload %s has no fields at all (empty OpenAPI schema)", rm.Name, rm.Read.RespPayload)
+		}
 		return realSweepData{}, fmt.Errorf("%s sweeper: response has no id field", rm.Name)
 	}
 	if !listIDOK(idField.Type) {
@@ -115,7 +118,7 @@ func buildRealSweepData(rm ResourceModel) (realSweepData, error) {
 	}
 
 	// String-valued payload fields drive the prefix match.
-	for _, mf := range rm.Fields {
+	for _, mf := range rm.projectedFields() {
 		pf, ok := view.Fields[mf.TFSDK]
 		if !ok {
 			continue

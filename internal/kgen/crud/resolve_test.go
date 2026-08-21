@@ -198,6 +198,87 @@ func TestResolveList_noListOpRefused(t *testing.T) {
 	}
 }
 
+// nestedRecordIndex models the azure_policy shape: the read payload
+// (AzurePolicyAugmented) has NO top-level id and nests the record under the
+// azure_policy field, which the generated model exposes as a nested object
+// attribute (AzurePolicyValue).
+func nestedRecordIndex() (OpModel, map[string]ModelField, sdkIndex) {
+	idx := sdkIndex{structs: map[string]Struct{
+		"AzurePolicyDefinition": {Name: "AzurePolicyDefinition", Fields: []Field{
+			{GoName: "ID", JSONName: "id", Type: "OptUint64", Optional: true},
+			{GoName: "Name", JSONName: "name", Type: "OptString", Optional: true},
+		}},
+		"OptNilUserArray": {Name: "OptNilUserArray", Fields: []Field{
+			{GoName: "Value", Type: "[]User"}, {GoName: "Set", Type: "bool"}, {GoName: "Null", Type: "bool"},
+		}},
+	}}
+	read := OpModel{Verb: "read", RespPayload: "AzurePolicyAugmented", RespFields: []Field{
+		{GoName: "AzurePolicy", JSONName: "azure_policy", Type: "OptAzurePolicyDefinition", Optional: true},
+		{GoName: "OwnerUsers", JSONName: "owner_users", Type: "OptNilUserArray", Optional: true},
+	}}
+	byTF := map[string]ModelField{
+		"id":           {GoName: "Id", TFSDK: "id", Type: "types.String"},
+		"azure_policy": {GoName: "AzurePolicy", TFSDK: "azure_policy", Type: "AzurePolicyValue"},
+		"owner_users":  {GoName: "OwnerUsers", TFSDK: "owner_users", Type: "types.List"},
+	}
+	return read, byTF, idx
+}
+
+func TestDetectRecordWrapper_nestedRecordUnderModelObjectAttr(t *testing.T) {
+	read, byTF, idx := nestedRecordIndex()
+	var fields []ModelField
+	for _, mf := range byTF {
+		if mf.TFSDK != "id" {
+			fields = append(fields, mf)
+		}
+	}
+	detectRecordWrapper(&read, byTF["id"], fields, idx)
+	if read.RespWrapperGo != "AzurePolicy" {
+		t.Fatalf("RespWrapperGo = %q, want AzurePolicy", read.RespWrapperGo)
+	}
+	if !read.RespWrapperOpt {
+		t.Error("RespWrapperOpt = false, want true for an Opt-wrapped record")
+	}
+	// The wrapper's fields must be visible so the record view can reach the id.
+	view := buildRecordView(ResourceModel{Read: read})
+	if _, ok := view.Fields["id"]; !ok {
+		t.Errorf("record view has no id field; paths = %v", view.Paths)
+	}
+	if got := view.Paths["id"]; got != "AzurePolicy.Value.ID" {
+		t.Errorf("id path = %q, want AzurePolicy.Value.ID", got)
+	}
+}
+
+func TestNestedRecordWrapper_skippedWhenPayloadHasTopLevelID(t *testing.T) {
+	read, byTF, idx := nestedRecordIndex()
+	read.RespFields = append(read.RespFields, Field{GoName: "ID", JSONName: "id", Type: "OptUint64", Optional: true})
+	if _, _, _, ok := nestedRecordWrapper(&read, byTF, idx); ok {
+		t.Error("must not descend into a sub-object when the payload already yields the id")
+	}
+}
+
+func TestNestedRecordWrapper_skippedWhenAmbiguous(t *testing.T) {
+	read, byTF, idx := nestedRecordIndex()
+	idx.structs["OtherDefinition"] = Struct{Name: "OtherDefinition", Fields: []Field{
+		{GoName: "ID", JSONName: "id", Type: "OptUint64", Optional: true},
+	}}
+	read.RespFields = append(read.RespFields, Field{GoName: "Other", JSONName: "other", Type: "OptOtherDefinition", Optional: true})
+	byTF["other"] = ModelField{GoName: "Other", TFSDK: "other", Type: "OtherValue"}
+	if _, _, _, ok := nestedRecordWrapper(&read, byTF, idx); ok {
+		t.Error("two candidate records must be refused rather than guessed at")
+	}
+}
+
+func TestNestedRecordWrapper_skippedWhenNotAModelObjectAttr(t *testing.T) {
+	read, byTF, idx := nestedRecordIndex()
+	// A plain scalar model attribute over the same SDK struct is not a record
+	// wrapper — the record would have nowhere to land.
+	byTF["azure_policy"] = ModelField{GoName: "AzurePolicy", TFSDK: "azure_policy", Type: "types.String"}
+	if _, _, _, ok := nestedRecordWrapper(&read, byTF, idx); ok {
+		t.Error("a non-object model attribute must not be treated as a record wrapper")
+	}
+}
+
 func TestLoadConfig_skipsFlaggedAndParsesOps(t *testing.T) {
 	resources, dataSources, flagged, err := loadConfig("testdata/generator_config.yaml")
 	if err != nil {

@@ -520,9 +520,67 @@ func detectRecordWrapper(read *OpModel, idField ModelField, fields []ModelField,
 			bestGo, bestOpt, bestMatched, bestFields = f.GoName, strings.HasPrefix(f.Type, "Opt"), matched, st.Fields
 		}
 	}
+	// The field-count test above only sees a FLAT model. When the model nests the
+	// record instead, fall back to the shape test.
+	if bestGo == "" {
+		if wrapGo, opt, flds, ok := nestedRecordWrapper(read, byTF, idx); ok {
+			bestGo, bestOpt, bestFields = wrapGo, opt, flds
+		}
+	}
 	read.RespWrapperGo = bestGo
 	read.RespWrapperOpt = bestOpt
 	read.RespWrapperFields = bestFields
+}
+
+// nestedRecordWrapper finds the record wrapper when the MODEL nests the record
+// rather than flattening it: the read payload carries no top-level id, and
+// exactly one of its fields is a model OBJECT attribute (a tfplugingen
+// <Pascal>Value type) whose SDK struct does carry the id — e.g.
+// AzurePolicyAugmented.azure_policy -> AzurePolicyDefinition.id.
+//
+// detectRecordWrapper's field-count test is blind to this case twice over: the
+// wrapper's json-name IS a model attribute (so the "nested Value attribute"
+// guard skips it), and none of the record's fields are TOP-LEVEL model
+// attributes either — they are sub-attributes of that object attribute, so the
+// count is 0. Without this the payload looks id-less and the data source
+// degrades to id-only.
+//
+// Deliberately narrow: it needs a genuinely missing top-level id, a model object
+// attribute, an SDK struct behind it, an id inside that struct, and no second
+// candidate. Anything ambiguous is left to degrade loudly rather than guessed at.
+func nestedRecordWrapper(read *OpModel, byTF map[string]ModelField, idx sdkIndex) (goName string, opt bool, fields []Field, ok bool) {
+	for _, f := range read.RespFields {
+		if f.JSONName == "id" {
+			return "", false, nil, false // the payload already yields the id
+		}
+	}
+	for _, f := range read.RespFields {
+		mf, isModelAttr := byTF[f.JSONName]
+		if !isModelAttr || !strings.HasSuffix(mf.Type, "Value") {
+			continue // not a nested-object attribute of the model
+		}
+		st, isStruct := idx.structs[strings.TrimPrefix(strings.TrimPrefix(f.Type, "Opt"), "Nil")]
+		if !isStruct {
+			continue
+		}
+		hasID := false
+		for _, sf := range st.Fields {
+			// json-name, not GoName: the record view keys its fields by json name,
+			// so only a `json:"id"` field actually makes the id reachable.
+			if sf.JSONName == "id" {
+				hasID = true
+				break
+			}
+		}
+		if !hasID {
+			continue
+		}
+		if goName != "" {
+			return "", false, nil, false // two candidate records: too ambiguous to pick
+		}
+		goName, opt, fields = f.GoName, strings.HasPrefix(f.Type, "Opt"), st.Fields
+	}
+	return goName, opt, fields, goName != ""
 }
 
 // --- small helpers ---
