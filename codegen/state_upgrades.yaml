@@ -10,10 +10,18 @@
 #   rename:  {old_attr: new_attr}        value passes through unchanged
 #   id_int:  true                        old string id "42" → new numeric id 42
 #   project: {new_attr: {from, field}}   old [{field: n}] set/list → new list/set(number)
+#   kv_list: {attr: {key_field, val_field}}
+#                                        old map(…) {k: v} → new list of
+#                                        {key_field: k, val_field: v} objects
 #   drop:    [old_attr]                  explicitly ignore an old attr
 #
 # Ground truth: 33 old resources, zero type renames, one id-type change
-# (kion_aws_account). See codegen/schema_snapshots/.
+# (kion_aws_account), one map→object-list change (kion_cft.tags). Those three
+# plus the two aws_account block-set→single-object unwraps are the ONLY old→new
+# changes whose JSON shape cannot decode as-is; everything else is either a
+# same-shape container widening (set→list) or an exact-field passthrough.
+# TestUpgradeShapes_allIncompatiblesHandled enforces that. See
+# codegen/schema_snapshots/.
 
 resources:
   # --- ownership blocks → id lists (the most common pattern) ------------------
@@ -37,11 +45,18 @@ resources:
       owner_user_ids: { from: owner_users, field: id }
       owner_user_group_ids: { from: owner_user_groups, field: id }
 
+  # tags is the one map→object-list change in the whole surface: the old
+  # kion_aws_cloudformation_template took `tags = { k = v }` (map(string)), the
+  # new cft takes a list of { tag_key, tag_value }. Both halves of the migration
+  # read this one rule — the state upgrader explodes the old map, kmigrate
+  # rewrites the config expression.
   kion_cft:
     old_type: kion_aws_cloudformation_template
     project:
       owner_user_ids: { from: owner_users, field: id }
       owner_user_group_ids: { from: owner_user_groups, field: id }
+    kv_list:
+      tags: { key_field: tag_key, val_field: tag_value }
 
   kion_azure_arm_template:
     project:

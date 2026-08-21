@@ -318,7 +318,15 @@ resource "kion_aws_cloudformation_template" "already" {
   tags = [{ tag_key = "env", tag_value = "prod" }]
 }
 `
-	out, changes, actions, err := RewriteFile([]byte(src), map[string]Transform{})
+	// The rule comes from the shared state_upgrades transform, keyed by the new
+	// primary type with old_type naming the alias customers still write.
+	ups := map[string]Transform{
+		"kion_cft": {
+			OldType: "kion_aws_cloudformation_template",
+			KVList:  map[string]KVListRule{"tags": {KeyField: "tag_key", ValField: "tag_value"}},
+		},
+	}
+	out, changes, actions, err := RewriteFile([]byte(src), ups)
 	if err != nil {
 		t.Fatal(err)
 	}

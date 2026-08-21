@@ -275,11 +275,12 @@ func TestReadOnlyDropsArePresentAndComputed(t *testing.T) {
 	}
 }
 
-// TestMapToObjectList_matchSchemas is the guard behind MapToObjectList, both
-// ways round: every entry must really be an old map that became a list of
+// TestMapToObjectList_matchSchemas is the guard behind the kv_list rules, both
+// ways round: every rule must really be an old map that became a list of
 // objects with exactly the named fields, and every such change in the snapshots
-// must have an entry. A wrong field name here writes config that fails to
-// decode; a missing entry silently leaves a map where the provider wants a list.
+// must have a rule. A wrong field name here writes config that fails to decode
+// and state that fails to upgrade; a missing rule silently leaves a map where
+// the provider wants a list.
 func TestMapToObjectList_matchSchemas(t *testing.T) {
 	oldS, err := LoadSchema(oldSnap)
 	if err != nil {
@@ -293,63 +294,85 @@ func TestMapToObjectList_matchSchemas(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The table is keyed by the type as written in old config, which for an alias
-	// is the old name; its schema lives under the new primary type.
-	newTypeOf := map[string]string{}
-	for newType, tr := range ups {
-		if tr.OldType != "" {
-			newTypeOf[tr.OldType] = newType
+	// kv_list rules are keyed by the NEW primary type; for an alias the old
+	// schema lives under the old name that old_type records.
+	oldTypeOf := func(newType string) string {
+		if ot := ups[newType].OldType; ot != "" {
+			return ot
 		}
+		return newType
 	}
-	newAttrs := func(rtype, attr string) (Attr, bool) {
-		for _, key := range []string{rtype, newTypeOf[rtype]} {
-			if r, ok := newS[key]; ok {
-				if a, ok := r.Attrs[attr]; ok {
-					return a, true
-				}
+	// Every kv_list rule reachable from the old-config type name, which is what
+	// kmigrate matches on and what the backwards sweep iterates.
+	ruleFor := func(oldType, attr string) (KVListRule, bool) {
+		for newType, tr := range ups {
+			if oldTypeOf(newType) != oldType {
+				continue
+			}
+			if r, ok := tr.KVList[attr]; ok {
+				return r, true
 			}
 		}
-		return Attr{}, false
+		return KVListRule{}, false
 	}
 
-	// Forwards: each entry is real.
-	for rtype, attrs := range MapToObjectList {
-		oldR, ok := oldS[rtype]
-		if !ok {
-			t.Errorf("MapToObjectList has %s which is not an old resource", rtype)
-			continue
-		}
-		for attr, fold := range attrs {
+	// Forwards: each rule is real.
+	for newType, tr := range ups {
+		oldType := oldTypeOf(newType)
+		for attr, fold := range tr.KVList {
+			oldR, ok := oldS[oldType]
+			if !ok {
+				t.Errorf("%s: kv_list names old type %s which is not an old resource", newType, oldType)
+				continue
+			}
 			oa, ok := oldR.Attrs[attr]
 			if !ok || !isMapType(oa) {
-				t.Errorf("%s: MapToObjectList %q is not an old map attribute", rtype, attr)
+				t.Errorf("%s: kv_list %q is not an old map attribute of %s", newType, attr, oldType)
 			}
-			na, ok := newAttrs(rtype, attr)
+			na, ok := newS[newType].Attrs[attr]
 			if !ok || !na.NestedObj {
-				t.Errorf("%s: MapToObjectList %q is not a nested-object attribute in the new schema", rtype, attr)
+				t.Errorf("%s: kv_list %q is not a nested-object attribute in the new schema", newType, attr)
 				continue
+			}
+			if na.NestedMode != "list" && na.NestedMode != "set" {
+				t.Errorf("%s.%s: kv_list target nesting = %q, want list or set", newType, attr, na.NestedMode)
 			}
 			want := []string{fold.KeyField, fold.ValField}
 			sort.Strings(want)
 			if !eqStrs(na.NestedAttrs, want) {
-				t.Errorf("%s.%s: new nested fields = %v, MapToObjectList names %v", rtype, attr, na.NestedAttrs, want)
+				t.Errorf("%s.%s: new nested fields = %v, kv_list names %v", newType, attr, na.NestedAttrs, want)
 			}
 		}
 	}
 
-	// Backwards: no map→object-list change is missing an entry.
-	for rtype, oldR := range oldS {
+	// Backwards: no map→object-list change is missing a rule.
+	for oldType, oldR := range oldS {
 		for attr, oa := range oldR.Attrs {
 			if !isMapType(oa) {
 				continue
 			}
-			na, ok := newAttrs(rtype, attr)
-			if !ok || !na.NestedObj {
+			var na Attr
+			var found bool
+			for newType := range ups {
+				if oldTypeOf(newType) != oldType {
+					continue
+				}
+				if a, ok := newS[newType].Attrs[attr]; ok {
+					na, found = a, true
+				}
+			}
+			if !found && !na.NestedObj {
+				if a, ok := newS[oldType].Attrs[attr]; ok {
+					na, found = a, true
+				}
+			}
+			if !found || !na.NestedObj {
 				continue
 			}
-			if _, covered := MapToObjectList[rtype][attr]; !covered {
-				t.Errorf("%s.%s: map became a nested-object attribute %v but MapToObjectList has no entry — kmigrate would leave an invalid map",
-					rtype, attr, na.NestedAttrs)
+			if _, covered := ruleFor(oldType, attr); !covered {
+				t.Errorf("%s.%s: map became a nested-object attribute %v but no kv_list rule covers it — "+
+					"kmigrate would leave an invalid map and the state upgrader would fail to decode",
+					oldType, attr, na.NestedAttrs)
 			}
 		}
 	}

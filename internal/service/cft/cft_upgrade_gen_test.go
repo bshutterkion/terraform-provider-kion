@@ -28,7 +28,8 @@ func TestUpgradeState_decodes(t *testing.T) {
 	oldState := `{
 		"id": "1234",
 		"owner_user_groups": [{"id": 1}, {"id": 2}],
-		"owner_users": [{"id": 1}, {"id": 2}]
+		"owner_users": [{"id": 1}, {"id": 2}],
+		"tags": {"alpha": "sample", "beta": "sample"}
 	}`
 
 	var sr resource.SchemaResponse

@@ -34,24 +34,6 @@ var AttrsToObject = map[string]objFold{
 	"kion_azure_policy": {Target: "azure_policy", Fields: []string{"name", "description", "policy", "parameters"}},
 }
 
-// kvFold names the two fields of the object a map entry becomes.
-type kvFold struct {
-	KeyField string
-	ValField string
-}
-
-// MapToObjectList lists the old map attributes that became a list of two-field
-// objects. The old kion_aws_cloudformation_template took `tags = { k = v }`
-// (map(string)); the new cft takes `tags = [{ tag_key = "k", tag_value = v }]`,
-// so the map has to be exploded into one object per entry — a value transform,
-// not a rename, which is why it needs its own pass.
-//
-// TestMapToObjectList_matchSchemas keeps this in step with the snapshots.
-var MapToObjectList = map[string]map[string]kvFold{
-	// cft alias (kion_aws_cloudformation_template → kion_cft).
-	"kion_aws_cloudformation_template": {"tags": {KeyField: "tag_key", ValField: "tag_value"}},
-}
-
 // RequiredAdditions lists attributes the new schema requires that the old schema
 // had no equivalent for. These are not renames — the rewrite handles those — so
 // there is no old value to carry over and kmigrate cannot supply one. It reports
@@ -69,7 +51,8 @@ var RequiredAdditions = map[string][]string{
 
 // RewriteFile applies the input-attribute half of the state_upgrades transforms
 // to one .tf file's `resource "kion_*"` blocks: attribute renames and the
-// block-set → id-list restructure (owner_users { id = x } → owner_user_ids = [x]).
+// block-set → id-list restructure (owner_users { id = x } → owner_user_ids = [x]),
+// and the kv_list map explode (tags = { k = v } → tags = [{ tag_key = "k", … }]).
 // It preserves the id expressions verbatim (literals or references) and returns a
 // human-readable list of the changes made. Comments and formatting are preserved
 // by hclwrite. Computed-only transforms (id_int, unwrap, drops) are state-only
@@ -114,9 +97,8 @@ func RewriteFile(src []byte, ups map[string]Transform) ([]byte, []string, []stri
 		_, hasRODrops := ReadOnlyDrops[rtype]
 		_, hasBlockConv := BlockToListAttr[rtype]
 		_, hasFold := AttrsToObject[rtype]
-		_, hasKV := MapToObjectList[rtype]
 		_, hasRequired := RequiredAdditions[rtype]
-		if !hasTransform && !hasDrops && !hasRODrops && !hasBlockConv && !hasFold && !hasKV && !hasRequired {
+		if !hasTransform && !hasDrops && !hasRODrops && !hasBlockConv && !hasFold && !hasRequired {
 			continue
 		}
 		body := block.Body()
@@ -261,8 +243,10 @@ func RewriteFile(src []byte, ups map[string]Transform) ([]byte, []string, []stri
 
 		// Explode a map attribute into a list of key/value objects:
 		// tags = { k = v } → tags = [{ tag_key = "k", tag_value = v }].
-		for _, attrName := range sortedKeys(MapToObjectList[rtype]) {
-			fold := MapToObjectList[rtype][attrName]
+		// Driven by the shared kv_list rule, the same one the state upgrader
+		// reads, so config and state can never restructure it differently.
+		for _, attrName := range sortedKeys(t.KVList) {
+			fold := t.KVList[attrName]
 			attr := body.GetAttribute(attrName)
 			if attr == nil {
 				continue
@@ -494,7 +478,7 @@ func substIterator(toks hclwrite.Tokens, iter, keyVar, valVar string) (hclwrite.
 //
 // It returns (nil, nil) when the expression is already a list, so re-running
 // kmigrate over a migrated file is a no-op.
-func mapToObjectList(toks hclwrite.Tokens, f kvFold) (hclwrite.Tokens, error) {
+func mapToObjectList(toks hclwrite.Tokens, f KVListRule) (hclwrite.Tokens, error) {
 	src := trimExpr(toks)
 	if strings.HasPrefix(src, "[") {
 		return nil, nil

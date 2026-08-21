@@ -3,6 +3,7 @@ package migrate
 import (
 	"bytes"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"go/format"
 	"sort"
@@ -66,6 +67,13 @@ func synthOldState(t Transform, oldRes, newRes Resource) string {
 	for _, u := range t.Unwrap {
 		fields[u] = `[]`
 	}
+	// Map attributes exploded into object lists. This one MUST be populated: an
+	// absent map decodes as null against any type, so an empty fixture would not
+	// notice the transform missing — which is exactly how cft's tags shipped
+	// passing a map straight into a list-of-objects schema.
+	for attr := range t.KVList {
+		fields[attr] = mapSample(oldRes.Attrs[attr].TypeJSON)
+	}
 	// Terraform SDKv2 always stores id as a string; the new schema keeps it a
 	// string unless IDInt retypes it to a number (StringToNum handles that).
 	if t.IDInt {
@@ -98,6 +106,23 @@ func synthOldState(t Transform, oldRes, newRes Resource) string {
 	}
 	b.WriteString("\t}")
 	return b.String()
+}
+
+// mapSample returns a two-entry JSON object for an old map attribute's cty
+// type-JSON (`["map", <element>]`), with element-typed values so the exploded
+// objects decode against the new nested field types. Two entries, so the
+// generated fixture also proves the explode handles more than a single pair.
+func mapSample(typeJSON string) string {
+	elem := `"string"`
+	var t []json.RawMessage
+	if err := json.Unmarshal([]byte(typeJSON), &t); err == nil && len(t) == 2 {
+		elem = string(t[1])
+	}
+	v, ok := scalarSample(elem)
+	if !ok {
+		v = `"sample"`
+	}
+	return fmt.Sprintf(`{"alpha": %s, "beta": %s}`, v, v)
 }
 
 // scalarSample returns a representative JSON literal for a simple cty scalar

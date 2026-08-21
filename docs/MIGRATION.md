@@ -112,7 +112,10 @@ on the next refresh from the Kion API):
 - `kion_aws_cloudformation_template`: `regions` changed from a set to a list; if
   ordering shifts, it is cosmetic. Its `tags` attribute changed shape from a map
   to a list of objects (see the config changes above); `kmigrate` rewrites the
-  config for you.
+  config for you and the state upgrader explodes the stored map into the same
+  object list. Tags arrive in sorted key order — the order the old state itself
+  recorded — and the next refresh replaces it with the API's order, so any
+  reordering you see on the first plan is cosmetic.
 
 ## What migrates automatically
 
