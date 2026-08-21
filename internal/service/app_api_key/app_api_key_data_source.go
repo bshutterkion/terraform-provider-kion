@@ -6,22 +6,33 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
 	"terraform-provider-kion/internal/errs"
+	"terraform-provider-kion/internal/filter"
 	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
 )
 
-const DSNameAppApiKey = "AppApiKey Data Source"
+const (
+	DSNameAppApiKey = "AppApiKey Data Source"
+)
 
 var (
 	_ datasource.DataSource              = &app_api_keyDataSource{}
 	_ datasource.DataSourceWithConfigure = &app_api_keyDataSource{}
 )
+
+// listObjectAttrTypes is the schema of an entry inside the `list` attribute.
+var listObjectAttrTypes = map[string]attr.Type{
+	"id":   types.Int64Type,
+	"name": types.StringType,
+}
 
 // NewAppApiKeyDataSource returns a new instance of the data source.
 func NewAppApiKeyDataSource() datasource.DataSource {
@@ -36,17 +47,38 @@ func (d *app_api_keyDataSource) Metadata(_ context.Context, req datasource.Metad
 	resp.TypeName = req.ProviderTypeName + "_app_api_key"
 }
 
+// Schema is dual-mode: `id` fetches one by primary key; omitting `id` and
+// supplying `filter` blocks paginates the index and returns every match in
+// `list`. `id` and `filter` are mutually exclusive.
 func (d *app_api_keyDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Use this data source to look up a Kion AppApiKey by id.",
+		Description: "Use this data source to access information about Kion AppApiKeys. Supports lookup by id (recommended) or by filter blocks (legacy).",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
-				Description: "The ID of the AppApiKey to fetch.",
-				Required:    true,
+				Description: "The ID of a single app_api_key to fetch. Mutually exclusive with `filter` blocks.",
+				Optional:    true,
+				Computed:    true,
 			},
 			"name": schema.StringAttribute{
 				Computed: true,
 			},
+			"list": schema.ListNestedAttribute{
+				Description: "All app_api_keys matching the supplied id or filter blocks.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"name": schema.StringAttribute{
+							Computed: true,
+						},
+					},
+				},
+			},
+		},
+		Blocks: map[string]schema.Block{
+			"filter": filter.Schema(),
 		},
 	}
 }
@@ -60,31 +92,145 @@ func (d *app_api_keyDataSource) Read(ctx context.Context, req datasource.ReadReq
 		return
 	}
 
-	out, err := conn.GetAppAPIKey(ctx, generated.GetAppAPIKeyParams{ID: data.Id.ValueInt64()})
-	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameAppApiKey), err.Error())
+	idSet := !data.Id.IsNull() && !data.Id.IsUnknown()
+	filterSet := len(data.Filter) > 0
+
+	if idSet && filterSet {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("invalid %s configuration", DSNameAppApiKey),
+			"`id` and `filter` blocks are mutually exclusive.",
+		)
 		return
 	}
 
-	if errs.IsNotFound(out) {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameAppApiKey), "app_api_key not found")
-		return
+	if idSet {
+		d.readByID(ctx, conn, &data, &resp.Diagnostics)
+	} else {
+		d.readByFilter(ctx, conn, &data, &resp.Diagnostics)
 	}
 
-	api, ok := out.(*generated.AppAPIKeyResponse)
-	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameAppApiKey, out)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	v := api.Data.Value
-	data.Id = flex.OptUint64ToFramework(v.ID)
-	data.Name = flex.OptStringToFramework(v.Name)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
+func (d *app_api_keyDataSource) readByID(ctx context.Context, conn *generated.Client, data *app_api_keyDataSourceModel, diags *diag.Diagnostics) {
+	out, err := conn.GetAppAPIKey(ctx, generated.GetAppAPIKeyParams{ID: data.Id.ValueInt64()})
+	if err != nil {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameAppApiKey), err.Error())
+		return
+	}
+	if errs.IsNotFound(out) {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameAppApiKey), "app_api_key not found")
+		return
+	}
+	api, ok := out.(*generated.AppAPIKeyResponse)
+	if !ok || !api.Data.Set {
+		diags.Append(errs.ResponseDiagnostics("reading "+DSNameAppApiKey, out)...)
+		return
+	}
+
+	lbl := api.Data.Value
+	data.Id = flex.OptUint64ToFramework(lbl.ID)
+	data.Name = flex.OptStringToFramework(lbl.Name)
+
+	listVal, listDiags := buildAppApiKeyList(ctx, []generated.AppAPIKey{lbl})
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+}
+
+func (d *app_api_keyDataSource) readByFilter(ctx context.Context, conn *generated.Client, data *app_api_keyDataSourceModel, diags *diag.Diagnostics) {
+	all, fetchDiags := fetchAllAppApiKey(ctx, conn)
+	diags.Append(fetchDiags...)
+	if diags.HasError() {
+		return
+	}
+
+	matched := make([]generated.AppAPIKey, 0, len(all))
+	for _, lbl := range all {
+		ok, matchDiags := filter.Match(ctx, data.Filter, app_api_keyToRow(lbl))
+		diags.Append(matchDiags...)
+		if diags.HasError() {
+			return
+		}
+		if ok {
+			matched = append(matched, lbl)
+		}
+	}
+
+	listVal, listDiags := buildAppApiKeyList(ctx, matched)
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+
+	// Scalar fields stay null in filter mode.
+	data.Id = types.Int64Null()
+	data.Name = types.StringNull()
+}
+
+// fetchAllAppApiKey returns the full set from GetAppAPIKeyIndex, which is not
+// paginated: one call yields the whole collection.
+func fetchAllAppApiKey(ctx context.Context, conn *generated.Client) ([]generated.AppAPIKey, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	var all []generated.AppAPIKey
+
+	out, err := conn.GetAppAPIKeyIndex(ctx)
+	if err != nil {
+		diags.AddError(fmt.Sprintf("listing %s", DSNameAppApiKey), err.Error())
+		return nil, diags
+	}
+	resp, ok := out.(*generated.AppAPIKeyListResponse)
+	if !ok {
+		diags.Append(errs.ResponseDiagnostics("listing "+DSNameAppApiKey, out)...)
+		return nil, diags
+	}
+	items := resp.Data
+	all = append(all, items...)
+
+	return all, diags
+}
+
+// app_api_keyToRow converts an element into the map filter.Match expects.
+func app_api_keyToRow(lbl generated.AppAPIKey) map[string]any {
+	row := map[string]any{
+		"name": lbl.Name.Or(""),
+	}
+	if lbl.ID.Set {
+		row["id"] = int64(lbl.ID.Value)
+	}
+	return row
+}
+
+// buildAppApiKeyList converts elements into a types.List of objects.
+func buildAppApiKeyList(ctx context.Context, items []generated.AppAPIKey) (types.List, diag.Diagnostics) {
+	objs := make([]attr.Value, 0, len(items))
+	for _, lbl := range items {
+		idVal := types.Int64Null()
+		if lbl.ID.Set {
+			idVal = types.Int64Value(int64(lbl.ID.Value))
+		}
+		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
+			"id":   idVal,
+			"name": types.StringValue(lbl.Name.Or("")),
+		})
+		if objDiags.HasError() {
+			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags
+		}
+		objs = append(objs, obj)
+	}
+	return types.ListValueFrom(ctx, types.ObjectType{AttrTypes: listObjectAttrTypes}, objs)
+}
+
 type app_api_keyDataSourceModel struct {
-	Id   types.Int64  `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+	Id     types.Int64    `tfsdk:"id"`
+	Name   types.String   `tfsdk:"name"`
+	Filter []filter.Model `tfsdk:"filter"`
+	List   types.List     `tfsdk:"list"`
 }

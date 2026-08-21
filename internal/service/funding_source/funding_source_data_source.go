@@ -6,22 +6,37 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
 	"terraform-provider-kion/internal/errs"
+	"terraform-provider-kion/internal/filter"
 	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
 )
 
-const DSNameFundingSource = "FundingSource Data Source"
+const (
+	DSNameFundingSource = "FundingSource Data Source"
+)
 
 var (
 	_ datasource.DataSource              = &funding_sourceDataSource{}
 	_ datasource.DataSourceWithConfigure = &funding_sourceDataSource{}
 )
+
+// listObjectAttrTypes is the schema of an entry inside the `list` attribute.
+var listObjectAttrTypes = map[string]attr.Type{
+	"id":             types.Int64Type,
+	"description":    types.StringType,
+	"end_datecode":   types.StringType,
+	"name":           types.StringType,
+	"ou_id":          types.Int64Type,
+	"start_datecode": types.StringType,
+}
 
 // NewFundingSourceDataSource returns a new instance of the data source.
 func NewFundingSourceDataSource() datasource.DataSource {
@@ -36,13 +51,17 @@ func (d *funding_sourceDataSource) Metadata(_ context.Context, req datasource.Me
 	resp.TypeName = req.ProviderTypeName + "_funding_source"
 }
 
+// Schema is dual-mode: `id` fetches one by primary key; omitting `id` and
+// supplying `filter` blocks paginates the index and returns every match in
+// `list`. `id` and `filter` are mutually exclusive.
 func (d *funding_sourceDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Use this data source to look up a Kion FundingSource by id.",
+		Description: "Use this data source to access information about Kion FundingSources. Supports lookup by id (recommended) or by filter blocks (legacy).",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
-				Description: "The ID of the FundingSource to fetch.",
-				Required:    true,
+				Description: "The ID of a single funding_source to fetch. Mutually exclusive with `filter` blocks.",
+				Optional:    true,
+				Computed:    true,
 			},
 			"description": schema.StringAttribute{
 				Computed: true,
@@ -59,6 +78,35 @@ func (d *funding_sourceDataSource) Schema(_ context.Context, _ datasource.Schema
 			"start_datecode": schema.StringAttribute{
 				Computed: true,
 			},
+			"list": schema.ListNestedAttribute{
+				Description: "All funding_sources matching the supplied id or filter blocks.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"description": schema.StringAttribute{
+							Computed: true,
+						},
+						"end_datecode": schema.StringAttribute{
+							Computed: true,
+						},
+						"name": schema.StringAttribute{
+							Computed: true,
+						},
+						"ou_id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"start_datecode": schema.StringAttribute{
+							Computed: true,
+						},
+					},
+				},
+			},
+		},
+		Blocks: map[string]schema.Block{
+			"filter": filter.Schema(),
 		},
 	}
 }
@@ -72,39 +120,165 @@ func (d *funding_sourceDataSource) Read(ctx context.Context, req datasource.Read
 		return
 	}
 
-	out, err := conn.GetFundingSource(ctx, generated.GetFundingSourceParams{ID: data.Id.ValueInt64()})
-	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameFundingSource), err.Error())
+	idSet := !data.Id.IsNull() && !data.Id.IsUnknown()
+	filterSet := len(data.Filter) > 0
+
+	if idSet && filterSet {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("invalid %s configuration", DSNameFundingSource),
+			"`id` and `filter` blocks are mutually exclusive.",
+		)
 		return
 	}
 
-	if errs.IsNotFound(out) {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameFundingSource), "funding_source not found")
-		return
+	if idSet {
+		d.readByID(ctx, conn, &data, &resp.Diagnostics)
+	} else {
+		d.readByFilter(ctx, conn, &data, &resp.Diagnostics)
 	}
 
-	api, ok := out.(*generated.FundingSourceResponse)
-	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameFundingSource, out)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	v := api.Data.Value
-	data.Id = flex.OptUint64ToFramework(v.ID)
-	data.Description = flex.OptStringToFramework(v.Description)
-	data.EndDatecode = flex.OptStringToFramework(v.EndDatecode)
-	data.Name = flex.OptStringToFramework(v.Name)
-	data.OuId = flex.OptNilUint64ToFramework(v.OuID)
-	data.StartDatecode = flex.OptStringToFramework(v.StartDatecode)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
+func (d *funding_sourceDataSource) readByID(ctx context.Context, conn *generated.Client, data *funding_sourceDataSourceModel, diags *diag.Diagnostics) {
+	out, err := conn.GetFundingSource(ctx, generated.GetFundingSourceParams{ID: data.Id.ValueInt64()})
+	if err != nil {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameFundingSource), err.Error())
+		return
+	}
+	if errs.IsNotFound(out) {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameFundingSource), "funding_source not found")
+		return
+	}
+	api, ok := out.(*generated.FundingSourceResponse)
+	if !ok || !api.Data.Set {
+		diags.Append(errs.ResponseDiagnostics("reading "+DSNameFundingSource, out)...)
+		return
+	}
+
+	lbl := api.Data.Value
+	data.Id = flex.OptUint64ToFramework(lbl.ID)
+	data.Description = flex.OptStringToFramework(lbl.Description)
+	data.EndDatecode = flex.OptStringToFramework(lbl.EndDatecode)
+	data.Name = flex.OptStringToFramework(lbl.Name)
+	data.OuId = flex.OptNilUint64ToFramework(lbl.OuID)
+	data.StartDatecode = flex.OptStringToFramework(lbl.StartDatecode)
+
+	listVal, listDiags := buildFundingSourceList(ctx, []generated.FundingSource{lbl})
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+}
+
+func (d *funding_sourceDataSource) readByFilter(ctx context.Context, conn *generated.Client, data *funding_sourceDataSourceModel, diags *diag.Diagnostics) {
+	all, fetchDiags := fetchAllFundingSource(ctx, conn)
+	diags.Append(fetchDiags...)
+	if diags.HasError() {
+		return
+	}
+
+	matched := make([]generated.FundingSource, 0, len(all))
+	for _, lbl := range all {
+		ok, matchDiags := filter.Match(ctx, data.Filter, funding_sourceToRow(lbl))
+		diags.Append(matchDiags...)
+		if diags.HasError() {
+			return
+		}
+		if ok {
+			matched = append(matched, lbl)
+		}
+	}
+
+	listVal, listDiags := buildFundingSourceList(ctx, matched)
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+
+	// Scalar fields stay null in filter mode.
+	data.Id = types.Int64Null()
+	data.Description = types.StringNull()
+	data.EndDatecode = types.StringNull()
+	data.Name = types.StringNull()
+	data.OuId = types.Int64Null()
+	data.StartDatecode = types.StringNull()
+}
+
+// fetchAllFundingSource returns the full set from FundingSourceIndex, which is not
+// paginated: one call yields the whole collection.
+func fetchAllFundingSource(ctx context.Context, conn *generated.Client) ([]generated.FundingSource, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	var all []generated.FundingSource
+
+	out, err := conn.FundingSourceIndex(ctx, generated.FundingSourceIndexParams{})
+	if err != nil {
+		diags.AddError(fmt.Sprintf("listing %s", DSNameFundingSource), err.Error())
+		return nil, diags
+	}
+	resp, ok := out.(*generated.FundingSourceListResponse)
+	if !ok {
+		diags.Append(errs.ResponseDiagnostics("listing "+DSNameFundingSource, out)...)
+		return nil, diags
+	}
+	items := resp.Data
+	all = append(all, items...)
+
+	return all, diags
+}
+
+// funding_sourceToRow converts an element into the map filter.Match expects.
+func funding_sourceToRow(lbl generated.FundingSource) map[string]any {
+	row := map[string]any{
+		"description":    lbl.Description.Or(""),
+		"end_datecode":   lbl.EndDatecode.Or(""),
+		"name":           lbl.Name.Or(""),
+		"ou_id":          int64(lbl.OuID.Or(0)),
+		"start_datecode": lbl.StartDatecode.Or(""),
+	}
+	if lbl.ID.Set {
+		row["id"] = int64(lbl.ID.Value)
+	}
+	return row
+}
+
+// buildFundingSourceList converts elements into a types.List of objects.
+func buildFundingSourceList(ctx context.Context, items []generated.FundingSource) (types.List, diag.Diagnostics) {
+	objs := make([]attr.Value, 0, len(items))
+	for _, lbl := range items {
+		idVal := types.Int64Null()
+		if lbl.ID.Set {
+			idVal = types.Int64Value(int64(lbl.ID.Value))
+		}
+		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
+			"id":             idVal,
+			"description":    types.StringValue(lbl.Description.Or("")),
+			"end_datecode":   types.StringValue(lbl.EndDatecode.Or("")),
+			"name":           types.StringValue(lbl.Name.Or("")),
+			"ou_id":          types.Int64Value(int64(lbl.OuID.Or(0))),
+			"start_datecode": types.StringValue(lbl.StartDatecode.Or("")),
+		})
+		if objDiags.HasError() {
+			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags
+		}
+		objs = append(objs, obj)
+	}
+	return types.ListValueFrom(ctx, types.ObjectType{AttrTypes: listObjectAttrTypes}, objs)
+}
+
 type funding_sourceDataSourceModel struct {
-	Id            types.Int64  `tfsdk:"id"`
-	Description   types.String `tfsdk:"description"`
-	EndDatecode   types.String `tfsdk:"end_datecode"`
-	Name          types.String `tfsdk:"name"`
-	OuId          types.Int64  `tfsdk:"ou_id"`
-	StartDatecode types.String `tfsdk:"start_datecode"`
+	Id            types.Int64    `tfsdk:"id"`
+	Description   types.String   `tfsdk:"description"`
+	EndDatecode   types.String   `tfsdk:"end_datecode"`
+	Name          types.String   `tfsdk:"name"`
+	OuId          types.Int64    `tfsdk:"ou_id"`
+	StartDatecode types.String   `tfsdk:"start_datecode"`
+	Filter        []filter.Model `tfsdk:"filter"`
+	List          types.List     `tfsdk:"list"`
 }

@@ -3,11 +3,15 @@
 package category
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"terraform-provider-kion/internal/conns"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
 
 func init() {
@@ -17,16 +21,47 @@ func init() {
 	})
 }
 
+// sweepCategory reads GetCategories (not paginated: one call yields the whole
+// collection) collecting ids whose test resources carry the acceptance-test
+// prefix, then deletes them via DeleteCategoryByID.
 func sweepCategory(_ string) error {
 	conn, err := conns.SharedClient()
 	if err != nil {
 		return fmt.Errorf("getting shared client: %w", err)
 	}
-	_ = conn
+	ctx := context.Background()
 
-	// TODO: list kion_category resources with the "test-acc" prefix and
-	// delete each via conn.Client.DeleteCategoryByID.
-	// A real list+delete sweeper needs paginated-list-envelope resolution — see
-	// the CRUD generator follow-up plan.
+	var ids []int64
+	// GetCategories is not paginated: one call returns the whole collection.
+	out, err := conn.Client.GetCategories(ctx)
+	if err != nil {
+		return fmt.Errorf("listing kion_category: %w", err)
+	}
+	if resp, ok := out.(*generated.CategoryListResponse); ok {
+		items := resp.Data
+		for _, item := range items {
+			if item.ID.Set && sweepCategoryMatch(item) {
+				ids = append(ids, int64(item.ID.Value))
+			}
+		}
+	}
+
+	for _, id := range ids {
+		if _, err := conn.Client.DeleteCategoryByID(ctx, generated.DeleteCategoryByIDParams{ID: id}); err != nil {
+			return fmt.Errorf("deleting kion_category (%d): %w", id, err)
+		}
+	}
 	return nil
+}
+
+func sweepCategoryMatch(item generated.Category) bool {
+	for _, s := range []string{
+		item.Description.Or(""),
+		item.Name.Or(""),
+	} {
+		if strings.HasPrefix(s, "test-acc") {
+			return true
+		}
+	}
+	return false
 }

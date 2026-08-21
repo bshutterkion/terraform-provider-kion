@@ -65,7 +65,7 @@ func (g *generator) generateNoRead(dir, name string, ops resOps, idx sdkIndex, m
 	if err != nil {
 		return 0, err
 	}
-	sweepGo, err := renderSweep(rm)
+	sweepGo, _, err := renderSweep(rm)
 	if err != nil {
 		return 0, err
 	}

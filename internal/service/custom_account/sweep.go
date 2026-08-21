@@ -3,11 +3,15 @@
 package custom_account
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"terraform-provider-kion/internal/conns"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
 
 func init() {
@@ -17,16 +21,49 @@ func init() {
 	})
 }
 
+// sweepCustomAccount reads GetAccountIndex (not paginated: one call yields the whole
+// collection) collecting ids whose test resources carry the acceptance-test
+// prefix, then deletes them via DeleteAccount.
 func sweepCustomAccount(_ string) error {
 	conn, err := conns.SharedClient()
 	if err != nil {
 		return fmt.Errorf("getting shared client: %w", err)
 	}
-	_ = conn
+	ctx := context.Background()
 
-	// TODO: list kion_custom_account resources with the "test-acc" prefix and
-	// delete each via conn.Client.DeleteAccount.
-	// A real list+delete sweeper needs paginated-list-envelope resolution — see
-	// the CRUD generator follow-up plan.
+	var ids []int64
+	// GetAccountIndex is not paginated: one call returns the whole collection.
+	out, err := conn.Client.GetAccountIndex(ctx, generated.GetAccountIndexParams{})
+	if err != nil {
+		return fmt.Errorf("listing kion_custom_account: %w", err)
+	}
+	if resp, ok := out.(*generated.AccountListResponse); ok {
+		items := resp.Data
+		for _, item := range items {
+			if item.ID.Set && sweepCustomAccountMatch(item) {
+				ids = append(ids, int64(item.ID.Value))
+			}
+		}
+	}
+
+	for _, id := range ids {
+		if _, err := conn.Client.DeleteAccount(ctx, generated.DeleteAccountParams{ID: id}); err != nil {
+			return fmt.Errorf("deleting kion_custom_account (%d): %w", id, err)
+		}
+	}
 	return nil
+}
+
+func sweepCustomAccountMatch(item generated.Account) bool {
+	for _, s := range []string{
+		item.AccountAlias.Or(""),
+		item.AccountName.Or(""),
+		item.AccountNumber.Or(""),
+		item.StartDatecode.Or(""),
+	} {
+		if strings.HasPrefix(s, "test-acc") {
+			return true
+		}
+	}
+	return false
 }

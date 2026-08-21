@@ -6,21 +6,35 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
 	"terraform-provider-kion/internal/errs"
+	"terraform-provider-kion/internal/filter"
+	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
 )
 
-const DSNameServiceControlPolicy = "ServiceControlPolicy Data Source"
+const (
+	DSNameServiceControlPolicy = "ServiceControlPolicy Data Source"
+)
 
 var (
 	_ datasource.DataSource              = &service_control_policyDataSource{}
 	_ datasource.DataSourceWithConfigure = &service_control_policyDataSource{}
 )
+
+// listObjectAttrTypes is the schema of an entry inside the `list` attribute.
+var listObjectAttrTypes = map[string]attr.Type{
+	"id":          types.Int64Type,
+	"description": types.StringType,
+	"name":        types.StringType,
+	"policy":      types.StringType,
+}
 
 // NewServiceControlPolicyDataSource returns a new instance of the data source.
 func NewServiceControlPolicyDataSource() datasource.DataSource {
@@ -35,14 +49,50 @@ func (d *service_control_policyDataSource) Metadata(_ context.Context, req datas
 	resp.TypeName = req.ProviderTypeName + "_service_control_policy"
 }
 
+// Schema is dual-mode: `id` fetches one by primary key; omitting `id` and
+// supplying `filter` blocks paginates the index and returns every match in
+// `list`. `id` and `filter` are mutually exclusive.
 func (d *service_control_policyDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Use this data source to look up a Kion ServiceControlPolicy by id.",
+		Description: "Use this data source to access information about Kion ServiceControlPolicys. Supports lookup by id (recommended) or by filter blocks (legacy).",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
-				Description: "The ID of the ServiceControlPolicy to fetch.",
-				Required:    true,
+				Description: "The ID of a single service_control_policy to fetch. Mutually exclusive with `filter` blocks.",
+				Optional:    true,
+				Computed:    true,
 			},
+			"description": schema.StringAttribute{
+				Computed: true,
+			},
+			"name": schema.StringAttribute{
+				Computed: true,
+			},
+			"policy": schema.StringAttribute{
+				Computed: true,
+			},
+			"list": schema.ListNestedAttribute{
+				Description: "All service_control_policys matching the supplied id or filter blocks.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"description": schema.StringAttribute{
+							Computed: true,
+						},
+						"name": schema.StringAttribute{
+							Computed: true,
+						},
+						"policy": schema.StringAttribute{
+							Computed: true,
+						},
+					},
+				},
+			},
+		},
+		Blocks: map[string]schema.Block{
+			"filter": filter.Schema(),
 		},
 	}
 }
@@ -56,26 +106,155 @@ func (d *service_control_policyDataSource) Read(ctx context.Context, req datasou
 		return
 	}
 
-	out, err := conn.GetServiceControlPolicy(ctx, generated.GetServiceControlPolicyParams{ID: data.Id.ValueInt64()})
-	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameServiceControlPolicy), err.Error())
+	idSet := !data.Id.IsNull() && !data.Id.IsUnknown()
+	filterSet := len(data.Filter) > 0
+
+	if idSet && filterSet {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("invalid %s configuration", DSNameServiceControlPolicy),
+			"`id` and `filter` blocks are mutually exclusive.",
+		)
 		return
 	}
 
-	if errs.IsNotFound(out) {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameServiceControlPolicy), "service_control_policy not found")
-		return
+	if idSet {
+		d.readByID(ctx, conn, &data, &resp.Diagnostics)
+	} else {
+		d.readByFilter(ctx, conn, &data, &resp.Diagnostics)
 	}
 
-	api, ok := out.(*generated.ServiceControlPolicyResponse)
-	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameServiceControlPolicy, out)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
+func (d *service_control_policyDataSource) readByID(ctx context.Context, conn *generated.Client, data *service_control_policyDataSourceModel, diags *diag.Diagnostics) {
+	out, err := conn.GetServiceControlPolicy(ctx, generated.GetServiceControlPolicyParams{ID: data.Id.ValueInt64()})
+	if err != nil {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameServiceControlPolicy), err.Error())
+		return
+	}
+	if errs.IsNotFound(out) {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameServiceControlPolicy), "service_control_policy not found")
+		return
+	}
+	api, ok := out.(*generated.ServiceControlPolicyResponse)
+	if !ok || !api.Data.Set {
+		diags.Append(errs.ResponseDiagnostics("reading "+DSNameServiceControlPolicy, out)...)
+		return
+	}
+
+	lbl := api.Data.Value
+	data.Id = flex.OptUint64ToFramework(lbl.ServiceControlPolicy.Value.ID)
+	data.Description = flex.OptStringToFramework(lbl.ServiceControlPolicy.Value.Description)
+	data.Name = flex.OptStringToFramework(lbl.ServiceControlPolicy.Value.Name)
+	data.Policy = flex.OptStringToFramework(lbl.ServiceControlPolicy.Value.Policy)
+
+	listVal, listDiags := buildServiceControlPolicyList(ctx, []generated.ServiceControlPolicyWithOwners{lbl})
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+}
+
+func (d *service_control_policyDataSource) readByFilter(ctx context.Context, conn *generated.Client, data *service_control_policyDataSourceModel, diags *diag.Diagnostics) {
+	all, fetchDiags := fetchAllServiceControlPolicy(ctx, conn)
+	diags.Append(fetchDiags...)
+	if diags.HasError() {
+		return
+	}
+
+	matched := make([]generated.ServiceControlPolicyWithOwners, 0, len(all))
+	for _, lbl := range all {
+		ok, matchDiags := filter.Match(ctx, data.Filter, service_control_policyToRow(lbl))
+		diags.Append(matchDiags...)
+		if diags.HasError() {
+			return
+		}
+		if ok {
+			matched = append(matched, lbl)
+		}
+	}
+
+	listVal, listDiags := buildServiceControlPolicyList(ctx, matched)
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+
+	// Scalar fields stay null in filter mode.
+	data.Id = types.Int64Null()
+	data.Description = types.StringNull()
+	data.Name = types.StringNull()
+	data.Policy = types.StringNull()
+}
+
+// fetchAllServiceControlPolicy returns the full set from GetServiceControlPolicyIndex, which is not
+// paginated: one call yields the whole collection.
+func fetchAllServiceControlPolicy(ctx context.Context, conn *generated.Client) ([]generated.ServiceControlPolicyWithOwners, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	var all []generated.ServiceControlPolicyWithOwners
+
+	out, err := conn.GetServiceControlPolicyIndex(ctx)
+	if err != nil {
+		diags.AddError(fmt.Sprintf("listing %s", DSNameServiceControlPolicy), err.Error())
+		return nil, diags
+	}
+	resp, ok := out.(*generated.ServiceControlPolicyListResponse)
+	if !ok {
+		diags.Append(errs.ResponseDiagnostics("listing "+DSNameServiceControlPolicy, out)...)
+		return nil, diags
+	}
+	items := resp.Data
+	all = append(all, items...)
+
+	return all, diags
+}
+
+// service_control_policyToRow converts an element into the map filter.Match expects.
+func service_control_policyToRow(lbl generated.ServiceControlPolicyWithOwners) map[string]any {
+	row := map[string]any{
+		"description": lbl.ServiceControlPolicy.Value.Description.Or(""),
+		"name":        lbl.ServiceControlPolicy.Value.Name.Or(""),
+		"policy":      lbl.ServiceControlPolicy.Value.Policy.Or(""),
+	}
+	if lbl.ServiceControlPolicy.Value.ID.Set {
+		row["id"] = int64(lbl.ServiceControlPolicy.Value.ID.Value)
+	}
+	return row
+}
+
+// buildServiceControlPolicyList converts elements into a types.List of objects.
+func buildServiceControlPolicyList(ctx context.Context, items []generated.ServiceControlPolicyWithOwners) (types.List, diag.Diagnostics) {
+	objs := make([]attr.Value, 0, len(items))
+	for _, lbl := range items {
+		idVal := types.Int64Null()
+		if lbl.ServiceControlPolicy.Value.ID.Set {
+			idVal = types.Int64Value(int64(lbl.ServiceControlPolicy.Value.ID.Value))
+		}
+		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
+			"id":          idVal,
+			"description": types.StringValue(lbl.ServiceControlPolicy.Value.Description.Or("")),
+			"name":        types.StringValue(lbl.ServiceControlPolicy.Value.Name.Or("")),
+			"policy":      types.StringValue(lbl.ServiceControlPolicy.Value.Policy.Or("")),
+		})
+		if objDiags.HasError() {
+			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags
+		}
+		objs = append(objs, obj)
+	}
+	return types.ListValueFrom(ctx, types.ObjectType{AttrTypes: listObjectAttrTypes}, objs)
+}
+
 type service_control_policyDataSourceModel struct {
-	Id types.Int64 `tfsdk:"id"`
+	Id          types.Int64    `tfsdk:"id"`
+	Description types.String   `tfsdk:"description"`
+	Name        types.String   `tfsdk:"name"`
+	Policy      types.String   `tfsdk:"policy"`
+	Filter      []filter.Model `tfsdk:"filter"`
+	List        types.List     `tfsdk:"list"`
 }

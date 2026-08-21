@@ -3,18 +3,12 @@
 package compliance_level
 
 import (
-	"context"
 	"fmt"
-	"strings"
 
 	"terraform-provider-kion/internal/conns"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
-
-const sweepPageSize = 100
 
 func init() {
 	resource.AddTestSweepers("kion_compliance_level", &resource.Sweeper{
@@ -23,66 +17,16 @@ func init() {
 	})
 }
 
-// sweepComplianceLevel paginates GetComplianceLevelPaginatedIndex collecting ids whose test resources
-// carry the acceptance-test prefix, then deletes them via DeleteComplianceLevel.
 func sweepComplianceLevel(_ string) error {
 	conn, err := conns.SharedClient()
 	if err != nil {
 		return fmt.Errorf("getting shared client: %w", err)
 	}
-	ctx := context.Background()
+	_ = conn
 
-	var ids []int64
-	page := int64(1)
-	for {
-		out, err := conn.Client.GetComplianceLevelPaginatedIndex(ctx, generated.GetComplianceLevelPaginatedIndexParams{
-			Page:  generated.NewOptInt64(page),
-			Count: generated.NewOptInt64(int64(sweepPageSize)),
-		})
-		if err != nil {
-			return fmt.Errorf("listing kion_compliance_level: %w", err)
-		}
-		resp, ok := out.(*generated.PaginatedComplianceLevelListResponse)
-		if !ok || !resp.Data.Set {
-			break
-		}
-		items := resp.Data.Value.Items
-		if items.Set && !items.Null {
-			for _, item := range items.Value {
-				if item.ID.Set && sweepComplianceLevelMatch(item) {
-					ids = append(ids, int64(item.ID.Value))
-				}
-			}
-		}
-		total := int64(0)
-		if resp.Data.Value.Total.Set {
-			total = resp.Data.Value.Total.Value
-		}
-		if total > 0 && page*int64(sweepPageSize) >= total {
-			break
-		}
-		if !items.Set || items.Null || len(items.Value) == 0 {
-			break
-		}
-		page++
-	}
-
-	for _, id := range ids {
-		if _, err := conn.Client.DeleteComplianceLevel(ctx, generated.DeleteComplianceLevelParams{ID: id}); err != nil {
-			return fmt.Errorf("deleting kion_compliance_level (%d): %w", id, err)
-		}
-	}
+	// TODO: list kion_compliance_level resources with the "test-acc" prefix and
+	// delete each via conn.Client.DeleteComplianceLevel.
+	// A real sweeper needs both a resolvable collection endpoint and a delete op;
+	// this resource is missing at least one (see the kgen crud run output).
 	return nil
-}
-
-func sweepComplianceLevelMatch(item generated.ComplianceLevel) bool {
-	for _, s := range []string{
-		item.Description.Or(""),
-		item.Name.Or(""),
-	} {
-		if strings.HasPrefix(s, "test-acc") {
-			return true
-		}
-	}
-	return false
 }

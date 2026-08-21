@@ -6,21 +6,41 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
 	"terraform-provider-kion/internal/errs"
+	"terraform-provider-kion/internal/filter"
+	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
 )
 
-const DSNameProjectCloudAccessRole = "ProjectCloudAccessRole Data Source"
+const (
+	DSNameProjectCloudAccessRole = "ProjectCloudAccessRole Data Source"
+)
 
 var (
 	_ datasource.DataSource              = &project_cloud_access_roleDataSource{}
 	_ datasource.DataSourceWithConfigure = &project_cloud_access_roleDataSource{}
 )
+
+// listObjectAttrTypes is the schema of an entry inside the `list` attribute.
+var listObjectAttrTypes = map[string]attr.Type{
+	"id":                     types.Int64Type,
+	"apply_to_all_accounts":  types.BoolType,
+	"aws_iam_path":           types.StringType,
+	"aws_iam_role_name":      types.StringType,
+	"future_accounts":        types.BoolType,
+	"long_term_access_keys":  types.BoolType,
+	"name":                   types.StringType,
+	"project_id":             types.Int64Type,
+	"short_term_access_keys": types.BoolType,
+	"web_access":             types.BoolType,
+}
 
 // NewProjectCloudAccessRoleDataSource returns a new instance of the data source.
 func NewProjectCloudAccessRoleDataSource() datasource.DataSource {
@@ -35,14 +55,86 @@ func (d *project_cloud_access_roleDataSource) Metadata(_ context.Context, req da
 	resp.TypeName = req.ProviderTypeName + "_project_cloud_access_role"
 }
 
+// Schema is dual-mode: `id` fetches one by primary key; omitting `id` and
+// supplying `filter` blocks paginates the index and returns every match in
+// `list`. `id` and `filter` are mutually exclusive.
 func (d *project_cloud_access_roleDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Use this data source to look up a Kion ProjectCloudAccessRole by id.",
+		Description: "Use this data source to access information about Kion ProjectCloudAccessRoles. Supports lookup by id (recommended) or by filter blocks (legacy).",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
-				Description: "The ID of the ProjectCloudAccessRole to fetch.",
-				Required:    true,
+				Description: "The ID of a single project_cloud_access_role to fetch. Mutually exclusive with `filter` blocks.",
+				Optional:    true,
+				Computed:    true,
 			},
+			"apply_to_all_accounts": schema.BoolAttribute{
+				Computed: true,
+			},
+			"aws_iam_path": schema.StringAttribute{
+				Computed: true,
+			},
+			"aws_iam_role_name": schema.StringAttribute{
+				Computed: true,
+			},
+			"future_accounts": schema.BoolAttribute{
+				Computed: true,
+			},
+			"long_term_access_keys": schema.BoolAttribute{
+				Computed: true,
+			},
+			"name": schema.StringAttribute{
+				Computed: true,
+			},
+			"project_id": schema.Int64Attribute{
+				Computed: true,
+			},
+			"short_term_access_keys": schema.BoolAttribute{
+				Computed: true,
+			},
+			"web_access": schema.BoolAttribute{
+				Computed: true,
+			},
+			"list": schema.ListNestedAttribute{
+				Description: "All project_cloud_access_roles matching the supplied id or filter blocks.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"apply_to_all_accounts": schema.BoolAttribute{
+							Computed: true,
+						},
+						"aws_iam_path": schema.StringAttribute{
+							Computed: true,
+						},
+						"aws_iam_role_name": schema.StringAttribute{
+							Computed: true,
+						},
+						"future_accounts": schema.BoolAttribute{
+							Computed: true,
+						},
+						"long_term_access_keys": schema.BoolAttribute{
+							Computed: true,
+						},
+						"name": schema.StringAttribute{
+							Computed: true,
+						},
+						"project_id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"short_term_access_keys": schema.BoolAttribute{
+							Computed: true,
+						},
+						"web_access": schema.BoolAttribute{
+							Computed: true,
+						},
+					},
+				},
+			},
+		},
+		Blocks: map[string]schema.Block{
+			"filter": filter.Schema(),
 		},
 	}
 }
@@ -56,26 +148,190 @@ func (d *project_cloud_access_roleDataSource) Read(ctx context.Context, req data
 		return
 	}
 
-	out, err := conn.GetProjectCloudAccessRole(ctx, generated.GetProjectCloudAccessRoleParams{ID: data.Id.ValueInt64()})
-	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameProjectCloudAccessRole), err.Error())
+	idSet := !data.Id.IsNull() && !data.Id.IsUnknown()
+	filterSet := len(data.Filter) > 0
+
+	if idSet && filterSet {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("invalid %s configuration", DSNameProjectCloudAccessRole),
+			"`id` and `filter` blocks are mutually exclusive.",
+		)
 		return
 	}
 
-	if errs.IsNotFound(out) {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameProjectCloudAccessRole), "project_cloud_access_role not found")
-		return
+	if idSet {
+		d.readByID(ctx, conn, &data, &resp.Diagnostics)
+	} else {
+		d.readByFilter(ctx, conn, &data, &resp.Diagnostics)
 	}
 
-	api, ok := out.(*generated.ProjectCloudAccessRoleResponse)
-	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameProjectCloudAccessRole, out)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
+func (d *project_cloud_access_roleDataSource) readByID(ctx context.Context, conn *generated.Client, data *project_cloud_access_roleDataSourceModel, diags *diag.Diagnostics) {
+	out, err := conn.GetProjectCloudAccessRole(ctx, generated.GetProjectCloudAccessRoleParams{ID: data.Id.ValueInt64()})
+	if err != nil {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameProjectCloudAccessRole), err.Error())
+		return
+	}
+	if errs.IsNotFound(out) {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameProjectCloudAccessRole), "project_cloud_access_role not found")
+		return
+	}
+	api, ok := out.(*generated.ProjectCloudAccessRoleResponse)
+	if !ok || !api.Data.Set {
+		diags.Append(errs.ResponseDiagnostics("reading "+DSNameProjectCloudAccessRole, out)...)
+		return
+	}
+
+	lbl := api.Data.Value
+	data.Id = flex.OptUint64ToFramework(lbl.ProjectCloudAccessRole.Value.ID)
+	data.ApplyToAllAccounts = flex.OptNilBoolToFramework(lbl.ProjectCloudAccessRole.Value.ApplyToAllAccounts)
+	data.AwsIamPath = flex.OptStringToFramework(lbl.ProjectCloudAccessRole.Value.AWSIamPath)
+	data.AwsIamRoleName = flex.OptStringToFramework(lbl.ProjectCloudAccessRole.Value.AWSIamRoleName)
+	data.FutureAccounts = flex.OptNilBoolToFramework(lbl.ProjectCloudAccessRole.Value.FutureAccounts)
+	data.LongTermAccessKeys = flex.OptNilBoolToFramework(lbl.ProjectCloudAccessRole.Value.LongTermAccessKeys)
+	data.Name = flex.OptStringToFramework(lbl.ProjectCloudAccessRole.Value.Name)
+	data.ProjectId = flex.OptNilUint64ToFramework(lbl.ProjectCloudAccessRole.Value.ProjectID)
+	data.ShortTermAccessKeys = flex.OptNilBoolToFramework(lbl.ProjectCloudAccessRole.Value.ShortTermAccessKeys)
+	data.WebAccess = flex.OptNilBoolToFramework(lbl.ProjectCloudAccessRole.Value.WebAccess)
+
+	listVal, listDiags := buildProjectCloudAccessRoleList(ctx, []generated.ProjectCloudAccessRoleFull{lbl})
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+}
+
+func (d *project_cloud_access_roleDataSource) readByFilter(ctx context.Context, conn *generated.Client, data *project_cloud_access_roleDataSourceModel, diags *diag.Diagnostics) {
+	all, fetchDiags := fetchAllProjectCloudAccessRole(ctx, conn)
+	diags.Append(fetchDiags...)
+	if diags.HasError() {
+		return
+	}
+
+	matched := make([]generated.ProjectCloudAccessRoleFull, 0, len(all))
+	for _, lbl := range all {
+		ok, matchDiags := filter.Match(ctx, data.Filter, project_cloud_access_roleToRow(lbl))
+		diags.Append(matchDiags...)
+		if diags.HasError() {
+			return
+		}
+		if ok {
+			matched = append(matched, lbl)
+		}
+	}
+
+	listVal, listDiags := buildProjectCloudAccessRoleList(ctx, matched)
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+
+	// Scalar fields stay null in filter mode.
+	data.Id = types.Int64Null()
+	data.ApplyToAllAccounts = types.BoolNull()
+	data.AwsIamPath = types.StringNull()
+	data.AwsIamRoleName = types.StringNull()
+	data.FutureAccounts = types.BoolNull()
+	data.LongTermAccessKeys = types.BoolNull()
+	data.Name = types.StringNull()
+	data.ProjectId = types.Int64Null()
+	data.ShortTermAccessKeys = types.BoolNull()
+	data.WebAccess = types.BoolNull()
+}
+
+// fetchAllProjectCloudAccessRole returns the full set from GetProjectCloudAccessRoleIndex, which is not
+// paginated: one call yields the whole collection.
+func fetchAllProjectCloudAccessRole(ctx context.Context, conn *generated.Client) ([]generated.ProjectCloudAccessRoleFull, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	var all []generated.ProjectCloudAccessRoleFull
+
+	out, err := conn.GetProjectCloudAccessRoleIndex(ctx)
+	if err != nil {
+		diags.AddError(fmt.Sprintf("listing %s", DSNameProjectCloudAccessRole), err.Error())
+		return nil, diags
+	}
+	resp, ok := out.(*generated.ProjectCloudAccessRoleListResponsePaginated)
+	if !ok {
+		diags.Append(errs.ResponseDiagnostics("listing "+DSNameProjectCloudAccessRole, out)...)
+		return nil, diags
+	}
+	if !resp.Data.Set {
+		return all, diags
+	}
+	items := resp.Data.Value.Items
+	if items.Set && !items.Null {
+		all = append(all, items.Value...)
+	}
+
+	return all, diags
+}
+
+// project_cloud_access_roleToRow converts an element into the map filter.Match expects.
+func project_cloud_access_roleToRow(lbl generated.ProjectCloudAccessRoleFull) map[string]any {
+	row := map[string]any{
+		"apply_to_all_accounts":  lbl.ProjectCloudAccessRole.Value.ApplyToAllAccounts.Or(false),
+		"aws_iam_path":           lbl.ProjectCloudAccessRole.Value.AWSIamPath.Or(""),
+		"aws_iam_role_name":      lbl.ProjectCloudAccessRole.Value.AWSIamRoleName.Or(""),
+		"future_accounts":        lbl.ProjectCloudAccessRole.Value.FutureAccounts.Or(false),
+		"long_term_access_keys":  lbl.ProjectCloudAccessRole.Value.LongTermAccessKeys.Or(false),
+		"name":                   lbl.ProjectCloudAccessRole.Value.Name.Or(""),
+		"project_id":             int64(lbl.ProjectCloudAccessRole.Value.ProjectID.Or(0)),
+		"short_term_access_keys": lbl.ProjectCloudAccessRole.Value.ShortTermAccessKeys.Or(false),
+		"web_access":             lbl.ProjectCloudAccessRole.Value.WebAccess.Or(false),
+	}
+	if lbl.ProjectCloudAccessRole.Value.ID.Set {
+		row["id"] = int64(lbl.ProjectCloudAccessRole.Value.ID.Value)
+	}
+	return row
+}
+
+// buildProjectCloudAccessRoleList converts elements into a types.List of objects.
+func buildProjectCloudAccessRoleList(ctx context.Context, items []generated.ProjectCloudAccessRoleFull) (types.List, diag.Diagnostics) {
+	objs := make([]attr.Value, 0, len(items))
+	for _, lbl := range items {
+		idVal := types.Int64Null()
+		if lbl.ProjectCloudAccessRole.Value.ID.Set {
+			idVal = types.Int64Value(int64(lbl.ProjectCloudAccessRole.Value.ID.Value))
+		}
+		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
+			"id":                     idVal,
+			"apply_to_all_accounts":  types.BoolValue(lbl.ProjectCloudAccessRole.Value.ApplyToAllAccounts.Or(false)),
+			"aws_iam_path":           types.StringValue(lbl.ProjectCloudAccessRole.Value.AWSIamPath.Or("")),
+			"aws_iam_role_name":      types.StringValue(lbl.ProjectCloudAccessRole.Value.AWSIamRoleName.Or("")),
+			"future_accounts":        types.BoolValue(lbl.ProjectCloudAccessRole.Value.FutureAccounts.Or(false)),
+			"long_term_access_keys":  types.BoolValue(lbl.ProjectCloudAccessRole.Value.LongTermAccessKeys.Or(false)),
+			"name":                   types.StringValue(lbl.ProjectCloudAccessRole.Value.Name.Or("")),
+			"project_id":             types.Int64Value(int64(lbl.ProjectCloudAccessRole.Value.ProjectID.Or(0))),
+			"short_term_access_keys": types.BoolValue(lbl.ProjectCloudAccessRole.Value.ShortTermAccessKeys.Or(false)),
+			"web_access":             types.BoolValue(lbl.ProjectCloudAccessRole.Value.WebAccess.Or(false)),
+		})
+		if objDiags.HasError() {
+			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags
+		}
+		objs = append(objs, obj)
+	}
+	return types.ListValueFrom(ctx, types.ObjectType{AttrTypes: listObjectAttrTypes}, objs)
+}
+
 type project_cloud_access_roleDataSourceModel struct {
-	Id types.Int64 `tfsdk:"id"`
+	Id                  types.Int64    `tfsdk:"id"`
+	ApplyToAllAccounts  types.Bool     `tfsdk:"apply_to_all_accounts"`
+	AwsIamPath          types.String   `tfsdk:"aws_iam_path"`
+	AwsIamRoleName      types.String   `tfsdk:"aws_iam_role_name"`
+	FutureAccounts      types.Bool     `tfsdk:"future_accounts"`
+	LongTermAccessKeys  types.Bool     `tfsdk:"long_term_access_keys"`
+	Name                types.String   `tfsdk:"name"`
+	ProjectId           types.Int64    `tfsdk:"project_id"`
+	ShortTermAccessKeys types.Bool     `tfsdk:"short_term_access_keys"`
+	WebAccess           types.Bool     `tfsdk:"web_access"`
+	Filter              []filter.Model `tfsdk:"filter"`
+	List                types.List     `tfsdk:"list"`
 }

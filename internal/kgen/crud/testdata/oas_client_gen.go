@@ -44,3 +44,28 @@ func (c *Client) DeleteLabel(ctx context.Context, params DeleteLabelParams) (Del
 func (c *Client) GetLabelIndex(ctx context.Context, params GetLabelIndexParams) (GetLabelIndexRes, error) {
 	return nil, nil
 }
+
+// GetLabelFlat stands in for the many Kion index endpoints whose response puts
+// the items slice directly in `data` and which take no pagination params at all
+// (e.g. GET /v3/user -> UserListResponse{Data []User}).
+//
+// GET /v3/label-flat
+func (c *Client) GetLabelFlat(ctx context.Context) (GetLabelFlatRes, error) {
+	return nil, nil
+}
+
+// GetLabelChild stands in for a nested collection: the items are a real Label
+// slice, but the op cannot be called without a parent id.
+//
+// GET /v3/label/{id}/child
+func (c *Client) GetLabelChild(ctx context.Context, params GetLabelChildParams) (GetLabelChildRes, error) {
+	return nil, nil
+}
+
+// GetLabelForeign stands in for an index whose element type is unrelated to the
+// single read's payload.
+//
+// GET /v3/label-foreign
+func (c *Client) GetLabelForeign(ctx context.Context) (GetLabelForeignRes, error) {
+	return nil, nil
+}

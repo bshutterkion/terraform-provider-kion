@@ -21,9 +21,11 @@ import (
 
 const (
 	{{.DSConst}} = "{{.DSName}}"
+	{{- if .Paginated}}
 
 	// indexPageSize is the per-page count used when paginating {{.ListMethod}}.
 	indexPageSize = 100
+	{{- end}}
 )
 
 var (
@@ -66,6 +68,12 @@ func (d *{{.Pkg}}DataSource) Schema(_ context.Context, _ datasource.SchemaReques
 			{{- range .Attrs}}
 			"{{.TFName}}": schema.{{.SchemaType}}{
 				Computed: true,
+			},
+			{{- end}}
+			{{- range .OuterAttrs}}
+			"{{.TFName}}": schema.{{.SchemaType}}{
+				Description: "Only populated when looking up by `id`; null in filter mode (the collection endpoint does not return it).",
+				Computed:    true,
 			},
 			{{- end}}
 			"list": schema.ListNestedAttribute{
@@ -137,9 +145,12 @@ func (d *{{.Pkg}}DataSource) readByID(ctx context.Context, conn *{{.SDKAlias}}.C
 		return
 	}
 
-	lbl := api.Data.Value
+	lbl := api.Data.Value{{.PayloadPath}}
 	{{- range .Assigns}}
 	data.{{.ModelGo}} = {{.Flatten}}(lbl.{{.SDKGo}})
+	{{- end}}
+	{{- range .OuterAttrs}}
+	data.{{.ModelGo}} = {{.Flatten}}({{$.PayloadExpr}}.{{.SDKGo}})
 	{{- end}}
 
 	listVal, listDiags := build{{.Pascal}}List(ctx, []{{.SDKAlias}}.{{.ElemType}}{lbl})
@@ -180,13 +191,22 @@ func (d *{{.Pkg}}DataSource) readByFilter(ctx context.Context, conn *{{.SDKAlias
 	{{- range .Assigns}}
 	data.{{.ModelGo}} = {{.NullExpr}}
 	{{- end}}
+	{{- range .OuterAttrs}}
+	data.{{.ModelGo}} = {{.NullExpr}}
+	{{- end}}
 }
 
+{{if .Paginated -}}
 // fetchAll{{.Pascal}} paginates {{.ListMethod}} and returns the full set.
+{{- else -}}
+// fetchAll{{.Pascal}} returns the full set from {{.ListMethod}}, which is not
+// paginated: one call yields the whole collection.
+{{- end}}
 func fetchAll{{.Pascal}}(ctx context.Context, conn *{{.SDKAlias}}.Client) ([]{{.SDKAlias}}.{{.ElemType}}, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	var all []{{.SDKAlias}}.{{.ElemType}}
 
+{{ if .Paginated -}}
 	page := int64(1)
 	for {
 		out, err := conn.{{.ListMethod}}(ctx, {{.SDKAlias}}.{{.ListParams}}{
@@ -202,27 +222,58 @@ func fetchAll{{.Pascal}}(ctx context.Context, conn *{{.SDKAlias}}.Client) ([]{{.
 			diags.Append(errs.ResponseDiagnostics("listing "+{{.DSConst}}, out)...)
 			return nil, diags
 		}
-		if !resp.Data.Set {
+		{{- if .EnvelopeGuard}}
+		if !{{.EnvelopeGuard}} {
 			break
 		}
-		items := resp.Data.Value.{{.ItemsGo}}
-		if items.Set{{if .ItemsNil}} && !items.Null{{end}} {
-			all = append(all, items.Value...)
+		{{- end}}
+		items := {{.ItemsExpr}}
+		{{- if .ItemsGuard}}
+		if {{.ItemsGuard}} {
+			all = append(all, {{.ItemsSlice}}...)
 		}
-		{{- if .TotalGo}}
+		{{- else}}
+		all = append(all, {{.ItemsSlice}}...)
+		{{- end}}
+		{{- if .TotalExpr}}
 		total := int64(0)
-		if resp.Data.Value.{{.TotalGo}}.Set {
-			total = resp.Data.Value.{{.TotalGo}}.Value
+		if {{.TotalExpr}}.Set {
+			total = {{.TotalExpr}}.Value
 		}
 		if total > 0 && int64(len(all)) >= total {
 			break
 		}
 		{{- end}}
-		if !items.Set{{if .ItemsNil}} || items.Null{{end}} || len(items.Value) == 0 {
+		if {{.ItemsBreak}} {
 			break
 		}
 		page++
 	}
+{{- else}}
+	out, err := conn.{{.ListMethod}}(ctx{{if .HasParams}}, {{.SDKAlias}}.{{.ListParams}}{}{{end}})
+	if err != nil {
+		diags.AddError(fmt.Sprintf("listing %s", {{.DSConst}}), err.Error())
+		return nil, diags
+	}
+	resp, ok := out.(*{{.SDKAlias}}.{{.ListRespType}})
+	if !ok {
+		diags.Append(errs.ResponseDiagnostics("listing "+{{.DSConst}}, out)...)
+		return nil, diags
+	}
+	{{- if .EnvelopeGuard}}
+	if !{{.EnvelopeGuard}} {
+		return all, diags
+	}
+	{{- end}}
+	items := {{.ItemsExpr}}
+	{{- if .ItemsGuard}}
+	if {{.ItemsGuard}} {
+		all = append(all, {{.ItemsSlice}}...)
+	}
+	{{- else}}
+	all = append(all, {{.ItemsSlice}}...)
+	{{- end}}
+{{- end}}
 
 	return all, diags
 }
@@ -278,6 +329,9 @@ func build{{.Pascal}}List(ctx context.Context, items []{{.SDKAlias}}.{{.ElemType
 type {{.Pkg}}DataSourceModel struct {
 	{{.IDGo}} types.Int64 `tfsdk:"id"`
 	{{- range .Attrs}}
+	{{.ModelGo}} {{.ModelType}} `tfsdk:"{{.TFName}}"`
+	{{- end}}
+	{{- range .OuterAttrs}}
 	{{.ModelGo}} {{.ModelType}} `tfsdk:"{{.TFName}}"`
 	{{- end}}
 	Filter []filter.Model `tfsdk:"filter"`

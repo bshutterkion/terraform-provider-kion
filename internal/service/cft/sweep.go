@@ -3,11 +3,15 @@
 package cft
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"terraform-provider-kion/internal/conns"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
 
 func init() {
@@ -17,16 +21,51 @@ func init() {
 	})
 }
 
+// sweepCft reads GetCFTIndex (not paginated: one call yields the whole
+// collection) collecting ids whose test resources carry the acceptance-test
+// prefix, then deletes them via DeleteCFT.
 func sweepCft(_ string) error {
 	conn, err := conns.SharedClient()
 	if err != nil {
 		return fmt.Errorf("getting shared client: %w", err)
 	}
-	_ = conn
+	ctx := context.Background()
 
-	// TODO: list kion_cft resources with the "test-acc" prefix and
-	// delete each via conn.Client.DeleteCFT.
-	// A real list+delete sweeper needs paginated-list-envelope resolution — see
-	// the CRUD generator follow-up plan.
+	var ids []int64
+	// GetCFTIndex is not paginated: one call returns the whole collection.
+	out, err := conn.Client.GetCFTIndex(ctx)
+	if err != nil {
+		return fmt.Errorf("listing kion_cft: %w", err)
+	}
+	if resp, ok := out.(*generated.CFTListResponseWithOwnersAndTags); ok {
+		items := resp.Data
+		for _, item := range items {
+			if item.Cft.Value.ID.Set && sweepCftMatch(item) {
+				ids = append(ids, int64(item.Cft.Value.ID.Value))
+			}
+		}
+	}
+
+	for _, id := range ids {
+		if _, err := conn.Client.DeleteCFT(ctx, generated.DeleteCFTParams{ID: id}); err != nil {
+			return fmt.Errorf("deleting kion_cft (%d): %w", id, err)
+		}
+	}
 	return nil
+}
+
+func sweepCftMatch(item generated.CFTWithOwnersAndTags) bool {
+	for _, s := range []string{
+		item.Cft.Value.Description.Or(""),
+		item.Cft.Value.Name.Or(""),
+		item.Cft.Value.Policy.Or(""),
+		item.Cft.Value.Region.Or(""),
+		item.Cft.Value.SnsArns.Or(""),
+		item.Cft.Value.TemplateParameters.Or(""),
+	} {
+		if strings.HasPrefix(s, "test-acc") {
+			return true
+		}
+	}
+	return false
 }

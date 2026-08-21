@@ -3,11 +3,15 @@
 package iam_policy
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"terraform-provider-kion/internal/conns"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
 
 func init() {
@@ -17,16 +21,50 @@ func init() {
 	})
 }
 
+// sweepIamPolicy reads GetIAMPolicyIndex (not paginated: one call yields the whole
+// collection) collecting ids whose test resources carry the acceptance-test
+// prefix, then deletes them via DeleteIAMPolicy.
 func sweepIamPolicy(_ string) error {
 	conn, err := conns.SharedClient()
 	if err != nil {
 		return fmt.Errorf("getting shared client: %w", err)
 	}
-	_ = conn
+	ctx := context.Background()
 
-	// TODO: list kion_iam_policy resources with the "test-acc" prefix and
-	// delete each via conn.Client.DeleteIAMPolicy.
-	// A real list+delete sweeper needs paginated-list-envelope resolution — see
-	// the CRUD generator follow-up plan.
+	var ids []int64
+	// GetIAMPolicyIndex is not paginated: one call returns the whole collection.
+	out, err := conn.Client.GetIAMPolicyIndex(ctx)
+	if err != nil {
+		return fmt.Errorf("listing kion_iam_policy: %w", err)
+	}
+	if resp, ok := out.(*generated.IAMPolicyListResponse); ok {
+		items := resp.Data
+		for _, item := range items {
+			if item.IamPolicy.Value.ID.Set && sweepIamPolicyMatch(item) {
+				ids = append(ids, int64(item.IamPolicy.Value.ID.Value))
+			}
+		}
+	}
+
+	for _, id := range ids {
+		if _, err := conn.Client.DeleteIAMPolicy(ctx, generated.DeleteIAMPolicyParams{ID: id}); err != nil {
+			return fmt.Errorf("deleting kion_iam_policy (%d): %w", id, err)
+		}
+	}
 	return nil
+}
+
+func sweepIamPolicyMatch(item generated.IAMPolicyWithOwners) bool {
+	for _, s := range []string{
+		item.IamPolicy.Value.AWSIamPath.Or(""),
+		item.IamPolicy.Value.Description.Or(""),
+		item.IamPolicy.Value.Name.Or(""),
+		item.IamPolicy.Value.PathSuffix.Or(""),
+		item.IamPolicy.Value.Policy.Or(""),
+	} {
+		if strings.HasPrefix(s, "test-acc") {
+			return true
+		}
+	}
+	return false
 }

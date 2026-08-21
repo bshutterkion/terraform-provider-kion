@@ -14,8 +14,8 @@ import (
 	{{.SDKAlias}} "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
 
-const sweepPageSize = 100
-
+{{if .Paginated}}const sweepPageSize = 100
+{{end}}
 func init() {
 	resource.AddTestSweepers("{{.ResourceType}}", &resource.Sweeper{
 		Name: "{{.ResourceType}}",
@@ -23,8 +23,14 @@ func init() {
 	})
 }
 
+{{if .Paginated -}}
 // sweep{{.Pascal}} paginates {{.ListMethod}} collecting ids whose test resources
 // carry the acceptance-test prefix, then deletes them via {{.DeleteMethod}}.
+{{- else -}}
+// sweep{{.Pascal}} reads {{.ListMethod}} (not paginated: one call yields the whole
+// collection) collecting ids whose test resources carry the acceptance-test
+// prefix, then deletes them via {{.DeleteMethod}}.
+{{- end}}
 func sweep{{.Pascal}}(_ string) error {
 	conn, err := conns.SharedClient()
 	if err != nil {
@@ -33,6 +39,7 @@ func sweep{{.Pascal}}(_ string) error {
 	ctx := context.Background()
 
 	var ids []int64
+{{- if .Paginated}}
 	page := int64(1)
 	for {
 		out, err := conn.Client.{{.ListMethod}}(ctx, {{.SDKAlias}}.{{.ListParams}}{
@@ -43,31 +50,64 @@ func sweep{{.Pascal}}(_ string) error {
 			return fmt.Errorf("listing {{.ResourceType}}: %w", err)
 		}
 		resp, ok := out.(*{{.SDKAlias}}.{{.ListRespType}})
-		if !ok || !resp.Data.Set {
+		if !ok{{if .EnvelopeGuard}} || !{{.EnvelopeGuard}}{{end}} {
 			break
 		}
-		items := resp.Data.Value.{{.ItemsGo}}
-		if items.Set{{if .ItemsNil}} && !items.Null{{end}} {
-			for _, item := range items.Value {
+		items := {{.ItemsExpr}}
+		{{- if .ItemsGuard}}
+		if {{.ItemsGuard}} {
+			for _, item := range {{.ItemsSlice}} {
 				if item.{{.IDSDKGo}}.Set && sweep{{.Pascal}}Match(item) {
 					ids = append(ids, int64(item.{{.IDSDKGo}}.Value))
 				}
 			}
 		}
-		{{- if .TotalGo}}
+		{{- else}}
+		for _, item := range {{.ItemsSlice}} {
+			if item.{{.IDSDKGo}}.Set && sweep{{.Pascal}}Match(item) {
+				ids = append(ids, int64(item.{{.IDSDKGo}}.Value))
+			}
+		}
+		{{- end}}
+		{{- if .TotalExpr}}
 		total := int64(0)
-		if resp.Data.Value.{{.TotalGo}}.Set {
-			total = resp.Data.Value.{{.TotalGo}}.Value
+		if {{.TotalExpr}}.Set {
+			total = {{.TotalExpr}}.Value
 		}
 		if total > 0 && page*int64(sweepPageSize) >= total {
 			break
 		}
 		{{- end}}
-		if !items.Set{{if .ItemsNil}} || items.Null{{end}} || len(items.Value) == 0 {
+		if {{.ItemsBreak}} {
 			break
 		}
 		page++
 	}
+{{- else}}
+	// {{.ListMethod}} is not paginated: one call returns the whole collection.
+	out, err := conn.Client.{{.ListMethod}}(ctx{{if .HasParams}}, {{.SDKAlias}}.{{.ListParams}}{}{{end}})
+	if err != nil {
+		return fmt.Errorf("listing {{.ResourceType}}: %w", err)
+	}
+	if resp, ok := out.(*{{.SDKAlias}}.{{.ListRespType}}); ok{{if .EnvelopeGuard}} && {{.EnvelopeGuard}}{{end}} {
+		items := {{.ItemsExpr}}
+		{{- if .ItemsGuard}}
+		if {{.ItemsGuard}} {
+			for _, item := range {{.ItemsSlice}} {
+				if item.{{.IDSDKGo}}.Set && sweep{{.Pascal}}Match(item) {
+					ids = append(ids, int64(item.{{.IDSDKGo}}.Value))
+				}
+			}
+		}
+		{{- else}}
+		for _, item := range {{.ItemsSlice}} {
+			if item.{{.IDSDKGo}}.Set && sweep{{.Pascal}}Match(item) {
+				ids = append(ids, int64(item.{{.IDSDKGo}}.Value))
+			}
+		}
+		{{- end}}
+	}
+{{- end}}
 
 	for _, id := range ids {
 		if _, err := conn.Client.{{.DeleteMethod}}(ctx, {{.SDKAlias}}.{{.DeleteParams}}{ {{.DeleteIDParam}}: {{if eq .DeleteIDType "uint64"}}uint64(id){{else}}id{{end}}}); err != nil {

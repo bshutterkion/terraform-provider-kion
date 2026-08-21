@@ -3,6 +3,7 @@ package crud
 import (
 	"errors"
 	"maps"
+	"strings"
 	"testing"
 )
 
@@ -96,9 +97,22 @@ func TestResolveOp_privateEndpointRefused(t *testing.T) {
 	}
 }
 
-func TestResolveList_label(t *testing.T) {
+// labelRead is the resolved single-read op the list resolution is matched
+// against (its payload type must equal the list element).
+func labelRead(t *testing.T, idx sdkIndex) OpModel {
+	t.Helper()
+	op, err := resolveOp("read", &opRef{Method: "GET", Path: "/v3/label/{id}"}, idx)
+	if err != nil {
+		t.Fatalf("resolveOp read: %v", err)
+	}
+	return *op
+}
+
+// Shape A: Data wraps a struct that holds the items slice plus Total, and the
+// op paginates.
+func TestResolveList_shapeA_paginatedEnvelope(t *testing.T) {
 	idx := fixtureIndex(t)
-	lm, err := resolveList(&opRef{Method: "GET", Path: "/v3/label"}, idx, "Label")
+	lm, err := resolveList(&opRef{Method: "GET", Path: "/v3/label"}, idx, labelRead(t, idx))
 	if err != nil {
 		t.Fatalf("resolveList: %v", err)
 	}
@@ -108,17 +122,78 @@ func TestResolveList_label(t *testing.T) {
 	if lm.RespType != "LabelListPaginatedResponse" || lm.DataInner != "LabelListPaginated" {
 		t.Errorf("resp=%s inner=%s", lm.RespType, lm.DataInner)
 	}
-	if lm.ItemsGo != "Items" || lm.ElemType != "Label" || !lm.ItemsNil {
-		t.Errorf("items=%s elem=%s nil=%v", lm.ItemsGo, lm.ElemType, lm.ItemsNil)
+	if lm.DataDirect || !lm.DataOpt || lm.ElemIsWrapper {
+		t.Errorf("direct=%v opt=%v elemIsWrapper=%v (want false/true/false)", lm.DataDirect, lm.DataOpt, lm.ElemIsWrapper)
 	}
-	if lm.TotalGo != "Total" || lm.PageParam != "Page" || lm.CountParam != "Count" {
-		t.Errorf("total=%s page=%s count=%s", lm.TotalGo, lm.PageParam, lm.CountParam)
+	if lm.ItemsGo != "Items" || lm.ElemType != "Label" || !lm.ItemsNil || !lm.ItemsOpt {
+		t.Errorf("items=%s elem=%s nil=%v opt=%v", lm.ItemsGo, lm.ElemType, lm.ItemsNil, lm.ItemsOpt)
+	}
+	if lm.TotalGo != "Total" || !lm.Paginated || lm.PageParam != "Page" || lm.CountParam != "Count" {
+		t.Errorf("total=%s paginated=%v page=%s count=%s", lm.TotalGo, lm.Paginated, lm.PageParam, lm.CountParam)
+	}
+	a := lm.access()
+	if a.EnvelopeGuard != "resp.Data.Set" || a.ItemsExpr != "resp.Data.Value.Items" || a.TotalExpr != "resp.Data.Value.Total" {
+		t.Errorf("access = %+v", a)
+	}
+	if a.ItemsGuard != "items.Set && !items.Null" || a.ItemsSlice != "items.Value" {
+		t.Errorf("access items = %+v", a)
+	}
+}
+
+// Shape B: Data IS the items slice, and the op takes no pagination params. This
+// is the regression: it used to abort list resolution entirely (the inner type
+// was looked up as the literal string "[]Label"), silently downgrading the data
+// source to id-only.
+func TestResolveList_shapeB_directSliceNotPaginated(t *testing.T) {
+	idx := fixtureIndex(t)
+	lm, err := resolveList(&opRef{Method: "GET", Path: "/v3/label-flat"}, idx, labelRead(t, idx))
+	if err != nil {
+		t.Fatalf("resolveList: %v", err)
+	}
+	if !lm.DataDirect || lm.DataInner != "" {
+		t.Errorf("direct=%v inner=%q (want true/empty)", lm.DataDirect, lm.DataInner)
+	}
+	if lm.ItemsGo != "Data" || lm.ElemType != "Label" || lm.ItemsOpt || lm.ItemsNil {
+		t.Errorf("items=%s elem=%s opt=%v nil=%v", lm.ItemsGo, lm.ElemType, lm.ItemsOpt, lm.ItemsNil)
+	}
+	if lm.Paginated || lm.PageParam != "" || lm.TotalGo != "" {
+		t.Errorf("paginated=%v page=%q total=%q (endpoint has neither)", lm.Paginated, lm.PageParam, lm.TotalGo)
+	}
+	a := lm.access()
+	if a.EnvelopeGuard != "" || a.ItemsExpr != "resp.Data" || a.ItemsSlice != "items" || a.ItemsGuard != "" {
+		t.Errorf("access = %+v", a)
+	}
+	if a.ItemsBreak != "len(items) == 0" || a.TotalExpr != "" || a.HasParams {
+		t.Errorf("access = %+v", a)
+	}
+}
+
+// A collection op whose params carry a required value the data source cannot
+// supply (the parent id of a nested collection) is refused rather than called
+// with a zero id.
+func TestResolveList_requiredParamRefused(t *testing.T) {
+	idx := fixtureIndex(t)
+	_, err := resolveList(&opRef{Method: "GET", Path: "/v3/label/{id}/child"}, idx, labelRead(t, idx))
+	if err == nil {
+		t.Fatal("want refusal for a list op with a required param")
+	}
+	if !strings.Contains(err.Error(), "requires param") {
+		t.Errorf("error should name the unsupplyable param, got %v", err)
+	}
+}
+
+// An items slice of some unrelated type is not the collection for this resource.
+func TestResolveList_elementTypeMismatchRefused(t *testing.T) {
+	idx := fixtureIndex(t)
+	_, err := resolveList(&opRef{Method: "GET", Path: "/v3/label-foreign"}, idx, labelRead(t, idx))
+	if err == nil {
+		t.Fatal("want refusal when the list element is not a type the read yields")
 	}
 }
 
 func TestResolveList_noListOpRefused(t *testing.T) {
 	idx := fixtureIndex(t)
-	if _, err := resolveList(&opRef{Method: "GET", Path: "/v3/nope"}, idx, "Label"); err == nil {
+	if _, err := resolveList(&opRef{Method: "GET", Path: "/v3/nope"}, idx, labelRead(t, idx)); err == nil {
 		t.Fatal("want error for unresolved list op")
 	}
 }

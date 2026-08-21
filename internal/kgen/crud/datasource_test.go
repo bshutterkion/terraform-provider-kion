@@ -8,9 +8,12 @@ import (
 )
 
 func TestRenderDataSource_labelDualMode(t *testing.T) {
-	got, err := renderDataSource(labelResourceModel(t))
+	got, downgrade, err := renderDataSource(labelResourceModel(t))
 	if err != nil {
 		t.Fatalf("renderDataSource: %v", err)
+	}
+	if downgrade != "" {
+		t.Fatalf("label must not be downgraded: %s", downgrade)
 	}
 	if _, err := parser.ParseFile(token.NewFileSet(), "label_data_source.go", got, parser.ParseComments); err != nil {
 		t.Fatalf("does not parse: %v\n%s", err, got)
@@ -34,10 +37,77 @@ func TestRenderDataSource_labelDualMode(t *testing.T) {
 	}
 }
 
+// A shape-B, non-paginated collection must still produce the dual-mode data
+// source: one call, `resp.Data` read as the items slice, no page loop, and no
+// unused indexPageSize constant.
+func TestRenderDataSource_shapeBNotPaginated(t *testing.T) {
+	rm := labelResourceModel(t)
+	lm, err := resolveList(&opRef{Method: "GET", Path: "/v3/label-flat"}, fixtureIndex(t), rm.Read)
+	if err != nil {
+		t.Fatalf("resolveList: %v", err)
+	}
+	rm.List = lm
+
+	got, downgrade, err := renderDataSource(rm)
+	if err != nil {
+		t.Fatalf("renderDataSource: %v", err)
+	}
+	if downgrade != "" {
+		t.Fatalf("shape-B list must not downgrade: %s", downgrade)
+	}
+	if _, err := parser.ParseFile(token.NewFileSet(), "label_data_source.go", got, parser.ParseComments); err != nil {
+		t.Fatalf("does not parse: %v\n%s", err, got)
+	}
+	for _, w := range []string{
+		"filter.Schema()",
+		"conn.GetLabelFlat(ctx)",
+		"items := resp.Data",
+		"all = append(all, items...)",
+	} {
+		if !bytes.Contains(got, []byte(w)) {
+			t.Errorf("shape-B DS missing %q\n%s", w, got)
+		}
+	}
+	for _, unwanted := range []string{"indexPageSize", "page++", "resp.Data.Value", "items.Set"} {
+		if bytes.Contains(got, []byte(unwanted)) {
+			t.Errorf("non-paginated shape-B DS must not emit %q\n%s", unwanted, got)
+		}
+	}
+}
+
+// The sweeper shares the envelope walk, so it must degrade the same way.
+func TestRenderSweep_shapeBNotPaginated(t *testing.T) {
+	rm := labelResourceModel(t)
+	lm, err := resolveList(&opRef{Method: "GET", Path: "/v3/label-flat"}, fixtureIndex(t), rm.Read)
+	if err != nil {
+		t.Fatalf("resolveList: %v", err)
+	}
+	rm.List = lm
+
+	got, note, err := renderSweep(rm)
+	if err != nil {
+		t.Fatalf("renderSweep: %v", err)
+	}
+	if note != "" {
+		t.Fatalf("shape-B sweeper must not fall back: %s", note)
+	}
+	if _, err := parser.ParseFile(token.NewFileSet(), "sweep.go", got, parser.ParseComments); err != nil {
+		t.Fatalf("does not parse: %v\n%s", err, got)
+	}
+	for _, w := range []string{"conn.Client.GetLabelFlat(ctx)", "for _, item := range items {"} {
+		if !bytes.Contains(got, []byte(w)) {
+			t.Errorf("shape-B sweeper missing %q\n%s", w, got)
+		}
+	}
+	if bytes.Contains(got, []byte("sweepPageSize")) {
+		t.Errorf("non-paginated sweeper must not declare sweepPageSize\n%s", got)
+	}
+}
+
 func TestRenderDataSource_idOnlyFallback(t *testing.T) {
 	rm := labelResourceModel(t)
 	rm.List = nil // simulate a resource with no list endpoint
-	got, err := renderDataSource(rm)
+	got, _, err := renderDataSource(rm)
 	if err != nil {
 		t.Fatalf("renderDataSource: %v", err)
 	}

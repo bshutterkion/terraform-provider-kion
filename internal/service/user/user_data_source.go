@@ -6,22 +6,38 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
 	"terraform-provider-kion/internal/errs"
+	"terraform-provider-kion/internal/filter"
 	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
 )
 
-const DSNameUser = "User Data Source"
+const (
+	DSNameUser = "User Data Source"
+)
 
 var (
 	_ datasource.DataSource              = &userDataSource{}
 	_ datasource.DataSourceWithConfigure = &userDataSource{}
 )
+
+// listObjectAttrTypes is the schema of an entry inside the `list` attribute.
+var listObjectAttrTypes = map[string]attr.Type{
+	"id":         types.Int64Type,
+	"email":      types.StringType,
+	"first_name": types.StringType,
+	"idms_id":    types.Int64Type,
+	"last_name":  types.StringType,
+	"phone":      types.StringType,
+	"username":   types.StringType,
+}
 
 // NewUserDataSource returns a new instance of the data source.
 func NewUserDataSource() datasource.DataSource {
@@ -36,17 +52,72 @@ func (d *userDataSource) Metadata(_ context.Context, req datasource.MetadataRequ
 	resp.TypeName = req.ProviderTypeName + "_user"
 }
 
+// Schema is dual-mode: `id` fetches one by primary key; omitting `id` and
+// supplying `filter` blocks paginates the index and returns every match in
+// `list`. `id` and `filter` are mutually exclusive.
 func (d *userDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Use this data source to look up a Kion User by id.",
+		Description: "Use this data source to access information about Kion Users. Supports lookup by id (recommended) or by filter blocks (legacy).",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
-				Description: "The ID of the User to fetch.",
-				Required:    true,
+				Description: "The ID of a single user to fetch. Mutually exclusive with `filter` blocks.",
+				Optional:    true,
+				Computed:    true,
 			},
-			"mfa": schema.Int64Attribute{
+			"email": schema.StringAttribute{
 				Computed: true,
 			},
+			"first_name": schema.StringAttribute{
+				Computed: true,
+			},
+			"idms_id": schema.Int64Attribute{
+				Computed: true,
+			},
+			"last_name": schema.StringAttribute{
+				Computed: true,
+			},
+			"phone": schema.StringAttribute{
+				Computed: true,
+			},
+			"username": schema.StringAttribute{
+				Computed: true,
+			},
+			"mfa": schema.Int64Attribute{
+				Description: "Only populated when looking up by `id`; null in filter mode (the collection endpoint does not return it).",
+				Computed:    true,
+			},
+			"list": schema.ListNestedAttribute{
+				Description: "All users matching the supplied id or filter blocks.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"email": schema.StringAttribute{
+							Computed: true,
+						},
+						"first_name": schema.StringAttribute{
+							Computed: true,
+						},
+						"idms_id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"last_name": schema.StringAttribute{
+							Computed: true,
+						},
+						"phone": schema.StringAttribute{
+							Computed: true,
+						},
+						"username": schema.StringAttribute{
+							Computed: true,
+						},
+					},
+				},
+			},
+		},
+		Blocks: map[string]schema.Block{
+			"filter": filter.Schema(),
 		},
 	}
 }
@@ -60,30 +131,173 @@ func (d *userDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		return
 	}
 
-	out, err := conn.GetUser(ctx, generated.GetUserParams{ID: data.Id.ValueInt64()})
-	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameUser), err.Error())
+	idSet := !data.Id.IsNull() && !data.Id.IsUnknown()
+	filterSet := len(data.Filter) > 0
+
+	if idSet && filterSet {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("invalid %s configuration", DSNameUser),
+			"`id` and `filter` blocks are mutually exclusive.",
+		)
 		return
 	}
 
-	if errs.IsNotFound(out) {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameUser), "user not found")
-		return
+	if idSet {
+		d.readByID(ctx, conn, &data, &resp.Diagnostics)
+	} else {
+		d.readByFilter(ctx, conn, &data, &resp.Diagnostics)
 	}
 
-	api, ok := out.(*generated.UserResponse)
-	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameUser, out)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	v := api.Data.Value
-	data.Mfa = flex.OptUint64ToFramework(v.Mfa)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
+func (d *userDataSource) readByID(ctx context.Context, conn *generated.Client, data *userDataSourceModel, diags *diag.Diagnostics) {
+	out, err := conn.GetUser(ctx, generated.GetUserParams{ID: data.Id.ValueInt64()})
+	if err != nil {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameUser), err.Error())
+		return
+	}
+	if errs.IsNotFound(out) {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameUser), "user not found")
+		return
+	}
+	api, ok := out.(*generated.UserResponse)
+	if !ok || !api.Data.Set {
+		diags.Append(errs.ResponseDiagnostics("reading "+DSNameUser, out)...)
+		return
+	}
+
+	lbl := api.Data.Value.User.Value
+	data.Id = flex.OptUint64ToFramework(lbl.ID)
+	data.Email = flex.OptStringToFramework(lbl.Email)
+	data.FirstName = flex.OptStringToFramework(lbl.FirstName)
+	data.IdmsId = flex.OptNilUint64ToFramework(lbl.IdmsID)
+	data.LastName = flex.OptStringToFramework(lbl.LastName)
+	data.Phone = flex.OptStringToFramework(lbl.Phone)
+	data.Username = flex.OptStringToFramework(lbl.Username)
+	data.Mfa = flex.OptUint64ToFramework(api.Data.Value.Mfa)
+
+	listVal, listDiags := buildUserList(ctx, []generated.User{lbl})
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+}
+
+func (d *userDataSource) readByFilter(ctx context.Context, conn *generated.Client, data *userDataSourceModel, diags *diag.Diagnostics) {
+	all, fetchDiags := fetchAllUser(ctx, conn)
+	diags.Append(fetchDiags...)
+	if diags.HasError() {
+		return
+	}
+
+	matched := make([]generated.User, 0, len(all))
+	for _, lbl := range all {
+		ok, matchDiags := filter.Match(ctx, data.Filter, userToRow(lbl))
+		diags.Append(matchDiags...)
+		if diags.HasError() {
+			return
+		}
+		if ok {
+			matched = append(matched, lbl)
+		}
+	}
+
+	listVal, listDiags := buildUserList(ctx, matched)
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+
+	// Scalar fields stay null in filter mode.
+	data.Id = types.Int64Null()
+	data.Email = types.StringNull()
+	data.FirstName = types.StringNull()
+	data.IdmsId = types.Int64Null()
+	data.LastName = types.StringNull()
+	data.Phone = types.StringNull()
+	data.Username = types.StringNull()
+	data.Mfa = types.Int64Null()
+}
+
+// fetchAllUser returns the full set from GetUserIndex, which is not
+// paginated: one call yields the whole collection.
+func fetchAllUser(ctx context.Context, conn *generated.Client) ([]generated.User, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	var all []generated.User
+
+	out, err := conn.GetUserIndex(ctx, generated.GetUserIndexParams{})
+	if err != nil {
+		diags.AddError(fmt.Sprintf("listing %s", DSNameUser), err.Error())
+		return nil, diags
+	}
+	resp, ok := out.(*generated.UserListResponse)
+	if !ok {
+		diags.Append(errs.ResponseDiagnostics("listing "+DSNameUser, out)...)
+		return nil, diags
+	}
+	items := resp.Data
+	all = append(all, items...)
+
+	return all, diags
+}
+
+// userToRow converts an element into the map filter.Match expects.
+func userToRow(lbl generated.User) map[string]any {
+	row := map[string]any{
+		"email":      lbl.Email.Or(""),
+		"first_name": lbl.FirstName.Or(""),
+		"idms_id":    int64(lbl.IdmsID.Or(0)),
+		"last_name":  lbl.LastName.Or(""),
+		"phone":      lbl.Phone.Or(""),
+		"username":   lbl.Username.Or(""),
+	}
+	if lbl.ID.Set {
+		row["id"] = int64(lbl.ID.Value)
+	}
+	return row
+}
+
+// buildUserList converts elements into a types.List of objects.
+func buildUserList(ctx context.Context, items []generated.User) (types.List, diag.Diagnostics) {
+	objs := make([]attr.Value, 0, len(items))
+	for _, lbl := range items {
+		idVal := types.Int64Null()
+		if lbl.ID.Set {
+			idVal = types.Int64Value(int64(lbl.ID.Value))
+		}
+		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
+			"id":         idVal,
+			"email":      types.StringValue(lbl.Email.Or("")),
+			"first_name": types.StringValue(lbl.FirstName.Or("")),
+			"idms_id":    types.Int64Value(int64(lbl.IdmsID.Or(0))),
+			"last_name":  types.StringValue(lbl.LastName.Or("")),
+			"phone":      types.StringValue(lbl.Phone.Or("")),
+			"username":   types.StringValue(lbl.Username.Or("")),
+		})
+		if objDiags.HasError() {
+			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags
+		}
+		objs = append(objs, obj)
+	}
+	return types.ListValueFrom(ctx, types.ObjectType{AttrTypes: listObjectAttrTypes}, objs)
+}
+
 type userDataSourceModel struct {
-	Id  types.Int64 `tfsdk:"id"`
-	Mfa types.Int64 `tfsdk:"mfa"`
+	Id        types.Int64    `tfsdk:"id"`
+	Email     types.String   `tfsdk:"email"`
+	FirstName types.String   `tfsdk:"first_name"`
+	IdmsId    types.Int64    `tfsdk:"idms_id"`
+	LastName  types.String   `tfsdk:"last_name"`
+	Phone     types.String   `tfsdk:"phone"`
+	Username  types.String   `tfsdk:"username"`
+	Mfa       types.Int64    `tfsdk:"mfa"`
+	Filter    []filter.Model `tfsdk:"filter"`
+	List      types.List     `tfsdk:"list"`
 }

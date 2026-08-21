@@ -217,11 +217,17 @@ func wrapperSliceElem(typeName string, idx sdkIndex) (elem string, nilAware, ok 
 	return "", false, false
 }
 
-// resolveList resolves a paginated-list op (the data-source read) into a
-// listModel: the success response, its Data envelope, the items slice field
-// whose element equals the read payload, the Total field, and the Page/Count
-// params. Any gap returns an error so the caller degrades to id-only output.
-func resolveList(ref *opRef, idx sdkIndex, payloadType string) (*listModel, error) {
+// resolveList resolves a collection op (the data-source read) into a listModel:
+// the success response, its Data envelope, the items slice, the Total field,
+// and the pagination params. Any gap returns an error, and the caller then
+// DOWNGRADES the data source to id-only.
+//
+// The items slice may sit one level down (shape A: Data wraps a struct holding
+// Items) or be the Data field itself (shape B: Data is []Elem). Its element
+// must be a type the single read also yields — either the read payload or the
+// payload's record-wrapper sub-object — so one field mapping serves both the
+// by-id and the by-filter mode.
+func resolveList(ref *opRef, idx sdkIndex, read OpModel) (*listModel, error) {
 	if ref == nil {
 		return nil, fmt.Errorf("no data-source list op configured")
 	}
@@ -242,51 +248,105 @@ func resolveList(ref *opRef, idx sdkIndex, payloadType string) (*listModel, erro
 	}
 	respType := payload[0]
 
-	inner := ""
-	for _, f := range idx.structs[respType].Fields {
+	respStruct := idx.structs[respType]
+	var data Field
+	found := false
+	for _, f := range respStruct.Fields {
 		if f.GoName == "Data" || f.JSONName == "data" {
-			inner = strings.TrimPrefix(f.Type, "Opt")
+			data, found = f, true
+			break
 		}
 	}
-	if inner == "" {
+	if !found {
 		return nil, fmt.Errorf("list envelope %s has no Data field", respType)
 	}
-	innerStruct, ok := idx.structs[inner]
-	if !ok {
-		return nil, fmt.Errorf("list envelope inner %s not found", inner)
+
+	// The element type the read also produces. wrapperType is "" when the read
+	// payload carries the record flat.
+	wrapperType := ""
+	if read.RespWrapperGo != "" {
+		for _, f := range read.RespFields {
+			if f.GoName == read.RespWrapperGo {
+				wrapperType = strings.TrimPrefix(f.Type, "Opt")
+			}
+		}
 	}
 
-	lm := &listModel{Method: m, RespType: respType, DataInner: inner, ElemType: payloadType}
+	lm := &listModel{Method: m, RespType: respType, DataOpt: strings.HasPrefix(data.Type, "Opt")}
 	if m.ParamsType != "" {
 		if p, ok := idx.structs[m.ParamsType]; ok {
 			lm.Params = &p
 		}
 	}
-	for _, f := range innerStruct.Fields {
-		if f.GoName == "Total" {
-			lm.TotalGo = "Total"
+
+	if innerStruct, isEnvelope := idx.structs[strings.TrimPrefix(data.Type, "Opt")]; isEnvelope {
+		// Shape A: Data wraps a struct holding the items slice (and often Total).
+		lm.DataInner = strings.TrimPrefix(data.Type, "Opt")
+		for _, f := range innerStruct.Fields {
+			if f.GoName == "Total" {
+				lm.TotalGo = "Total"
+			}
+			elem, nilAware, ok := wrapperSliceElem(f.Type, idx)
+			if !ok {
+				continue
+			}
+			if elem != read.RespPayload && elem != wrapperType {
+				continue
+			}
+			lm.ItemsGo, lm.ItemsNil, lm.ElemType = f.GoName, nilAware, elem
+			lm.ItemsOpt = !strings.HasPrefix(f.Type, "[]")
+			lm.ElemIsWrapper = elem != read.RespPayload
 		}
-		if elem, nilAware, ok := wrapperSliceElem(f.Type, idx); ok && elem == payloadType {
-			lm.ItemsGo = f.GoName
-			lm.ItemsNil = nilAware
+		if lm.ItemsGo == "" {
+			return nil, fmt.Errorf("list envelope %s holds no []%s items field (read payload)", lm.DataInner, read.RespPayload)
+		}
+	} else {
+		// Shape B: the Data field IS the items slice.
+		elem, nilAware, ok := wrapperSliceElem(data.Type, idx)
+		if !ok {
+			return nil, fmt.Errorf("list envelope %s: Data field type %s is neither a known struct nor a slice", respType, data.Type)
+		}
+		if elem != read.RespPayload && elem != wrapperType {
+			return nil, fmt.Errorf("list envelope %s: Data is []%s but the read yields %s", respType, elem, read.RespPayload)
+		}
+		lm.DataDirect = true
+		lm.ItemsGo, lm.ItemsNil, lm.ElemType = data.GoName, nilAware, elem
+		lm.ItemsOpt = !strings.HasPrefix(data.Type, "[]")
+		lm.ElemIsWrapper = elem != read.RespPayload
+		// A shape-B envelope carries its total (when it has one) at the top level.
+		for _, f := range respStruct.Fields {
+			if f.GoName == "Total" {
+				lm.TotalGo = "Total"
+			}
 		}
 	}
-	if lm.ItemsGo == "" {
-		return nil, fmt.Errorf("list envelope %s has no []%s items field", inner, payloadType)
-	}
+
+	// Pagination is optional: many Kion index endpoints return the whole
+	// collection in one response and take no Page/Count at all. What is NOT
+	// optional is being able to call the op blind — a required param the data
+	// source has no value for (e.g. the parent id of a nested collection) makes
+	// the endpoint unusable here.
 	if lm.Params != nil {
 		for _, f := range lm.Params.Fields {
 			switch f.GoName {
 			case "Page":
-				lm.PageParam = "Page"
+				if f.Type == "OptInt64" {
+					lm.PageParam = "Page"
+				}
 			case "Count":
-				lm.CountParam = "Count"
+				if f.Type == "OptInt64" {
+					lm.CountParam = "Count"
+				}
+			default:
+				// A slice param (an ogen repeated query param) is omitted when nil,
+				// so it is optional despite carrying no Opt wrapper.
+				if !f.Optional && !strings.HasPrefix(f.Type, "[]") {
+					return nil, fmt.Errorf("list op %s requires param %s (%s) that a whole-collection read cannot supply", m.Name, f.GoName, f.Type)
+				}
 			}
 		}
 	}
-	if lm.PageParam == "" || lm.CountParam == "" {
-		return nil, fmt.Errorf("list op %s params lack Page/Count", m.Name)
-	}
+	lm.Paginated = lm.PageParam != "" && lm.CountParam != ""
 	return lm, nil
 }
 
@@ -408,10 +468,10 @@ func resolveResource(name string, ops resOps, ds dsOps, idx sdkIndex, model []Mo
 	// under a sub-object, e.g. CFTWithOwnersAndTags.cft).
 	detectRecordWrapper(&rm.Read, rm.IDField, rm.Fields, idx)
 
-	// The list element must be the domain payload the single read returns, so the
+	// The list element must be a type the single read also yields, so the
 	// dual-mode DS and sweeper reuse the same field mapping.
-	if lm, err := resolveList(ds.Read, idx, rm.Read.RespPayload); err != nil {
-		fmt.Fprintf(os.Stderr, "kgen crud: %s — id-only data source + stub sweeper: %v\n", name, err)
+	if lm, err := resolveList(ds.Read, idx, rm.Read); err != nil {
+		rm.ListDowngrade = err.Error()
 	} else {
 		rm.List = lm
 	}

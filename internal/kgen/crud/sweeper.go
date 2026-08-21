@@ -3,7 +3,6 @@ package crud
 import (
 	_ "embed"
 	"fmt"
-	"os"
 	"slices"
 )
 
@@ -14,18 +13,22 @@ var sweepStubTmpl string
 var sweepRealTmpl string
 
 // renderSweep renders sweep.go. With a resolved list endpoint and a delete op it
-// emits a real list+delete-by-prefix sweeper (self-contained: its own pagination
-// over the resolved envelope, no coupling to the data source). Otherwise, or on
+// emits a real list+delete-by-prefix sweeper (self-contained: its own traversal
+// of the resolved envelope, no coupling to the data source). Otherwise, or on
 // build failure, it emits a registered stub so the package stays complete.
-func renderSweep(rm ResourceModel) ([]byte, error) {
+//
+// The returned note is non-empty when a real sweeper was expected (list + delete
+// both present) but could not be built.
+func renderSweep(rm ResourceModel) (out []byte, note string, err error) {
 	if rm.List != nil && rm.Delete != nil {
-		b, err := renderRealSweep(rm)
-		if err == nil {
-			return b, nil
+		b, berr := renderRealSweep(rm)
+		if berr == nil {
+			return b, "", nil
 		}
-		fmt.Fprintf(os.Stderr, "kgen crud: %s — real sweeper failed (%v); using stub\n", rm.Name, err)
+		note = berr.Error()
 	}
-	return renderStubSweep(rm)
+	b, err := renderStubSweep(rm)
+	return b, note, err
 }
 
 // --- stub sweeper (degradation) ---
@@ -52,18 +55,17 @@ func renderStubSweep(rm ResourceModel) ([]byte, error) {
 // --- real sweeper ---
 
 type realSweepData struct {
+	listAccess
 	Pkg, Pascal, ResourceType  string
 	SDKAlias                   string
 	ElemType                   string
 	ListMethod, ListParams     string
 	ListRespType               string
-	ItemsGo, TotalGo           string
 	PageParam, CountParam      string
-	ItemsNil                   bool
 	DeleteMethod, DeleteParams string
 	DeleteIDParam              string
 	DeleteIDType               string   // "int64" | "uint64" — delete param id Go type
-	IDSDKGo                    string   // payload id field GoName, e.g. "ID"
+	IDSDKGo                    string   // element id access path, e.g. "ID" or "Cft.Value.ID"
 	MatchExprs                 []string // string field accessors, e.g. "item.Key"
 	Prefix                     string
 }
@@ -83,16 +85,17 @@ func buildRealSweepData(rm ResourceModel) (realSweepData, error) {
 		return realSweepData{}, fmt.Errorf("%s sweeper: %w", rm.Name, err)
 	}
 
-	respByJSON := map[string]Field{}
-	for _, f := range rm.Read.RespFields {
-		respByJSON[f.JSONName] = f
-	}
-	idField, ok := respByJSON["id"]
+	view := buildRecordView(rm)
+	idField, ok := view.Fields["id"]
 	if !ok {
 		return realSweepData{}, fmt.Errorf("%s sweeper: response has no id field", rm.Name)
 	}
+	if !listIDOK(idField.Type) {
+		return realSweepData{}, fmt.Errorf("%s sweeper: id field type %q unsupported", rm.Name, idField.Type)
+	}
 
 	d := realSweepData{
+		listAccess:    lm.access(),
 		Pkg:           rm.Name,
 		Pascal:        rm.Pascal,
 		ResourceType:  "kion_" + rm.Name,
@@ -101,30 +104,27 @@ func buildRealSweepData(rm ResourceModel) (realSweepData, error) {
 		ListMethod:    lm.Method.Name,
 		ListParams:    lm.Method.ParamsType,
 		ListRespType:  lm.RespType,
-		ItemsGo:       lm.ItemsGo,
-		TotalGo:       lm.TotalGo,
 		PageParam:     lm.PageParam,
 		CountParam:    lm.CountParam,
-		ItemsNil:      lm.ItemsNil,
 		DeleteMethod:  rm.Delete.Method.Name,
 		DeleteParams:  rm.Delete.Method.ParamsType,
 		DeleteIDParam: delIDParam,
 		DeleteIDType:  delIDType,
-		IDSDKGo:       idField.GoName,
+		IDSDKGo:       view.Paths["id"],
 		Prefix:        "test-acc",
 	}
 
 	// String-valued payload fields drive the prefix match.
 	for _, mf := range rm.Fields {
-		pf, ok := respByJSON[mf.TFSDK]
+		pf, ok := view.Fields[mf.TFSDK]
 		if !ok {
 			continue
 		}
 		switch pf.Type {
 		case "string":
-			d.MatchExprs = append(d.MatchExprs, "item."+pf.GoName)
+			d.MatchExprs = append(d.MatchExprs, "item."+view.Paths[mf.TFSDK])
 		case "OptString":
-			d.MatchExprs = append(d.MatchExprs, "item."+pf.GoName+`.Or("")`)
+			d.MatchExprs = append(d.MatchExprs, "item."+view.Paths[mf.TFSDK]+`.Or("")`)
 		}
 	}
 	if len(d.MatchExprs) == 0 {

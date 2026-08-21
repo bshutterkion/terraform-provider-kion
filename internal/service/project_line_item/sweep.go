@@ -3,11 +3,15 @@
 package project_line_item
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"terraform-provider-kion/internal/conns"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
 
 func init() {
@@ -17,16 +21,46 @@ func init() {
 	})
 }
 
+// sweepProjectLineItem reads GetProjectLineItemAll (not paginated: one call yields the whole
+// collection) collecting ids whose test resources carry the acceptance-test
+// prefix, then deletes them via DeleteProjectLineItem.
 func sweepProjectLineItem(_ string) error {
 	conn, err := conns.SharedClient()
 	if err != nil {
 		return fmt.Errorf("getting shared client: %w", err)
 	}
-	_ = conn
+	ctx := context.Background()
 
-	// TODO: list kion_project_line_item resources with the "test-acc" prefix and
-	// delete each via conn.Client.DeleteProjectLineItem.
-	// A real list+delete sweeper needs paginated-list-envelope resolution — see
-	// the CRUD generator follow-up plan.
+	var ids []int64
+	// GetProjectLineItemAll is not paginated: one call returns the whole collection.
+	out, err := conn.Client.GetProjectLineItemAll(ctx)
+	if err != nil {
+		return fmt.Errorf("listing kion_project_line_item: %w", err)
+	}
+	if resp, ok := out.(*generated.ProjectLineItemListResponse); ok {
+		items := resp.Data
+		for _, item := range items {
+			if item.ID.Set && sweepProjectLineItemMatch(item) {
+				ids = append(ids, int64(item.ID.Value))
+			}
+		}
+	}
+
+	for _, id := range ids {
+		if _, err := conn.Client.DeleteProjectLineItem(ctx, generated.DeleteProjectLineItemParams{ID: id}); err != nil {
+			return fmt.Errorf("deleting kion_project_line_item (%d): %w", id, err)
+		}
+	}
 	return nil
+}
+
+func sweepProjectLineItemMatch(item generated.ProjectLineItem) bool {
+	for _, s := range []string{
+		item.Description.Or(""),
+	} {
+		if strings.HasPrefix(s, "test-acc") {
+			return true
+		}
+	}
+	return false
 }

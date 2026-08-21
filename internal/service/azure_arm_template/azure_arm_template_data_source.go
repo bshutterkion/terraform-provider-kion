@@ -6,21 +6,39 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
 	"terraform-provider-kion/internal/errs"
+	"terraform-provider-kion/internal/filter"
+	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
 )
 
-const DSNameAzureArmTemplate = "AzureArmTemplate Data Source"
+const (
+	DSNameAzureArmTemplate = "AzureArmTemplate Data Source"
+)
 
 var (
 	_ datasource.DataSource              = &azure_arm_templateDataSource{}
 	_ datasource.DataSourceWithConfigure = &azure_arm_templateDataSource{}
 )
+
+// listObjectAttrTypes is the schema of an entry inside the `list` attribute.
+var listObjectAttrTypes = map[string]attr.Type{
+	"id":                       types.Int64Type,
+	"deployment_mode":          types.Int64Type,
+	"description":              types.StringType,
+	"name":                     types.StringType,
+	"resource_group_name":      types.StringType,
+	"resource_group_region_id": types.Int64Type,
+	"template":                 types.StringType,
+	"template_parameters":      types.StringType,
+}
 
 // NewAzureArmTemplateDataSource returns a new instance of the data source.
 func NewAzureArmTemplateDataSource() datasource.DataSource {
@@ -35,14 +53,74 @@ func (d *azure_arm_templateDataSource) Metadata(_ context.Context, req datasourc
 	resp.TypeName = req.ProviderTypeName + "_azure_arm_template"
 }
 
+// Schema is dual-mode: `id` fetches one by primary key; omitting `id` and
+// supplying `filter` blocks paginates the index and returns every match in
+// `list`. `id` and `filter` are mutually exclusive.
 func (d *azure_arm_templateDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Use this data source to look up a Kion AzureArmTemplate by id.",
+		Description: "Use this data source to access information about Kion AzureArmTemplates. Supports lookup by id (recommended) or by filter blocks (legacy).",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
-				Description: "The ID of the AzureArmTemplate to fetch.",
-				Required:    true,
+				Description: "The ID of a single azure_arm_template to fetch. Mutually exclusive with `filter` blocks.",
+				Optional:    true,
+				Computed:    true,
 			},
+			"deployment_mode": schema.Int64Attribute{
+				Computed: true,
+			},
+			"description": schema.StringAttribute{
+				Computed: true,
+			},
+			"name": schema.StringAttribute{
+				Computed: true,
+			},
+			"resource_group_name": schema.StringAttribute{
+				Computed: true,
+			},
+			"resource_group_region_id": schema.Int64Attribute{
+				Computed: true,
+			},
+			"template": schema.StringAttribute{
+				Computed: true,
+			},
+			"template_parameters": schema.StringAttribute{
+				Computed: true,
+			},
+			"list": schema.ListNestedAttribute{
+				Description: "All azure_arm_templates matching the supplied id or filter blocks.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"deployment_mode": schema.Int64Attribute{
+							Computed: true,
+						},
+						"description": schema.StringAttribute{
+							Computed: true,
+						},
+						"name": schema.StringAttribute{
+							Computed: true,
+						},
+						"resource_group_name": schema.StringAttribute{
+							Computed: true,
+						},
+						"resource_group_region_id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"template": schema.StringAttribute{
+							Computed: true,
+						},
+						"template_parameters": schema.StringAttribute{
+							Computed: true,
+						},
+					},
+				},
+			},
+		},
+		Blocks: map[string]schema.Block{
+			"filter": filter.Schema(),
 		},
 	}
 }
@@ -56,26 +134,175 @@ func (d *azure_arm_templateDataSource) Read(ctx context.Context, req datasource.
 		return
 	}
 
-	out, err := conn.GetAzureARMTemplateWithOwners(ctx, generated.GetAzureARMTemplateWithOwnersParams{ID: data.Id.ValueInt64()})
-	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameAzureArmTemplate), err.Error())
+	idSet := !data.Id.IsNull() && !data.Id.IsUnknown()
+	filterSet := len(data.Filter) > 0
+
+	if idSet && filterSet {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("invalid %s configuration", DSNameAzureArmTemplate),
+			"`id` and `filter` blocks are mutually exclusive.",
+		)
 		return
 	}
 
-	if errs.IsNotFound(out) {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameAzureArmTemplate), "azure_arm_template not found")
-		return
+	if idSet {
+		d.readByID(ctx, conn, &data, &resp.Diagnostics)
+	} else {
+		d.readByFilter(ctx, conn, &data, &resp.Diagnostics)
 	}
 
-	api, ok := out.(*generated.AzureARMTemplateResponse)
-	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameAzureArmTemplate, out)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
+func (d *azure_arm_templateDataSource) readByID(ctx context.Context, conn *generated.Client, data *azure_arm_templateDataSourceModel, diags *diag.Diagnostics) {
+	out, err := conn.GetAzureARMTemplateWithOwners(ctx, generated.GetAzureARMTemplateWithOwnersParams{ID: data.Id.ValueInt64()})
+	if err != nil {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameAzureArmTemplate), err.Error())
+		return
+	}
+	if errs.IsNotFound(out) {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameAzureArmTemplate), "azure_arm_template not found")
+		return
+	}
+	api, ok := out.(*generated.AzureARMTemplateResponse)
+	if !ok || !api.Data.Set {
+		diags.Append(errs.ResponseDiagnostics("reading "+DSNameAzureArmTemplate, out)...)
+		return
+	}
+
+	lbl := api.Data.Value
+	data.Id = flex.OptUint64ToFramework(lbl.AzureArmTemplate.Value.ID)
+	data.DeploymentMode = flex.OptUint64ToFramework(lbl.AzureArmTemplate.Value.DeploymentMode)
+	data.Description = flex.OptStringToFramework(lbl.AzureArmTemplate.Value.Description)
+	data.Name = flex.OptStringToFramework(lbl.AzureArmTemplate.Value.Name)
+	data.ResourceGroupName = flex.OptStringToFramework(lbl.AzureArmTemplate.Value.ResourceGroupName)
+	data.ResourceGroupRegionId = flex.OptNilUint64ToFramework(lbl.AzureArmTemplate.Value.ResourceGroupRegionID)
+	data.Template = flex.OptStringToFramework(lbl.AzureArmTemplate.Value.Template)
+	data.TemplateParameters = flex.OptStringToFramework(lbl.AzureArmTemplate.Value.TemplateParameters)
+
+	listVal, listDiags := buildAzureArmTemplateList(ctx, []generated.AzureARMTemplateDefinitionWithOwners{lbl})
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+}
+
+func (d *azure_arm_templateDataSource) readByFilter(ctx context.Context, conn *generated.Client, data *azure_arm_templateDataSourceModel, diags *diag.Diagnostics) {
+	all, fetchDiags := fetchAllAzureArmTemplate(ctx, conn)
+	diags.Append(fetchDiags...)
+	if diags.HasError() {
+		return
+	}
+
+	matched := make([]generated.AzureARMTemplateDefinitionWithOwners, 0, len(all))
+	for _, lbl := range all {
+		ok, matchDiags := filter.Match(ctx, data.Filter, azure_arm_templateToRow(lbl))
+		diags.Append(matchDiags...)
+		if diags.HasError() {
+			return
+		}
+		if ok {
+			matched = append(matched, lbl)
+		}
+	}
+
+	listVal, listDiags := buildAzureArmTemplateList(ctx, matched)
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+
+	// Scalar fields stay null in filter mode.
+	data.Id = types.Int64Null()
+	data.DeploymentMode = types.Int64Null()
+	data.Description = types.StringNull()
+	data.Name = types.StringNull()
+	data.ResourceGroupName = types.StringNull()
+	data.ResourceGroupRegionId = types.Int64Null()
+	data.Template = types.StringNull()
+	data.TemplateParameters = types.StringNull()
+}
+
+// fetchAllAzureArmTemplate returns the full set from GetAzureARMTemplateIndex, which is not
+// paginated: one call yields the whole collection.
+func fetchAllAzureArmTemplate(ctx context.Context, conn *generated.Client) ([]generated.AzureARMTemplateDefinitionWithOwners, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	var all []generated.AzureARMTemplateDefinitionWithOwners
+
+	out, err := conn.GetAzureARMTemplateIndex(ctx)
+	if err != nil {
+		diags.AddError(fmt.Sprintf("listing %s", DSNameAzureArmTemplate), err.Error())
+		return nil, diags
+	}
+	resp, ok := out.(*generated.AzureARMTemplateListResponse)
+	if !ok {
+		diags.Append(errs.ResponseDiagnostics("listing "+DSNameAzureArmTemplate, out)...)
+		return nil, diags
+	}
+	items := resp.Data
+	all = append(all, items...)
+
+	return all, diags
+}
+
+// azure_arm_templateToRow converts an element into the map filter.Match expects.
+func azure_arm_templateToRow(lbl generated.AzureARMTemplateDefinitionWithOwners) map[string]any {
+	row := map[string]any{
+		"deployment_mode":          int64(lbl.AzureArmTemplate.Value.DeploymentMode.Or(0)),
+		"description":              lbl.AzureArmTemplate.Value.Description.Or(""),
+		"name":                     lbl.AzureArmTemplate.Value.Name.Or(""),
+		"resource_group_name":      lbl.AzureArmTemplate.Value.ResourceGroupName.Or(""),
+		"resource_group_region_id": int64(lbl.AzureArmTemplate.Value.ResourceGroupRegionID.Or(0)),
+		"template":                 lbl.AzureArmTemplate.Value.Template.Or(""),
+		"template_parameters":      lbl.AzureArmTemplate.Value.TemplateParameters.Or(""),
+	}
+	if lbl.AzureArmTemplate.Value.ID.Set {
+		row["id"] = int64(lbl.AzureArmTemplate.Value.ID.Value)
+	}
+	return row
+}
+
+// buildAzureArmTemplateList converts elements into a types.List of objects.
+func buildAzureArmTemplateList(ctx context.Context, items []generated.AzureARMTemplateDefinitionWithOwners) (types.List, diag.Diagnostics) {
+	objs := make([]attr.Value, 0, len(items))
+	for _, lbl := range items {
+		idVal := types.Int64Null()
+		if lbl.AzureArmTemplate.Value.ID.Set {
+			idVal = types.Int64Value(int64(lbl.AzureArmTemplate.Value.ID.Value))
+		}
+		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
+			"id":                       idVal,
+			"deployment_mode":          types.Int64Value(int64(lbl.AzureArmTemplate.Value.DeploymentMode.Or(0))),
+			"description":              types.StringValue(lbl.AzureArmTemplate.Value.Description.Or("")),
+			"name":                     types.StringValue(lbl.AzureArmTemplate.Value.Name.Or("")),
+			"resource_group_name":      types.StringValue(lbl.AzureArmTemplate.Value.ResourceGroupName.Or("")),
+			"resource_group_region_id": types.Int64Value(int64(lbl.AzureArmTemplate.Value.ResourceGroupRegionID.Or(0))),
+			"template":                 types.StringValue(lbl.AzureArmTemplate.Value.Template.Or("")),
+			"template_parameters":      types.StringValue(lbl.AzureArmTemplate.Value.TemplateParameters.Or("")),
+		})
+		if objDiags.HasError() {
+			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags
+		}
+		objs = append(objs, obj)
+	}
+	return types.ListValueFrom(ctx, types.ObjectType{AttrTypes: listObjectAttrTypes}, objs)
+}
+
 type azure_arm_templateDataSourceModel struct {
-	Id types.Int64 `tfsdk:"id"`
+	Id                    types.Int64    `tfsdk:"id"`
+	DeploymentMode        types.Int64    `tfsdk:"deployment_mode"`
+	Description           types.String   `tfsdk:"description"`
+	Name                  types.String   `tfsdk:"name"`
+	ResourceGroupName     types.String   `tfsdk:"resource_group_name"`
+	ResourceGroupRegionId types.Int64    `tfsdk:"resource_group_region_id"`
+	Template              types.String   `tfsdk:"template"`
+	TemplateParameters    types.String   `tfsdk:"template_parameters"`
+	Filter                []filter.Model `tfsdk:"filter"`
+	List                  types.List     `tfsdk:"list"`
 }

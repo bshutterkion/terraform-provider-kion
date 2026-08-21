@@ -6,22 +6,35 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
 	"terraform-provider-kion/internal/errs"
+	"terraform-provider-kion/internal/filter"
 	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
 )
 
-const DSNameAccountLinkage = "AccountLinkage Data Source"
+const (
+	DSNameAccountLinkage = "AccountLinkage Data Source"
+)
 
 var (
 	_ datasource.DataSource              = &account_linkageDataSource{}
 	_ datasource.DataSourceWithConfigure = &account_linkageDataSource{}
 )
+
+// listObjectAttrTypes is the schema of an entry inside the `list` attribute.
+var listObjectAttrTypes = map[string]attr.Type{
+	"id":              types.Int64Type,
+	"azure_object_id": types.StringType,
+	"payer_id":        types.Int64Type,
+	"user_id":         types.Int64Type,
+}
 
 // NewAccountLinkageDataSource returns a new instance of the data source.
 func NewAccountLinkageDataSource() datasource.DataSource {
@@ -36,13 +49,17 @@ func (d *account_linkageDataSource) Metadata(_ context.Context, req datasource.M
 	resp.TypeName = req.ProviderTypeName + "_account_linkage"
 }
 
+// Schema is dual-mode: `id` fetches one by primary key; omitting `id` and
+// supplying `filter` blocks paginates the index and returns every match in
+// `list`. `id` and `filter` are mutually exclusive.
 func (d *account_linkageDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Use this data source to look up a Kion AccountLinkage by id.",
+		Description: "Use this data source to access information about Kion AccountLinkages. Supports lookup by id (recommended) or by filter blocks (legacy).",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
-				Description: "The ID of the AccountLinkage to fetch.",
-				Required:    true,
+				Description: "The ID of a single account_linkage to fetch. Mutually exclusive with `filter` blocks.",
+				Optional:    true,
+				Computed:    true,
 			},
 			"azure_object_id": schema.StringAttribute{
 				Computed: true,
@@ -53,6 +70,29 @@ func (d *account_linkageDataSource) Schema(_ context.Context, _ datasource.Schem
 			"user_id": schema.Int64Attribute{
 				Computed: true,
 			},
+			"list": schema.ListNestedAttribute{
+				Description: "All account_linkages matching the supplied id or filter blocks.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"azure_object_id": schema.StringAttribute{
+							Computed: true,
+						},
+						"payer_id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"user_id": schema.Int64Attribute{
+							Computed: true,
+						},
+					},
+				},
+			},
+		},
+		Blocks: map[string]schema.Block{
+			"filter": filter.Schema(),
 		},
 	}
 }
@@ -66,35 +106,155 @@ func (d *account_linkageDataSource) Read(ctx context.Context, req datasource.Rea
 		return
 	}
 
-	out, err := conn.GetSpecificAccountLinkage(ctx, generated.GetSpecificAccountLinkageParams{ID: uint64(data.Id.ValueInt64())})
-	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameAccountLinkage), err.Error())
+	idSet := !data.Id.IsNull() && !data.Id.IsUnknown()
+	filterSet := len(data.Filter) > 0
+
+	if idSet && filterSet {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("invalid %s configuration", DSNameAccountLinkage),
+			"`id` and `filter` blocks are mutually exclusive.",
+		)
 		return
 	}
 
-	if errs.IsNotFound(out) {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameAccountLinkage), "account_linkage not found")
-		return
+	if idSet {
+		d.readByID(ctx, conn, &data, &resp.Diagnostics)
+	} else {
+		d.readByFilter(ctx, conn, &data, &resp.Diagnostics)
 	}
 
-	api, ok := out.(*generated.AzureLinkageResponse)
-	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameAccountLinkage, out)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	v := api.Data.Value
-	data.Id = flex.OptUint64ToFramework(v.ID)
-	data.AzureObjectId = flex.OptStringToFramework(v.AzureObjectID)
-	data.PayerId = flex.OptNilUint64ToFramework(v.PayerID)
-	data.UserId = flex.OptNilUint64ToFramework(v.UserID)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
+func (d *account_linkageDataSource) readByID(ctx context.Context, conn *generated.Client, data *account_linkageDataSourceModel, diags *diag.Diagnostics) {
+	out, err := conn.GetSpecificAccountLinkage(ctx, generated.GetSpecificAccountLinkageParams{ID: uint64(data.Id.ValueInt64())})
+	if err != nil {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameAccountLinkage), err.Error())
+		return
+	}
+	if errs.IsNotFound(out) {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameAccountLinkage), "account_linkage not found")
+		return
+	}
+	api, ok := out.(*generated.AzureLinkageResponse)
+	if !ok || !api.Data.Set {
+		diags.Append(errs.ResponseDiagnostics("reading "+DSNameAccountLinkage, out)...)
+		return
+	}
+
+	lbl := api.Data.Value
+	data.Id = flex.OptUint64ToFramework(lbl.ID)
+	data.AzureObjectId = flex.OptStringToFramework(lbl.AzureObjectID)
+	data.PayerId = flex.OptNilUint64ToFramework(lbl.PayerID)
+	data.UserId = flex.OptNilUint64ToFramework(lbl.UserID)
+
+	listVal, listDiags := buildAccountLinkageList(ctx, []generated.AzureAccountLinkage{lbl})
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+}
+
+func (d *account_linkageDataSource) readByFilter(ctx context.Context, conn *generated.Client, data *account_linkageDataSourceModel, diags *diag.Diagnostics) {
+	all, fetchDiags := fetchAllAccountLinkage(ctx, conn)
+	diags.Append(fetchDiags...)
+	if diags.HasError() {
+		return
+	}
+
+	matched := make([]generated.AzureAccountLinkage, 0, len(all))
+	for _, lbl := range all {
+		ok, matchDiags := filter.Match(ctx, data.Filter, account_linkageToRow(lbl))
+		diags.Append(matchDiags...)
+		if diags.HasError() {
+			return
+		}
+		if ok {
+			matched = append(matched, lbl)
+		}
+	}
+
+	listVal, listDiags := buildAccountLinkageList(ctx, matched)
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+
+	// Scalar fields stay null in filter mode.
+	data.Id = types.Int64Null()
+	data.AzureObjectId = types.StringNull()
+	data.PayerId = types.Int64Null()
+	data.UserId = types.Int64Null()
+}
+
+// fetchAllAccountLinkage returns the full set from GetAllAccountLinkages, which is not
+// paginated: one call yields the whole collection.
+func fetchAllAccountLinkage(ctx context.Context, conn *generated.Client) ([]generated.AzureAccountLinkage, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	var all []generated.AzureAccountLinkage
+
+	out, err := conn.GetAllAccountLinkages(ctx)
+	if err != nil {
+		diags.AddError(fmt.Sprintf("listing %s", DSNameAccountLinkage), err.Error())
+		return nil, diags
+	}
+	resp, ok := out.(*generated.AzureLinkageListResponse)
+	if !ok {
+		diags.Append(errs.ResponseDiagnostics("listing "+DSNameAccountLinkage, out)...)
+		return nil, diags
+	}
+	items := resp.Data
+	all = append(all, items...)
+
+	return all, diags
+}
+
+// account_linkageToRow converts an element into the map filter.Match expects.
+func account_linkageToRow(lbl generated.AzureAccountLinkage) map[string]any {
+	row := map[string]any{
+		"azure_object_id": lbl.AzureObjectID.Or(""),
+		"payer_id":        int64(lbl.PayerID.Or(0)),
+		"user_id":         int64(lbl.UserID.Or(0)),
+	}
+	if lbl.ID.Set {
+		row["id"] = int64(lbl.ID.Value)
+	}
+	return row
+}
+
+// buildAccountLinkageList converts elements into a types.List of objects.
+func buildAccountLinkageList(ctx context.Context, items []generated.AzureAccountLinkage) (types.List, diag.Diagnostics) {
+	objs := make([]attr.Value, 0, len(items))
+	for _, lbl := range items {
+		idVal := types.Int64Null()
+		if lbl.ID.Set {
+			idVal = types.Int64Value(int64(lbl.ID.Value))
+		}
+		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
+			"id":              idVal,
+			"azure_object_id": types.StringValue(lbl.AzureObjectID.Or("")),
+			"payer_id":        types.Int64Value(int64(lbl.PayerID.Or(0))),
+			"user_id":         types.Int64Value(int64(lbl.UserID.Or(0))),
+		})
+		if objDiags.HasError() {
+			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags
+		}
+		objs = append(objs, obj)
+	}
+	return types.ListValueFrom(ctx, types.ObjectType{AttrTypes: listObjectAttrTypes}, objs)
+}
+
 type account_linkageDataSourceModel struct {
-	Id            types.Int64  `tfsdk:"id"`
-	AzureObjectId types.String `tfsdk:"azure_object_id"`
-	PayerId       types.Int64  `tfsdk:"payer_id"`
-	UserId        types.Int64  `tfsdk:"user_id"`
+	Id            types.Int64    `tfsdk:"id"`
+	AzureObjectId types.String   `tfsdk:"azure_object_id"`
+	PayerId       types.Int64    `tfsdk:"payer_id"`
+	UserId        types.Int64    `tfsdk:"user_id"`
+	Filter        []filter.Model `tfsdk:"filter"`
+	List          types.List     `tfsdk:"list"`
 }
