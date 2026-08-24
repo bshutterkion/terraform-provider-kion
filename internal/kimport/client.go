@@ -152,6 +152,16 @@ func unwrap(body json.RawMessage) ([]map[string]any, int, error) {
 		if err := json.Unmarshal(env.Data, &records); err == nil {
 			return records, total, nil
 		}
+		// A doubly-nested envelope: {"status":200,"data":{"items":[...],"total":N,...}}.
+		// Some endpoints (e.g. /v4/billing-source, /v3/label, /beta/scope) wrap
+		// their items/total envelope inside "data" instead of putting it at the
+		// top level. Detect that shape structurally and unwrap the inner
+		// envelope recursively, rather than falling through to the
+		// single-object branch below and returning the envelope itself as one
+		// bogus record.
+		if isNestedEnvelope(env.Data) {
+			return unwrap(env.Data)
+		}
 		// A singleton endpoint returns one object rather than a list.
 		var single map[string]any
 		if err := json.Unmarshal(env.Data, &single); err == nil {
@@ -171,6 +181,21 @@ func unwrap(body json.RawMessage) ([]map[string]any, int, error) {
 		return []map[string]any{single}, -1, nil
 	}
 	return nil, total, nil
+}
+
+// isNestedEnvelope reports whether raw is a JSON object carrying an "items"
+// key, meaning it is itself an envelope (e.g. the inner object of
+// {"status":200,"data":{"pagination":{...},"total":17,"items":[...]}}) rather
+// than a genuine single-object record. The key is checked for presence, not
+// truthiness, so {"items":null} still counts -- that's an empty envelope, not
+// a record named "items".
+func isNestedEnvelope(raw json.RawMessage) bool {
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return false
+	}
+	_, ok := obj["items"]
+	return ok
 }
 
 // List GETs path, unwrapping and paging as needed.

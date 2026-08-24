@@ -2,6 +2,7 @@ package kimport
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -173,6 +174,61 @@ func TestListEmptyItemsEnvelope(t *testing.T) {
 	got, err := NewClient(srv.URL, "k", false).List(context.Background(), "/beta/scope")
 	require.NoError(t, err)
 	assert.Len(t, got, 0)
+}
+
+// TestUnwrapNestedDataEnvelope covers the doubly-nested envelope shape seen
+// on real installs: {"status":200,"data":{"pagination":{...},"total":N,"items":[...]}}.
+// unwrap must recurse into the inner envelope rather than returning it as one
+// bogus record with no id.
+func TestUnwrapNestedDataEnvelope(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name        string
+		body        string
+		wantRecords int
+		wantTotal   int
+	}{
+		{
+			name:        "nested envelope with populated items",
+			body:        `{"status":200,"data":{"pagination":{"augmented":false,"page":1,"count":2,"sort_method":"","sort_order":""},"total":17,"items":[{"id":2,"account_creation":true},{"id":5}]}}`,
+			wantRecords: 2,
+			wantTotal:   17,
+		},
+		{
+			name:        "nested envelope with empty items array",
+			body:        `{"status":200,"data":{"pagination":{"augmented":false,"page":1,"count":0,"sort_method":"","sort_order":""},"total":0,"items":[]}}`,
+			wantRecords: 0,
+			wantTotal:   0,
+		},
+		{
+			name:        "nested envelope with null items",
+			body:        `{"status":200,"data":{"pagination":{"augmented":false,"page":1,"count":0,"sort_method":"","sort_order":""},"total":0,"items":null}}`,
+			wantRecords: 0,
+			wantTotal:   0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			records, total, err := unwrap(json.RawMessage(tt.body))
+			require.NoError(t, err)
+			assert.Len(t, records, tt.wantRecords)
+			assert.Equal(t, tt.wantTotal, total)
+		})
+	}
+}
+
+// TestUnwrapGenuineSingleObjectDataStillOneRecord is a regression guard: a
+// real single-object {"data":{...}} response (no "items" key inside) must
+// still come back as one record, not get swept up by the nested-envelope fix.
+func TestUnwrapGenuineSingleObjectDataStillOneRecord(t *testing.T) {
+	t.Parallel()
+	records, total, err := unwrap(json.RawMessage(`{"status":200,"data":{"id":1,"name":"x"}}`))
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	assert.Equal(t, float64(1), records[0]["id"])
+	assert.Equal(t, "x", records[0]["name"])
+	assert.Equal(t, -1, total)
 }
 
 func TestListErrorIncludesBody(t *testing.T) {
