@@ -58,7 +58,7 @@ No modules.
 | is\_auto\_archived | IsAutoArchived defines whether existing findings should be archived before new findings are reported. | `bool` | `null` | no |
 | owner\_user\_group\_ids | List of groups IDs who will own the Compliance Check. Is required if no owner user IDs are listed. | `set(number)` | `null` | no |
 | owner\_user\_ids | List of user IDs who will own the Compliance Check. Is required if no owner group IDs are listed. | `set(number)` | `null` | no |
-| regions | List of the AWS regions where the compliance check applies. Required when check type id is cloud custodian. | `list(string)` | `null` | no |
+| regions | List of the AWS regions where the compliance check applies. Required when check type id is cloud custodian. | `set(string)` | `null` | no |
 | severity\_type\_id | SeverityTypeID for the severity level of the compliance check 1 - Informational. 2 - Low. 3 - Medium (Default). 4 - High. | `number` | `null` | no |
 
 ## Outputs

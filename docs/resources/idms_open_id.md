@@ -49,7 +49,7 @@ resource "kion_idms_open_id" "example" {
 - `last_name_claim` (String) LastNameClaim defines an optional mapping of an OpenID claim value to a user's last name attribute in Kion
 - `name` (String) Name of the OpenID in the application.
 - `phone_claim` (String) PhoneClaim defines an optional mapping of an OpenID claim value to a user's phone attribute in Kion
-- `scopes` (List of String) Scopes define the claim variables that an OpenID provider will include in an auth request. Specifics depend on the OpenID provider.
+- `scopes` (Set of String) Scopes define the claim variables that an OpenID provider will include in an auth request. Specifics depend on the OpenID provider.
 - `username_claim` (String) UsernameClaim defines an optional mapping of an OpenID claim value to a user's username attribute in Kion. Required to uniquely identify users
 
 ### Read-Only

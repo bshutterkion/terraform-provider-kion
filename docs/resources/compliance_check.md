@@ -72,7 +72,7 @@ Body of the Compliance Check defining what actions will be run.
 - `last_updated` (String) The last time this resource was updated.
 - `owner_user_group_ids` (Set of Number) List of groups IDs who will own the Compliance Check. Is required if no owner user IDs are listed.
 - `owner_user_ids` (Set of Number) List of user IDs who will own the Compliance Check. Is required if no owner group IDs are listed.
-- `regions` (List of String) List of the AWS regions where the compliance check applies. Required when check type id is cloud custodian.
+- `regions` (Set of String) List of the AWS regions where the compliance check applies. Required when check type id is cloud custodian.
 - `severity_type_id` (Number) SeverityTypeID for the severity level of the compliance check
 1 - Informational.
 2 - Low.

@@ -96,7 +96,7 @@ func (r *appConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			"smtp_port":        int64Attr("The SMTP port."),
 			"smtp_skip_verify": boolAttr("Indicates if the app should skip SMTP verification."),
 			"smtp_username":    stringAttr("The SMTP username."),
-			"supported_aws_regions": schema.ListAttribute{
+			"supported_aws_regions": schema.SetAttribute{
 				Description: "The list of supported AWS regions.",
 				Optional:    true,
 				Computed:    true,
@@ -196,7 +196,7 @@ func (r *appConfigResource) apply(ctx context.Context, model *appConfigResourceM
 		SMTPUsername:                  flex.OptStringFromFramework(model.SMTPUsername),
 	}
 	if !model.SupportedAWSRegions.IsNull() && !model.SupportedAWSRegions.IsUnknown() {
-		regions, rd := flex.StringSliceFromFramework(ctx, model.SupportedAWSRegions)
+		regions, rd := flex.StringSliceFromFrameworkSet(ctx, model.SupportedAWSRegions)
 		diags.Append(rd...)
 		if diags.HasError() {
 			return diags
@@ -259,7 +259,7 @@ func flattenAppConfig(apiObject any, model *appConfigResourceModel) diag.Diagnos
 	model.SMTPSkipVerify = flex.OptNilBoolToFramework(ac.SMTPSkipVerify)
 	model.SMTPUsername = flex.OptStringToFramework(ac.SMTPUsername)
 
-	regions, rd := flex.StringSliceToFramework(context.Background(), ac.SupportedAWSRegions.Value)
+	regions, rd := flex.StringSliceToFrameworkSet(context.Background(), ac.SupportedAWSRegions.Value)
 	diags.Append(rd...)
 	model.SupportedAWSRegions = regions
 
@@ -293,5 +293,5 @@ type appConfigResourceModel struct {
 	SMTPPort                     types.Int64  `tfsdk:"smtp_port"`
 	SMTPSkipVerify               types.Bool   `tfsdk:"smtp_skip_verify"`
 	SMTPUsername                 types.String `tfsdk:"smtp_username"`
-	SupportedAWSRegions          types.List   `tfsdk:"supported_aws_regions"`
+	SupportedAWSRegions          types.Set    `tfsdk:"supported_aws_regions"`
 }

@@ -61,7 +61,7 @@ func (d *gcpRegionsDataSource) Read(ctx context.Context, _ datasource.ReadReques
 		return
 	}
 
-	regions, listDiags := flex.StringSliceToFramework(ctx, api.Data)
+	regions, listDiags := flex.StringSliceToFrameworkSet(ctx, api.Data)
 	resp.Diagnostics.Append(listDiags...)
 	if resp.Diagnostics.HasError() {
 		return

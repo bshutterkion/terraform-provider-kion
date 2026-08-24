@@ -1063,6 +1063,25 @@ func Test{{.Pascal}}DataSourceSchema(t *testing.T) {
 // modeled every one of them as a TypeSet.
 const associationSetSuffix = "_ids"
 
+// unorderedListNames are collections whose element type alone does not identify
+// them (they hold strings, not ids) but which are still unordered sets in the
+// API. Evidence, not guesswork: each produced an order-only diff on a real
+// migration — the same members returned in a different order than the
+// configuration listed them.
+//
+// `regions` was originally left ordered on the assumption that a practitioner
+// might care about region order. The migration proved otherwise: the API
+// returned us-west-1 and us-west-2 transposed relative to the imported config,
+// and it was the single remaining difference across 843 resources.
+var unorderedListNames = map[string]bool{
+	"regions":               true,
+	"supported_aws_regions": true,
+	"role_permissions":      true,
+	"role_denials":          true,
+	"notification_emails":   true,
+	"scopes":                true,
+}
+
 // applyAssociationSetDefault retypes `*_ids` list attributes as sets.
 //
 // The OpenAPI spec describes these as JSON arrays, so the generator produced
@@ -1133,7 +1152,9 @@ func applyAssociationSetDefault(node any) error {
 			if et, ok := l["element_type"].(map[string]any); ok {
 				_, isInt64List = et["int64"]
 			}
-			if !isInt64List && !strings.HasSuffix(name, associationSetSuffix) {
+			if !isInt64List &&
+				!strings.HasSuffix(name, associationSetSuffix) &&
+				!unorderedListNames[name] {
 				continue
 			}
 			// Move the `list` node to `set`; the element type and every other

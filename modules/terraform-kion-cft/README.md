@@ -45,7 +45,7 @@ No modules.
 | ---- | ----------- | ---- | ------- | :------: |
 | name | Name of the Cloudformation template in the application. | `string` | n/a | yes |
 | policy | Body of the CloudFormation template in JSON or YAML. | `string` | n/a | yes |
-| regions | List of the AWS regions where the CloudFormation template applies. | `list(string)` | n/a | yes |
+| regions | List of the AWS regions where the CloudFormation template applies. | `set(string)` | n/a | yes |
 | description | Description of the Cloudformation template in the application. | `string` | `null` | no |
 | owner\_user\_group\_ids | List of groups IDs who will own the CloudFormation template. Is required if no user IDs are listed. | `set(number)` | `null` | no |
 | owner\_user\_ids | List of user IDs who will own the CloudFormation template. Is required if no group IDs are listed. | `set(number)` | `null` | no |

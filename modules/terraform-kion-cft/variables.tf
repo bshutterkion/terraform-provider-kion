@@ -36,7 +36,7 @@ variable "region" {
 
 variable "regions" {
   description = "List of the AWS regions where the CloudFormation template applies."
-  type        = list(string)
+  type        = set(string)
 }
 
 variable "sns_arns" {

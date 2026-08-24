@@ -67,14 +67,14 @@ func GcpIamRoleResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "List of user IDs who will own the GCP Role. Is required if no owner group IDs are listed.",
 				MarkdownDescription: "List of user IDs who will own the GCP Role. Is required if no owner group IDs are listed.",
 			},
-			"role_denials": schema.ListAttribute{
+			"role_denials": schema.SetAttribute{
 				ElementType:         types.StringType,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of GCP Permissions to deny when applying this role. Wildcards are supported.",
 				MarkdownDescription: "List of GCP Permissions to deny when applying this role. Wildcards are supported.",
 			},
-			"role_permissions": schema.ListAttribute{
+			"role_permissions": schema.SetAttribute{
 				ElementType:         types.StringType,
 				Required:            true,
 				Description:         "List of GCP Permissions to assign the role",
@@ -94,6 +94,6 @@ type GcpIamRoleModel struct {
 	Name                      types.String `tfsdk:"name"`
 	OwnerUserGroupIds         types.Set    `tfsdk:"owner_user_group_ids"`
 	OwnerUserIds              types.Set    `tfsdk:"owner_user_ids"`
-	RoleDenials               types.List   `tfsdk:"role_denials"`
-	RolePermissions           types.List   `tfsdk:"role_permissions"`
+	RoleDenials               types.Set    `tfsdk:"role_denials"`
+	RolePermissions           types.Set    `tfsdk:"role_permissions"`
 }

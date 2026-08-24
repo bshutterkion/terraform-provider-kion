@@ -53,7 +53,7 @@ Valid values are "custom", "last_month".
 Use endpoint /v3/cloud-rule to get a list of valid cloud rules and IDs.
 - `description` (String) Optional, user-provided description of the enforcement.
 - `enabled` (Boolean) Whether the enforcement is enabled.
-- `notification_emails` (List of String) List of external email addresses that will receive notifications from the enforcement.
+- `notification_emails` (Set of String) List of external email addresses that will receive notifications from the enforcement.
 - `notification_frequency` (String) Frequency of notifications for this enforcement.
 Valid values are "daily".
 - `overburn` (Boolean) Flag that specifies if enforcement will place project in a overburn state when triggered. Options are: true, false.

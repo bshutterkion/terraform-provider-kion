@@ -41,7 +41,7 @@ resource "kion_cft" "example" {
 
 - `name` (String) Name of the Cloudformation template in the application.
 - `policy` (String) Body of the CloudFormation template in JSON or YAML.
-- `regions` (List of String) List of the AWS regions where the CloudFormation template applies.
+- `regions` (Set of String) List of the AWS regions where the CloudFormation template applies.
 
 ### Optional
 

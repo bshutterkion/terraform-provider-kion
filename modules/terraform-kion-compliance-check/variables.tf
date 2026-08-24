@@ -89,7 +89,7 @@ variable "owner_user_ids" {
 
 variable "regions" {
   description = "List of the AWS regions where the compliance check applies. Required when check type id is cloud custodian."
-  type        = list(string)
+  type        = set(string)
   default     = null
 }
 

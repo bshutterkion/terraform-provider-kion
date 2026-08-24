@@ -64,7 +64,7 @@ func CftResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "DEPRECATED! USE THE regions FIELD.\nAWS region where the CloudFormation template applies.",
 				MarkdownDescription: "DEPRECATED! USE THE regions FIELD.\nAWS region where the CloudFormation template applies.",
 			},
-			"regions": schema.ListAttribute{
+			"regions": schema.SetAttribute{
 				ElementType:         types.StringType,
 				Required:            true,
 				Description:         "List of the AWS regions where the CloudFormation template applies.",
@@ -128,7 +128,7 @@ type CftModel struct {
 	OwnerUserIds          types.Set    `tfsdk:"owner_user_ids"`
 	Policy                types.String `tfsdk:"policy"`
 	Region                types.String `tfsdk:"region"`
-	Regions               types.List   `tfsdk:"regions"`
+	Regions               types.Set    `tfsdk:"regions"`
 	SnsArns               types.String `tfsdk:"sns_arns"`
 	Tags                  types.List   `tfsdk:"tags"`
 	TemplateParameters    types.String `tfsdk:"template_parameters"`

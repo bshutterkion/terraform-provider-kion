@@ -43,11 +43,11 @@ variable "owner_user_ids" {
 
 variable "role_denials" {
   description = "List of GCP Permissions to deny when applying this role. Wildcards are supported."
-  type        = list(string)
+  type        = set(string)
   default     = null
 }
 
 variable "role_permissions" {
   description = "List of GCP Permissions to assign the role"
-  type        = list(string)
+  type        = set(string)
 }

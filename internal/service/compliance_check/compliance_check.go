@@ -62,7 +62,7 @@ func (r *compliance_checkResource) Create(ctx context.Context, req resource.Crea
 	resp.Diagnostics.Append(ownerUserGroupIdsDiags...)
 	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserIds)
 	resp.Diagnostics.Append(ownerUserIdsDiags...)
-	regions, regionsDiags := flex.StringSliceFromFramework(ctx, plan.Regions)
+	regions, regionsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.Regions)
 	resp.Diagnostics.Append(regionsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -160,7 +160,7 @@ func (r *compliance_checkResource) Update(ctx context.Context, req resource.Upda
 		return
 	}
 
-	regions, regionsDiags := flex.StringSliceFromFramework(ctx, plan.Regions)
+	regions, regionsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.Regions)
 	resp.Diagnostics.Append(regionsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -270,7 +270,7 @@ func flattenComplianceCheck(ctx context.Context, apiObject any, model *Complianc
 			model.LastScanId = flex.OptNilUint64ToFramework(v.Data.Value.ComplianceCheck.Value.LastScanID)
 			model.Name = flex.OptStringToFramework(v.Data.Value.ComplianceCheck.Value.Name)
 			model.SeverityTypeId = flex.OptNilUint64ToFramework(v.Data.Value.ComplianceCheck.Value.SeverityTypeID)
-			regions, regionsDiags := flex.StringSliceToFramework(ctx, v.Data.Value.ComplianceCheck.Value.Regions)
+			regions, regionsDiags := flex.StringSliceToFrameworkSet(ctx, v.Data.Value.ComplianceCheck.Value.Regions)
 			diags.Append(regionsDiags...)
 			model.Regions = regions
 			var ownerUserGroupsIDs []int64

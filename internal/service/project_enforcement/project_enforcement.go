@@ -87,7 +87,7 @@ func flattenProjectEnforcement(ctx context.Context, rec generated.ProjectEnforce
 	} else {
 		model.CloudRuleId = types.Int64Null()
 	}
-	notificationEmails, _ := flex.StringSliceToFramework(ctx, rec.NotificationEmails.Value)
+	notificationEmails, _ := flex.StringSliceToFrameworkSet(ctx, rec.NotificationEmails.Value)
 	model.NotificationEmails = notificationEmails
 	userGroupIds, _ := flex.Uint64SliceToFrameworkSet(ctx, rec.UserGroupIds.Value)
 	model.UserGroupIds = userGroupIds
@@ -105,7 +105,7 @@ func (r *project_enforcementResource) Create(ctx context.Context, req resource.C
 	}
 	parentID := plan.ProjectId.ValueInt64()
 
-	notificationEmails, notificationEmailsDiags := flex.StringSliceFromFramework(ctx, plan.NotificationEmails)
+	notificationEmails, notificationEmailsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.NotificationEmails)
 	resp.Diagnostics.Append(notificationEmailsDiags...)
 	userIds, userIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserIds)
 	resp.Diagnostics.Append(userIdsDiags...)
@@ -198,7 +198,7 @@ func (r *project_enforcementResource) Update(ctx context.Context, req resource.U
 		return
 	}
 
-	notificationEmails, notificationEmailsDiags := flex.StringSliceFromFramework(ctx, plan.NotificationEmails)
+	notificationEmails, notificationEmailsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.NotificationEmails)
 	resp.Diagnostics.Append(notificationEmailsDiags...)
 	if resp.Diagnostics.HasError() {
 		return

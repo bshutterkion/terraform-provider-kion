@@ -35,7 +35,7 @@ resource "kion_gcp_iam_role" "example" {
 ### Required
 
 - `name` (String) Name of the GCP Role in the application.
-- `role_permissions` (List of String) List of GCP Permissions to assign the role
+- `role_permissions` (Set of String) List of GCP Permissions to assign the role
 
 ### Optional
 
@@ -45,7 +45,7 @@ resource "kion_gcp_iam_role" "example" {
 - `gcp_role_launch_stage` (Number) GCPRoleLaunchStage is the launch stage for a gcp role
 - `owner_user_group_ids` (Set of Number) List of group IDs who will own the GCP Role. Is required if no owner user IDs are listed.
 - `owner_user_ids` (Set of Number) List of user IDs who will own the GCP Role. Is required if no owner group IDs are listed.
-- `role_denials` (List of String) List of GCP Permissions to deny when applying this role. Wildcards are supported.
+- `role_denials` (Set of String) List of GCP Permissions to deny when applying this role. Wildcards are supported.
 
 ### Read-Only
 

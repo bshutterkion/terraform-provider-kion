@@ -65,7 +65,7 @@ No modules.
 | smtp\_port | The SMTP port. | `number` | `null` | no |
 | smtp\_skip\_verify | Indicates if the app should skip SMTP verification. | `bool` | `null` | no |
 | smtp\_username | The SMTP username. | `string` | `null` | no |
-| supported\_aws\_regions | The list of supported AWS regions. | `list(string)` | `null` | no |
+| supported\_aws\_regions | The list of supported AWS regions. | `set(string)` | `null` | no |
 
 ## Outputs
 

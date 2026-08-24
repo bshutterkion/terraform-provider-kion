@@ -26,7 +26,7 @@ variable "enabled" {
 
 variable "notification_emails" {
   description = "List of external email addresses that will receive notifications from the enforcement."
-  type        = list(string)
+  type        = set(string)
   default     = null
 }
 

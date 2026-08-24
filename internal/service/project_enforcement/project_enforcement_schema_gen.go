@@ -49,7 +49,7 @@ func ProjectEnforcementResourceSchema(ctx context.Context) schema.Schema {
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"notification_emails": schema.ListAttribute{
+			"notification_emails": schema.SetAttribute{
 				ElementType:         types.StringType,
 				Optional:            true,
 				Computed:            true,
@@ -135,7 +135,7 @@ type ProjectEnforcementModel struct {
 	Description           types.String `tfsdk:"description"`
 	Enabled               types.Bool   `tfsdk:"enabled"`
 	Id                    types.String `tfsdk:"id"`
-	NotificationEmails    types.List   `tfsdk:"notification_emails"`
+	NotificationEmails    types.Set    `tfsdk:"notification_emails"`
 	NotificationFrequency types.String `tfsdk:"notification_frequency"`
 	Overburn              types.Bool   `tfsdk:"overburn"`
 	ProjectId             types.Int64  `tfsdk:"project_id"`

@@ -70,7 +70,7 @@ func (r *cftResource) Create(ctx context.Context, req resource.CreateRequest, re
 	resp.Diagnostics.Append(ownerUserGroupIdsDiags...)
 	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserIds)
 	resp.Diagnostics.Append(ownerUserIdsDiags...)
-	regions, regionsDiags := flex.StringSliceFromFramework(ctx, plan.Regions)
+	regions, regionsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.Regions)
 	resp.Diagnostics.Append(regionsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -171,7 +171,7 @@ func (r *cftResource) Update(ctx context.Context, req resource.UpdateRequest, re
 			TagValue: flex.OptStringFromFramework(elem.TagValue),
 		})
 	}
-	regions, regionsDiags := flex.StringSliceFromFramework(ctx, plan.Regions)
+	regions, regionsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.Regions)
 	resp.Diagnostics.Append(regionsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -270,7 +270,7 @@ func flattenCft(ctx context.Context, apiObject any, model *CftModel) diag.Diagno
 			model.SnsArns = flex.OptStringToFramework(v.Data.Value.Cft.Value.SnsArns)
 			model.TemplateParameters = flex.OptStringToFramework(v.Data.Value.Cft.Value.TemplateParameters)
 			model.TerminationProtection = flex.OptNilBoolToFramework(v.Data.Value.Cft.Value.TerminationProtection)
-			regions, regionsDiags := flex.StringSliceToFramework(ctx, v.Data.Value.Cft.Value.Regions)
+			regions, regionsDiags := flex.StringSliceToFrameworkSet(ctx, v.Data.Value.Cft.Value.Regions)
 			diags.Append(regionsDiags...)
 			model.Regions = regions
 			var tagsValsElems []TagsValue

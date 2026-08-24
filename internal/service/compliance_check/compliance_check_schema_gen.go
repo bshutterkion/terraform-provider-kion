@@ -134,7 +134,7 @@ func ComplianceCheckResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "List of user IDs who will own the Compliance Check. Is required if no owner group IDs are listed.",
 				MarkdownDescription: "List of user IDs who will own the Compliance Check. Is required if no owner group IDs are listed.",
 			},
-			"regions": schema.ListAttribute{
+			"regions": schema.SetAttribute{
 				ElementType:         types.StringType,
 				Optional:            true,
 				Computed:            true,
@@ -174,6 +174,6 @@ type ComplianceCheckModel struct {
 	Name                  types.String `tfsdk:"name"`
 	OwnerUserGroupIds     types.Set    `tfsdk:"owner_user_group_ids"`
 	OwnerUserIds          types.Set    `tfsdk:"owner_user_ids"`
-	Regions               types.List   `tfsdk:"regions"`
+	Regions               types.Set    `tfsdk:"regions"`
 	SeverityTypeId        types.Int64  `tfsdk:"severity_type_id"`
 }
