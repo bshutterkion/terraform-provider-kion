@@ -285,6 +285,12 @@
       "readable": true,
       "list_path": "/v4/compliance/family",
       "name_field": "name",
+      "parent": {
+        "kind": "compliance_program",
+        "list_path": "/v4/compliance/program",
+        "child_path": "/v4/compliance/program/{parent_id}/family",
+        "parent_id_field": "compliance_program_id"
+      },
       "import_id": {
         "format": "id"
       }
@@ -297,6 +303,12 @@
       "readable": true,
       "list_path": "/v4/compliance/level",
       "name_field": "name",
+      "parent": {
+        "kind": "compliance_program",
+        "list_path": "/v4/compliance/program",
+        "child_path": "/v4/compliance/program/{parent_id}/level",
+        "parent_id_field": "compliance_program_id"
+      },
       "import_id": {
         "format": "id"
       }

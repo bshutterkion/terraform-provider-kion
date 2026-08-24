@@ -15,23 +15,28 @@ import (
 // OutputPath is where Generate writes, relative to the project root.
 const OutputPath = "codegen/import_manifest.json"
 
-// defaultAssociationKeyField is the association key every permission mapping
-// uses. association.gtpl builds its import id as "<parent>/<key>", and for all
-// four (parented) mapping resources the key is the app role.
-const defaultAssociationKeyField = "app_role_id"
+// archetypeInfo is the slice of a crud_archetypes.yaml entry Build needs: the
+// archetype kind plus the two association fields (association.gtpl reads the
+// same two off the same struct — see internal/kgen/crud/assoc.go).
+type archetypeInfo struct {
+	Kind        string
+	KeyField    string
+	ParentField string
+}
 
 // Build assembles the manifest from already-loaded inputs. Pure: no I/O, so the
 // table-driven tests do not need a filesystem.
 //
-//	readPaths  kind -> read path      (generator_config.yaml)
-//	archetypes kind -> archetype kind (crud_archetypes.yaml)
+//	readPaths  kind -> read path        (generator_config.yaml)
+//	archetypes kind -> archetype fields (crud_archetypes.yaml: kind, key_field, parent_field)
 //	tfTypes    every managed resource the provider serves (schema snapshot)
-func Build(readPaths, archetypes map[string]string, tfTypes []string) *Manifest {
+func Build(readPaths map[string]string, archetypes map[string]archetypeInfo, tfTypes []string) *Manifest {
 	out := make([]Resource, 0, len(tfTypes))
 
 	for _, tfType := range tfTypes {
 		kind := strings.TrimPrefix(tfType, "kion_")
-		archetype := archetypes[kind]
+		info := archetypes[kind]
+		archetype := info.Kind
 		if archetype == "" {
 			archetype = "entity"
 		}
@@ -41,7 +46,12 @@ func Build(readPaths, archetypes map[string]string, tfTypes []string) *Manifest 
 			readPath = ExtraListPaths[kind]
 		}
 
-		_, hasParent := ParentPaths[tfType]
+		// hasParent decides the import-id FORMAT. It must come from
+		// crud_archetypes.yaml's declared parent_field, not from ParentPaths --
+		// internal/kgen/crud/assoc.go derives association.gtpl's HasParent the
+		// same way (arch.ParentField != "", erroring "parent_field %q not in
+		// model" otherwise), and the manifest exists to mirror that template.
+		hasParent := info.ParentField != ""
 
 		shape, format, readable, reason := Classify(archetype, readPath, hasParent)
 
@@ -56,6 +66,18 @@ func Build(readPaths, archetypes map[string]string, tfTypes []string) *Manifest 
 			Reason:    reason,
 		}
 
+		// The Parent block decides which ENDPOINTS the enumerator calls, which
+		// is a different concern from hasParent above: it comes from
+		// importmanifest.ParentPaths (authored; codegen has no equivalent).
+		// Attach it whenever an entry exists, independent of read shape --
+		// kion_compliance_family/level classify as ShapeGeneric (they have real
+		// codegen read paths) but their flat lists 405 on real installs, so the
+		// enumerator needs this fallback endpoint present regardless.
+		if p, ok := ParentPaths[tfType]; ok {
+			parent := p
+			r.Parent = &parent
+		}
+
 		switch shape {
 		case ShapeGeneric:
 			r.ListPath = ListPathFrom(readPath)
@@ -66,15 +88,14 @@ func Build(readPaths, archetypes map[string]string, tfTypes []string) *Manifest 
 				r.ListPath = ListPathFrom(readPath)
 			}
 		case ShapeParentList, ShapeAssociation:
-			if p, ok := ParentPaths[tfType]; ok {
-				parent := p
-				r.Parent = &parent
-			} else if p, ok := GlobalAssociationPaths[tfType]; ok {
-				r.ListPath = p
-			} else {
-				r.Readable = false
-				r.ReadShape = ShapeNone
-				r.Reason = "no entry in importmanifest.ParentPaths or GlobalAssociationPaths"
+			if r.Parent == nil {
+				if p, ok := GlobalAssociationPaths[tfType]; ok {
+					r.ListPath = p
+				} else {
+					r.Readable = false
+					r.ReadShape = ShapeNone
+					r.Reason = "no entry in importmanifest.ParentPaths or GlobalAssociationPaths"
+				}
 			}
 			// association.gtpl's ImportState only splits req.ID on "/" in its
 			// {{if .HasParent}} branch; the {{else}} branch (parentless
@@ -82,7 +103,7 @@ func Build(readPaths, archetypes map[string]string, tfTypes []string) *Manifest 
 			// as a plain id. Only claim the parent/key format when there
 			// actually is a parent to split off.
 			if shape == ShapeAssociation && hasParent {
-				r.ImportID.KeyField = defaultAssociationKeyField
+				r.ImportID.KeyField = info.KeyField
 			}
 		}
 
@@ -142,20 +163,26 @@ func loadReadPaths(fsw kfs.FS, path string) (map[string]string, error) {
 	return out, nil
 }
 
-func loadArchetypeKinds(fsw kfs.FS, path string) (map[string]string, error) {
+func loadArchetypeKinds(fsw kfs.FS, path string) (map[string]archetypeInfo, error) {
 	raw, err := fsw.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
 	var doc map[string]struct {
-		Kind string `yaml:"kind"`
+		Kind        string `yaml:"kind"`
+		KeyField    string `yaml:"key_field"`
+		ParentField string `yaml:"parent_field"`
 	}
 	if err := yaml.Unmarshal(raw, &doc); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
-	out := make(map[string]string, len(doc))
+	out := make(map[string]archetypeInfo, len(doc))
 	for kind, entry := range doc {
-		out[kind] = entry.Kind
+		out[kind] = archetypeInfo{
+			Kind:        entry.Kind,
+			KeyField:    entry.KeyField,
+			ParentField: entry.ParentField,
+		}
 	}
 	return out, nil
 }

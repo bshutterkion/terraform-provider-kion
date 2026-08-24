@@ -18,12 +18,16 @@ func fixture() *Manifest {
 			"app_config":                "/v3/app-config",
 			"global_permission_mapping": "",
 		},
-		map[string]string{ // kind -> archetype, from crud_archetypes.yaml
-			"aws_resource_tag":          "no_read",
-			"ou_enforcement":            "parent_list",
-			"ou_permission_mapping":     "association",
-			"app_config":                "singleton",
-			"global_permission_mapping": "association",
+		map[string]archetypeInfo{ // kind -> archetype fields, from crud_archetypes.yaml
+			"aws_resource_tag": {Kind: "no_read"},
+			"ou_enforcement":   {Kind: "parent_list"},
+			"ou_permission_mapping": {
+				Kind: "association", KeyField: "app_role_id", ParentField: "ou_id",
+			},
+			"app_config": {Kind: "singleton"},
+			"global_permission_mapping": {
+				Kind: "association", KeyField: "app_role_id",
+			},
 		},
 		[]string{
 			"kion_ou", "kion_aws_resource_tag", "kion_ou_enforcement",
@@ -117,6 +121,76 @@ func TestBuildParentlessAssociationUsesPlainID(t *testing.T) {
 	assert.Equal(t, FormatID, r.ImportID.Format)
 	assert.Empty(t, r.ImportID.KeyField)
 	assert.True(t, r.Readable)
+}
+
+// TestBuildKeyFieldComesFromArchetypeData guards against re-hardcoding the
+// association key: it must come from crud_archetypes.yaml's key_field, not a
+// package constant. A key_field other than "app_role_id" must still surface
+// verbatim.
+func TestBuildKeyFieldComesFromArchetypeData(t *testing.T) {
+	t.Parallel()
+	m := Build(
+		map[string]string{"widget_permission_mapping": "/v3/widget-permission-mapping/{id}"},
+		map[string]archetypeInfo{
+			"widget_permission_mapping": {
+				Kind: "association", KeyField: "widget_role_id", ParentField: "widget_id",
+			},
+		},
+		[]string{"kion_widget_permission_mapping"},
+	)
+	r := byType(m, "kion_widget_permission_mapping")
+	assert.Equal(t, FormatParentSlashKey, r.ImportID.Format)
+	assert.Equal(t, "widget_role_id", r.ImportID.KeyField)
+}
+
+// TestBuildHasParentComesFromParentFieldNotParentPaths guards the split
+// between the two concerns Build must not conflate: hasParent (the import-id
+// FORMAT) comes from crud_archetypes.yaml's declared parent_field, mirroring
+// how internal/kgen/crud/assoc.go derives association.gtpl's HasParent from
+// arch.ParentField -- never from whether importmanifest.ParentPaths (an
+// authored, not declared, table) happens to have an entry.
+//
+// kion_ou_permission_mapping is used here specifically because it IS present
+// in the real ParentPaths table, to prove the format tracks parent_field even
+// when ParentPaths agrees or disagrees.
+func TestBuildHasParentComesFromParentFieldNotParentPaths(t *testing.T) {
+	t.Parallel()
+	readPaths := map[string]string{"ou_permission_mapping": "/v3/ou-permission-mapping/{id}"}
+	tfTypes := []string{"kion_ou_permission_mapping"}
+
+	withParentField := Build(readPaths, map[string]archetypeInfo{
+		"ou_permission_mapping": {Kind: "association", KeyField: "app_role_id", ParentField: "ou_id"},
+	}, tfTypes)
+	r := byType(withParentField, "kion_ou_permission_mapping")
+	assert.Equal(t, FormatParentSlashKey, r.ImportID.Format)
+	assert.Equal(t, "app_role_id", r.ImportID.KeyField)
+
+	withoutParentField := Build(readPaths, map[string]archetypeInfo{
+		"ou_permission_mapping": {Kind: "association", KeyField: "app_role_id"},
+	}, tfTypes)
+	r2 := byType(withoutParentField, "kion_ou_permission_mapping")
+	assert.Equal(t, FormatID, r2.ImportID.Format)
+	assert.Empty(t, r2.ImportID.KeyField)
+}
+
+// TestBuildGenericShapedResourceWithParentPathsGetsParentBlock guards
+// kion_compliance_family/level's fallback: both have real codegen read paths
+// (ShapeGeneric) but their flat lists 405 on real installs, so the Parent
+// block from ParentPaths must attach regardless of read shape -- not only for
+// ShapeParentList/ShapeAssociation.
+func TestBuildGenericShapedResourceWithParentPathsGetsParentBlock(t *testing.T) {
+	t.Parallel()
+	m := Build(
+		map[string]string{"compliance_family": "/v4/compliance/family/{id}"},
+		map[string]archetypeInfo{},
+		[]string{"kion_compliance_family"},
+	)
+	r := byType(m, "kion_compliance_family")
+	assert.Equal(t, ShapeGeneric, r.ReadShape)
+	assert.Equal(t, "/v4/compliance/family", r.ListPath)
+	require.NotNil(t, r.Parent)
+	assert.Equal(t, "/v4/compliance/program", r.Parent.ListPath)
+	assert.Contains(t, r.Parent.ChildPath, "{parent_id}")
 }
 
 func TestManifestMarshalsDeterministically(t *testing.T) {

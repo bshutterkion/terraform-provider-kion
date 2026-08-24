@@ -281,7 +281,7 @@ crud-force: ## Regenerate ALL CRUD output, overwriting existing files (use after
 
 .PHONY: import-manifest
 import-manifest: ## Generate codegen/import_manifest.json (kgen import-manifest)
-	@go run -tags '' ./cmd/kgen import-manifest
+	@go run ./cmd/kgen import-manifest
 
 .PHONY: generate
 generate: version-gen generate-schemas crud import-manifest ## Regenerate the full generatable surface
