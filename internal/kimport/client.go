@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -18,7 +19,8 @@ import (
 
 const (
 	pageSize  = 100
-	bodyLimit = 512 // max bytes to include in error messages
+	bodyLimit = 512  // max bytes to include in error messages
+	maxPages  = 1000 // hard cap to prevent infinite paging loops
 )
 
 // Lister is the read seam the enumerators depend on, so they can be tested
@@ -88,12 +90,11 @@ func (c *Client) get(ctx context.Context, path string, page int) (json.RawMessag
 
 // truncateBody reads up to bodyLimit bytes from resp.Body and returns a single-line snippet.
 func truncateBody(resp *http.Response) string {
-	buf := make([]byte, bodyLimit+1)
-	n, _ := resp.Body.Read(buf) //nolint:errcheck // body read errors are acceptable here
-	if n == 0 {
+	buf, _ := io.ReadAll(io.LimitReader(resp.Body, int64(bodyLimit)+1)) //nolint:errcheck // body read errors are acceptable here
+	if len(buf) == 0 {
 		return ""
 	}
-	snippet := string(buf[:n])
+	snippet := string(buf)
 	// Remove newlines and tabs for single-line output
 	snippet = strings.Map(func(r rune) rune {
 		if r == '\n' || r == '\t' || r == '\r' {
@@ -102,7 +103,7 @@ func truncateBody(resp *http.Response) string {
 		return r
 	}, snippet)
 	// Cap and add ellipsis if truncated
-	if n > bodyLimit {
+	if len(buf) > bodyLimit {
 		snippet = snippet[:bodyLimit] + "…"
 	}
 	return strings.TrimSpace(snippet)
@@ -187,18 +188,22 @@ func (c *Client) List(ctx context.Context, path string) ([]map[string]any, error
 	}
 
 	for page := 2; len(records) < total; page++ {
+		// Enforce hard cap to prevent infinite loops
+		if page > maxPages {
+			return records, fmt.Errorf("GET %s: paging exceeded max pages (%d)", path, maxPages)
+		}
 		body, err := c.get(ctx, path, page)
 		if err != nil {
 			return records, err
 		}
 		batch, _, err := unwrap(body)
-		// Empty batch is a legitimate stop signal
-		if len(batch) == 0 {
-			break
-		}
 		// An unwrap error on any page is reported with the partial records gathered so far
 		if err != nil {
 			return records, fmt.Errorf("GET %s (page %d): %w", path, page, err)
+		}
+		// Empty batch is a legitimate stop signal
+		if len(batch) == 0 {
+			break
 		}
 		records = append(records, batch...)
 	}

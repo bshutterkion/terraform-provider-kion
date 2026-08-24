@@ -96,7 +96,7 @@ func TestListErrorsOnNon2xx(t *testing.T) {
 	assert.Contains(t, err.Error(), "405")
 }
 
-func TestListPage2Error(t *testing.T) {
+func TestListPage2TransportError(t *testing.T) {
 	t.Parallel()
 	var pageCount int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -114,6 +114,41 @@ func TestListPage2Error(t *testing.T) {
 	require.Error(t, err)
 	assert.Len(t, got, 2) // page 1 records are returned despite page 2 error
 	assert.Contains(t, err.Error(), "500")
+}
+
+func TestListPage2UnwrapError(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("page") == "1" {
+			fmt.Fprint(w, `{"items":[{"id":1},{"id":2}],"total":5}`)
+			return
+		}
+		// Page 2 returns bare JSON that cannot be unwrapped
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, `123`)
+	}))
+	defer srv.Close()
+
+	got, err := NewClient(srv.URL, "k", false).List(context.Background(), "/beta/scope")
+	require.Error(t, err)
+	assert.Len(t, got, 2) // page 1 records are returned despite page 2 unwrap error
+}
+
+func TestListExceedsMaxPages(t *testing.T) {
+	t.Parallel()
+	var pageCount int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		pageCount++
+		// Always return one record with a huge total to force many page requests
+		fmt.Fprint(w, `{"items":[{"id":1}],"total":999999}`)
+	}))
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL, "k", false).List(context.Background(), "/beta/scope")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "max pages")
+	// Should have hit the cap and stopped
+	assert.Less(t, pageCount, 2000)
 }
 
 func TestListNullItemsEnvelope(t *testing.T) {
