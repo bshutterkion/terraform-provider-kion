@@ -1,3 +1,0 @@
-kind: NOTES
-body: "The migration guide is now linked from the provider's registry landing page and from the repository README, and explains how to obtain `kmigrate` \u2014 it is attached to every release as a single dependency-free binary. Previously neither entry point mentioned migration at all, so a practitioner upgrading from the SDKv2 provider had no path to the procedure."
-time: 2026-08-24T13:00:00Z

@@ -1,3 +1,0 @@
-kind: BUG FIXES
-body: "Regenerated the documentation and examples for the 38 data sources whose lookup mode changed. Restoring `filter` support made `id` optional on those data sources, but the registry docs and examples still described `id` as required and showed no `filter` block, so they documented behaviour the released provider no longer had."
-time: 2026-08-24T13:00:00Z
