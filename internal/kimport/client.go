@@ -16,7 +16,10 @@ import (
 	"time"
 )
 
-const pageSize = 100
+const (
+	pageSize  = 100
+	bodyLimit = 512 // max bytes to include in error messages
+)
 
 // Lister is the read seam the enumerators depend on, so they can be tested
 // without a server.
@@ -34,7 +37,11 @@ type Client struct {
 // NewClient builds a Client. baseURL should include any /api prefix the install
 // serves under; an app hit directly serves at the root.
 func NewClient(baseURL, apiKey string, skipSSL bool) *Client {
-	transport := http.DefaultTransport.(*http.Transport).Clone() //nolint:errcheck // Clone always succeeds
+	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		defaultTransport = &http.Transport{}
+	}
+	transport := defaultTransport.Clone()
 	if skipSSL {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec // user-requested
 	}
@@ -66,13 +73,39 @@ func (c *Client) get(ctx context.Context, path string, page int) (json.RawMessag
 	defer func() { _ = resp.Body.Close() }() //nolint:errcheck // close errors are not actionable
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("GET %s: %d %s", path, resp.StatusCode, resp.Status)
+		bodySnippet := truncateBody(resp)
+		if bodySnippet != "" {
+			return nil, fmt.Errorf("GET %s: %s: %s", path, resp.Status, bodySnippet)
+		}
+		return nil, fmt.Errorf("GET %s: %s", path, resp.Status)
 	}
 	var body json.RawMessage
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return nil, fmt.Errorf("GET %s: decode: %w", path, err)
 	}
 	return body, nil
+}
+
+// truncateBody reads up to bodyLimit bytes from resp.Body and returns a single-line snippet.
+func truncateBody(resp *http.Response) string {
+	buf := make([]byte, bodyLimit+1)
+	n, _ := resp.Body.Read(buf) //nolint:errcheck // body read errors are acceptable here
+	if n == 0 {
+		return ""
+	}
+	snippet := string(buf[:n])
+	// Remove newlines and tabs for single-line output
+	snippet = strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\t' || r == '\r' {
+			return ' '
+		}
+		return r
+	}, snippet)
+	// Cap and add ellipsis if truncated
+	if n > bodyLimit {
+		snippet = snippet[:bodyLimit] + "…"
+	}
+	return strings.TrimSpace(snippet)
 }
 
 // unwrap pulls records out of a bare list or an {items|data,total} envelope,
@@ -84,21 +117,35 @@ func unwrap(body json.RawMessage) ([]map[string]any, int, error) {
 	}
 
 	var env struct {
-		Items []map[string]any `json:"items"`
-		Data  json.RawMessage  `json:"data"`
-		Total *int             `json:"total"`
+		Items json.RawMessage `json:"items"`
+		Data  json.RawMessage `json:"data"`
+		Total *int            `json:"total"`
 	}
 	if err := json.Unmarshal(body, &env); err != nil {
 		return nil, -1, err
 	}
 
 	total := -1
+	isEnvelope := false
 	if env.Total != nil {
 		total = *env.Total
+		isEnvelope = true
 	}
-	if env.Items != nil {
-		return env.Items, total, nil
+
+	// Handle items field (may be null or empty)
+	if len(env.Items) > 0 {
+		var records []map[string]any
+		if err := json.Unmarshal(env.Items, &records); err == nil {
+			return records, total, nil
+		}
+		// A singleton endpoint returns one object rather than a list.
+		var single map[string]any
+		if err := json.Unmarshal(env.Items, &single); err == nil {
+			return []map[string]any{single}, total, nil
+		}
 	}
+
+	// Handle data field (may be null or empty)
 	if len(env.Data) > 0 {
 		var records []map[string]any
 		if err := json.Unmarshal(env.Data, &records); err == nil {
@@ -109,6 +156,12 @@ func unwrap(body json.RawMessage) ([]map[string]any, int, error) {
 		if err := json.Unmarshal(env.Data, &single); err == nil {
 			return []map[string]any{single}, total, nil
 		}
+	}
+
+	// If we detected an envelope (total field present), return empty list.
+	// Never return the envelope itself as a record.
+	if isEnvelope {
+		return []map[string]any{}, total, nil
 	}
 
 	// A bare singleton object with no envelope.
@@ -139,8 +192,13 @@ func (c *Client) List(ctx context.Context, path string) ([]map[string]any, error
 			return records, err
 		}
 		batch, _, err := unwrap(body)
-		if err != nil || len(batch) == 0 {
+		// Empty batch is a legitimate stop signal
+		if len(batch) == 0 {
 			break
+		}
+		// An unwrap error on any page is reported with the partial records gathered so far
+		if err != nil {
+			return records, fmt.Errorf("GET %s (page %d): %w", path, page, err)
 		}
 		records = append(records, batch...)
 	}
