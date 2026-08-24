@@ -1,6 +1,8 @@
 package aws_account_test
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +15,17 @@ func TestAccKionAwsAccount_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	payerID := os.Getenv("KION_ACC_PAYER_ID")
+	if payerID == "" {
+		t.Skip("KION_ACC_PAYER_ID must be set to the ID of an existing Kion AWS billing source")
+	}
+
+	accountNumber := os.Getenv("KION_ACC_AWS_ACCOUNT_NUMBER")
+	if accountNumber == "" {
+		t.Skip("KION_ACC_AWS_ACCOUNT_NUMBER must be set to an existing AWS account number to import into Kion")
+	}
+
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_aws_account.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +33,7 @@ func TestAccKionAwsAccount_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAwsAccountConfig_basic(),
+				Config: testAccAwsAccountConfig_basic(rName, payerID, accountNumber),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -39,6 +52,17 @@ func TestAccKionAwsAccount_update(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	payerID := os.Getenv("KION_ACC_PAYER_ID")
+	if payerID == "" {
+		t.Skip("KION_ACC_PAYER_ID must be set to the ID of an existing Kion AWS billing source")
+	}
+
+	accountNumber := os.Getenv("KION_ACC_AWS_ACCOUNT_NUMBER")
+	if accountNumber == "" {
+		t.Skip("KION_ACC_AWS_ACCOUNT_NUMBER must be set to an existing AWS account number to import into Kion")
+	}
+
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_aws_account.test"
 
 	resource.Test(t, resource.TestCase{
@@ -46,13 +70,13 @@ func TestAccKionAwsAccount_update(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAwsAccountConfig_basic(),
+				Config: testAccAwsAccountConfig_basic(rName, payerID, accountNumber),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
 			},
 			{
-				Config: testAccAwsAccountConfig_update(),
+				Config: testAccAwsAccountConfig_update(rName, payerID, accountNumber),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -66,18 +90,22 @@ func TestAccKionAwsAccount_update(t *testing.T) {
 	})
 }
 
-func testAccAwsAccountConfig_basic() string {
-	return `
+func testAccAwsAccountConfig_basic(rName, payerID, accountNumber string) string {
+	return fmt.Sprintf(`
 resource "kion_aws_account" "test" {
-  # TIP: Fill in required attributes for creating the resource.
+  name           = %[1]q
+  payer_id       = %[2]s
+  account_number = %[3]q
 }
-`
+`, rName, payerID, accountNumber)
 }
 
-func testAccAwsAccountConfig_update() string {
-	return `
+func testAccAwsAccountConfig_update(rName, payerID, accountNumber string) string {
+	return fmt.Sprintf(`
 resource "kion_aws_account" "test" {
-  # TIP: Fill in updated attributes for testing the update.
+  name           = "%[1]s-updated"
+  payer_id       = %[2]s
+  account_number = %[3]q
 }
-`
+`, rName, payerID, accountNumber)
 }

@@ -1,6 +1,7 @@
 package compliance_standard_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +14,7 @@ func TestAccKionComplianceStandard_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_compliance_standard.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +22,7 @@ func TestAccKionComplianceStandard_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccComplianceStandardConfigBasic(),
+				Config: testAccComplianceStandardConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -39,6 +41,7 @@ func TestAccKionComplianceStandard_update(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_compliance_standard.test"
 
 	resource.Test(t, resource.TestCase{
@@ -46,13 +49,13 @@ func TestAccKionComplianceStandard_update(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccComplianceStandardConfigBasic(),
+				Config: testAccComplianceStandardConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
 			},
 			{
-				Config: testAccComplianceStandardConfigUpdate(),
+				Config: testAccComplianceStandardConfigUpdate(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -66,18 +69,24 @@ func TestAccKionComplianceStandard_update(t *testing.T) {
 	})
 }
 
-func testAccComplianceStandardConfigBasic() string {
-	return `
+func testAccComplianceStandardConfigBasic(rName string) string {
+	return fmt.Sprintf(`
 resource "kion_compliance_standard" "test" {
-  # TIP: Fill in required attributes for creating the resource.
+  name               = %[1]q
+  description        = "test-acc compliance standard"
+  created_by_user_id = 1
+  owner_user_ids     = [1]
 }
-`
+`, rName)
 }
 
-func testAccComplianceStandardConfigUpdate() string {
-	return `
+func testAccComplianceStandardConfigUpdate(rName string) string {
+	return fmt.Sprintf(`
 resource "kion_compliance_standard" "test" {
-  # TIP: Fill in updated attributes for testing the update.
+  name               = %[1]q
+  description        = "test-acc compliance standard updated"
+  created_by_user_id = 1
+  owner_user_ids     = [1]
 }
-`
+`, rName)
 }

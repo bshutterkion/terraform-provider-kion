@@ -1,6 +1,7 @@
 package custom_variable_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +14,7 @@ func TestAccKionCustomVariableDataSource_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	dataSourceName := "data.kion_custom_variable.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +22,7 @@ func TestAccKionCustomVariableDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCustomVariableDataSourceConfigBasic(),
+				Config: testAccCustomVariableDataSourceConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 				),
@@ -29,10 +31,18 @@ func TestAccKionCustomVariableDataSource_basic(t *testing.T) {
 	})
 }
 
-func testAccCustomVariableDataSourceConfigBasic() string {
-	return `
-data "kion_custom_variable" "test" {
-  # TIP: Fill in filter criteria or ID to look up the data source.
+func testAccCustomVariableDataSourceConfigBasic(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_custom_variable" "test" {
+  name                 = %[1]q
+  description          = "test-acc custom variable"
+  type                 = "string"
+  default_value_string = "test-acc-default"
+  owner_user_ids       = [1]
 }
-`
+
+data "kion_custom_variable" "test" {
+  id = kion_custom_variable.test.id
+}
+`, rName)
 }

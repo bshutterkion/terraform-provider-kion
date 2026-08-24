@@ -1,6 +1,8 @@
 package account_cache_test
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +15,17 @@ func TestAccKionAccountCacheDataSource_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	payerID := os.Getenv("KION_ACC_PAYER_ID")
+	if payerID == "" {
+		t.Skip("KION_ACC_PAYER_ID must be set to the ID of an existing Kion AWS billing source")
+	}
+
+	accountNumber := os.Getenv("KION_ACC_AWS_ACCOUNT_NUMBER")
+	if accountNumber == "" {
+		t.Skip("KION_ACC_AWS_ACCOUNT_NUMBER must be set to an existing AWS account number to import into Kion")
+	}
+
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	dataSourceName := "data.kion_account_cache.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +33,7 @@ func TestAccKionAccountCacheDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAccountCacheDataSourceConfigBasic(),
+				Config: testAccAccountCacheDataSourceConfigBasic(rName, payerID, accountNumber),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 				),
@@ -29,10 +42,16 @@ func TestAccKionAccountCacheDataSource_basic(t *testing.T) {
 	})
 }
 
-func testAccAccountCacheDataSourceConfigBasic() string {
-	return `
-data "kion_account_cache" "test" {
-  # TIP: Fill in filter criteria or ID to look up the data source.
+func testAccAccountCacheDataSourceConfigBasic(rName, payerID, accountNumber string) string {
+	return fmt.Sprintf(`
+resource "kion_account_cache" "test" {
+  account_name   = %[1]q
+  payer_id       = %[2]s
+  account_number = %[3]q
 }
-`
+
+data "kion_account_cache" "test" {
+  id = kion_account_cache.test.id
+}
+`, rName, payerID, accountNumber)
 }

@@ -127,7 +127,6 @@ resource "kion_ou_note" "test" {
   name = %[1]q
   ou_id = 2
   text = "test-acc-updated"
-  id = 2
 }
 `, rName)
 }

@@ -1,6 +1,7 @@
 package iam_policy_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +14,7 @@ func TestAccKionIamPolicyDataSource_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	dataSourceName := "data.kion_iam_policy.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +22,7 @@ func TestAccKionIamPolicyDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccIamPolicyDataSourceConfigBasic(),
+				Config: testAccIamPolicyDataSourceConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 				),
@@ -29,10 +31,25 @@ func TestAccKionIamPolicyDataSource_basic(t *testing.T) {
 	})
 }
 
-func testAccIamPolicyDataSourceConfigBasic() string {
-	return `
-data "kion_iam_policy" "test" {
-  # TIP: Fill in filter criteria or ID to look up the data source.
+func testAccIamPolicyDataSourceConfigBasic(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_aws_iam_policy" "test" {
+  name           = %[1]q
+  description    = "test-acc IAM policy"
+  owner_user_ids = [1]
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Deny"
+      Action   = "s3:*"
+      Resource = "*"
+    }]
+  })
 }
-`
+
+data "kion_aws_iam_policy" "test" {
+  id = kion_aws_iam_policy.test.id
+}
+`, rName)
 }

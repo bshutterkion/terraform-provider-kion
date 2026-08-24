@@ -1,6 +1,7 @@
 package custom_variable_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +14,7 @@ func TestAccKionCustomVariable_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_custom_variable.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +22,7 @@ func TestAccKionCustomVariable_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCustomVariableConfigBasic(),
+				Config: testAccCustomVariableConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -39,6 +41,7 @@ func TestAccKionCustomVariable_update(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_custom_variable.test"
 
 	resource.Test(t, resource.TestCase{
@@ -46,13 +49,13 @@ func TestAccKionCustomVariable_update(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCustomVariableConfigBasic(),
+				Config: testAccCustomVariableConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
 			},
 			{
-				Config: testAccCustomVariableConfigUpdate(),
+				Config: testAccCustomVariableConfigUpdate(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -66,18 +69,26 @@ func TestAccKionCustomVariable_update(t *testing.T) {
 	})
 }
 
-func testAccCustomVariableConfigBasic() string {
-	return `
+func testAccCustomVariableConfigBasic(rName string) string {
+	return fmt.Sprintf(`
 resource "kion_custom_variable" "test" {
-  # TIP: Fill in required attributes for creating the resource.
+  name                 = %[1]q
+  description          = "test-acc custom variable"
+  type                 = "string"
+  default_value_string = "test-acc-default"
+  owner_user_ids       = [1]
 }
-`
+`, rName)
 }
 
-func testAccCustomVariableConfigUpdate() string {
-	return `
+func testAccCustomVariableConfigUpdate(rName string) string {
+	return fmt.Sprintf(`
 resource "kion_custom_variable" "test" {
-  # TIP: Fill in updated attributes for testing the update.
+  name                 = %[1]q
+  description          = "test-acc custom variable updated"
+  type                 = "string"
+  default_value_string = "test-acc-default-updated"
+  owner_user_ids       = [1]
 }
-`
+`, rName)
 }

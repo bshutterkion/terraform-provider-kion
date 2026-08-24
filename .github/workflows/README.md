@@ -17,11 +17,12 @@ require the single `ci` check.
 | `lint` | golangci-lint, config in `.golangci.yml` | `make ci-lint` |
 | `test-unit` | unit tests, race detector, coverage | `make ci-test` |
 | `modules` | generated Terraform modules build, validate, test, and are not stale | `make modules-check` |
+| `acctest-config` | acceptance-test HCL matches the provider schema | `make ci-acctest-config` |
 | `internal-refs` | no internal paths/hostnames in tracked files | `scripts/check-no-internal-refs.sh` |
 | `secrets` | credential scan over the tree | — |
 | `codeql` | GitHub CodeQL analysis for Go | — |
 
-`make ci` runs the first four locally. The Lefthook pre-push hook runs it
+`make ci` runs the first four plus `acctest-config` locally. The Lefthook pre-push hook runs it
 before every push, so CI should rarely be the first place a failure appears.
 
 ### The `modules` job

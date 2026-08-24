@@ -1,6 +1,7 @@
 package permission_scheme_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +14,7 @@ func TestAccKionPermissionScheme_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_permission_scheme.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +22,7 @@ func TestAccKionPermissionScheme_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccPermissionSchemeConfigBasic(),
+				Config: testAccPermissionSchemeConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -39,6 +41,7 @@ func TestAccKionPermissionScheme_update(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_permission_scheme.test"
 
 	resource.Test(t, resource.TestCase{
@@ -46,13 +49,13 @@ func TestAccKionPermissionScheme_update(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccPermissionSchemeConfigBasic(),
+				Config: testAccPermissionSchemeConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
 			},
 			{
-				Config: testAccPermissionSchemeConfigUpdate(),
+				Config: testAccPermissionSchemeConfigUpdate(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -66,18 +69,20 @@ func TestAccKionPermissionScheme_update(t *testing.T) {
 	})
 }
 
-func testAccPermissionSchemeConfigBasic() string {
-	return `
+func testAccPermissionSchemeConfigBasic(rName string) string {
+	return fmt.Sprintf(`
 resource "kion_permission_scheme" "test" {
-  # TIP: Fill in required attributes for creating the resource.
+  name = %[1]q
+  type = "ou"
 }
-`
+`, rName)
 }
 
-func testAccPermissionSchemeConfigUpdate() string {
-	return `
+func testAccPermissionSchemeConfigUpdate(rName string) string {
+	return fmt.Sprintf(`
 resource "kion_permission_scheme" "test" {
-  # TIP: Fill in updated attributes for testing the update.
+  name = "%[1]s-updated"
+  type = "ou"
 }
-`
+`, rName)
 }

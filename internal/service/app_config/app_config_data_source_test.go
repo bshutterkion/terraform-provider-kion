@@ -32,7 +32,6 @@ func TestAccKionAppConfigDataSource_basic(t *testing.T) {
 func testAccAppConfigDataSourceConfig_basic() string {
 	return `
 data "kion_app_config" "test" {
-  # TIP: Fill in filter criteria or ID to look up the data source.
 }
 `
 }

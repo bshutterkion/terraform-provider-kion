@@ -1,6 +1,7 @@
 package ou_cloud_access_role_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +14,7 @@ func TestAccKionOuCloudAccessRoleDataSource_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	dataSourceName := "data.kion_ou_cloud_access_role.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +22,7 @@ func TestAccKionOuCloudAccessRoleDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccOuCloudAccessRoleDataSourceConfigBasic(),
+				Config: testAccOuCloudAccessRoleDataSourceConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 				),
@@ -29,10 +31,30 @@ func TestAccKionOuCloudAccessRoleDataSource_basic(t *testing.T) {
 	})
 }
 
-func testAccOuCloudAccessRoleDataSourceConfigBasic() string {
-	return `
-data "kion_ou_cloud_access_role" "test" {
-  # TIP: Fill in filter criteria or ID to look up the data source.
+func testAccOuCloudAccessRoleDataSourceConfigBasic(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
 }
-`
+
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
+}
+
+resource "kion_ou_cloud_access_role" "test" {
+  name                   = %[1]q
+  ou_id                  = kion_ou.test_ou.id
+  web_access             = true
+  short_term_access_keys = true
+  user_ids               = [1]
+}
+
+data "kion_ou_cloud_access_role" "test" {
+  id = kion_ou_cloud_access_role.test.id
+}
+`, rName)
 }
