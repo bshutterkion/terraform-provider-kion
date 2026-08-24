@@ -287,14 +287,15 @@ import-manifest: ## Generate codegen/import_manifest.json (kgen import-manifest)
 generate: version-gen generate-schemas crud import-manifest ## Regenerate the full generatable surface
 
 .PHONY: build-tools
-build-tools: ## Build the kgen + kalign + kconfig + kversions dev tools into ./bin/
+build-tools: ## Build the kgen + kalign + kconfig + kversions + kion-import dev tools into ./bin/
 	@echo "$(BLUE)Building dev tools into ./bin/...$(RESET)"
 	@mkdir -p bin
 	@go build -o bin/kgen ./cmd/kgen
 	@go build -o bin/kalign ./cmd/kalign
 	@go build -o bin/kconfig ./cmd/kconfig
 	@go build -o bin/kversions ./cmd/kversions
-	@echo "$(GREEN)✓ Built bin/kgen, bin/kalign, bin/kconfig, bin/kversions$(RESET)"
+	@go build -o bin/kion-import ./cmd/kion-import
+	@echo "$(GREEN)✓ Built bin/kgen, bin/kalign, bin/kconfig, bin/kversions, bin/kion-import$(RESET)"
 
 .PHONY: install-mockery
 install-mockery: ## Install mockery (mock generator) at the pinned version
