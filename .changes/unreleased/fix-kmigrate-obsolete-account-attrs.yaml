@@ -1,3 +1,0 @@
-kind: BUG FIXES
-body: "`kmigrate` now drops `kion_gcp_account.create_mode` and `kion_custom_account.skip_access_checking`, two old settable attributes with no home in the new schema. A migrated configuration that still carried them failed `terraform validate` with \"Unsupported argument\". They had been held out by a policy stating that the four `*_account` resources migrate via import and are therefore not subject to config rewriting \u2014 which was not true, since `kmigrate` already rewrites `name` to `account_name` on those same resources. The exclusion is now narrowed to what still holds."
-time: 2026-08-24T00:00:00Z

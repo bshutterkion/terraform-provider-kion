@@ -1,3 +1,0 @@
-kind: BUG FIXES
-body: "The `kion_azure_policy` data source regained its `filter` block and no longer requires `id`. Its read payload (`AzurePolicyAugmented`) carries no top-level `id` — the record, id included, is nested under `azure_policy` — so the generator read the payload as id-less and degraded the data source to id-only. Record-wrapper detection now also recognises a record nested under a model object attribute, so `id`, `description`, `name`, `parameters`, and `policy` are sourced from the wrapped record in both by-id and by-filter mode. `kion_azure_policy` also gained a real acceptance-test sweeper for the same reason."
-time: 2026-08-20T23:00:00Z

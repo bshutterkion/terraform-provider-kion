@@ -1,3 +1,0 @@
-kind: BUG FIXES
-body: "Restored the `kion_funding_source_permission_mapping`, `kion_global_permission_mapping`, and `kion_project_note` data sources, which the old provider shipped but which the rebuild dropped. Their companion-path archetypes (`association`/`blended`) derive no data source, so each needs a registered companion template; only their `ou_permission_mapping`/`project_permission_mapping` siblings had one. The permission-mapping data sources also gained a `filter` block, matching those siblings."
-time: 2026-08-20T09:00:00Z
