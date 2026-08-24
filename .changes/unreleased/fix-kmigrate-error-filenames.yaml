@@ -1,0 +1,3 @@
+kind: BUG FIXES
+body: "`kmigrate` parse errors now name the file that failed. The filename passed to the HCL parser was hardcoded to `config.tf`, so a run over a directory reported a path that existed nowhere in the tree and gave no way to find the offending file."
+time: 2026-08-24T16:00:00Z

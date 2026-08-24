@@ -412,3 +412,79 @@ resource "kion_azure_account" "prod" {
 		t.Error("no changes reported")
 	}
 }
+
+// TestRewriteFile_providerConstraint covers the bump of the required_providers
+// version pin. Found against a real configuration produced by the import tool:
+// every resource migrated correctly, but the constraint still demanded the OLD
+// provider, so `terraform init` resolved 0.3.34 and every rewrite kmigrate had
+// just made became invalid config. A real tree has one of these per directory —
+// eight in the case that surfaced it — so leaving it to the practitioner means
+// leaving them to find all of them.
+func TestRewriteFile_providerConstraint(t *testing.T) {
+	src := `terraform {
+  required_providers {
+    kion = {
+      source  = "kionsoftware/kion"
+      version = "0.3.34"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "3.1.0"
+    }
+  }
+}
+`
+	out, changes, _, err := RewriteFile([]byte(src), map[string]Transform{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(out)
+
+	if !strings.Contains(got, `version = "`+NewProviderConstraint+`"`) {
+		t.Errorf("kion constraint not bumped:\n%s", got)
+	}
+	if strings.Contains(got, `"0.3.34"`) {
+		t.Errorf("old kion pin survived:\n%s", got)
+	}
+	// A different provider that merely sits alongside must not be touched.
+	if !strings.Contains(got, `version = "3.1.0"`) {
+		t.Errorf("unrelated provider was modified:\n%s", got)
+	}
+	if len(changes) != 1 {
+		t.Errorf("want exactly 1 change, got %d: %v", len(changes), changes)
+	}
+
+	// Idempotent: a second pass reports nothing and changes nothing.
+	out2, changes2, _, err := RewriteFile(out, map[string]Transform{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(changes2) != 0 {
+		t.Errorf("second pass should be a no-op, got: %v", changes2)
+	}
+	if string(out2) != got {
+		t.Errorf("second pass altered the file")
+	}
+}
+
+// TestRewriteNamedFile_reportsRealFilename: a parse failure must name the file
+// the practitioner has to fix. Every diagnostic used to say "config.tf", which
+// over a directory named a file that existed nowhere in the tree.
+func TestRewriteNamedFile_reportsRealFilename(t *testing.T) {
+	// Invalid: a traversal cannot start with a digit. This is exactly what the
+	// import tool emitted for a Kion resource named "800-53 Audit".
+	bad := `output "x" {
+  value = kion_cloud_rule.800-53_Audit.id
+}
+`
+	_, _, _, err := RewriteNamedFile("cloud-rule/800-53_Audit.tf", []byte(bad), map[string]Transform{})
+	if err == nil {
+		t.Fatal("want a parse error, got nil")
+	}
+	if !strings.Contains(err.Error(), "cloud-rule/800-53_Audit.tf") {
+		t.Errorf("error should name the real file, got: %v", err)
+	}
+	if strings.Contains(err.Error(), "config.tf") {
+		t.Errorf("error still reports the placeholder filename: %v", err)
+	}
+}

@@ -1,0 +1,3 @@
+kind: BUG FIXES
+body: "`kmigrate` now bumps the `required_providers` version constraint for `kionsoftware/kion`. It rewrote every resource to the new schema while leaving the constraint pinned to the old provider, so `terraform init` resolved the old one and every rewrite it had just made became invalid configuration. The migration guide asks for this by hand and shows a single block, but a real configuration has one per directory \u2014 the import tool emits eight. Providers other than `kionsoftware/kion` are left alone, matched on the source address rather than the local name."
+time: 2026-08-24T16:00:00Z

@@ -69,7 +69,15 @@ var RequiredAdditions = map[string][]string{
 // rewrite can produce. They are kept apart from changes so the CLI does not count
 // them as edits it made.
 func RewriteFile(src []byte, ups map[string]Transform) ([]byte, []string, []string, error) {
-	f, diags := hclwrite.ParseConfig(src, "config.tf", hcl.Pos{Line: 1, Column: 1})
+	return RewriteNamedFile("config.tf", src, ups)
+}
+
+// RewriteNamedFile is RewriteFile with the source's real path, so a parse
+// diagnostic names the file the practitioner has to go and fix. RewriteFile
+// passed a literal "config.tf" for every input, which meant a failure over a
+// directory reported a filename that did not exist anywhere in the tree.
+func RewriteNamedFile(name string, src []byte, ups map[string]Transform) ([]byte, []string, []string, error) {
+	f, diags := hclwrite.ParseConfig(src, name, hcl.Pos{Line: 1, Column: 1})
 	if diags.HasErrors() {
 		return nil, nil, nil, fmt.Errorf("parse: %s", diags.Error())
 	}
@@ -84,6 +92,8 @@ func RewriteFile(src []byte, ups map[string]Transform) ([]byte, []string, []stri
 	}
 
 	var changes, actions []string
+	changes = append(changes, rewriteProviderConstraint(f.Body())...)
+
 	for _, block := range f.Body().Blocks() {
 		if block.Type() != "resource" || len(block.Labels()) < 2 {
 			continue
@@ -611,4 +621,84 @@ func listTokens(elems []hclwrite.Tokens) hclwrite.Tokens {
 	}
 	out = append(out, &hclwrite.Token{Type: hclsyntax.TokenCBrack, Bytes: []byte("]")})
 	return out
+}
+
+// NewProviderConstraint is what a migrated configuration must ask for. The new
+// provider is a new major version at the same registry address, so an unbumped
+// constraint resolves to the OLD provider and every rewrite kmigrate just made
+// becomes invalid config.
+const NewProviderConstraint = ">= 1.0.0"
+
+// rewriteProviderConstraint bumps `version` inside
+// terraform { required_providers { kion = { ... } } }.
+//
+// Without this kmigrate produced configuration that could not init: it rewrote
+// every resource to the new schema while leaving the constraint pinned to the
+// old provider. The migration guide asks the practitioner to bump it by hand and
+// shows a single block — but a real configuration has one per directory (the
+// import tool emits eight), so doing it by hand means finding all of them.
+//
+// Matched on the `source` inside the object rather than the attribute name, so a
+// provider aliased to something other than `kion` is still found and a different
+// provider that happens to be named `kion` is left alone.
+func rewriteProviderConstraint(body *hclwrite.Body) []string {
+	var changes []string
+	for _, tf := range body.Blocks() {
+		if tf.Type() != "terraform" {
+			continue
+		}
+		for _, rp := range tf.Body().Blocks() {
+			if rp.Type() != "required_providers" {
+				continue
+			}
+			for name, attr := range rp.Body().Attributes() {
+				toks := attr.Expr().BuildTokens(nil)
+				if !tokensMentionKion(toks) {
+					continue
+				}
+				newToks, old, ok := setVersionInObject(toks, NewProviderConstraint)
+				if !ok || old == NewProviderConstraint {
+					continue
+				}
+				rp.Body().SetAttributeRaw(name, newToks)
+				changes = append(changes, fmt.Sprintf(
+					"required_providers.%s: version %q → %q", name, old, NewProviderConstraint))
+			}
+		}
+	}
+	return changes
+}
+
+func tokensMentionKion(toks hclwrite.Tokens) bool {
+	for _, t := range toks {
+		if t.Type == hclsyntax.TokenQuotedLit && strings.Contains(string(t.Bytes), "kionsoftware/kion") {
+			return true
+		}
+	}
+	return false
+}
+
+// setVersionInObject replaces the string value of the object's `version` key,
+// returning the previous value. Token surgery rather than re-emitting the object
+// so every other key, and the author's formatting, survive untouched.
+func setVersionInObject(toks hclwrite.Tokens, want string) (hclwrite.Tokens, string, bool) {
+	for i, t := range toks {
+		if t.Type != hclsyntax.TokenIdent || string(t.Bytes) != "version" {
+			continue
+		}
+		// version = "x"  ->  ident, equals, oquote, lit, cquote
+		for j := i + 1; j < len(toks) && j < i+4; j++ {
+			if toks[j].Type != hclsyntax.TokenQuotedLit {
+				continue
+			}
+			old := string(toks[j].Bytes)
+			out := make(hclwrite.Tokens, len(toks))
+			copy(out, toks)
+			repl := *toks[j]
+			repl.Bytes = []byte(want)
+			out[j] = &repl
+			return out, old, true
+		}
+	}
+	return toks, "", false
 }
