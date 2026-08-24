@@ -153,7 +153,7 @@ go run ./cmd/kgen service --name CloudRule --snakename cloud_rule
 
 Then add its entries to `codegen/` (paths, archetype, and a read shape if the read is private) and regenerate.
 
-> Adding or removing a resource changes four generated surfaces — `internal/service/`, `examples/`, `docs/`, and `modules/` — and only `modules/` has a CI drift gate. Regenerate all four. It also changes the supported surface tracked by the sibling `terraform-coverage-test` project; run `make coverage-new` there and add modules for anything newly reported as a gap.
+> Adding or removing a resource changes four generated surfaces — `internal/service/`, `examples/`, `docs/`, and `modules/`. Regenerate all four; CI has a drift gate on `modules/` (`make modules-check`) and on `docs/` + `examples/` (`make docs-check`), so a missed regeneration fails the build rather than shipping stale documentation. It also changes the supported surface tracked by the sibling `terraform-coverage-test` project; run `make coverage-new` there and add modules for anything newly reported as a gap.
 
 ## Development
 

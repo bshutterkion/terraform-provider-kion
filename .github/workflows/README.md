@@ -17,6 +17,7 @@ require the single `ci` check.
 | `lint` | golangci-lint, config in `.golangci.yml` | `make ci-lint` |
 | `test-unit` | unit tests, race detector, coverage | `make ci-test` |
 | `modules` | generated Terraform modules build, validate, test, and are not stale | `make modules-check` |
+| `docs` | `docs/` and `examples/` are not stale | `make docs-check` |
 | `acctest-config` | acceptance-test HCL matches the provider schema | `make ci-acctest-config` |
 | `internal-refs` | no internal paths/hostnames in tracked files | `scripts/check-no-internal-refs.sh` |
 | `secrets` | credential scan over the tree | — |

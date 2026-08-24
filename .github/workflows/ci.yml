@@ -287,6 +287,37 @@ jobs:
 
   # No GitLab counterpart. This repo is public; the script fails if an internal
   # path, hostname, repo name or planning doc reappears in a tracked file.
+  # docs/ and examples/ are generated, and until now were the only generated
+  # surfaces with no drift gate — the README said so outright. That is exactly
+  # how v1.0.1 shipped documenting `id` as required on 38 data sources whose
+  # schemas had already made it optional: internal/service/ and modules/ were
+  # regenerated because CI enforced them, docs/ and examples/ were not because
+  # nothing did, and the registry pages described behaviour the release no
+  # longer had.
+  docs:
+    name: Docs and examples
+    runs-on: ubuntu-latest
+    env:
+      TF_VERSION: 1.15.9
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # tfplugindocs shells out to terraform to format the examples it embeds.
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      # Via the Makefile so the pinned version lives in one place.
+      - run: make install-tfplugindocs
+
+      - run: make docs-check
+
   # Acceptance tests need a live Kion, so they never run here — which meant
   # nothing checked that the HCL they feed Terraform even matches the provider's
   # schema. It did not: twelve configs used an `owner_users` block on resources
@@ -406,6 +437,7 @@ jobs:
       - lint
       - test-unit
       - modules
+      - docs
       - acctest-config
       - internal-refs
       - secrets

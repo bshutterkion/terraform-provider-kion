@@ -1,0 +1,3 @@
+kind: NOTES
+body: "`docs/` and `examples/` are now drift-gated in CI. They were the only generated surfaces without one \u2014 the README said so \u2014 which is how 1.0.1 shipped registry documentation describing `id` as required on 38 data sources whose schemas had already made it optional: `internal/service/` and `modules/` were regenerated because CI enforced them, and these were not because nothing did. `make docs-check` is the local equivalent."
+time: 2026-08-24T14:00:00Z
