@@ -56,9 +56,9 @@ func (r *custom_variableResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
-	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserGroupIds)
+	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserGroupIds)
 	resp.Diagnostics.Append(ownerUserGroupIdsDiags...)
-	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserIds)
+	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserIds)
 	resp.Diagnostics.Append(ownerUserIdsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -151,9 +151,9 @@ func (r *custom_variableResource) Update(ctx context.Context, req resource.Updat
 		return
 	}
 
-	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserGroupIds)
+	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserGroupIds)
 	resp.Diagnostics.Append(ownerUserGroupIdsDiags...)
-	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserIds)
+	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserIds)
 	resp.Diagnostics.Append(ownerUserIdsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -253,10 +253,10 @@ func flattenCustomVariable(ctx context.Context, apiObject any, model *CustomVari
 			model.Type = flex.OptStringToFramework(v.Data.Value.Type)
 			model.ValueValidationMessage = flex.OptStringToFramework(v.Data.Value.ValueValidationMessage)
 			model.ValueValidationRegex = flex.OptStringToFramework(v.Data.Value.ValueValidationRegex)
-			ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceToFramework(ctx, v.Data.Value.OwnerUserGroupIds.Value)
+			ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceToFrameworkSet(ctx, v.Data.Value.OwnerUserGroupIds.Value)
 			diags.Append(ownerUserGroupIdsDiags...)
 			model.OwnerUserGroupIds = ownerUserGroupIds
-			ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceToFramework(ctx, v.Data.Value.OwnerUserIds.Value)
+			ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceToFrameworkSet(ctx, v.Data.Value.OwnerUserIds.Value)
 			diags.Append(ownerUserIdsDiags...)
 			model.OwnerUserIds = ownerUserIds
 		}

@@ -48,7 +48,7 @@ No modules.
 | name | Name of the Compliance Check in the application. | `string` | n/a | yes |
 | azure\_policy\_id | AzurePolicyID refers to the ID of the Azure Policy in cloudtamer.io which will be deployed and scraped to determine compliance status of Azure resources. Should only be provided for Azure Policy checks. | `number` | `null` | no |
 | body | TODO: add a valid example here Body of the Compliance Check defining what actions will be run. | `string` | `null` | no |
-| compliance\_control\_ids | List of Compliance Control IDs to which this Compliance Check is linked. | `list(number)` | `null` | no |
+| compliance\_control\_ids | List of Compliance Control IDs to which this Compliance Check is linked. | `set(number)` | `null` | no |
 | compliance\_standard\_id | ComplianceStandardID is an optional field for which compliance standard the created check should be associated with. | `number` | `null` | no |
 | created\_by\_user\_id | CreatedByUserID refers to the User in the application who created the Compliance Check. Will be the requesting User's ID if not specified. | `number` | `null` | no |
 | description | Description for the Compliance Check in the application. | `string` | `null` | no |
@@ -56,8 +56,8 @@ No modules.
 | frequency\_type\_id | FrequencyTypeID refers to the duration type of the frequency it will be checked. Is required if check type is Cloud Custodian or Azure Policy. 2 - minutes 3 - hours 4 - days | `number` | `null` | no |
 | is\_all\_regions | IsAllRegions determines if the check should be applied to all regions applied on the system | `bool` | `null` | no |
 | is\_auto\_archived | IsAutoArchived defines whether existing findings should be archived before new findings are reported. | `bool` | `null` | no |
-| owner\_user\_group\_ids | List of groups IDs who will own the Compliance Check. Is required if no owner user IDs are listed. | `list(number)` | `null` | no |
-| owner\_user\_ids | List of user IDs who will own the Compliance Check. Is required if no owner group IDs are listed. | `list(number)` | `null` | no |
+| owner\_user\_group\_ids | List of groups IDs who will own the Compliance Check. Is required if no owner user IDs are listed. | `set(number)` | `null` | no |
+| owner\_user\_ids | List of user IDs who will own the Compliance Check. Is required if no owner group IDs are listed. | `set(number)` | `null` | no |
 | regions | List of the AWS regions where the compliance check applies. Required when check type id is cloud custodian. | `list(string)` | `null` | no |
 | severity\_type\_id | SeverityTypeID for the severity level of the compliance check 1 - Informational. 2 - Low. 3 - Medium (Default). 4 - High. | `number` | `null` | no |
 

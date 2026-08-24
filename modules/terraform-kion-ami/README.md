@@ -55,8 +55,8 @@ No modules.
 | expiration\_warning\_number | The amount of time before the expiration warning is sent | `number` | `null` | no |
 | expiration\_warning\_unit | The unit for the expiration warning lead time (e.g. "days"). | `string` | `null` | no |
 | expires\_at | The expiration timestamp for the AMI, as an RFC3339 string. | `string` | `null` | no |
-| owner\_user\_group\_ids | List of groups IDs who will own the ami. Is required if no owner user IDs are listed. | `list(number)` | `null` | no |
-| owner\_user\_ids | List of user IDs who will own the ami. Is required if no owner group IDs are listed. | `list(number)` | `null` | no |
+| owner\_user\_group\_ids | List of groups IDs who will own the ami. Is required if no owner user IDs are listed. | `set(number)` | `null` | no |
+| owner\_user\_ids | List of user IDs who will own the ami. Is required if no owner group IDs are listed. | `set(number)` | `null` | no |
 | sync\_deprecation | Will sync the expiration date from the system into the AMI in AWS. | `bool` | `null` | no |
 | sync\_tags | Will sync the AWS tags from the source AMI into all the accounts where the AMI is shared. | `bool` | `null` | no |
 

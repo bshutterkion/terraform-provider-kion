@@ -58,7 +58,7 @@ resource "kion_compliance_check" "example" {
 compliance status of Azure resources. Should only be provided for Azure Policy checks.
 - `body` (String) TODO: add a valid example here
 Body of the Compliance Check defining what actions will be run.
-- `compliance_control_ids` (List of Number) List of Compliance Control IDs to which this Compliance Check is linked.
+- `compliance_control_ids` (Set of Number) List of Compliance Control IDs to which this Compliance Check is linked.
 - `compliance_standard_id` (Number) ComplianceStandardID is an optional field for which compliance standard the created check should be associated with.
 - `created_by_user_id` (Number) CreatedByUserID refers to the User in the application who created the Compliance Check. Will be the requesting User's ID if not specified.
 - `description` (String) Description for the Compliance Check in the application.
@@ -70,8 +70,8 @@ Body of the Compliance Check defining what actions will be run.
 - `is_all_regions` (Boolean) IsAllRegions determines if the check should be applied to all regions applied on the system
 - `is_auto_archived` (Boolean) IsAutoArchived defines whether existing findings should be archived before new findings are reported.
 - `last_updated` (String) The last time this resource was updated.
-- `owner_user_group_ids` (List of Number) List of groups IDs who will own the Compliance Check. Is required if no owner user IDs are listed.
-- `owner_user_ids` (List of Number) List of user IDs who will own the Compliance Check. Is required if no owner group IDs are listed.
+- `owner_user_group_ids` (Set of Number) List of groups IDs who will own the Compliance Check. Is required if no owner user IDs are listed.
+- `owner_user_ids` (Set of Number) List of user IDs who will own the Compliance Check. Is required if no owner group IDs are listed.
 - `regions` (List of String) List of the AWS regions where the compliance check applies. Required when check type id is cloud custodian.
 - `severity_type_id` (Number) SeverityTypeID for the severity level of the compliance check
 1 - Informational.

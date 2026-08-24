@@ -55,7 +55,7 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	userGroupIds, userGroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.UserGroupIds)
+	userGroupIds, userGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserGroupIds)
 	resp.Diagnostics.Append(userGroupIdsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -231,7 +231,7 @@ func flattenUser(ctx context.Context, apiObject any, model *UserModel) diag.Diag
 					userGroupsIDs = append(userGroupsIDs, int64(elem.ID.Value))
 				}
 			}
-			userGroupsIDsColl, userGroupsIDsCD := types.ListValueFrom(ctx, types.Int64Type, userGroupsIDs)
+			userGroupsIDsColl, userGroupsIDsCD := types.SetValueFrom(ctx, types.Int64Type, userGroupsIDs)
 			diags.Append(userGroupsIDsCD...)
 			model.UserGroupIds = userGroupsIDsColl
 		}

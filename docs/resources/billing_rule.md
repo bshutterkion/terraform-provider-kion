@@ -32,7 +32,7 @@ resource "kion_billing_rule" "example" {
 
 ### Required
 
-- `billing_source_ids` (List of Number) List of Billing Source IDs attached to the billing rule.
+- `billing_source_ids` (Set of Number) List of Billing Source IDs attached to the billing rule.
 - `description` (String) Description of the billing rule. The description can be up to 1024 characters long.
 - `name` (String) Name of the billing rule. The name can be up to 255 characters long.
 - `rule_type` (Number) Type of the billing rule. The allowed values are:

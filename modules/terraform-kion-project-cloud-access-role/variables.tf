@@ -2,7 +2,7 @@
 
 variable "account_ids" {
   description = "Account IDs contains a list of accounts in this project that will be accessible via this cloud access role. Accounts that do not match the cloud provider ID (if given) will be filtered"
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
@@ -26,7 +26,7 @@ variable "aws_iam_permissions_boundary" {
 
 variable "aws_iam_policies" {
   description = "IDs of the AWS IAM policies attached to this role. Will be filtered if AWS Cloud Provider ID is not given."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
@@ -44,13 +44,13 @@ variable "aws_session_tags" {
 
 variable "azure_role_definitions" {
   description = "IDs of the Azure Role Definitions attached to this role. Will be filtered if Azure Cloud Provider ID is not given."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "cloud_provider_ids" {
   description = "Cloud provider IDs that specify which CSPs this role will be used for. If none provided, assume all cloud providers. 1 for AWS, 2 for Azure, 3 for GCP"
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
@@ -62,7 +62,7 @@ variable "future_accounts" {
 
 variable "gcp_iam_roles" {
   description = "IDs of the Google Cloud IAM roles attached to this role. Will be filtered if GCP Cloud Provider ID is not given."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
@@ -96,13 +96,13 @@ variable "short_term_access_keys" {
 
 variable "user_group_ids" {
   description = "IDs of the user groups allowed to use this role to access the AWS console."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "user_ids" {
   description = "IDs of the users allowed to use this role to access the AWS console."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 

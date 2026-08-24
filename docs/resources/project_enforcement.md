@@ -63,8 +63,8 @@ Use endpoint /v3/cloud-provider/service to get a list of valid services and IDs.
 Valid values are "spend", "remaining", "spend_rate".
 - `threshold_type` (String) Type of the threshold value.
 Valid values are "dollar", "percent".
-- `user_group_ids` (List of Number) List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed.
-- `user_ids` (List of Number) List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed.
+- `user_group_ids` (Set of Number) List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed.
+- `user_ids` (Set of Number) List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed.
 
 ### Read-Only
 

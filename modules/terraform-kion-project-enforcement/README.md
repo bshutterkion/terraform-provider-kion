@@ -56,8 +56,8 @@ No modules.
 | service\_id | Option ID of service to set enforcement against. Use endpoint /v3/cloud-provider/service to get a list of valid services and IDs. | `number` | `null` | no |
 | spend\_option | Type of spend option. Valid values are "spend", "remaining", "spend\_rate". | `string` | `null` | no |
 | threshold\_type | Type of the threshold value. Valid values are "dollar", "percent". | `string` | `null` | no |
-| user\_group\_ids | List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed. | `list(number)` | `null` | no |
-| user\_ids | List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed. | `list(number)` | `null` | no |
+| user\_group\_ids | List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed. | `set(number)` | `null` | no |
+| user\_ids | List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed. | `set(number)` | `null` | no |
 
 ## Outputs
 

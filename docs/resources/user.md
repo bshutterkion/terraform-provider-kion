@@ -43,7 +43,7 @@ resource "kion_user" "example" {
 
 - `mfa` (Number) The ID of the MFA type. Options: 1 is Webauthn (Yubikey), 2 is TOTP (Google Auth).
 - `phone` (String) Phone number of the user.
-- `user_group_ids` (List of Number) List of IDs of groups the user is in.
+- `user_group_ids` (Set of Number) List of IDs of groups the user is in.
 
 ### Read-Only
 

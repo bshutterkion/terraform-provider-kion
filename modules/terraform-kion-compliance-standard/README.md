@@ -45,10 +45,10 @@ No modules.
 | created\_by\_user\_id | CreatedByUserID refers to the User in the application who created the Compliance Standard | `number` | n/a | yes |
 | name | Name of the Compliance Standard in the application. | `string` | n/a | yes |
 | cloud\_rule\_id | Cloud Rule ID the Compliance Standard should be added to | `number` | `null` | no |
-| compliance\_check\_ids | List of compliance checks associated with the compliance standard | `list(number)` | `null` | no |
+| compliance\_check\_ids | List of compliance checks associated with the compliance standard | `set(number)` | `null` | no |
 | description | Description for the Compliance Standard in the application. | `string` | `null` | no |
-| owner\_user\_group\_ids | List of groups IDs who will own the Compliance Standard. Is required if no owner user IDs are listed. | `list(number)` | `null` | no |
-| owner\_user\_ids | List of user IDs who will own the Compliance Standard. Is required if no owner group IDs are listed. | `list(number)` | `null` | no |
+| owner\_user\_group\_ids | List of groups IDs who will own the Compliance Standard. Is required if no owner user IDs are listed. | `set(number)` | `null` | no |
+| owner\_user\_ids | List of user IDs who will own the Compliance Standard. Is required if no owner group IDs are listed. | `set(number)` | `null` | no |
 
 ## Outputs
 

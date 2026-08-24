@@ -32,8 +32,8 @@ resource "kion_azure_policy" "example" {
 ### Optional
 
 - `azure_policy` (Attributes) AzurePolicyDefinitionCreate represents an create Azure Policy Definition, complete with the policy itself and its parameters. (see [below for nested schema](#nestedatt--azure_policy))
-- `owner_user_groups` (List of Number) List of user group IDs that will be owners of the azure policy.
-- `owner_users` (List of Number) List of user IDs that will be owners of the azure policy.
+- `owner_user_groups` (Set of Number) List of user group IDs that will be owners of the azure policy.
+- `owner_users` (Set of Number) List of user IDs that will be owners of the azure policy.
 
 ### Read-Only
 

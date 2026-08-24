@@ -38,14 +38,14 @@ func ServiceCatalogResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Name of the service catalog portfolio in the application.",
 				MarkdownDescription: "Name of the service catalog portfolio in the application.",
 			},
-			"owner_user_group_ids": schema.ListAttribute{
+			"owner_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of groups IDs who will own the portfolio. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the portfolio. Is required if no owner user IDs are listed.",
 			},
-			"owner_user_ids": schema.ListAttribute{
+			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -78,8 +78,8 @@ type ServiceCatalogModel struct {
 	Description       types.String `tfsdk:"description"`
 	Id                types.String `tfsdk:"id"`
 	Name              types.String `tfsdk:"name"`
-	OwnerUserGroupIds types.List   `tfsdk:"owner_user_group_ids"`
-	OwnerUserIds      types.List   `tfsdk:"owner_user_ids"`
+	OwnerUserGroupIds types.Set    `tfsdk:"owner_user_group_ids"`
+	OwnerUserIds      types.Set    `tfsdk:"owner_user_ids"`
 	PortfolioId       types.String `tfsdk:"portfolio_id"`
 	Region            types.String `tfsdk:"region"`
 	TagOption         types.Bool   `tfsdk:"tag_option"`

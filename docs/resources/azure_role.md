@@ -37,11 +37,11 @@ resource "kion_azure_role" "example" {
 
 ### Optional
 
-- `car_restricted_user_group_ids` (List of Number) List of groups IDs who have been allowed to use the Azure Role on Cloud Access Roles in the system.
-- `car_restricted_user_ids` (List of Number) List of user IDs who have been allowed to use the Azure Role on Cloud Access Roles in the system.
+- `car_restricted_user_group_ids` (Set of Number) List of groups IDs who have been allowed to use the Azure Role on Cloud Access Roles in the system.
+- `car_restricted_user_ids` (Set of Number) List of user IDs who have been allowed to use the Azure Role on Cloud Access Roles in the system.
 - `description` (String) Description for the Azure Role in the application.
-- `owner_user_group_ids` (List of Number) List of group IDs who will own the Azure Role. Is required if no owner user IDs are listed.
-- `owner_user_ids` (List of Number) List of user IDs who will own the Azure Role. Is required if no owner group IDs are listed.
+- `owner_user_group_ids` (Set of Number) List of group IDs who will own the Azure Role. Is required if no owner user IDs are listed.
+- `owner_user_ids` (Set of Number) List of user IDs who will own the Azure Role. Is required if no owner group IDs are listed.
 
 ### Read-Only
 

@@ -39,7 +39,7 @@ resource "kion_budget" "example" {
 - `amount` (Number) Total amount for the budget. This is required if data is not specified.
 Budget entries are created between start_datecode and end_datecode (exclusive)
 with the amount evenly distributed across the months.
-- `funding_source_ids` (List of Number) Optional funding source IDs to use when data is not specified.
+- `funding_source_ids` (Set of Number) Optional funding source IDs to use when data is not specified.
 This value is ignored is data is specified.
 If specified, the amount is distributed evenly across months and funding sources.
 Funding sources will be processed in order from first to last.

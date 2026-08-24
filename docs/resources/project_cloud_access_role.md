@@ -56,29 +56,29 @@ resource "kion_project_cloud_access_role" "example" {
 
 ### Optional
 
-- `account_ids` (List of Number) Account IDs contains a list of accounts in this project that will be accessible via this cloud access role.
+- `account_ids` (Set of Number) Account IDs contains a list of accounts in this project that will be accessible via this cloud access role.
 Accounts that do not match the cloud provider ID (if given) will be filtered
 - `apply_to_all_accounts` (Boolean) If apply all accounts is true, this cloud access role will be applied to all accounts currently under the project.
 This will only be for accounts that match the given CSP type. Will default to false if not set.
 - `aws_iam_path` (String) Text of the IAM Path in AWS to be stored in AWS.
 - `aws_iam_permissions_boundary` (Number) ID of the AWS IAM policy to be used as a permissions boundary for this role. Will be filtered if AWS Cloud Provider ID is not given.
-- `aws_iam_policies` (List of Number) IDs of the AWS IAM policies attached to this role. Will be filtered if AWS Cloud Provider ID is not given.
+- `aws_iam_policies` (Set of Number) IDs of the AWS IAM policies attached to this role. Will be filtered if AWS Cloud Provider ID is not given.
 - `aws_iam_role_name` (String) AWS IAM role name corresponding to the cloud access role.
 - `aws_session_tags` (Attributes List) AWS Session Tags used in this role when accessing the AWS console. (see [below for nested schema](#nestedatt--aws_session_tags))
-- `azure_role_definitions` (List of Number) IDs of the Azure Role Definitions attached to this role. Will be filtered if Azure Cloud Provider ID is not given.
-- `cloud_provider_ids` (List of Number) Cloud provider IDs that specify which CSPs this role will be used for. If none provided, assume all cloud providers.
+- `azure_role_definitions` (Set of Number) IDs of the Azure Role Definitions attached to this role. Will be filtered if Azure Cloud Provider ID is not given.
+- `cloud_provider_ids` (Set of Number) Cloud provider IDs that specify which CSPs this role will be used for. If none provided, assume all cloud providers.
 1 for AWS, 2 for Azure, 3 for GCP
 - `future_accounts` (Boolean) If future accounts is true, this cloud access role will be added to any account that is added to this project.
 This will only be for new accounts that match the given CSP type. Will default to false if not set.
-- `gcp_iam_roles` (List of Number) IDs of the Google Cloud IAM roles attached to this role. Will be filtered if GCP Cloud Provider ID is not given.
+- `gcp_iam_roles` (Set of Number) IDs of the Google Cloud IAM roles attached to this role. Will be filtered if GCP Cloud Provider ID is not given.
 - `last_updated` (String) The last time this resource was updated.
 - `long_term_access_keys` (Boolean) If long term access is true, users of this cloud access role can generate aws long-term access keys.
 Will default to false if not set.
 - `policytype` (String) Enclosed policy type filter. Valid values are "awsiam" or "azurerole"
 - `short_term_access_keys` (Boolean) If short term access is true, users of this cloud access role can generate short-term access keys.
 Will default to false if not set.
-- `user_group_ids` (List of Number) IDs of the user groups allowed to use this role to access the AWS console.
-- `user_ids` (List of Number) IDs of the users allowed to use this role to access the AWS console.
+- `user_group_ids` (Set of Number) IDs of the user groups allowed to use this role to access the AWS console.
+- `user_ids` (Set of Number) IDs of the users allowed to use this role to access the AWS console.
 - `web_access` (Boolean) If web access is true, users of this cloud access role can log into the console
 Will default to false if not set.
 

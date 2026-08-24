@@ -89,9 +89,9 @@ func flattenProjectEnforcement(ctx context.Context, rec generated.ProjectEnforce
 	}
 	notificationEmails, _ := flex.StringSliceToFramework(ctx, rec.NotificationEmails.Value)
 	model.NotificationEmails = notificationEmails
-	userGroupIds, _ := flex.Uint64SliceToFramework(ctx, rec.UserGroupIds.Value)
+	userGroupIds, _ := flex.Uint64SliceToFrameworkSet(ctx, rec.UserGroupIds.Value)
 	model.UserGroupIds = userGroupIds
-	userIds, _ := flex.Uint64SliceToFramework(ctx, rec.UserIds.Value)
+	userIds, _ := flex.Uint64SliceToFrameworkSet(ctx, rec.UserIds.Value)
 	model.UserIds = userIds
 }
 
@@ -107,7 +107,7 @@ func (r *project_enforcementResource) Create(ctx context.Context, req resource.C
 
 	notificationEmails, notificationEmailsDiags := flex.StringSliceFromFramework(ctx, plan.NotificationEmails)
 	resp.Diagnostics.Append(notificationEmailsDiags...)
-	userIds, userIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.UserIds)
+	userIds, userIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserIds)
 	resp.Diagnostics.Append(userIdsDiags...)
 	if resp.Diagnostics.HasError() {
 		return

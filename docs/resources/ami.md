@@ -54,8 +54,8 @@ resource "kion_ami" "example" {
 - `expiration_warning_number` (Number) The amount of time before the expiration warning is sent
 - `expiration_warning_unit` (String) The unit for the expiration warning lead time (e.g. "days").
 - `expires_at` (String) The expiration timestamp for the AMI, as an RFC3339 string.
-- `owner_user_group_ids` (List of Number) List of groups IDs who will own the ami. Is required if no owner user IDs are listed.
-- `owner_user_ids` (List of Number) List of user IDs who will own the ami. Is required if no owner group IDs are listed.
+- `owner_user_group_ids` (Set of Number) List of groups IDs who will own the ami. Is required if no owner user IDs are listed.
+- `owner_user_ids` (Set of Number) List of user IDs who will own the ami. Is required if no owner group IDs are listed.
 - `sync_deprecation` (Boolean) Will sync the expiration date from the system into the AMI in AWS.
 - `sync_tags` (Boolean) Will sync the AWS tags from the source AMI into all the accounts where the AMI is shared.
 

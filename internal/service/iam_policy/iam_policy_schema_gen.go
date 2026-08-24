@@ -31,14 +31,14 @@ func IamPolicyResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "True if the policy has been restricted for use by a subset of Users/UGroups on a Cloud Access Role.",
 				MarkdownDescription: "True if the policy has been restricted for use by a subset of Users/UGroups on a Cloud Access Role.",
 			},
-			"car_restricted_user_group_ids": schema.ListAttribute{
+			"car_restricted_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of groups IDs who have been allowed to use the iam policy on Cloud Access Roles in the system.",
 				MarkdownDescription: "List of groups IDs who have been allowed to use the iam policy on Cloud Access Roles in the system.",
 			},
-			"car_restricted_user_ids": schema.ListAttribute{
+			"car_restricted_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -70,14 +70,14 @@ func IamPolicyResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Name of the IAM policy in the application.",
 				MarkdownDescription: "Name of the IAM policy in the application.",
 			},
-			"owner_user_group_ids": schema.ListAttribute{
+			"owner_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of groups IDs who will own the iam policy. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the iam policy. Is required if no owner user IDs are listed.",
 			},
-			"owner_user_ids": schema.ListAttribute{
+			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -108,14 +108,14 @@ type IamPolicyModel struct {
 	AwsIamPath                types.String `tfsdk:"aws_iam_path"`
 	AwsManagedPolicy          types.Bool   `tfsdk:"aws_managed_policy"`
 	CarRestricted             types.Bool   `tfsdk:"car_restricted"`
-	CarRestrictedUserGroupIds types.List   `tfsdk:"car_restricted_user_group_ids"`
-	CarRestrictedUserIds      types.List   `tfsdk:"car_restricted_user_ids"`
+	CarRestrictedUserGroupIds types.Set    `tfsdk:"car_restricted_user_group_ids"`
+	CarRestrictedUserIds      types.Set    `tfsdk:"car_restricted_user_ids"`
 	Description               types.String `tfsdk:"description"`
 	Id                        types.String `tfsdk:"id"`
 	LastUpdated               types.String `tfsdk:"last_updated"`
 	Name                      types.String `tfsdk:"name"`
-	OwnerUserGroupIds         types.List   `tfsdk:"owner_user_group_ids"`
-	OwnerUserIds              types.List   `tfsdk:"owner_user_ids"`
+	OwnerUserGroupIds         types.Set    `tfsdk:"owner_user_group_ids"`
+	OwnerUserIds              types.Set    `tfsdk:"owner_user_ids"`
 	PathSuffix                types.String `tfsdk:"path_suffix"`
 	Policy                    types.String `tfsdk:"policy"`
 	SystemManagedPolicy       types.Bool   `tfsdk:"system_managed_policy"`

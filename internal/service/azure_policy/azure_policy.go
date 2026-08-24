@@ -63,9 +63,9 @@ func (r *azure_policyResource) Create(ctx context.Context, req resource.CreateRe
 		Parameters:  flex.OptStringFromFramework(plan.AzurePolicy.Parameters),
 		Policy:      flex.StringValueFromFramework(plan.AzurePolicy.Policy),
 	}
-	ownerUserGroups, ownerUserGroupsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserGroups)
+	ownerUserGroups, ownerUserGroupsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserGroups)
 	resp.Diagnostics.Append(ownerUserGroupsDiags...)
-	ownerUsers, ownerUsersDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUsers)
+	ownerUsers, ownerUsersDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUsers)
 	resp.Diagnostics.Append(ownerUsersDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -185,8 +185,8 @@ func (r *azure_policyResource) Update(ctx context.Context, req resource.UpdateRe
 
 	// Sync owners: the update body does not carry them, so diff prior state vs
 	// plan and add/remove via the dedicated owner endpoints.
-	addOwnerUsers, removeOwnerUsers := flex.Uint64ListDiff(ctx, state.OwnerUsers, plan.OwnerUsers, &resp.Diagnostics)
-	addOwnerGroups, removeOwnerGroups := flex.Uint64ListDiff(ctx, state.OwnerUserGroups, plan.OwnerUserGroups, &resp.Diagnostics)
+	addOwnerUsers, removeOwnerUsers := flex.Uint64SetDiff(ctx, state.OwnerUsers, plan.OwnerUsers, &resp.Diagnostics)
+	addOwnerGroups, removeOwnerGroups := flex.Uint64SetDiff(ctx, state.OwnerUserGroups, plan.OwnerUserGroups, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -279,7 +279,7 @@ func flattenAzurePolicy(ctx context.Context, apiObject any, model *AzurePolicyMo
 					ownerUserGroupsIDs = append(ownerUserGroupsIDs, int64(elem.ID.Value))
 				}
 			}
-			ownerUserGroupsIDsColl, ownerUserGroupsIDsCD := types.ListValueFrom(ctx, types.Int64Type, ownerUserGroupsIDs)
+			ownerUserGroupsIDsColl, ownerUserGroupsIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUserGroupsIDs)
 			diags.Append(ownerUserGroupsIDsCD...)
 			model.OwnerUserGroups = ownerUserGroupsIDsColl
 			var ownerUsersIDs []int64
@@ -288,7 +288,7 @@ func flattenAzurePolicy(ctx context.Context, apiObject any, model *AzurePolicyMo
 					ownerUsersIDs = append(ownerUsersIDs, int64(elem.ID.Value))
 				}
 			}
-			ownerUsersIDsColl, ownerUsersIDsCD := types.ListValueFrom(ctx, types.Int64Type, ownerUsersIDs)
+			ownerUsersIDsColl, ownerUsersIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUsersIDs)
 			diags.Append(ownerUsersIDsCD...)
 			model.OwnerUsers = ownerUsersIDsColl
 		}

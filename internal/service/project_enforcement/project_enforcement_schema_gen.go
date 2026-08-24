@@ -110,14 +110,14 @@ func ProjectEnforcementResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Whether the enforcement has been triggered.",
 				MarkdownDescription: "Whether the enforcement has been triggered.",
 			},
-			"user_group_ids": schema.ListAttribute{
+			"user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed.",
 				MarkdownDescription: "List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed.",
 			},
-			"user_ids": schema.ListAttribute{
+			"user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -145,6 +145,6 @@ type ProjectEnforcementModel struct {
 	ThresholdType         types.String `tfsdk:"threshold_type"`
 	Timeframe             types.String `tfsdk:"timeframe"`
 	Triggered             types.Bool   `tfsdk:"triggered"`
-	UserGroupIds          types.List   `tfsdk:"user_group_ids"`
-	UserIds               types.List   `tfsdk:"user_ids"`
+	UserGroupIds          types.Set    `tfsdk:"user_group_ids"`
+	UserIds               types.Set    `tfsdk:"user_ids"`
 }

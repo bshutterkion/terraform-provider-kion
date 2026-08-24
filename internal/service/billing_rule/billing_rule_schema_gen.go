@@ -14,7 +14,7 @@ import (
 func BillingRuleResourceSchema(ctx context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"billing_source_ids": schema.ListAttribute{
+			"billing_source_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Required:            true,
 				Description:         "List of Billing Source IDs attached to the billing rule.",
@@ -65,7 +65,7 @@ func BillingRuleResourceSchema(ctx context.Context) schema.Schema {
 }
 
 type BillingRuleModel struct {
-	BillingSourceIds types.List    `tfsdk:"billing_source_ids"`
+	BillingSourceIds types.Set     `tfsdk:"billing_source_ids"`
 	Description      types.String  `tfsdk:"description"`
 	EndMonth         types.Int64   `tfsdk:"end_month"`
 	Id               types.String  `tfsdk:"id"`

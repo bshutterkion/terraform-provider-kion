@@ -45,8 +45,8 @@ No modules.
 | name | Name of the Service Control policy in the application. | `string` | n/a | yes |
 | policy | Text of the Service Control policy in AWS to be stored in AWS. | `string` | n/a | yes |
 | description | Description for the Service Control policy in the application. | `string` | `null` | no |
-| owner\_user\_group\_ids | List of groups IDs who will own the service\_control policy. Is required if no owner user IDs are listed. | `list(number)` | `null` | no |
-| owner\_user\_ids | List of user IDs who will own the service\_control policy. Is required if no owner group IDs are listed. | `list(number)` | `null` | no |
+| owner\_user\_group\_ids | List of groups IDs who will own the service\_control policy. Is required if no owner user IDs are listed. | `set(number)` | `null` | no |
+| owner\_user\_ids | List of user IDs who will own the service\_control policy. Is required if no owner group IDs are listed. | `set(number)` | `null` | no |
 
 ## Outputs
 

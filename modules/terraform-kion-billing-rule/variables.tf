@@ -2,7 +2,7 @@
 
 variable "billing_source_ids" {
   description = "List of Billing Source IDs attached to the billing rule."
-  type        = list(number)
+  type        = set(number)
 }
 
 variable "description" {

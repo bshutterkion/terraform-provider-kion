@@ -37,7 +37,7 @@ func ComplianceCheckResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "ComplianceCheckTypeID for the Compliance Check in the application.\n1 - External. These checks are not triggered by cloudtamer.io, but rather can display findings from checks run outside of cloudtamer.io.\n2 - Cloud Custodian. These checks are run by cloudtamer.io using Cloud Custodian.\n3 - Azure Policy. These checks are scraped from Azure's policy reporting engine and apply Azure Policies to accounts.",
 				MarkdownDescription: "ComplianceCheckTypeID for the Compliance Check in the application.\n1 - External. These checks are not triggered by cloudtamer.io, but rather can display findings from checks run outside of cloudtamer.io.\n2 - Cloud Custodian. These checks are run by cloudtamer.io using Cloud Custodian.\n3 - Azure Policy. These checks are scraped from Azure's policy reporting engine and apply Azure Policies to accounts.",
 			},
-			"compliance_control_ids": schema.ListAttribute{
+			"compliance_control_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -120,14 +120,14 @@ func ComplianceCheckResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Name of the Compliance Check in the application.",
 				MarkdownDescription: "Name of the Compliance Check in the application.",
 			},
-			"owner_user_group_ids": schema.ListAttribute{
+			"owner_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of groups IDs who will own the Compliance Check. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the Compliance Check. Is required if no owner user IDs are listed.",
 			},
-			"owner_user_ids": schema.ListAttribute{
+			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -158,7 +158,7 @@ type ComplianceCheckModel struct {
 	Body                  types.String `tfsdk:"body"`
 	CloudProviderId       types.Int64  `tfsdk:"cloud_provider_id"`
 	ComplianceCheckTypeId types.Int64  `tfsdk:"compliance_check_type_id"`
-	ComplianceControlIds  types.List   `tfsdk:"compliance_control_ids"`
+	ComplianceControlIds  types.Set    `tfsdk:"compliance_control_ids"`
 	ComplianceStandardId  types.Int64  `tfsdk:"compliance_standard_id"`
 	CreatedAt             types.String `tfsdk:"created_at"`
 	CreatedByUserId       types.Int64  `tfsdk:"created_by_user_id"`
@@ -172,8 +172,8 @@ type ComplianceCheckModel struct {
 	LastScanId            types.Int64  `tfsdk:"last_scan_id"`
 	LastUpdated           types.String `tfsdk:"last_updated"`
 	Name                  types.String `tfsdk:"name"`
-	OwnerUserGroupIds     types.List   `tfsdk:"owner_user_group_ids"`
-	OwnerUserIds          types.List   `tfsdk:"owner_user_ids"`
+	OwnerUserGroupIds     types.Set    `tfsdk:"owner_user_group_ids"`
+	OwnerUserIds          types.Set    `tfsdk:"owner_user_ids"`
 	Regions               types.List   `tfsdk:"regions"`
 	SeverityTypeId        types.Int64  `tfsdk:"severity_type_id"`
 }

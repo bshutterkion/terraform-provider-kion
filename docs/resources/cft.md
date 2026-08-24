@@ -46,8 +46,8 @@ resource "kion_cft" "example" {
 ### Optional
 
 - `description` (String) Description of the Cloudformation template in the application.
-- `owner_user_group_ids` (List of Number) List of groups IDs who will own the CloudFormation template. Is required if no user IDs are listed.
-- `owner_user_ids` (List of Number) List of user IDs who will own the CloudFormation template. Is required if no group IDs are listed.
+- `owner_user_group_ids` (Set of Number) List of groups IDs who will own the CloudFormation template. Is required if no user IDs are listed.
+- `owner_user_ids` (Set of Number) List of user IDs who will own the CloudFormation template. Is required if no group IDs are listed.
 - `region` (String) DEPRECATED! USE THE regions FIELD.
 AWS region where the CloudFormation template applies.
 - `sns_arns` (String) List of comma separated AWS SNS ARNs that will trigger once the CFT is done applying.

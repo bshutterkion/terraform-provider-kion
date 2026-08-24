@@ -44,8 +44,8 @@ Valid values are either 1 ("incremental") or 2 ("complete")
 ### Optional
 
 - `description` (String) A short description of the ARM template
-- `owner_user_group_ids` (List of Number) List of groups IDs who will own the Azure ARM template. Is required if no user IDs are listed.
-- `owner_user_ids` (List of Number) List of user IDs who will own the Azure ARM template. Is required if no group IDs are listed.
+- `owner_user_group_ids` (Set of Number) List of groups IDs who will own the Azure ARM template. Is required if no user IDs are listed.
+- `owner_user_ids` (Set of Number) List of user IDs who will own the Azure ARM template. Is required if no group IDs are listed.
 - `template_parameters` (String) Parameters to fill for the template. Should be the contents of the "properties" attribute on the traditional payload.
 
 ### Read-Only

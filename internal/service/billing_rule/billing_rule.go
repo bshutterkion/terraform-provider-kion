@@ -60,7 +60,7 @@ func (r *billing_ruleResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	billingSourceIds, billingSourceIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.BillingSourceIds)
+	billingSourceIds, billingSourceIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.BillingSourceIds)
 	resp.Diagnostics.Append(billingSourceIdsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -158,7 +158,7 @@ func (r *billing_ruleResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	billingSourceIds, billingSourceIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.BillingSourceIds)
+	billingSourceIds, billingSourceIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.BillingSourceIds)
 	resp.Diagnostics.Append(billingSourceIdsDiags...)
 	if resp.Diagnostics.HasError() {
 		return

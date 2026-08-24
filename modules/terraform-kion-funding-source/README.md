@@ -52,8 +52,8 @@ No modules.
 | start\_datecode | The month this funding source starts being usable (YYYY-MM). | `string` | n/a | yes |
 | description | Description for the funding source in the application. | `string` | `null` | no |
 | ou\_id | ID of the top level OU that will receive the funding from this funding source. | `number` | `null` | no |
-| owner\_user\_group\_ids | List of groups IDs who will own the funding source. Is required if no owner user IDs are listed. | `list(number)` | `null` | no |
-| owner\_user\_ids | List of user IDs who will own the funding source. Is required if no owner group IDs are listed. | `list(number)` | `null` | no |
+| owner\_user\_group\_ids | List of groups IDs who will own the funding source. Is required if no owner user IDs are listed. | `set(number)` | `null` | no |
+| owner\_user\_ids | List of user IDs who will own the funding source. Is required if no owner group IDs are listed. | `set(number)` | `null` | no |
 
 ## Outputs
 

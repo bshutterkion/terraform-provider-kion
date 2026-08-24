@@ -38,14 +38,14 @@ func AzureArmTemplateResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "The name of the ARM template definition in cloudtamer.io",
 				MarkdownDescription: "The name of the ARM template definition in cloudtamer.io",
 			},
-			"owner_user_group_ids": schema.ListAttribute{
+			"owner_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of groups IDs who will own the Azure ARM template. Is required if no user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the Azure ARM template. Is required if no user IDs are listed.",
 			},
-			"owner_user_ids": schema.ListAttribute{
+			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -83,8 +83,8 @@ type AzureArmTemplateModel struct {
 	Description           types.String `tfsdk:"description"`
 	Id                    types.String `tfsdk:"id"`
 	Name                  types.String `tfsdk:"name"`
-	OwnerUserGroupIds     types.List   `tfsdk:"owner_user_group_ids"`
-	OwnerUserIds          types.List   `tfsdk:"owner_user_ids"`
+	OwnerUserGroupIds     types.Set    `tfsdk:"owner_user_group_ids"`
+	OwnerUserIds          types.Set    `tfsdk:"owner_user_ids"`
 	ResourceGroupName     types.String `tfsdk:"resource_group_name"`
 	ResourceGroupRegionId types.Int64  `tfsdk:"resource_group_region_id"`
 	Template              types.String `tfsdk:"template"`

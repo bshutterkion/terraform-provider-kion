@@ -56,9 +56,9 @@ func (r *ouResource) Create(ctx context.Context, req resource.CreateRequest, res
 		return
 	}
 
-	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserGroupIds)
+	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserGroupIds)
 	resp.Diagnostics.Append(ownerUserGroupIdsDiags...)
-	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserIds)
+	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserIds)
 	resp.Diagnostics.Append(ownerUserIdsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -177,8 +177,8 @@ func (r *ouResource) Update(ctx context.Context, req resource.UpdateRequest, res
 
 	// Sync owners: the update body does not carry them, so diff prior state vs
 	// plan and add/remove via the dedicated owner endpoints.
-	addOwnerUsers, removeOwnerUsers := flex.Uint64ListDiff(ctx, state.OwnerUserIds, plan.OwnerUserIds, &resp.Diagnostics)
-	addOwnerGroups, removeOwnerGroups := flex.Uint64ListDiff(ctx, state.OwnerUserGroupIds, plan.OwnerUserGroupIds, &resp.Diagnostics)
+	addOwnerUsers, removeOwnerUsers := flex.Uint64SetDiff(ctx, state.OwnerUserIds, plan.OwnerUserIds, &resp.Diagnostics)
+	addOwnerGroups, removeOwnerGroups := flex.Uint64SetDiff(ctx, state.OwnerUserGroupIds, plan.OwnerUserGroupIds, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -268,7 +268,7 @@ func flattenOu(ctx context.Context, apiObject any, model *OuModel) diag.Diagnost
 					ownerUserGroupsIDs = append(ownerUserGroupsIDs, int64(elem.ID.Value))
 				}
 			}
-			ownerUserGroupsIDsColl, ownerUserGroupsIDsCD := types.ListValueFrom(ctx, types.Int64Type, ownerUserGroupsIDs)
+			ownerUserGroupsIDsColl, ownerUserGroupsIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUserGroupsIDs)
 			diags.Append(ownerUserGroupsIDsCD...)
 			model.OwnerUserGroupIds = ownerUserGroupsIDsColl
 			var ownerUsersIDs []int64
@@ -277,7 +277,7 @@ func flattenOu(ctx context.Context, apiObject any, model *OuModel) diag.Diagnost
 					ownerUsersIDs = append(ownerUsersIDs, int64(elem.ID.Value))
 				}
 			}
-			ownerUsersIDsColl, ownerUsersIDsCD := types.ListValueFrom(ctx, types.Int64Type, ownerUsersIDs)
+			ownerUsersIDsColl, ownerUsersIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUsersIDs)
 			diags.Append(ownerUsersIDsCD...)
 			model.OwnerUserIds = ownerUsersIDsColl
 		}

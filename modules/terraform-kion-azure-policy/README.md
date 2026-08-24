@@ -41,8 +41,8 @@ No modules.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | azure\_policy | AzurePolicyDefinitionCreate represents an create Azure Policy Definition, complete with the policy itself and its parameters. | `object({ description = optional(string), name = string, parameters = optional(string), policy = string })` | `null` | no |
-| owner\_user\_groups | List of user group IDs that will be owners of the azure policy. | `list(number)` | `null` | no |
-| owner\_users | List of user IDs that will be owners of the azure policy. | `list(number)` | `null` | no |
+| owner\_user\_groups | List of user group IDs that will be owners of the azure policy. | `set(number)` | `null` | no |
+| owner\_users | List of user IDs that will be owners of the azure policy. | `set(number)` | `null` | no |
 
 ## Outputs
 

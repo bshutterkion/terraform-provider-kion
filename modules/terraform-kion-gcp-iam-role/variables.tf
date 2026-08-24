@@ -2,13 +2,13 @@
 
 variable "car_restricted_user_group_ids" {
   description = "List of groups IDs who have been allowed to use the GCP Role on Cloud Access Roles in the system."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "car_restricted_user_ids" {
   description = "List of user IDs who have been allowed to use the GCP Role on Cloud Access Roles in the system."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
@@ -31,13 +31,13 @@ variable "name" {
 
 variable "owner_user_group_ids" {
   description = "List of group IDs who will own the GCP Role. Is required if no owner user IDs are listed."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "owner_user_ids" {
   description = "List of user IDs who will own the GCP Role. Is required if no owner group IDs are listed."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
