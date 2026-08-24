@@ -67,8 +67,18 @@ var (
 	projectPermissionMappingDSTmpl string
 	//go:embed project_permission_mapping_helpers.gtpl
 	projectPermissionMappingHelpersTmpl string
+	//go:embed funding_source_permission_mapping_ds.gtpl
+	fundingSourcePermissionMappingDSTmpl string
+	//go:embed funding_source_permission_mapping_helpers.gtpl
+	fundingSourcePermissionMappingHelpersTmpl string
+	//go:embed global_permission_mapping_ds.gtpl
+	globalPermissionMappingDSTmpl string
+	//go:embed global_permission_mapping_helpers.gtpl
+	globalPermissionMappingHelpersTmpl string
 	//go:embed project_enforcement_ds.gtpl
 	projectEnforcementDSTmpl string
+	//go:embed project_note_ds.gtpl
+	projectNoteDSTmpl string
 	//go:embed cft_alias.gtpl
 	cftAliasTmpl string
 	//go:embed iam_policy_alias.gtpl
@@ -93,8 +103,19 @@ func init() {
 			{projectPermissionMappingDSTmpl, "project_permission_mapping_data_source.go"},
 			{projectPermissionMappingHelpersTmpl, "data_source_helpers.go"},
 		},
+		"funding_source_permission_mapping": {
+			{fundingSourcePermissionMappingDSTmpl, "funding_source_permission_mapping_data_source.go"},
+			{fundingSourcePermissionMappingHelpersTmpl, "data_source_helpers.go"},
+		},
+		"global_permission_mapping": {
+			{globalPermissionMappingDSTmpl, "global_permission_mapping_data_source.go"},
+			{globalPermissionMappingHelpersTmpl, "data_source_helpers.go"},
+		},
 		"project_enforcement": {
 			{projectEnforcementDSTmpl, "project_enforcement_data_source.go"},
+		},
+		"project_note": {
+			{projectNoteDSTmpl, "project_note_data_source.go"},
 		},
 		"cft": {
 			{cftAliasTmpl, "aws_cloudformation_template_alias.go"},

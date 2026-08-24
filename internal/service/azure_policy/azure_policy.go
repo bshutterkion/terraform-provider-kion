@@ -262,6 +262,9 @@ func flattenAzurePolicy(ctx context.Context, apiObject any, model *AzurePolicyMo
 	switch v := apiObject.(type) {
 	case *generated.AzurePolicyResponse:
 		if v.Data.Set {
+			if v.Data.Value.AzurePolicy.Value.ID.Set {
+				model.Id = types.StringValue(strconv.FormatUint(v.Data.Value.AzurePolicy.Value.ID.Value, 10))
+			}
 			azurePolicyVal, azurePolicyValDiags := NewAzurePolicyValue(AzurePolicyValue{}.AttributeTypes(ctx), map[string]attr.Value{
 				"description": flex.OptStringToFramework(v.Data.Value.AzurePolicy.Value.Description),
 				"name":        flex.OptStringToFramework(v.Data.Value.AzurePolicy.Value.Name),

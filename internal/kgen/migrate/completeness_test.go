@@ -3,6 +3,7 @@ package migrate
 import (
 	"os"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -199,6 +200,188 @@ func TestConfigDropsAreSettableAndRemoved(t *testing.T) {
 			}
 		}
 	}
+}
+
+// TestReadOnlyDropsArePresentAndComputed is the guard behind ReadOnlyDrops, both
+// ways round. Forwards: every entry must be an old settable attribute that the
+// new schema still declares but only as computed — if it were absent it belongs
+// in ConfigDrops, and if it were still settable dropping it would corrupt valid
+// config. Backwards: every settable→read-only change in the snapshots must have
+// an entry, or kmigrate leaves config Terraform rejects with "Invalid
+// Configuration for Read-Only Attribute".
+//
+// `id` is excluded from the backwards half: SDKv2 injects an optional+computed
+// top-level `id` into every resource schema, so all 33 old resources report it
+// as settable when no provider code ever declared it (see ReadOnlyDrops).
+func TestReadOnlyDropsArePresentAndComputed(t *testing.T) {
+	oldS, err := LoadSchema(oldSnap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newS, err := LoadSchema(newSnap)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	readOnly := func(a Attr) bool { return a.Kind == "attr" && a.Computed && !a.Settable() }
+
+	// Forwards: each entry is real.
+	for rt, drops := range ReadOnlyDrops {
+		oldR, ok := oldS[rt]
+		if !ok {
+			t.Errorf("ReadOnlyDrops has %s which is not an old resource", rt)
+			continue
+		}
+		newR, ok := newS[rt]
+		if !ok {
+			t.Errorf("ReadOnlyDrops has %s which is not a new resource", rt)
+			continue
+		}
+		for _, a := range drops {
+			oa, ok := oldR.Attrs[a]
+			if !ok || oa.Kind != "attr" || !oa.Settable() {
+				t.Errorf("%s: ReadOnlyDrops %q is not a settable old attribute", rt, a)
+			}
+			na, ok := newR.Attrs[a]
+			if !ok {
+				t.Errorf("%s: ReadOnlyDrops %q is absent from the new schema — it belongs in ConfigDrops", rt, a)
+				continue
+			}
+			if !readOnly(na) {
+				t.Errorf("%s: ReadOnlyDrops %q is still settable in the new schema — dropping it would corrupt valid config", rt, a)
+			}
+		}
+	}
+
+	// Backwards: no settable → read-only change is missing an entry.
+	for rt, oldR := range oldS {
+		newR, ok := newS[rt]
+		if !ok {
+			continue
+		}
+		for name, oa := range oldR.Attrs {
+			if name == "id" || oa.Kind != "attr" || !oa.Settable() {
+				continue
+			}
+			na, ok := newR.Attrs[name]
+			if !ok || !readOnly(na) {
+				continue
+			}
+			if !contains(ReadOnlyDrops[rt], name) {
+				t.Errorf("%s.%s: settable in old, read-only in new, but ReadOnlyDrops has no entry — "+
+					"kmigrate would leave config Terraform rejects", rt, name)
+			}
+		}
+	}
+}
+
+// TestMapToObjectList_matchSchemas is the guard behind the kv_list rules, both
+// ways round: every rule must really be an old map that became a list of
+// objects with exactly the named fields, and every such change in the snapshots
+// must have a rule. A wrong field name here writes config that fails to decode
+// and state that fails to upgrade; a missing rule silently leaves a map where
+// the provider wants a list.
+func TestMapToObjectList_matchSchemas(t *testing.T) {
+	oldS, err := LoadSchema(oldSnap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newS, err := LoadSchema(newSnap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ups, err := LoadUpgrades("../../../codegen/state_upgrades.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// kv_list rules are keyed by the NEW primary type; for an alias the old
+	// schema lives under the old name that old_type records.
+	oldTypeOf := func(newType string) string {
+		if ot := ups[newType].OldType; ot != "" {
+			return ot
+		}
+		return newType
+	}
+	// Every kv_list rule reachable from the old-config type name, which is what
+	// kmigrate matches on and what the backwards sweep iterates.
+	ruleFor := func(oldType, attr string) (KVListRule, bool) {
+		for newType, tr := range ups {
+			if oldTypeOf(newType) != oldType {
+				continue
+			}
+			if r, ok := tr.KVList[attr]; ok {
+				return r, true
+			}
+		}
+		return KVListRule{}, false
+	}
+
+	// Forwards: each rule is real.
+	for newType, tr := range ups {
+		oldType := oldTypeOf(newType)
+		for attr, fold := range tr.KVList {
+			oldR, ok := oldS[oldType]
+			if !ok {
+				t.Errorf("%s: kv_list names old type %s which is not an old resource", newType, oldType)
+				continue
+			}
+			oa, ok := oldR.Attrs[attr]
+			if !ok || !isMapType(oa) {
+				t.Errorf("%s: kv_list %q is not an old map attribute of %s", newType, attr, oldType)
+			}
+			na, ok := newS[newType].Attrs[attr]
+			if !ok || !na.NestedObj {
+				t.Errorf("%s: kv_list %q is not a nested-object attribute in the new schema", newType, attr)
+				continue
+			}
+			if na.NestedMode != "list" && na.NestedMode != "set" {
+				t.Errorf("%s.%s: kv_list target nesting = %q, want list or set", newType, attr, na.NestedMode)
+			}
+			want := []string{fold.KeyField, fold.ValField}
+			sort.Strings(want)
+			if !eqStrs(na.NestedAttrs, want) {
+				t.Errorf("%s.%s: new nested fields = %v, kv_list names %v", newType, attr, na.NestedAttrs, want)
+			}
+		}
+	}
+
+	// Backwards: no map→object-list change is missing a rule.
+	for oldType, oldR := range oldS {
+		for attr, oa := range oldR.Attrs {
+			if !isMapType(oa) {
+				continue
+			}
+			var na Attr
+			var found bool
+			for newType := range ups {
+				if oldTypeOf(newType) != oldType {
+					continue
+				}
+				if a, ok := newS[newType].Attrs[attr]; ok {
+					na, found = a, true
+				}
+			}
+			if !found && !na.NestedObj {
+				if a, ok := newS[oldType].Attrs[attr]; ok {
+					na, found = a, true
+				}
+			}
+			if !found || !na.NestedObj {
+				continue
+			}
+			if _, covered := ruleFor(oldType, attr); !covered {
+				t.Errorf("%s.%s: map became a nested-object attribute %v but no kv_list rule covers it — "+
+					"kmigrate would leave an invalid map and the state upgrader would fail to decode",
+					oldType, attr, na.NestedAttrs)
+			}
+		}
+	}
+}
+
+// isMapType reports whether an attribute's cty type is a map (the JSON form is
+// `["map", <element>]`).
+func isMapType(a Attr) bool {
+	return a.Kind == "attr" && strings.HasPrefix(a.TypeJSON, `["map"`)
 }
 
 func eqStrs(a, b []string) bool {

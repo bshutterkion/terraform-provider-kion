@@ -3,11 +3,15 @@
 package ou_cloud_access_role
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"terraform-provider-kion/internal/conns"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
 
 func init() {
@@ -17,16 +21,50 @@ func init() {
 	})
 }
 
+// sweepOuCloudAccessRole reads GetOUCloudAccessRoleIndex (not paginated: one call yields the whole
+// collection) collecting ids whose test resources carry the acceptance-test
+// prefix, then deletes them via DeleteOUCloudAccessRole.
 func sweepOuCloudAccessRole(_ string) error {
 	conn, err := conns.SharedClient()
 	if err != nil {
 		return fmt.Errorf("getting shared client: %w", err)
 	}
-	_ = conn
+	ctx := context.Background()
 
-	// TODO: list kion_ou_cloud_access_role resources with the "test-acc" prefix and
-	// delete each via conn.Client.DeleteOUCloudAccessRole.
-	// A real list+delete sweeper needs paginated-list-envelope resolution — see
-	// the CRUD generator follow-up plan.
+	var ids []int64
+	// GetOUCloudAccessRoleIndex is not paginated: one call returns the whole collection.
+	out, err := conn.Client.GetOUCloudAccessRoleIndex(ctx)
+	if err != nil {
+		return fmt.Errorf("listing kion_ou_cloud_access_role: %w", err)
+	}
+	if resp, ok := out.(*generated.OUCloudAccessRoleListResponsePaginated); ok && resp.Data.Set {
+		items := resp.Data.Value.Items
+		if items.Set && !items.Null {
+			for _, item := range items.Value {
+				if item.OuCloudAccessRole.Value.ID.Set && sweepOuCloudAccessRoleMatch(item) {
+					ids = append(ids, int64(item.OuCloudAccessRole.Value.ID.Value))
+				}
+			}
+		}
+	}
+
+	for _, id := range ids {
+		if _, err := conn.Client.DeleteOUCloudAccessRole(ctx, generated.DeleteOUCloudAccessRoleParams{ID: id}); err != nil {
+			return fmt.Errorf("deleting kion_ou_cloud_access_role (%d): %w", id, err)
+		}
+	}
 	return nil
+}
+
+func sweepOuCloudAccessRoleMatch(item generated.OUCloudAccessRoleFull) bool {
+	for _, s := range []string{
+		item.OuCloudAccessRole.Value.AWSIamPath.Or(""),
+		item.OuCloudAccessRole.Value.AWSIamRoleName.Or(""),
+		item.OuCloudAccessRole.Value.Name.Or(""),
+	} {
+		if strings.HasPrefix(s, "test-acc") {
+			return true
+		}
+	}
+	return false
 }

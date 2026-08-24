@@ -75,6 +75,9 @@ func GenerateUpgrade(root, tfType string, t Transform, oldRes, newRes Resource) 
 		case t.Project[tf].From != "":
 			pr := t.Project[tf]
 			e.Expr = fmt.Sprintf("migratehelper.ProjectIDs(old[%q], %q)", pr.From, pr.Field)
+		case t.KVList[tf].KeyField != "":
+			kv := t.KVList[tf]
+			e.Expr = fmt.Sprintf("migratehelper.MapToObjectList(old[%q], %q, %q)", tf, kv.KeyField, kv.ValField)
 		case tf == "id" && t.IDInt:
 			e.Expr = `migratehelper.StringToNum(old["id"])`
 		case contains(t.Unwrap, tf):

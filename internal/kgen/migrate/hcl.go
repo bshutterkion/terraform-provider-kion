@@ -3,6 +3,8 @@ package migrate
 import (
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
@@ -49,11 +51,19 @@ var RequiredAdditions = map[string][]string{
 
 // RewriteFile applies the input-attribute half of the state_upgrades transforms
 // to one .tf file's `resource "kion_*"` blocks: attribute renames and the
-// block-set → id-list restructure (owner_users { id = x } → owner_user_ids = [x]).
+// block-set → id-list restructure (owner_users { id = x } → owner_user_ids = [x]),
+// and the kv_list map explode (tags = { k = v } → tags = [{ tag_key = "k", … }]).
 // It preserves the id expressions verbatim (literals or references) and returns a
 // human-readable list of the changes made. Comments and formatting are preserved
 // by hclwrite. Computed-only transforms (id_int, unwrap, drops) are state-only
 // and never appear in config, so they are ignored here.
+//
+// Both spellings of a repeatable block are handled: the literal block and the
+// `dynamic "name" { for_each = … content { … } }` that generates it. An attribute
+// has no dynamic form, so a dynamic block collapses into a for expression over
+// the same for_each — `dynamic "owner_users" { for_each = var.ids; content { id =
+// owner_users.value } }` becomes `owner_user_ids = [for owner_users in var.ids :
+// owner_users]` — and a resource mixing both spellings gets a concat.
 //
 // The third return is manual follow-ups: things the new schema demands that no
 // rewrite can produce. They are kept apart from changes so the CLI does not count
@@ -84,10 +94,11 @@ func RewriteFile(src []byte, ups map[string]Transform) ([]byte, []string, []stri
 			t, hasTransform = byOldType[rtype]
 		}
 		_, hasDrops := ConfigDrops[rtype]
+		_, hasRODrops := ReadOnlyDrops[rtype]
 		_, hasBlockConv := BlockToListAttr[rtype]
 		_, hasFold := AttrsToObject[rtype]
 		_, hasRequired := RequiredAdditions[rtype]
-		if !hasTransform && !hasDrops && !hasBlockConv && !hasFold && !hasRequired {
+		if !hasTransform && !hasDrops && !hasRODrops && !hasBlockConv && !hasFold && !hasRequired {
 			continue
 		}
 		body := block.Body()
@@ -109,49 +120,149 @@ func RewriteFile(src []byte, ups map[string]Transform) ([]byte, []string, []stri
 			}
 		}
 
-		for newA, pr := range t.Project {
-			var elems []hclwrite.Tokens
-			for _, b := range body.Blocks() {
-				if b.Type() != pr.From {
+		// Drop attributes the new schema kept but made read-only (computed): the
+		// provider supplies the value now, so config may no longer set it.
+		for _, dropA := range ReadOnlyDrops[rtype] {
+			if body.GetAttribute(dropA) != nil {
+				body.RemoveAttribute(dropA)
+				changes = append(changes, fmt.Sprintf(
+					"%s.%s: dropped %s — read-only in the new schema", rtype, rname, dropA))
+			}
+		}
+
+		// Sorted so the rewritten attributes land in a stable order regardless of
+		// map iteration.
+		for _, newA := range sortedKeys(t.Project) {
+			pr := t.Project[newA]
+			// Each source block contributes a chunk: a static block one element
+			// (its id expression), a `dynamic` block a whole list (a for
+			// expression over its for_each).
+			var chunks []listChunk
+			var consumed []*hclwrite.Block
+			var stuck []string
+			dynamic := false
+			for _, b := range collectSources(body, pr.From) {
+				if d := parseDynamic(b); d != nil {
+					if err := d.check(); err != nil {
+						stuck = append(stuck, fmt.Sprintf("dynamic %q: %v", pr.From, err))
+						continue
+					}
+					fa := d.content.Body().GetAttribute(pr.Field)
+					if fa == nil {
+						stuck = append(stuck, fmt.Sprintf("dynamic %q has no %q in its content", pr.From, pr.Field))
+						continue
+					}
+					toks, err := d.forExpr(fa.Expr().BuildTokens(nil))
+					if err != nil {
+						stuck = append(stuck, fmt.Sprintf("dynamic %q: %v", pr.From, err))
+						continue
+					}
+					chunks = append(chunks, listChunk{toks: toks, isList: true})
+					consumed = append(consumed, b)
+					dynamic = true
 					continue
 				}
-				if fa := b.Body().GetAttribute(pr.Field); fa != nil {
-					elems = append(elems, fa.Expr().BuildTokens(nil))
+				if b.Type() != pr.From {
+					// A `dynamic` block we could not parse at all.
+					stuck = append(stuck, fmt.Sprintf("dynamic %q is not a convertible for_each/content pair", pr.From))
+					continue
 				}
+				fa := b.Body().GetAttribute(pr.Field)
+				if fa == nil {
+					stuck = append(stuck, fmt.Sprintf("block %q has no %q", pr.From, pr.Field))
+					continue
+				}
+				chunks = append(chunks, listChunk{toks: fa.Expr().BuildTokens(nil)})
+				consumed = append(consumed, b)
 			}
-			if len(elems) == 0 {
+			for _, s := range stuck {
+				actions = append(actions, fmt.Sprintf("%s.%s: %s — convert it to %s = [...] by hand", rtype, rname, s, newA))
+			}
+			if len(chunks) == 0 {
 				continue
 			}
-			// Remove the source blocks (collect-then-remove; RemoveBlock is safe
-			// per block).
-			for _, b := range body.Blocks() {
-				if b.Type() == pr.From {
-					body.RemoveBlock(b)
-				}
+			combined, err := combineChunks(chunks)
+			if err != nil {
+				actions = append(actions, fmt.Sprintf("%s.%s: could not build %s: %v", rtype, rname, newA, err))
+				continue
 			}
-			body.SetAttributeRaw(newA, listTokens(elems))
-			changes = append(changes, fmt.Sprintf("%s.%s: %s { %s } → %s = [...]", rtype, rname, pr.From, pr.Field, newA))
+			// Remove only the blocks actually folded in (collect-then-remove;
+			// RemoveBlock is safe per block).
+			for _, b := range consumed {
+				body.RemoveBlock(b)
+			}
+			body.SetAttributeRaw(newA, combined)
+			src := pr.From + " { " + pr.Field + " }"
+			if dynamic {
+				src = "dynamic \"" + pr.From + "\" { … }"
+			}
+			changes = append(changes, fmt.Sprintf("%s.%s: %s → %s = [...]", rtype, rname, src, newA))
 		}
 
 		// Convert nested-object blocks that became list/set nested attributes:
 		// project_funding { … } → project_funding = [{ … }].
 		for _, blkName := range BlockToListAttr[rtype] {
-			var objs []hclwrite.Tokens
-			for _, b := range body.Blocks() {
-				if b.Type() == blkName {
-					objs = append(objs, blockBodyToObject(b))
+			var chunks []listChunk
+			var consumed []*hclwrite.Block
+			for _, b := range collectSources(body, blkName) {
+				if d := parseDynamic(b); d != nil {
+					err := d.check()
+					var toks hclwrite.Tokens
+					if err == nil {
+						toks, err = d.forExpr(blockBodyToObject(d.content))
+					}
+					if err != nil {
+						actions = append(actions, fmt.Sprintf(
+							"%s.%s: dynamic %q: %v — convert it to %s = [{…}] by hand", rtype, rname, blkName, err, blkName))
+						continue
+					}
+					chunks = append(chunks, listChunk{toks: toks, isList: true})
+					consumed = append(consumed, b)
+					continue
 				}
+				if b.Type() != blkName {
+					continue
+				}
+				chunks = append(chunks, listChunk{toks: blockBodyToObject(b)})
+				consumed = append(consumed, b)
 			}
-			if len(objs) == 0 {
+			if len(chunks) == 0 {
 				continue
 			}
-			for _, b := range body.Blocks() {
-				if b.Type() == blkName {
-					body.RemoveBlock(b)
-				}
+			combined, err := combineChunks(chunks)
+			if err != nil {
+				actions = append(actions, fmt.Sprintf("%s.%s: could not build %s: %v", rtype, rname, blkName, err))
+				continue
 			}
-			body.SetAttributeRaw(blkName, listTokens(objs))
+			for _, b := range consumed {
+				body.RemoveBlock(b)
+			}
+			body.SetAttributeRaw(blkName, combined)
 			changes = append(changes, fmt.Sprintf("%s.%s: %s { … } → %s = [{…}]", rtype, rname, blkName, blkName))
+		}
+
+		// Explode a map attribute into a list of key/value objects:
+		// tags = { k = v } → tags = [{ tag_key = "k", tag_value = v }].
+		// Driven by the shared kv_list rule, the same one the state upgrader
+		// reads, so config and state can never restructure it differently.
+		for _, attrName := range sortedKeys(t.KVList) {
+			fold := t.KVList[attrName]
+			attr := body.GetAttribute(attrName)
+			if attr == nil {
+				continue
+			}
+			toks, err := mapToObjectList(attr.Expr().BuildTokens(nil), fold)
+			switch {
+			case err != nil:
+				actions = append(actions, fmt.Sprintf(
+					"%s.%s: %s — rewrite it as a list of { %s, %s } objects by hand",
+					rtype, rname, err, fold.KeyField, fold.ValField))
+			case toks == nil: // already a list; nothing to do
+			default:
+				body.SetAttributeRaw(attrName, toks)
+				changes = append(changes, fmt.Sprintf("%s.%s: %s = {…} → %s = [{%s, %s}]",
+					rtype, rname, attrName, attrName, fold.KeyField, fold.ValField))
+			}
 		}
 
 		// Fold scattered top-level attributes into a nested object:
@@ -219,6 +330,274 @@ func blockBodyToObject(b *hclwrite.Block) hclwrite.Tokens {
 	}
 	toks = append(toks, &hclwrite.Token{Type: hclsyntax.TokenCBrace, Bytes: []byte("}")})
 	return toks
+}
+
+// collectSources returns the blocks in body that hold values for the old
+// repeatable block `name`: the literal `name { … }` blocks plus the
+// `dynamic "name" { … }` blocks that generated them. Customers write both — a
+// static block for a fixed owner, a dynamic one for a variable list — and a
+// resource can carry a mix of the two.
+func collectSources(body *hclwrite.Body, name string) []*hclwrite.Block {
+	var out []*hclwrite.Block
+	for _, b := range body.Blocks() {
+		if b.Type() == name || (b.Type() == "dynamic" && len(b.Labels()) == 1 && b.Labels()[0] == name) {
+			out = append(out, b)
+		}
+	}
+	return out
+}
+
+// dynBlock is a parsed `dynamic "NAME" { for_each = … [iterator = it] content { … } }`.
+// The new schema has no `dynamic` equivalent for an attribute, so the whole
+// construct collapses into one for expression over the same for_each.
+type dynBlock struct {
+	iter    string          // iterator name — the label unless `iterator` overrides it
+	forEach hclwrite.Tokens // the for_each expression, verbatim
+	content *hclwrite.Block
+}
+
+// parseDynamic recognizes a `dynamic` block and pulls out the parts the rewrite
+// needs. It returns nil for anything that is not a dynamic block; a dynamic block
+// whose shape cannot be converted faithfully still parses, and check() says why —
+// so the caller can tell "not a dynamic block" from "a dynamic block I must hand
+// back to the practitioner".
+func parseDynamic(b *hclwrite.Block) *dynBlock {
+	if b.Type() != "dynamic" || len(b.Labels()) != 1 {
+		return nil
+	}
+	d := &dynBlock{iter: b.Labels()[0]}
+	if fe := b.Body().GetAttribute("for_each"); fe != nil {
+		d.forEach = fe.Expr().BuildTokens(nil)
+	}
+	if it := b.Body().GetAttribute("iterator"); it != nil {
+		d.iter = identExpr(it.Expr().BuildTokens(nil))
+	}
+	for _, ib := range b.Body().Blocks() {
+		if ib.Type() == "content" {
+			d.content = ib
+			break
+		}
+	}
+	return d
+}
+
+// identExpr returns the expression's text when it is a single bare identifier
+// (`iterator = p`), else "".
+func identExpr(toks hclwrite.Tokens) string {
+	var ident string
+	for _, t := range toks {
+		switch t.Type {
+		case hclsyntax.TokenIdent:
+			if ident != "" {
+				return ""
+			}
+			ident = string(t.Bytes)
+		case hclsyntax.TokenComment, hclsyntax.TokenNewline:
+		default:
+			return ""
+		}
+	}
+	return ident
+}
+
+// check reports why the dynamic block cannot be rewritten as a for expression,
+// or nil when it can. Callers must run it before reading content: a `dynamic`
+// block is only well-formed by convention, and a customer's file may not be.
+func (d *dynBlock) check() error {
+	switch {
+	case d.iter == "":
+		return fmt.Errorf("iterator is not a bare identifier")
+	case len(d.forEach) == 0:
+		return fmt.Errorf("no for_each")
+	case d.content == nil:
+		return fmt.Errorf("no content block")
+	}
+	return nil
+}
+
+// forExpr turns the dynamic block into `[for v in <for_each> : <elem>]`, where
+// elem is the per-iteration expression with the block's iterator references
+// resolved to the loop variable(s). The two-variable form is used only when the
+// body reads `.key`, which for a list for_each is the index and for a map the
+// key — the same meaning the for expression gives it.
+//
+// The result is round-tripped through the HCL parser, so a rewrite that would not
+// parse is reported as an error rather than written to a customer's file.
+func (d *dynBlock) forExpr(elem hclwrite.Tokens) (hclwrite.Tokens, error) {
+	if err := d.check(); err != nil {
+		return nil, err
+	}
+	keyVar, valVar := d.iter+"_key", d.iter
+	body, usedKey := substIterator(elem, d.iter, keyVar, valVar)
+	vars := valVar
+	if usedKey {
+		vars = keyVar + ", " + valVar
+	}
+	return parseExpr(fmt.Sprintf("[for %s in %s : %s]",
+		vars, trimExpr(d.forEach), trimExpr(body)))
+}
+
+// substIterator rewrites `<iter>.value` → valVar and `<iter>.key` → keyVar in an
+// expression, which is what turns a dynamic block's content into the body of a
+// for expression. It reports whether `.key` was used. A qualified reference
+// (`foo.<iter>.value`) is left alone — only the iterator's own root matches.
+func substIterator(toks hclwrite.Tokens, iter, keyVar, valVar string) (hclwrite.Tokens, bool) {
+	out := make(hclwrite.Tokens, 0, len(toks))
+	usedKey := false
+	for i := 0; i < len(toks); i++ {
+		t := toks[i]
+		isRoot := i == 0 || toks[i-1].Type != hclsyntax.TokenDot
+		if isRoot && t.Type == hclsyntax.TokenIdent && string(t.Bytes) == iter &&
+			i+2 < len(toks) && toks[i+1].Type == hclsyntax.TokenDot &&
+			toks[i+2].Type == hclsyntax.TokenIdent {
+			var repl string
+			switch string(toks[i+2].Bytes) {
+			case "value":
+				repl = valVar
+			case "key":
+				repl, usedKey = keyVar, true
+			}
+			if repl != "" {
+				out = append(out, &hclwrite.Token{
+					Type: hclsyntax.TokenIdent, Bytes: []byte(repl), SpacesBefore: t.SpacesBefore,
+				})
+				i += 2
+				continue
+			}
+		}
+		out = append(out, t)
+	}
+	return out, usedKey
+}
+
+// mapToObjectList turns a map-valued expression into the list of two-field
+// objects the new schema wants. A literal map is expanded entry by entry, which
+// is what a practitioner would have written; anything else — a variable, a
+// merge(), a locals lookup — becomes a for expression over the same value, which
+// is correct without needing to know what it evaluates to.
+//
+// It returns (nil, nil) when the expression is already a list, so re-running
+// kmigrate over a migrated file is a no-op.
+func mapToObjectList(toks hclwrite.Tokens, f KVListRule) (hclwrite.Tokens, error) {
+	src := trimExpr(toks)
+	if strings.HasPrefix(src, "[") {
+		return nil, nil
+	}
+	expr, diags := hclsyntax.ParseExpression([]byte(src), "kmigrate-input.tf", hcl.InitialPos)
+	if diags.HasErrors() {
+		return nil, fmt.Errorf("cannot parse %q: %s", src, diags.Error())
+	}
+	obj, ok := expr.(*hclsyntax.ObjectConsExpr)
+	if !ok {
+		return parseExpr(fmt.Sprintf("[for k, v in %s : { %s = k, %s = v }]", src, f.KeyField, f.ValField))
+	}
+	elems := make([]string, 0, len(obj.Items))
+	for _, item := range obj.Items {
+		elems = append(elems, fmt.Sprintf("{ %s = %s, %s = %s }",
+			f.KeyField, objectKeySource(item.KeyExpr, src),
+			f.ValField, exprSource(item.ValueExpr, src)))
+	}
+	return parseExpr("[" + strings.Join(elems, ", ") + "]")
+}
+
+// objectKeySource renders an object key as an expression usable as a value. A
+// bare identifier key is a literal string in HCL (`{env = 1}` has the key
+// "env"), so it has to be quoted once it moves into value position; anything
+// already written as an expression carries over verbatim.
+func objectKeySource(k hclsyntax.Expression, src string) string {
+	if kw := hcl.ExprAsKeyword(k); kw != "" {
+		return strconv.Quote(kw)
+	}
+	return exprSource(k, src)
+}
+
+// exprSource slices an expression's own source back out of the text it was
+// parsed from, so comments, string escapes and interpolation survive untouched.
+func exprSource(e hclsyntax.Expression, src string) string {
+	r := e.Range()
+	return src[r.Start.Byte:r.End.Byte]
+}
+
+// listChunk is one contribution to a rewritten list attribute: a single element
+// expression (from a static block) or an entire list expression (from a dynamic
+// block's for expression).
+type listChunk struct {
+	toks   hclwrite.Tokens
+	isList bool
+}
+
+// combineChunks renders the chunks as one list-valued expression: the plain
+// `[a, b, c]` when they are all single elements, the for expression alone when
+// that is all there is, and `concat(…)` when a resource mixes static and dynamic
+// blocks of the same name.
+func combineChunks(chunks []listChunk) (hclwrite.Tokens, error) {
+	lists := 0
+	for _, c := range chunks {
+		if c.isList {
+			lists++
+		}
+	}
+	if lists == 0 {
+		elems := make([]hclwrite.Tokens, 0, len(chunks))
+		for _, c := range chunks {
+			elems = append(elems, c.toks)
+		}
+		return listTokens(elems), nil
+	}
+	if len(chunks) == 1 {
+		return chunks[0].toks, nil
+	}
+	// Group runs of single elements into one literal list so concat's arguments
+	// stay readable.
+	var parts []string
+	var pending []string
+	flush := func() {
+		if len(pending) > 0 {
+			parts = append(parts, "["+strings.Join(pending, ", ")+"]")
+			pending = nil
+		}
+	}
+	for _, c := range chunks {
+		if c.isList {
+			flush()
+			parts = append(parts, trimExpr(c.toks))
+			continue
+		}
+		pending = append(pending, trimExpr(c.toks))
+	}
+	flush()
+	return parseExpr("concat(" + strings.Join(parts, ", ") + ")")
+}
+
+// trimExpr renders tokens as source text without the leading/trailing whitespace
+// hclwrite carries on an attribute's expression.
+func trimExpr(toks hclwrite.Tokens) string {
+	return strings.TrimSpace(string(toks.Bytes()))
+}
+
+// parseExpr parses generated expression source back into tokens, so every
+// construction in this file is validated by the same parser Terraform uses before
+// it can reach a customer's file.
+func parseExpr(src string) (hclwrite.Tokens, error) {
+	f, diags := hclwrite.ParseConfig([]byte("x = "+src+"\n"), "kmigrate-generated.tf", hcl.Pos{Line: 1, Column: 1})
+	if diags.HasErrors() {
+		return nil, fmt.Errorf("generated %q does not parse: %s", src, diags.Error())
+	}
+	attr := f.Body().GetAttribute("x")
+	if attr == nil {
+		return nil, fmt.Errorf("generated %q does not parse as an expression", src)
+	}
+	return attr.Expr().BuildTokens(nil), nil
+}
+
+// sortedKeys returns a map's keys in a stable order.
+func sortedKeys[V any](m map[string]V) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // listTokens wraps element expressions into a `[a, b, c]` token sequence.

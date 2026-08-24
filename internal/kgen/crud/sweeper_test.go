@@ -8,7 +8,7 @@ import (
 )
 
 func TestRenderSweep_labelReal(t *testing.T) {
-	got, err := renderSweep(labelResourceModel(t))
+	got, _, err := renderSweep(labelResourceModel(t))
 	if err != nil {
 		t.Fatalf("renderSweep: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestRenderSweep_labelReal(t *testing.T) {
 func TestRenderSweep_stubFallback(t *testing.T) {
 	rm := labelResourceModel(t)
 	rm.List = nil // no list endpoint → stub
-	got, err := renderSweep(rm)
+	got, _, err := renderSweep(rm)
 	if err != nil {
 		t.Fatalf("renderSweep: %v", err)
 	}

@@ -1,0 +1,3 @@
+kind: ENHANCEMENTS
+body: "Releases now attach the `kmigrate` binary and `codegen/state_upgrades.yaml`, so migrating a configuration no longer requires cloning this repository. Neither could be fetched any other way: the module path carries no domain, so `go install` has no remote path to resolve. Both new artifacts are listed in `_SHA256SUMS`, so the existing signature over that file covers them."
+time: 2026-08-24T00:00:00Z

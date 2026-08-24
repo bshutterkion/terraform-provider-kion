@@ -86,3 +86,55 @@ func TestStringToNum_roundTripsThroughJSON(t *testing.T) {
 		t.Errorf("round-trip = %s, want 12345678901234", n.String())
 	}
 }
+
+func TestMapToObjectList(t *testing.T) {
+	// The cft tags transform: map(string) → list of {tag_key, tag_value}.
+	eq(t, MapToObjectList(json.RawMessage(`{"env":"prod"}`), "tag_key", "tag_value"),
+		`[{"tag_key":"env","tag_value":"prod"}]`)
+	// Multiple entries come out in sorted key order, deterministically.
+	eq(t, MapToObjectList(json.RawMessage(`{"team":"platform","env":"prod"}`), "tag_key", "tag_value"),
+		`[{"tag_key":"env","tag_value":"prod"},{"tag_key":"team","tag_value":"platform"}]`)
+	// An empty map explodes to an empty list, NOT null — an explicitly-empty tag
+	// set must survive as [] so it round-trips.
+	eq(t, MapToObjectList(json.RawMessage(`{}`), "tag_key", "tag_value"), `[]`)
+	// Absent / null → null (the provider's next Read repopulates).
+	eq(t, MapToObjectList(nil, "tag_key", "tag_value"), `null`)
+	eq(t, MapToObjectList(json.RawMessage(`null`), "tag_key", "tag_value"), `null`)
+	// Non-string values keep their JSON type.
+	eq(t, MapToObjectList(json.RawMessage(`{"n":42}`), "k", "v"), `[{"k":"n","v":42}]`)
+	// Keys needing escaping are quoted correctly.
+	eq(t, MapToObjectList(json.RawMessage(`{"a\"b":"x"}`), "k", "v"), `[{"k":"a\"b","v":"x"}]`)
+	// Malformed JSON degrades to null rather than panicking.
+	eq(t, MapToObjectList(json.RawMessage(`{not json`), "k", "v"), `null`)
+}
+
+// TestMapToObjectList_idempotent: an already-exploded list passes through
+// untouched, so re-running the upgrader over upgraded state is a no-op rather
+// than a double transform.
+func TestMapToObjectList_idempotent(t *testing.T) {
+	already := `[{"tag_key":"env","tag_value":"prod"}]`
+	eq(t, MapToObjectList(json.RawMessage(already), "tag_key", "tag_value"), already)
+	// Leading whitespace does not defeat the detection.
+	eq(t, MapToObjectList(json.RawMessage("\n  "+already), "tag_key", "tag_value"), "\n  "+already)
+}
+
+// TestMapToObjectList_sortedOrderMatchesOldState: cty serializes a map's keys in
+// sorted order, so sorted output is the order the old state itself recorded —
+// the upgrade introduces no spurious reordering.
+func TestMapToObjectList_sortedOrderMatchesOldState(t *testing.T) {
+	// What Terraform would have written for map(string) tags.
+	oldState, err := json.Marshal(map[string]string{"zeta": "3", "alpha": "1", "mid": "2"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := MapToObjectList(oldState, "tag_key", "tag_value")
+	var objs []map[string]string
+	if err := json.Unmarshal(got, &objs); err != nil {
+		t.Fatalf("output not valid JSON: %v", err)
+	}
+	for i, w := range []string{"alpha", "mid", "zeta"} {
+		if objs[i]["tag_key"] != w {
+			t.Errorf("element %d tag_key = %q, want %q", i, objs[i]["tag_key"], w)
+		}
+	}
+}

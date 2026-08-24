@@ -12,3 +12,11 @@ type GetLabelIndexParams struct {
 	Page  OptInt64 `json:",omitempty,omitzero"`
 	Count OptInt64 `json:",omitempty,omitzero"`
 }
+
+// GetLabelChildParams paginates, but its parent id is required — the data source
+// has no value to put there, so the op is unusable as a whole-collection read.
+type GetLabelChildParams struct {
+	ID    int64
+	Page  OptInt64 `json:",omitempty,omitzero"`
+	Count OptInt64 `json:",omitempty,omitzero"`
+}

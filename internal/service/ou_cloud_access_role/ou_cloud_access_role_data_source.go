@@ -6,21 +6,39 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
 	"terraform-provider-kion/internal/errs"
+	"terraform-provider-kion/internal/filter"
+	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
 )
 
-const DSNameOuCloudAccessRole = "OuCloudAccessRole Data Source"
+const (
+	DSNameOuCloudAccessRole = "OuCloudAccessRole Data Source"
+)
 
 var (
 	_ datasource.DataSource              = &ou_cloud_access_roleDataSource{}
 	_ datasource.DataSourceWithConfigure = &ou_cloud_access_roleDataSource{}
 )
+
+// listObjectAttrTypes is the schema of an entry inside the `list` attribute.
+var listObjectAttrTypes = map[string]attr.Type{
+	"id":                     types.Int64Type,
+	"aws_iam_path":           types.StringType,
+	"aws_iam_role_name":      types.StringType,
+	"long_term_access_keys":  types.BoolType,
+	"name":                   types.StringType,
+	"ou_id":                  types.Int64Type,
+	"short_term_access_keys": types.BoolType,
+	"web_access":             types.BoolType,
+}
 
 // NewOuCloudAccessRoleDataSource returns a new instance of the data source.
 func NewOuCloudAccessRoleDataSource() datasource.DataSource {
@@ -35,14 +53,74 @@ func (d *ou_cloud_access_roleDataSource) Metadata(_ context.Context, req datasou
 	resp.TypeName = req.ProviderTypeName + "_ou_cloud_access_role"
 }
 
+// Schema is dual-mode: `id` fetches one by primary key; omitting `id` and
+// supplying `filter` blocks paginates the index and returns every match in
+// `list`. `id` and `filter` are mutually exclusive.
 func (d *ou_cloud_access_roleDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Use this data source to look up a Kion OuCloudAccessRole by id.",
+		Description: "Use this data source to access information about Kion OuCloudAccessRoles. Supports lookup by id (recommended) or by filter blocks (legacy).",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
-				Description: "The ID of the OuCloudAccessRole to fetch.",
-				Required:    true,
+				Description: "The ID of a single ou_cloud_access_role to fetch. Mutually exclusive with `filter` blocks.",
+				Optional:    true,
+				Computed:    true,
 			},
+			"aws_iam_path": schema.StringAttribute{
+				Computed: true,
+			},
+			"aws_iam_role_name": schema.StringAttribute{
+				Computed: true,
+			},
+			"long_term_access_keys": schema.BoolAttribute{
+				Computed: true,
+			},
+			"name": schema.StringAttribute{
+				Computed: true,
+			},
+			"ou_id": schema.Int64Attribute{
+				Computed: true,
+			},
+			"short_term_access_keys": schema.BoolAttribute{
+				Computed: true,
+			},
+			"web_access": schema.BoolAttribute{
+				Computed: true,
+			},
+			"list": schema.ListNestedAttribute{
+				Description: "All ou_cloud_access_roles matching the supplied id or filter blocks.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"aws_iam_path": schema.StringAttribute{
+							Computed: true,
+						},
+						"aws_iam_role_name": schema.StringAttribute{
+							Computed: true,
+						},
+						"long_term_access_keys": schema.BoolAttribute{
+							Computed: true,
+						},
+						"name": schema.StringAttribute{
+							Computed: true,
+						},
+						"ou_id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"short_term_access_keys": schema.BoolAttribute{
+							Computed: true,
+						},
+						"web_access": schema.BoolAttribute{
+							Computed: true,
+						},
+					},
+				},
+			},
+		},
+		Blocks: map[string]schema.Block{
+			"filter": filter.Schema(),
 		},
 	}
 }
@@ -56,26 +134,180 @@ func (d *ou_cloud_access_roleDataSource) Read(ctx context.Context, req datasourc
 		return
 	}
 
-	out, err := conn.GetOUCloudAccessRole(ctx, generated.GetOUCloudAccessRoleParams{ID: data.Id.ValueInt64()})
-	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameOuCloudAccessRole), err.Error())
+	idSet := !data.Id.IsNull() && !data.Id.IsUnknown()
+	filterSet := len(data.Filter) > 0
+
+	if idSet && filterSet {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("invalid %s configuration", DSNameOuCloudAccessRole),
+			"`id` and `filter` blocks are mutually exclusive.",
+		)
 		return
 	}
 
-	if errs.IsNotFound(out) {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameOuCloudAccessRole), "ou_cloud_access_role not found")
-		return
+	if idSet {
+		d.readByID(ctx, conn, &data, &resp.Diagnostics)
+	} else {
+		d.readByFilter(ctx, conn, &data, &resp.Diagnostics)
 	}
 
-	api, ok := out.(*generated.OUCloudAccessRoleResponse)
-	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameOuCloudAccessRole, out)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
+func (d *ou_cloud_access_roleDataSource) readByID(ctx context.Context, conn *generated.Client, data *ou_cloud_access_roleDataSourceModel, diags *diag.Diagnostics) {
+	out, err := conn.GetOUCloudAccessRole(ctx, generated.GetOUCloudAccessRoleParams{ID: data.Id.ValueInt64()})
+	if err != nil {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameOuCloudAccessRole), err.Error())
+		return
+	}
+	if errs.IsNotFound(out) {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameOuCloudAccessRole), "ou_cloud_access_role not found")
+		return
+	}
+	api, ok := out.(*generated.OUCloudAccessRoleResponse)
+	if !ok || !api.Data.Set {
+		diags.Append(errs.ResponseDiagnostics("reading "+DSNameOuCloudAccessRole, out)...)
+		return
+	}
+
+	lbl := api.Data.Value
+	data.Id = flex.OptUint64ToFramework(lbl.OuCloudAccessRole.Value.ID)
+	data.AwsIamPath = flex.OptStringToFramework(lbl.OuCloudAccessRole.Value.AWSIamPath)
+	data.AwsIamRoleName = flex.OptStringToFramework(lbl.OuCloudAccessRole.Value.AWSIamRoleName)
+	data.LongTermAccessKeys = flex.OptNilBoolToFramework(lbl.OuCloudAccessRole.Value.LongTermAccessKeys)
+	data.Name = flex.OptStringToFramework(lbl.OuCloudAccessRole.Value.Name)
+	data.OuId = flex.OptNilUint64ToFramework(lbl.OuCloudAccessRole.Value.OuID)
+	data.ShortTermAccessKeys = flex.OptNilBoolToFramework(lbl.OuCloudAccessRole.Value.ShortTermAccessKeys)
+	data.WebAccess = flex.OptNilBoolToFramework(lbl.OuCloudAccessRole.Value.WebAccess)
+
+	listVal, listDiags := buildOuCloudAccessRoleList(ctx, []generated.OUCloudAccessRoleFull{lbl})
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+}
+
+func (d *ou_cloud_access_roleDataSource) readByFilter(ctx context.Context, conn *generated.Client, data *ou_cloud_access_roleDataSourceModel, diags *diag.Diagnostics) {
+	all, fetchDiags := fetchAllOuCloudAccessRole(ctx, conn)
+	diags.Append(fetchDiags...)
+	if diags.HasError() {
+		return
+	}
+
+	matched := make([]generated.OUCloudAccessRoleFull, 0, len(all))
+	for _, lbl := range all {
+		ok, matchDiags := filter.Match(ctx, data.Filter, ou_cloud_access_roleToRow(lbl))
+		diags.Append(matchDiags...)
+		if diags.HasError() {
+			return
+		}
+		if ok {
+			matched = append(matched, lbl)
+		}
+	}
+
+	listVal, listDiags := buildOuCloudAccessRoleList(ctx, matched)
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+
+	// Scalar fields stay null in filter mode.
+	data.Id = types.Int64Null()
+	data.AwsIamPath = types.StringNull()
+	data.AwsIamRoleName = types.StringNull()
+	data.LongTermAccessKeys = types.BoolNull()
+	data.Name = types.StringNull()
+	data.OuId = types.Int64Null()
+	data.ShortTermAccessKeys = types.BoolNull()
+	data.WebAccess = types.BoolNull()
+}
+
+// fetchAllOuCloudAccessRole returns the full set from GetOUCloudAccessRoleIndex, which is not
+// paginated: one call yields the whole collection.
+func fetchAllOuCloudAccessRole(ctx context.Context, conn *generated.Client) ([]generated.OUCloudAccessRoleFull, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	var all []generated.OUCloudAccessRoleFull
+
+	out, err := conn.GetOUCloudAccessRoleIndex(ctx)
+	if err != nil {
+		diags.AddError(fmt.Sprintf("listing %s", DSNameOuCloudAccessRole), err.Error())
+		return nil, diags
+	}
+	resp, ok := out.(*generated.OUCloudAccessRoleListResponsePaginated)
+	if !ok {
+		diags.Append(errs.ResponseDiagnostics("listing "+DSNameOuCloudAccessRole, out)...)
+		return nil, diags
+	}
+	if !resp.Data.Set {
+		return all, diags
+	}
+	items := resp.Data.Value.Items
+	if items.Set && !items.Null {
+		all = append(all, items.Value...)
+	}
+
+	return all, diags
+}
+
+// ou_cloud_access_roleToRow converts an element into the map filter.Match expects.
+func ou_cloud_access_roleToRow(lbl generated.OUCloudAccessRoleFull) map[string]any {
+	row := map[string]any{
+		"aws_iam_path":           lbl.OuCloudAccessRole.Value.AWSIamPath.Or(""),
+		"aws_iam_role_name":      lbl.OuCloudAccessRole.Value.AWSIamRoleName.Or(""),
+		"long_term_access_keys":  lbl.OuCloudAccessRole.Value.LongTermAccessKeys.Or(false),
+		"name":                   lbl.OuCloudAccessRole.Value.Name.Or(""),
+		"ou_id":                  int64(lbl.OuCloudAccessRole.Value.OuID.Or(0)),
+		"short_term_access_keys": lbl.OuCloudAccessRole.Value.ShortTermAccessKeys.Or(false),
+		"web_access":             lbl.OuCloudAccessRole.Value.WebAccess.Or(false),
+	}
+	if lbl.OuCloudAccessRole.Value.ID.Set {
+		row["id"] = int64(lbl.OuCloudAccessRole.Value.ID.Value)
+	}
+	return row
+}
+
+// buildOuCloudAccessRoleList converts elements into a types.List of objects.
+func buildOuCloudAccessRoleList(ctx context.Context, items []generated.OUCloudAccessRoleFull) (types.List, diag.Diagnostics) {
+	objs := make([]attr.Value, 0, len(items))
+	for _, lbl := range items {
+		idVal := types.Int64Null()
+		if lbl.OuCloudAccessRole.Value.ID.Set {
+			idVal = types.Int64Value(int64(lbl.OuCloudAccessRole.Value.ID.Value))
+		}
+		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
+			"id":                     idVal,
+			"aws_iam_path":           types.StringValue(lbl.OuCloudAccessRole.Value.AWSIamPath.Or("")),
+			"aws_iam_role_name":      types.StringValue(lbl.OuCloudAccessRole.Value.AWSIamRoleName.Or("")),
+			"long_term_access_keys":  types.BoolValue(lbl.OuCloudAccessRole.Value.LongTermAccessKeys.Or(false)),
+			"name":                   types.StringValue(lbl.OuCloudAccessRole.Value.Name.Or("")),
+			"ou_id":                  types.Int64Value(int64(lbl.OuCloudAccessRole.Value.OuID.Or(0))),
+			"short_term_access_keys": types.BoolValue(lbl.OuCloudAccessRole.Value.ShortTermAccessKeys.Or(false)),
+			"web_access":             types.BoolValue(lbl.OuCloudAccessRole.Value.WebAccess.Or(false)),
+		})
+		if objDiags.HasError() {
+			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags
+		}
+		objs = append(objs, obj)
+	}
+	return types.ListValueFrom(ctx, types.ObjectType{AttrTypes: listObjectAttrTypes}, objs)
+}
+
 type ou_cloud_access_roleDataSourceModel struct {
-	Id types.Int64 `tfsdk:"id"`
+	Id                  types.Int64    `tfsdk:"id"`
+	AwsIamPath          types.String   `tfsdk:"aws_iam_path"`
+	AwsIamRoleName      types.String   `tfsdk:"aws_iam_role_name"`
+	LongTermAccessKeys  types.Bool     `tfsdk:"long_term_access_keys"`
+	Name                types.String   `tfsdk:"name"`
+	OuId                types.Int64    `tfsdk:"ou_id"`
+	ShortTermAccessKeys types.Bool     `tfsdk:"short_term_access_keys"`
+	WebAccess           types.Bool     `tfsdk:"web_access"`
+	Filter              []filter.Model `tfsdk:"filter"`
+	List                types.List     `tfsdk:"list"`
 }

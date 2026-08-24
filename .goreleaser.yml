@@ -8,7 +8,8 @@ version: 2
 project_name: terraform-provider-kion
 
 builds:
-  - env:
+  - id: provider
+    env:
       - CGO_ENABLED=0
     mod_timestamp: "{{ .CommitTimestamp }}"
     flags:
@@ -30,16 +31,56 @@ builds:
         goarch: "386"
     binary: "{{ .ProjectName }}_v{{ .Version }}"
 
+  # kmigrate ships in the release so consumers can migrate a configuration
+  # without a source checkout. It cannot be `go install`ed: go.mod declares a
+  # bare module path (`module terraform-provider-kion`, no domain), so there is
+  # no remote path to install from. Fewer platforms than the provider — this is
+  # a one-shot tool a person runs on a workstation or in CI, not something
+  # Terraform downloads per platform.
+  - id: kmigrate
+    main: ./cmd/kmigrate
+    env:
+      - CGO_ENABLED=0
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+    ldflags:
+      - "-s -w"
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    binary: kmigrate
+
 archives:
-  - formats: [zip]
+  # The Registry matches provider archives by exact filename, so this template
+  # must stay untouched. `ids` is what keeps kmigrate out of it now that there
+  # is more than one build.
+  - id: provider
+    ids: [provider]
+    formats: [zip]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
+  - id: kmigrate
+    ids: [kmigrate]
+    formats: [zip]
+    name_template: "kmigrate_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+# SHA256SUMS covers every artifact, so signing it (below) transitively covers
+# kmigrate and the state-upgrade config too. The Registry ignores lines that do
+# not match a provider archive name — it already tolerates the manifest entry
+# here, which is the precedent for adding more.
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_SHA256SUMS"
   algorithm: sha256
   extra_files:
     - glob: terraform-registry-manifest.json
       name_template: "{{ .ProjectName }}_{{ .Version }}_manifest.json"
+    - glob: codegen/state_upgrades.yaml
+      name_template: "state_upgrades_{{ .Version }}.yaml"
 
 signs:
   - artifacts: checksum
@@ -56,6 +97,10 @@ release:
   extra_files:
     - glob: terraform-registry-manifest.json
       name_template: "{{ .ProjectName }}_{{ .Version }}_manifest.json"
+    # kmigrate needs this to rewrite a configuration; attaching it means a
+    # migration needs only the release, not a clone.
+    - glob: codegen/state_upgrades.yaml
+      name_template: "state_upgrades_{{ .Version }}.yaml"
 
 # Release notes come from the changie version file via --release-notes.
 changelog:

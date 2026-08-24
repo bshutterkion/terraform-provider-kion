@@ -3,11 +3,15 @@
 package ami
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"terraform-provider-kion/internal/conns"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
 
 func init() {
@@ -17,16 +21,49 @@ func init() {
 	})
 }
 
+// sweepAmi reads GetAMIIndex (not paginated: one call yields the whole
+// collection) collecting ids whose test resources carry the acceptance-test
+// prefix, then deletes them via DeleteAMI.
 func sweepAmi(_ string) error {
 	conn, err := conns.SharedClient()
 	if err != nil {
 		return fmt.Errorf("getting shared client: %w", err)
 	}
-	_ = conn
+	ctx := context.Background()
 
-	// TODO: list kion_ami resources with the "test-acc" prefix and
-	// delete each via conn.Client.DeleteAMI.
-	// A real list+delete sweeper needs paginated-list-envelope resolution — see
-	// the CRUD generator follow-up plan.
+	var ids []int64
+	// GetAMIIndex is not paginated: one call returns the whole collection.
+	out, err := conn.Client.GetAMIIndex(ctx)
+	if err != nil {
+		return fmt.Errorf("listing kion_ami: %w", err)
+	}
+	if resp, ok := out.(*generated.AMIListResponse); ok {
+		items := resp.Data
+		for _, item := range items {
+			if item.Ami.Value.ID.Set && sweepAmiMatch(item) {
+				ids = append(ids, int64(item.Ami.Value.ID.Value))
+			}
+		}
+	}
+
+	for _, id := range ids {
+		if _, err := conn.Client.DeleteAMI(ctx, generated.DeleteAMIParams{ID: id}); err != nil {
+			return fmt.Errorf("deleting kion_ami (%d): %w", id, err)
+		}
+	}
 	return nil
+}
+
+func sweepAmiMatch(item generated.AMIWithOwners) bool {
+	for _, s := range []string{
+		item.Ami.Value.AWSAmiID.Or(""),
+		item.Ami.Value.Description.Or(""),
+		item.Ami.Value.Name.Or(""),
+		item.Ami.Value.Region.Or(""),
+	} {
+		if strings.HasPrefix(s, "test-acc") {
+			return true
+		}
+	}
+	return false
 }

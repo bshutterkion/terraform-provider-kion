@@ -3,11 +3,15 @@
 package compliance_standard
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"terraform-provider-kion/internal/conns"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
 
 func init() {
@@ -17,16 +21,48 @@ func init() {
 	})
 }
 
+// sweepComplianceStandard reads GetComplianceStandardIndex (not paginated: one call yields the whole
+// collection) collecting ids whose test resources carry the acceptance-test
+// prefix, then deletes them via DeleteComplianceStandard.
 func sweepComplianceStandard(_ string) error {
 	conn, err := conns.SharedClient()
 	if err != nil {
 		return fmt.Errorf("getting shared client: %w", err)
 	}
-	_ = conn
+	ctx := context.Background()
 
-	// TODO: list kion_compliance_standard resources with the "test-acc" prefix and
-	// delete each via conn.Client.DeleteComplianceStandard.
-	// A real list+delete sweeper needs paginated-list-envelope resolution — see
-	// the CRUD generator follow-up plan.
+	var ids []int64
+	// GetComplianceStandardIndex is not paginated: one call returns the whole collection.
+	out, err := conn.Client.GetComplianceStandardIndex(ctx, generated.GetComplianceStandardIndexParams{})
+	if err != nil {
+		return fmt.Errorf("listing kion_compliance_standard: %w", err)
+	}
+	if resp, ok := out.(*generated.ComplianceStandardListResponse); ok {
+		items := resp.Data
+		for _, item := range items {
+			if item.ID.Set && sweepComplianceStandardMatch(item) {
+				ids = append(ids, int64(item.ID.Value))
+			}
+		}
+	}
+
+	for _, id := range ids {
+		if _, err := conn.Client.DeleteComplianceStandard(ctx, generated.DeleteComplianceStandardParams{ID: id}); err != nil {
+			return fmt.Errorf("deleting kion_compliance_standard (%d): %w", id, err)
+		}
+	}
 	return nil
+}
+
+func sweepComplianceStandardMatch(item generated.ComplianceStandard) bool {
+	for _, s := range []string{
+		item.CreatedAt.Or(""),
+		item.Description.Or(""),
+		item.Name.Or(""),
+	} {
+		if strings.HasPrefix(s, "test-acc") {
+			return true
+		}
+	}
+	return false
 }

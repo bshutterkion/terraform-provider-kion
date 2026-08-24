@@ -1,0 +1,3 @@
+kind: BUG FIXES
+body: "`kgen crud` no longer silently skips `no_read`-archetype resources. The service-package template branches on a field that the `no_read` call site did not pass, and Go's `text/template` errors on a field absent from the data struct rather than treating it as empty \u2014 so template execution failed, the resource was skipped with a line on stderr, and `kgen` still exited 0. Three resources (`aws_resource_tag`, `ou_cloud_access_role_exemption`, `project_cloud_access_role_exemption`) were therefore unregenerable, and their committed output had drifted from the templates with nothing reporting it. A `no_read` resource can now also register a companion data source, lifting a limitation its own code comment described."
+time: 2026-08-24T00:00:00Z

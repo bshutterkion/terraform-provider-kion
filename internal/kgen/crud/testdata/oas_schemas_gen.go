@@ -61,3 +61,30 @@ type OptLabelListPaginated struct {
 	Value LabelListPaginated
 	Set   bool
 }
+
+// LabelFlatListResponse is the second envelope shape the SDK uses: `data` is the
+// items slice itself, with no inner pagination struct and no total.
+type LabelFlatListResponse struct {
+	Data   []Label  `json:"data"`
+	Status OptInt64 `json:"status"`
+}
+
+func (*LabelFlatListResponse) getLabelFlatRes() {}
+
+type LabelChildListResponse struct {
+	Data   []Label  `json:"data"`
+	Status OptInt64 `json:"status"`
+}
+
+func (*LabelChildListResponse) getLabelChildRes() {}
+
+type Other struct {
+	ID OptUint64 `json:"id"`
+}
+
+type LabelForeignListResponse struct {
+	Data   []Other  `json:"data"`
+	Status OptInt64 `json:"status"`
+}
+
+func (*LabelForeignListResponse) getLabelForeignRes() {}

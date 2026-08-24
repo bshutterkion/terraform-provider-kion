@@ -6,8 +6,8 @@ import (
 	_ "embed"
 	"fmt"
 	"go/format"
-	"os"
 	"slices"
+	"strings"
 	"text/template"
 )
 
@@ -25,8 +25,12 @@ type dsField struct {
 	SchemaType string // "StringAttribute" | "Int64Attribute" | "BoolAttribute"
 	ModelType  string // "types.String" | "types.Int64" | "types.Bool"
 	Flatten    string // "flex.StringToFramework"
-	SDKGo      string // response field GoName, e.g. "Key"
+	SDKGo      string // access path from the record, e.g. "Key" or "Cft.Value.Key"
 }
+
+// NullExpr is the framework null value for this attribute's type, used where the
+// data source cannot populate it (filter mode).
+func (f dsField) NullExpr() string { return nullExpr(f.ModelType) }
 
 // dsData is the template payload for the id-only data source.
 type dsData struct {
@@ -37,30 +41,51 @@ type dsData struct {
 	ReadIDParam              string
 	IDParamType              string // "int64" | "uint64"
 	IDGo, IDFlatten, IDSDKGo string
-	HasRespID                bool // response echoes the id (re-flatten it); else keep config id
-	DataPtr                  bool // envelope Data is a pointer (*Payload) not an Opt-wrapper
+	HasRespID                bool   // response echoes the id (re-flatten it); else keep config id
+	DataPtr                  bool   // envelope Data is a pointer (*Payload) not an Opt-wrapper
+	PayloadPath              string // "" | ".Webhook.Value" — descent from Data to the record
 	RespType                 string
 	Attrs                    []dsField
+	// OuterAttrs are attributes read from the payload above the record (see
+	// recordView.Outer): available by id, null under a filter.
+	OuterAttrs []dsField
+}
+
+// PayloadExpr is the Go expression for the read payload (the level above the
+// record), used to source OuterAttrs.
+func (d dsData) PayloadExpr() string {
+	if d.DataPtr {
+		return "api.Data"
+	}
+	return "api.Data.Value"
 }
 
 // needsPayload reports whether the read response is consulted at all — false for
 // a degenerate read (empty payload, no echoed id), where the data source only
 // returns the config-provided id.
-func (d dsData) NeedsPayload() bool { return d.HasRespID || len(d.Attrs) > 0 }
+func (d dsData) NeedsPayload() bool {
+	return d.HasRespID || len(d.Attrs) > 0 || len(d.OuterAttrs) > 0
+}
 
 // renderDataSource renders <name>_data_source.go. When the resource has a
 // resolved list endpoint it emits the full dual-mode data source (id + legacy
-// filter blocks + list pagination); otherwise, or if the dual-mode build fails,
-// it falls back to the id-only data source.
-func renderDataSource(rm ResourceModel) ([]byte, error) {
+// filter blocks + list); otherwise, or if the dual-mode build fails, it falls
+// back to the id-only data source and reports the downgrade.
+//
+// The returned downgrade string is non-empty exactly when a collection read was
+// configured but the filter-capable data source could not be built.
+func renderDataSource(rm ResourceModel) (out []byte, downgrade string, err error) {
 	if rm.List != nil {
-		b, err := renderListDataSource(rm)
-		if err == nil {
-			return b, nil
+		b, berr := renderListDataSource(rm)
+		if berr == nil {
+			return b, "", nil
 		}
-		fmt.Fprintf(os.Stderr, "kgen crud: %s — dual-mode data source failed (%v); using id-only\n", rm.Name, err)
+		downgrade = berr.Error()
+	} else {
+		downgrade = rm.ListDowngrade
 	}
-	return renderIDOnlyDataSource(rm)
+	b, err := renderIDOnlyDataSource(rm)
+	return b, downgrade, err
 }
 
 // renderIDOnlyDataSource renders an id-only <name>_data_source.go (single read
@@ -74,24 +99,85 @@ func renderIDOnlyDataSource(rm ResourceModel) ([]byte, error) {
 	return execGoTemplate("datasource", dataSourceTmpl, data, rm.Name+"_data_source.go")
 }
 
-func buildDSData(rm ResourceModel) (dsData, error) {
-	respByJSON := map[string]Field{}
-	for _, f := range rm.Read.RespFields {
-		respByJSON[f.JSONName] = f
+// recordView tells the data-source builders which SDK struct to treat as "the
+// record" and how to reach each of its scalar fields.
+//
+// Read payloads come in two arrangements. Usually the payload is the record
+// (Label, Project), but many are a "with owners" envelope that nests the record
+// under a sub-object (WebhookWithOwners.webhook, CFTWithOwnersAndTags.cft)
+// alongside sibling collections. When the index endpoint's element type is that
+// sub-object, the data source descends into it (PayloadPath) so the by-id and
+// by-filter modes share one field mapping; otherwise the payload stays the
+// record and the sub-object's fields are reached through it.
+type recordView struct {
+	PayloadPath string            // "" | ".Webhook.Value"
+	Fields      map[string]Field  // json name -> SDK field
+	Paths       map[string]string // json name -> access path from the record
+	// Outer holds fields that live on the read payload but NOT on the record —
+	// only possible when the record is a sub-object (e.g. UserWithUGroups.mfa
+	// sits beside the User record). They are readable by id but absent from the
+	// collection, so they stay out of the `list` objects and go null under a
+	// filter. Paths are relative to the payload, not the record.
+	Outer      map[string]Field
+	OuterPaths map[string]string
+}
+
+func buildRecordView(rm ResourceModel) recordView {
+	v := recordView{
+		Fields: map[string]Field{}, Paths: map[string]string{},
+		Outer: map[string]Field{}, OuterPaths: map[string]string{},
 	}
+	wrapPrefix := ""
+	if rm.Read.RespWrapperGo != "" {
+		wrapPrefix = rm.Read.RespWrapperGo + "."
+		if rm.Read.RespWrapperOpt {
+			wrapPrefix += "Value."
+		}
+	}
+	if rm.List != nil && rm.List.ElemIsWrapper {
+		v.PayloadPath = "." + strings.TrimSuffix(wrapPrefix, ".")
+		for _, f := range rm.Read.RespWrapperFields {
+			v.Fields[f.JSONName] = f
+			v.Paths[f.JSONName] = f.GoName
+		}
+		for _, f := range rm.Read.RespFields {
+			if _, onRecord := v.Fields[f.JSONName]; onRecord || f.GoName == rm.Read.RespWrapperGo {
+				continue
+			}
+			v.Outer[f.JSONName] = f
+			v.OuterPaths[f.JSONName] = f.GoName
+		}
+		return v
+	}
+	// Wrapper fields first so a same-named top-level field wins.
+	for _, f := range rm.Read.RespWrapperFields {
+		v.Fields[f.JSONName] = f
+		v.Paths[f.JSONName] = wrapPrefix + f.GoName
+	}
+	for _, f := range rm.Read.RespFields {
+		v.Fields[f.JSONName] = f
+		v.Paths[f.JSONName] = f.GoName
+	}
+	return v
+}
+
+func buildDSData(rm ResourceModel) (dsData, error) {
+	view := buildRecordView(rm)
+	respByJSON := view.Fields
 
 	d := dsData{
-		Pkg:        rm.Name,
-		Pascal:     rm.Pascal,
-		Model:      rm.Name + "DataSourceModel",
-		DSConst:    "DSName" + rm.Pascal,
-		DSName:     rm.Pascal + " Data Source",
-		SDKAlias:   "generated",
-		ReadMethod: rm.Read.Method.Name,
-		ReadParams: rm.Read.Method.ParamsType,
-		RespType:   rm.Read.RespType,
-		DataPtr:    rm.Read.RespDataPtr,
-		IDGo:       rm.IDField.GoName,
+		Pkg:         rm.Name,
+		Pascal:      rm.Pascal,
+		Model:       rm.Name + "DataSourceModel",
+		DSConst:     "DSName" + rm.Pascal,
+		DSName:      rm.Pascal + " Data Source",
+		SDKAlias:    "generated",
+		ReadMethod:  rm.Read.Method.Name,
+		ReadParams:  rm.Read.Method.ParamsType,
+		RespType:    rm.Read.RespType,
+		DataPtr:     rm.Read.RespDataPtr,
+		PayloadPath: view.PayloadPath,
+		IDGo:        rm.IDField.GoName,
 	}
 
 	readIDParam, readIDType, err := idParamName(rm.Read.Params)
@@ -110,17 +196,21 @@ func buildDSData(rm ResourceModel) (dsData, error) {
 		}
 		d.HasRespID = true
 		d.IDFlatten = idFlatten
-		d.IDSDKGo = idResp.GoName
+		d.IDSDKGo = view.Paths["id"]
 	}
 
-	for _, mf := range rm.Fields {
-		rf, ok := respByJSON[mf.TFSDK]
-		if !ok {
-			continue
+	for _, mf := range rm.projectedFields() {
+		rf, onRecord := respByJSON[mf.TFSDK]
+		path := view.Paths[mf.TFSDK]
+		if !onRecord {
+			if rf, onRecord = view.Outer[mf.TFSDK]; !onRecord {
+				continue
+			}
+			path = view.OuterPaths[mf.TFSDK]
 		}
-		// The id-only data source can only expose scalar fields it knows how to
-		// render; skip anything else (e.g. list/set/object) rather than refuse the
-		// whole resource — the resource itself is unaffected.
+		// The data source can only expose scalar fields it knows how to render;
+		// skip anything else (e.g. list/set/object) rather than refuse the whole
+		// resource — the resource itself is unaffected.
 		sType, ok := schemaAttrType(mf.Type)
 		if !ok {
 			continue
@@ -129,16 +219,23 @@ func buildDSData(rm ResourceModel) (dsData, error) {
 		if !ok {
 			continue
 		}
-		d.Attrs = append(d.Attrs, dsField{
+		f := dsField{
 			ModelGo:    mf.GoName,
 			TFName:     mf.TFSDK,
 			SchemaType: sType,
 			ModelType:  mf.Type,
 			Flatten:    flat,
-			SDKGo:      rf.GoName,
-		})
+			SDKGo:      path,
+		}
+		if _, isOuter := view.Outer[mf.TFSDK]; isOuter {
+			d.OuterAttrs = append(d.OuterAttrs, f)
+			continue
+		}
+		d.Attrs = append(d.Attrs, f)
 	}
-	slices.SortFunc(d.Attrs, func(a, b dsField) int { return cmp.Compare(a.TFName, b.TFName) })
+	byName := func(a, b dsField) int { return cmp.Compare(a.TFName, b.TFName) }
+	slices.SortFunc(d.Attrs, byName)
+	slices.SortFunc(d.OuterAttrs, byName)
 	return d, nil
 }
 
@@ -151,6 +248,20 @@ func schemaAttrType(modelType string) (string, bool) {
 		return "Int64Attribute", true
 	case "types.Bool":
 		return "BoolAttribute", true
+	}
+	return "", false
+}
+
+// attrTypeFor maps a framework model type to its attr.Type expression, used for
+// the `list` nested-object attribute types.
+func attrTypeFor(modelType string) (string, bool) {
+	switch modelType {
+	case "types.String":
+		return "types.StringType", true
+	case "types.Int64":
+		return "types.Int64Type", true
+	case "types.Bool":
+		return "types.BoolType", true
 	}
 	return "", false
 }
@@ -198,15 +309,13 @@ type listScalarAssign struct {
 
 type listDSData struct {
 	dsData
-	ElemType     string // "Label" — the list element / read payload type
+	listAccess
+	ElemType     string // "Label" — the list element type
 	ListMethod   string
 	ListParams   string
 	ListRespType string
-	ItemsGo      string
-	TotalGo      string
 	PageParam    string
 	CountParam   string
-	ItemsNil     bool
 	ObjFields    []listObjField
 	Assigns      []listScalarAssign
 }
@@ -224,25 +333,30 @@ func buildListDSData(rm ResourceModel) (listDSData, error) {
 	if err != nil {
 		return listDSData{}, err
 	}
+	view := buildRecordView(rm)
 	// The dual-mode list objects carry an id; without one in the response the
 	// list can't expose it, so degrade to the id-only data source.
 	if !base.HasRespID {
+		// An empty field set means the read payload's OpenAPI schema declares no
+		// properties at all — nothing the generator can do, the spec must be fixed.
+		if len(view.Fields) == 0 {
+			return listDSData{}, fmt.Errorf("%s dual-mode data source: read payload %s has no fields at all (empty OpenAPI schema)", rm.Name, rm.Read.RespPayload)
+		}
 		return listDSData{}, fmt.Errorf("%s dual-mode data source: response has no id field", rm.Name)
 	}
-	respByJSON := map[string]Field{}
-	for _, f := range rm.Read.RespFields {
-		respByJSON[f.JSONName] = f
-	}
 	lm := rm.List
+	// The id is special-cased: it is always exposed as an Int64 and the list
+	// objects key off it, so an id the templates cannot unwrap is fatal here.
+	if !listIDOK(view.Fields["id"].Type) {
+		return listDSData{}, fmt.Errorf("%s dual-mode data source: id field type %q unsupported for list", rm.Name, view.Fields["id"].Type)
+	}
 	d := listDSData{
 		dsData:       base,
+		listAccess:   lm.access(),
 		ElemType:     lm.ElemType,
 		ListMethod:   lm.Method.Name,
 		ListParams:   lm.Method.ParamsType,
 		ListRespType: lm.RespType,
-		ItemsGo:      lm.ItemsGo,
-		ItemsNil:     lm.ItemsNil,
-		TotalGo:      lm.TotalGo,
 		PageParam:    lm.PageParam,
 		CountParam:   lm.CountParam,
 	}
@@ -256,15 +370,20 @@ func buildListDSData(rm ResourceModel) (listDSData, error) {
 		NullExpr: "types.Int64Null()", IsID: true,
 	})
 
+	// A field the `list` objects cannot render is dropped from the data source
+	// entirely rather than failing it — losing one attribute beats losing the
+	// whole filter block.
+	attrs := make([]dsField, 0, len(base.Attrs))
 	for _, a := range base.Attrs {
-		pf, ok := respByJSON[a.TFName]
+		pf, ok := view.Fields[a.TFName]
 		if !ok {
 			return listDSData{}, fmt.Errorf("field %q not in response payload", a.TFName)
 		}
-		attrType, objExpr, rowExpr, ok := listValueExprs(a.SDKGo, pf.Type)
+		attrType, objExpr, rowExpr, ok := listValueExprs("lbl."+a.SDKGo, pf.Type, a.ModelType)
 		if !ok {
-			return listDSData{}, fmt.Errorf("field %q payload type %q unsupported for list", a.TFName, pf.Type)
+			continue
 		}
+		attrs = append(attrs, a)
 		d.ObjFields = append(d.ObjFields, listObjField{
 			TFName: a.TFName, SchemaType: a.SchemaType, AttrType: attrType,
 			SDKGo: a.SDKGo, ObjExpr: objExpr, RowExpr: rowExpr,
@@ -274,21 +393,64 @@ func buildListDSData(rm ResourceModel) (listDSData, error) {
 			NullExpr: nullExpr(a.ModelType),
 		})
 	}
+	d.Attrs = attrs
 	return d, nil
 }
 
-// listValueExprs returns the object attr type + object/row value expressions for
-// a list element scalar field. ok=false for a type the list path can't render.
-func listValueExprs(sdkGo, payloadType string) (attrType, objExpr, rowExpr string, ok bool) {
-	switch payloadType {
-	case "string":
-		return "types.StringType", "types.StringValue(lbl." + sdkGo + ")", "lbl." + sdkGo, true
-	case "OptString":
-		return "types.StringType", "types.StringValue(lbl." + sdkGo + `.Or(""))`, "lbl." + sdkGo + `.Or("")`, true
-	case "bool":
-		return "types.BoolType", "types.BoolValue(lbl." + sdkGo + ")", "lbl." + sdkGo, true
+// listIDOK reports whether an SDK id field is an Opt-wrapped integer, the shape
+// the list templates unwrap (`lbl.ID.Set` / `int64(lbl.ID.Value)`).
+func listIDOK(sdkType string) bool {
+	switch sdkType {
+	case "OptInt64", "OptUint64", "OptNilInt64", "OptNilUint64":
+		return true
 	}
-	return "", "", "", false
+	return false
+}
+
+// listScalar says how one SDK scalar type projects into a list object: the
+// framework model type it must line up with, the Go expression that unwraps it
+// (%s is the access path), and the types.* constructor that boxes it.
+type listScalar struct {
+	model string
+	value string
+	ctor  string
+}
+
+// listScalars covers the SDK scalar types a list element can expose. Anything
+// absent (nested objects, slices, jx.Raw, enums) is skipped for the `list`
+// attribute rather than failing the whole data source.
+var listScalars = map[string]listScalar{
+	"string":       {"types.String", "%s", "types.StringValue"},
+	"OptString":    {"types.String", `%s.Or("")`, "types.StringValue"},
+	"bool":         {"types.Bool", "%s", "types.BoolValue"},
+	"OptBool":      {"types.Bool", "%s.Or(false)", "types.BoolValue"},
+	"OptNilBool":   {"types.Bool", "%s.Or(false)", "types.BoolValue"},
+	"NilBool":      {"types.Bool", "%s.Or(false)", "types.BoolValue"},
+	"int64":        {"types.Int64", "%s", "types.Int64Value"},
+	"OptInt64":     {"types.Int64", "%s.Or(0)", "types.Int64Value"},
+	"OptNilInt64":  {"types.Int64", "%s.Or(0)", "types.Int64Value"},
+	"uint64":       {"types.Int64", "int64(%s)", "types.Int64Value"},
+	"OptUint64":    {"types.Int64", "int64(%s.Or(0))", "types.Int64Value"},
+	"OptNilUint64": {"types.Int64", "int64(%s.Or(0))", "types.Int64Value"},
+	"NilUint64":    {"types.Int64", "int64(%s.Or(0))", "types.Int64Value"},
+}
+
+// listValueExprs returns the object attr type plus the object/row value
+// expressions for one scalar field of a list element. modelType pins the
+// framework type the schema declares, so a projection that would yield a
+// different type is refused rather than silently mismatched. ok=false for a
+// type the list path can't render.
+func listValueExprs(access, sdkType, modelType string) (attrType, objExpr, rowExpr string, ok bool) {
+	ls, known := listScalars[sdkType]
+	if !known || ls.model != modelType {
+		return "", "", "", false
+	}
+	attrType, ok = attrTypeFor(modelType)
+	if !ok {
+		return "", "", "", false
+	}
+	rowExpr = fmt.Sprintf(ls.value, access)
+	return attrType, ls.ctor + "(" + rowExpr + ")", rowExpr, true
 }
 
 func nullExpr(modelType string) string {

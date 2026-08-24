@@ -38,7 +38,7 @@ func (r *cftResource) UpgradeState(ctx context.Context) map[int64]resource.State
 					"region":                 migratehelper.OrNull(old["region"]),
 					"regions":                migratehelper.OrNull(old["regions"]),
 					"sns_arns":               migratehelper.OrNull(old["sns_arns"]),
-					"tags":                   migratehelper.OrNull(old["tags"]),
+					"tags":                   migratehelper.MapToObjectList(old["tags"], "tag_key", "tag_value"),
 					"template_parameters":    migratehelper.OrNull(old["template_parameters"]),
 					"termination_protection": migratehelper.OrNull(old["termination_protection"]),
 				}

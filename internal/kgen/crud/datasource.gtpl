@@ -49,6 +49,11 @@ func (d *{{.Pkg}}DataSource) Schema(_ context.Context, _ datasource.SchemaReques
 				Computed: true,
 			},
 			{{- end}}
+			{{- range .OuterAttrs}}
+			"{{.TFName}}": schema.{{.SchemaType}}{
+				Computed: true,
+			},
+			{{- end}}
 		},
 	}
 }
@@ -79,9 +84,10 @@ func (d *{{.Pkg}}DataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
-	{{if .NeedsPayload}}v := api.Data{{if not .DataPtr}}.Value{{end}}
+	{{if .NeedsPayload}}v := api.Data{{if not .DataPtr}}.Value{{end}}{{.PayloadPath}}
 	{{if .HasRespID}}data.{{.IDGo}} = {{.IDFlatten}}(v.{{.IDSDKGo}})
 	{{end}}{{range .Attrs}}data.{{.ModelGo}} = {{.Flatten}}(v.{{.SDKGo}})
+	{{end}}{{range .OuterAttrs}}data.{{.ModelGo}} = {{.Flatten}}({{$.PayloadExpr}}.{{.SDKGo}})
 	{{end}}
 	{{end}}resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
@@ -89,6 +95,9 @@ func (d *{{.Pkg}}DataSource) Read(ctx context.Context, req datasource.ReadReques
 type {{.Model}} struct {
 	{{.IDGo}} types.Int64 `tfsdk:"id"`
 	{{- range .Attrs}}
+	{{.ModelGo}} {{.ModelType}} `tfsdk:"{{.TFName}}"`
+	{{- end}}
+	{{- range .OuterAttrs}}
 	{{.ModelGo}} {{.ModelType}} `tfsdk:"{{.TFName}}"`
 	{{- end}}
 }

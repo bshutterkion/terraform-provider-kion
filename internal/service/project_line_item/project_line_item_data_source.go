@@ -6,22 +6,38 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
 	"terraform-provider-kion/internal/errs"
+	"terraform-provider-kion/internal/filter"
 	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
 )
 
-const DSNameProjectLineItem = "ProjectLineItem Data Source"
+const (
+	DSNameProjectLineItem = "ProjectLineItem Data Source"
+)
 
 var (
 	_ datasource.DataSource              = &project_line_itemDataSource{}
 	_ datasource.DataSourceWithConfigure = &project_line_itemDataSource{}
 )
+
+// listObjectAttrTypes is the schema of an entry inside the `list` attribute.
+var listObjectAttrTypes = map[string]attr.Type{
+	"id":                types.Int64Type,
+	"category_id":       types.Int64Type,
+	"datecode":          types.Int64Type,
+	"description":       types.StringType,
+	"funding_source_id": types.Int64Type,
+	"payer_id":          types.Int64Type,
+	"project_id":        types.Int64Type,
+}
 
 // NewProjectLineItemDataSource returns a new instance of the data source.
 func NewProjectLineItemDataSource() datasource.DataSource {
@@ -36,13 +52,17 @@ func (d *project_line_itemDataSource) Metadata(_ context.Context, req datasource
 	resp.TypeName = req.ProviderTypeName + "_project_line_item"
 }
 
+// Schema is dual-mode: `id` fetches one by primary key; omitting `id` and
+// supplying `filter` blocks paginates the index and returns every match in
+// `list`. `id` and `filter` are mutually exclusive.
 func (d *project_line_itemDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Use this data source to look up a Kion ProjectLineItem by id.",
+		Description: "Use this data source to access information about Kion ProjectLineItems. Supports lookup by id (recommended) or by filter blocks (legacy).",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
-				Description: "The ID of the ProjectLineItem to fetch.",
-				Required:    true,
+				Description: "The ID of a single project_line_item to fetch. Mutually exclusive with `filter` blocks.",
+				Optional:    true,
+				Computed:    true,
 			},
 			"category_id": schema.Int64Attribute{
 				Computed: true,
@@ -62,6 +82,38 @@ func (d *project_line_itemDataSource) Schema(_ context.Context, _ datasource.Sch
 			"project_id": schema.Int64Attribute{
 				Computed: true,
 			},
+			"list": schema.ListNestedAttribute{
+				Description: "All project_line_items matching the supplied id or filter blocks.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"category_id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"datecode": schema.Int64Attribute{
+							Computed: true,
+						},
+						"description": schema.StringAttribute{
+							Computed: true,
+						},
+						"funding_source_id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"payer_id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"project_id": schema.Int64Attribute{
+							Computed: true,
+						},
+					},
+				},
+			},
+		},
+		Blocks: map[string]schema.Block{
+			"filter": filter.Schema(),
 		},
 	}
 }
@@ -75,41 +127,170 @@ func (d *project_line_itemDataSource) Read(ctx context.Context, req datasource.R
 		return
 	}
 
-	out, err := conn.GetProjectLineItem(ctx, generated.GetProjectLineItemParams{ID: data.Id.ValueInt64()})
-	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameProjectLineItem), err.Error())
+	idSet := !data.Id.IsNull() && !data.Id.IsUnknown()
+	filterSet := len(data.Filter) > 0
+
+	if idSet && filterSet {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("invalid %s configuration", DSNameProjectLineItem),
+			"`id` and `filter` blocks are mutually exclusive.",
+		)
 		return
 	}
 
-	if errs.IsNotFound(out) {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameProjectLineItem), "project_line_item not found")
-		return
+	if idSet {
+		d.readByID(ctx, conn, &data, &resp.Diagnostics)
+	} else {
+		d.readByFilter(ctx, conn, &data, &resp.Diagnostics)
 	}
 
-	api, ok := out.(*generated.ProjectLineItemResponse)
-	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameProjectLineItem, out)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	v := api.Data.Value
-	data.Id = flex.OptUint64ToFramework(v.ID)
-	data.CategoryId = flex.OptNilUint64ToFramework(v.CategoryID)
-	data.Datecode = flex.OptUint64ToFramework(v.Datecode)
-	data.Description = flex.OptStringToFramework(v.Description)
-	data.FundingSourceId = flex.OptNilUint64ToFramework(v.FundingSourceID)
-	data.PayerId = flex.OptNilUint64ToFramework(v.PayerID)
-	data.ProjectId = flex.OptNilUint64ToFramework(v.ProjectID)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
+func (d *project_line_itemDataSource) readByID(ctx context.Context, conn *generated.Client, data *project_line_itemDataSourceModel, diags *diag.Diagnostics) {
+	out, err := conn.GetProjectLineItem(ctx, generated.GetProjectLineItemParams{ID: data.Id.ValueInt64()})
+	if err != nil {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameProjectLineItem), err.Error())
+		return
+	}
+	if errs.IsNotFound(out) {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameProjectLineItem), "project_line_item not found")
+		return
+	}
+	api, ok := out.(*generated.ProjectLineItemResponse)
+	if !ok || !api.Data.Set {
+		diags.Append(errs.ResponseDiagnostics("reading "+DSNameProjectLineItem, out)...)
+		return
+	}
+
+	lbl := api.Data.Value
+	data.Id = flex.OptUint64ToFramework(lbl.ID)
+	data.CategoryId = flex.OptNilUint64ToFramework(lbl.CategoryID)
+	data.Datecode = flex.OptUint64ToFramework(lbl.Datecode)
+	data.Description = flex.OptStringToFramework(lbl.Description)
+	data.FundingSourceId = flex.OptNilUint64ToFramework(lbl.FundingSourceID)
+	data.PayerId = flex.OptNilUint64ToFramework(lbl.PayerID)
+	data.ProjectId = flex.OptNilUint64ToFramework(lbl.ProjectID)
+
+	listVal, listDiags := buildProjectLineItemList(ctx, []generated.ProjectLineItem{lbl})
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+}
+
+func (d *project_line_itemDataSource) readByFilter(ctx context.Context, conn *generated.Client, data *project_line_itemDataSourceModel, diags *diag.Diagnostics) {
+	all, fetchDiags := fetchAllProjectLineItem(ctx, conn)
+	diags.Append(fetchDiags...)
+	if diags.HasError() {
+		return
+	}
+
+	matched := make([]generated.ProjectLineItem, 0, len(all))
+	for _, lbl := range all {
+		ok, matchDiags := filter.Match(ctx, data.Filter, project_line_itemToRow(lbl))
+		diags.Append(matchDiags...)
+		if diags.HasError() {
+			return
+		}
+		if ok {
+			matched = append(matched, lbl)
+		}
+	}
+
+	listVal, listDiags := buildProjectLineItemList(ctx, matched)
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+
+	// Scalar fields stay null in filter mode.
+	data.Id = types.Int64Null()
+	data.CategoryId = types.Int64Null()
+	data.Datecode = types.Int64Null()
+	data.Description = types.StringNull()
+	data.FundingSourceId = types.Int64Null()
+	data.PayerId = types.Int64Null()
+	data.ProjectId = types.Int64Null()
+}
+
+// fetchAllProjectLineItem returns the full set from GetProjectLineItemAll, which is not
+// paginated: one call yields the whole collection.
+func fetchAllProjectLineItem(ctx context.Context, conn *generated.Client) ([]generated.ProjectLineItem, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	var all []generated.ProjectLineItem
+
+	out, err := conn.GetProjectLineItemAll(ctx)
+	if err != nil {
+		diags.AddError(fmt.Sprintf("listing %s", DSNameProjectLineItem), err.Error())
+		return nil, diags
+	}
+	resp, ok := out.(*generated.ProjectLineItemListResponse)
+	if !ok {
+		diags.Append(errs.ResponseDiagnostics("listing "+DSNameProjectLineItem, out)...)
+		return nil, diags
+	}
+	items := resp.Data
+	all = append(all, items...)
+
+	return all, diags
+}
+
+// project_line_itemToRow converts an element into the map filter.Match expects.
+func project_line_itemToRow(lbl generated.ProjectLineItem) map[string]any {
+	row := map[string]any{
+		"category_id":       int64(lbl.CategoryID.Or(0)),
+		"datecode":          int64(lbl.Datecode.Or(0)),
+		"description":       lbl.Description.Or(""),
+		"funding_source_id": int64(lbl.FundingSourceID.Or(0)),
+		"payer_id":          int64(lbl.PayerID.Or(0)),
+		"project_id":        int64(lbl.ProjectID.Or(0)),
+	}
+	if lbl.ID.Set {
+		row["id"] = int64(lbl.ID.Value)
+	}
+	return row
+}
+
+// buildProjectLineItemList converts elements into a types.List of objects.
+func buildProjectLineItemList(ctx context.Context, items []generated.ProjectLineItem) (types.List, diag.Diagnostics) {
+	objs := make([]attr.Value, 0, len(items))
+	for _, lbl := range items {
+		idVal := types.Int64Null()
+		if lbl.ID.Set {
+			idVal = types.Int64Value(int64(lbl.ID.Value))
+		}
+		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
+			"id":                idVal,
+			"category_id":       types.Int64Value(int64(lbl.CategoryID.Or(0))),
+			"datecode":          types.Int64Value(int64(lbl.Datecode.Or(0))),
+			"description":       types.StringValue(lbl.Description.Or("")),
+			"funding_source_id": types.Int64Value(int64(lbl.FundingSourceID.Or(0))),
+			"payer_id":          types.Int64Value(int64(lbl.PayerID.Or(0))),
+			"project_id":        types.Int64Value(int64(lbl.ProjectID.Or(0))),
+		})
+		if objDiags.HasError() {
+			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags
+		}
+		objs = append(objs, obj)
+	}
+	return types.ListValueFrom(ctx, types.ObjectType{AttrTypes: listObjectAttrTypes}, objs)
+}
+
 type project_line_itemDataSourceModel struct {
-	Id              types.Int64  `tfsdk:"id"`
-	CategoryId      types.Int64  `tfsdk:"category_id"`
-	Datecode        types.Int64  `tfsdk:"datecode"`
-	Description     types.String `tfsdk:"description"`
-	FundingSourceId types.Int64  `tfsdk:"funding_source_id"`
-	PayerId         types.Int64  `tfsdk:"payer_id"`
-	ProjectId       types.Int64  `tfsdk:"project_id"`
+	Id              types.Int64    `tfsdk:"id"`
+	CategoryId      types.Int64    `tfsdk:"category_id"`
+	Datecode        types.Int64    `tfsdk:"datecode"`
+	Description     types.String   `tfsdk:"description"`
+	FundingSourceId types.Int64    `tfsdk:"funding_source_id"`
+	PayerId         types.Int64    `tfsdk:"payer_id"`
+	ProjectId       types.Int64    `tfsdk:"project_id"`
+	Filter          []filter.Model `tfsdk:"filter"`
+	List            types.List     `tfsdk:"list"`
 }

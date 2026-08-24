@@ -3,11 +3,15 @@
 package azure_policy
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"terraform-provider-kion/internal/conns"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
 
 func init() {
@@ -17,16 +21,49 @@ func init() {
 	})
 }
 
+// sweepAzurePolicy reads GetAzurePolicyAll (not paginated: one call yields the whole
+// collection) collecting ids whose test resources carry the acceptance-test
+// prefix, then deletes them via DeleteAzurePolicy.
 func sweepAzurePolicy(_ string) error {
 	conn, err := conns.SharedClient()
 	if err != nil {
 		return fmt.Errorf("getting shared client: %w", err)
 	}
-	_ = conn
+	ctx := context.Background()
 
-	// TODO: list kion_azure_policy resources with the "test-acc" prefix and
-	// delete each via conn.Client.DeleteAzurePolicy.
-	// A real list+delete sweeper needs paginated-list-envelope resolution — see
-	// the CRUD generator follow-up plan.
+	var ids []int64
+	// GetAzurePolicyAll is not paginated: one call returns the whole collection.
+	out, err := conn.Client.GetAzurePolicyAll(ctx)
+	if err != nil {
+		return fmt.Errorf("listing kion_azure_policy: %w", err)
+	}
+	if resp, ok := out.(*generated.AzurePolicyListResponse); ok {
+		items := resp.Data
+		for _, item := range items {
+			if item.AzurePolicy.Value.ID.Set && sweepAzurePolicyMatch(item) {
+				ids = append(ids, int64(item.AzurePolicy.Value.ID.Value))
+			}
+		}
+	}
+
+	for _, id := range ids {
+		if _, err := conn.Client.DeleteAzurePolicy(ctx, generated.DeleteAzurePolicyParams{ID: id}); err != nil {
+			return fmt.Errorf("deleting kion_azure_policy (%d): %w", id, err)
+		}
+	}
 	return nil
+}
+
+func sweepAzurePolicyMatch(item generated.AzurePolicyAugmented) bool {
+	for _, s := range []string{
+		item.AzurePolicy.Value.Description.Or(""),
+		item.AzurePolicy.Value.Name.Or(""),
+		item.AzurePolicy.Value.Parameters.Or(""),
+		item.AzurePolicy.Value.Policy.Or(""),
+	} {
+		if strings.HasPrefix(s, "test-acc") {
+			return true
+		}
+	}
+	return false
 }

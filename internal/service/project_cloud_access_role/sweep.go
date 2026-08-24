@@ -3,11 +3,15 @@
 package project_cloud_access_role
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"terraform-provider-kion/internal/conns"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
 
 func init() {
@@ -17,16 +21,50 @@ func init() {
 	})
 }
 
+// sweepProjectCloudAccessRole reads GetProjectCloudAccessRoleIndex (not paginated: one call yields the whole
+// collection) collecting ids whose test resources carry the acceptance-test
+// prefix, then deletes them via DeleteProjectCloudAccessRole.
 func sweepProjectCloudAccessRole(_ string) error {
 	conn, err := conns.SharedClient()
 	if err != nil {
 		return fmt.Errorf("getting shared client: %w", err)
 	}
-	_ = conn
+	ctx := context.Background()
 
-	// TODO: list kion_project_cloud_access_role resources with the "test-acc" prefix and
-	// delete each via conn.Client.DeleteProjectCloudAccessRole.
-	// A real list+delete sweeper needs paginated-list-envelope resolution — see
-	// the CRUD generator follow-up plan.
+	var ids []int64
+	// GetProjectCloudAccessRoleIndex is not paginated: one call returns the whole collection.
+	out, err := conn.Client.GetProjectCloudAccessRoleIndex(ctx)
+	if err != nil {
+		return fmt.Errorf("listing kion_project_cloud_access_role: %w", err)
+	}
+	if resp, ok := out.(*generated.ProjectCloudAccessRoleListResponsePaginated); ok && resp.Data.Set {
+		items := resp.Data.Value.Items
+		if items.Set && !items.Null {
+			for _, item := range items.Value {
+				if item.ProjectCloudAccessRole.Value.ID.Set && sweepProjectCloudAccessRoleMatch(item) {
+					ids = append(ids, int64(item.ProjectCloudAccessRole.Value.ID.Value))
+				}
+			}
+		}
+	}
+
+	for _, id := range ids {
+		if _, err := conn.Client.DeleteProjectCloudAccessRole(ctx, generated.DeleteProjectCloudAccessRoleParams{ID: id}); err != nil {
+			return fmt.Errorf("deleting kion_project_cloud_access_role (%d): %w", id, err)
+		}
+	}
 	return nil
+}
+
+func sweepProjectCloudAccessRoleMatch(item generated.ProjectCloudAccessRoleFull) bool {
+	for _, s := range []string{
+		item.ProjectCloudAccessRole.Value.AWSIamPath.Or(""),
+		item.ProjectCloudAccessRole.Value.AWSIamRoleName.Or(""),
+		item.ProjectCloudAccessRole.Value.Name.Or(""),
+	} {
+		if strings.HasPrefix(s, "test-acc") {
+			return true
+		}
+	}
+	return false
 }

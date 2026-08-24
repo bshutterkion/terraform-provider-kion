@@ -245,10 +245,23 @@ version-gen: ## Generate per-service <name>_version_gen.go version-gate declarat
 	@echo "$(GREEN)✓ Version gates generated$(RESET)"
 
 .PHONY: crud
-crud: ## Generate CRUD bodies, data sources, tests, sweepers (kgen crud)
+crud: ## Generate CRUD for resources with no files yet (skips existing — see crud-force)
 	@echo "$(BLUE)Generating CRUD...$(RESET)"
 	@go run ./cmd/kgen crud --config $(GENERATOR_CONFIG) --config-overrides $(CONFIG_OVERRIDES) --sdk $(SDK_DIR) --crud-overrides $(CRUD_OVERRIDES) --test-values $(TEST_VALUES) --version-support $(VERSION_SUPPORT)
 	@echo "$(GREEN)✓ CRUD generated$(RESET)"
+	@echo "$(YELLOW)note: existing files were skipped. Edited codegen/ inputs? use crud-force$(RESET)"
+
+# Without this, editing a codegen input and running `make crud` appears to
+# succeed while changing nothing, because kgen skips files that already exist.
+# That silently hid a state-upgrade bug: codegen/state_upgrades.yaml had gained a
+# rule that no generated upgrader carried, and no target regenerated them.
+# Generation is deterministic, so overwriting is safe — a clean `git diff` after
+# this is the expected result.
+.PHONY: crud-force
+crud-force: ## Regenerate ALL CRUD output, overwriting existing files (use after editing codegen/)
+	@echo "$(BLUE)Regenerating all CRUD (--force)...$(RESET)"
+	@go run ./cmd/kgen crud --config $(GENERATOR_CONFIG) --config-overrides $(CONFIG_OVERRIDES) --sdk $(SDK_DIR) --crud-overrides $(CRUD_OVERRIDES) --test-values $(TEST_VALUES) --version-support $(VERSION_SUPPORT) --force
+	@echo "$(GREEN)✓ CRUD regenerated$(RESET)"
 
 .PHONY: generate
 generate: version-gen generate-schemas crud ## Regenerate the full generatable surface (version gates + schemas + CRUD)

@@ -12,6 +12,7 @@ import (
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
 	"terraform-provider-kion/internal/errs"
+	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
 )
 
@@ -43,6 +44,18 @@ func (d *budgetDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 				Description: "The ID of the Budget to fetch.",
 				Required:    true,
 			},
+			"end_datecode": schema.StringAttribute{
+				Computed: true,
+			},
+			"ou_id": schema.Int64Attribute{
+				Computed: true,
+			},
+			"project_id": schema.Int64Attribute{
+				Computed: true,
+			},
+			"start_datecode": schema.StringAttribute{
+				Computed: true,
+			},
 		},
 	}
 }
@@ -73,9 +86,20 @@ func (d *budgetDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 		return
 	}
 
+	v := api.Data.Value
+	data.Id = flex.OptUint64ToFramework(v.Config.Value.ID)
+	data.EndDatecode = flex.OptStringToFramework(v.Config.Value.EndDatecode)
+	data.OuId = flex.OptNilUint64ToFramework(v.Config.Value.OuID)
+	data.ProjectId = flex.OptNilUint64ToFramework(v.Config.Value.ProjectID)
+	data.StartDatecode = flex.OptStringToFramework(v.Config.Value.StartDatecode)
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 type budgetDataSourceModel struct {
-	Id types.Int64 `tfsdk:"id"`
+	Id            types.Int64  `tfsdk:"id"`
+	EndDatecode   types.String `tfsdk:"end_datecode"`
+	OuId          types.Int64  `tfsdk:"ou_id"`
+	ProjectId     types.Int64  `tfsdk:"project_id"`
+	StartDatecode types.String `tfsdk:"start_datecode"`
 }

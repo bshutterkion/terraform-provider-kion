@@ -26,9 +26,10 @@ func (p *servicePackage) Resources(_ context.Context) []servicepkg.ServicePackag
 	}
 }
 
-// This resource has no read endpoint, so it exposes no data source.
 func (p *servicePackage) DataSources(_ context.Context) []servicepkg.ServicePackageDataSource {
-	return nil
+	return []servicepkg.ServicePackageDataSource{
+		{Factory: NewFundingSourcePermissionMappingDataSource},
+	}
 }
 
 func (p *servicePackage) ServicePackageName() string {

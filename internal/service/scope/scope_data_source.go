@@ -6,22 +6,41 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
 	"terraform-provider-kion/internal/errs"
+	"terraform-provider-kion/internal/filter"
 	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
 )
 
-const DSNameScope = "Scope Data Source"
+const (
+	DSNameScope = "Scope Data Source"
+
+	// indexPageSize is the per-page count used when paginating ListScope.
+	indexPageSize = 100
+)
 
 var (
 	_ datasource.DataSource              = &scopeDataSource{}
 	_ datasource.DataSourceWithConfigure = &scopeDataSource{}
 )
+
+// listObjectAttrTypes is the schema of an entry inside the `list` attribute.
+var listObjectAttrTypes = map[string]attr.Type{
+	"id":             types.Int64Type,
+	"alias":          types.StringType,
+	"description":    types.StringType,
+	"end_datecode":   types.Int64Type,
+	"name":           types.StringType,
+	"project_id":     types.Int64Type,
+	"start_datecode": types.Int64Type,
+}
 
 // NewScopeDataSource returns a new instance of the data source.
 func NewScopeDataSource() datasource.DataSource {
@@ -36,13 +55,17 @@ func (d *scopeDataSource) Metadata(_ context.Context, req datasource.MetadataReq
 	resp.TypeName = req.ProviderTypeName + "_scope"
 }
 
+// Schema is dual-mode: `id` fetches one by primary key; omitting `id` and
+// supplying `filter` blocks paginates the index and returns every match in
+// `list`. `id` and `filter` are mutually exclusive.
 func (d *scopeDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Use this data source to look up a Kion Scope by id.",
+		Description: "Use this data source to access information about Kion Scopes. Supports lookup by id (recommended) or by filter blocks (legacy).",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
-				Description: "The ID of the Scope to fetch.",
-				Required:    true,
+				Description: "The ID of a single scope to fetch. Mutually exclusive with `filter` blocks.",
+				Optional:    true,
+				Computed:    true,
 			},
 			"alias": schema.StringAttribute{
 				Computed: true,
@@ -62,6 +85,38 @@ func (d *scopeDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, 
 			"start_datecode": schema.Int64Attribute{
 				Computed: true,
 			},
+			"list": schema.ListNestedAttribute{
+				Description: "All scopes matching the supplied id or filter blocks.",
+				Computed:    true,
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"alias": schema.StringAttribute{
+							Computed: true,
+						},
+						"description": schema.StringAttribute{
+							Computed: true,
+						},
+						"end_datecode": schema.Int64Attribute{
+							Computed: true,
+						},
+						"name": schema.StringAttribute{
+							Computed: true,
+						},
+						"project_id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"start_datecode": schema.Int64Attribute{
+							Computed: true,
+						},
+					},
+				},
+			},
+		},
+		Blocks: map[string]schema.Block{
+			"filter": filter.Schema(),
 		},
 	}
 }
@@ -75,41 +130,191 @@ func (d *scopeDataSource) Read(ctx context.Context, req datasource.ReadRequest, 
 		return
 	}
 
-	out, err := conn.GetScopeByID(ctx, generated.GetScopeByIDParams{ID: data.Id.ValueInt64()})
-	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameScope), err.Error())
+	idSet := !data.Id.IsNull() && !data.Id.IsUnknown()
+	filterSet := len(data.Filter) > 0
+
+	if idSet && filterSet {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("invalid %s configuration", DSNameScope),
+			"`id` and `filter` blocks are mutually exclusive.",
+		)
 		return
 	}
 
-	if errs.IsNotFound(out) {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameScope), "scope not found")
-		return
+	if idSet {
+		d.readByID(ctx, conn, &data, &resp.Diagnostics)
+	} else {
+		d.readByFilter(ctx, conn, &data, &resp.Diagnostics)
 	}
 
-	api, ok := out.(*generated.ScopeResponse)
-	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameScope, out)...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	v := api.Data.Value
-	data.Id = flex.OptUint64ToFramework(v.ID)
-	data.Alias = flex.OptStringToFramework(v.Alias)
-	data.Description = flex.OptStringToFramework(v.Description)
-	data.EndDatecode = flex.OptUint64ToFramework(v.EndDatecode)
-	data.Name = flex.OptStringToFramework(v.Name)
-	data.ProjectId = flex.OptNilUint64ToFramework(v.ProjectID)
-	data.StartDatecode = flex.OptUint64ToFramework(v.StartDatecode)
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
+func (d *scopeDataSource) readByID(ctx context.Context, conn *generated.Client, data *scopeDataSourceModel, diags *diag.Diagnostics) {
+	out, err := conn.GetScopeByID(ctx, generated.GetScopeByIDParams{ID: data.Id.ValueInt64()})
+	if err != nil {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameScope), err.Error())
+		return
+	}
+	if errs.IsNotFound(out) {
+		diags.AddError(fmt.Sprintf("reading %s", DSNameScope), "scope not found")
+		return
+	}
+	api, ok := out.(*generated.ScopeResponse)
+	if !ok || !api.Data.Set {
+		diags.Append(errs.ResponseDiagnostics("reading "+DSNameScope, out)...)
+		return
+	}
+
+	lbl := api.Data.Value
+	data.Id = flex.OptUint64ToFramework(lbl.ID)
+	data.Alias = flex.OptStringToFramework(lbl.Alias)
+	data.Description = flex.OptStringToFramework(lbl.Description)
+	data.EndDatecode = flex.OptUint64ToFramework(lbl.EndDatecode)
+	data.Name = flex.OptStringToFramework(lbl.Name)
+	data.ProjectId = flex.OptNilUint64ToFramework(lbl.ProjectID)
+	data.StartDatecode = flex.OptUint64ToFramework(lbl.StartDatecode)
+
+	listVal, listDiags := buildScopeList(ctx, []generated.Scope{lbl})
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+}
+
+func (d *scopeDataSource) readByFilter(ctx context.Context, conn *generated.Client, data *scopeDataSourceModel, diags *diag.Diagnostics) {
+	all, fetchDiags := fetchAllScope(ctx, conn)
+	diags.Append(fetchDiags...)
+	if diags.HasError() {
+		return
+	}
+
+	matched := make([]generated.Scope, 0, len(all))
+	for _, lbl := range all {
+		ok, matchDiags := filter.Match(ctx, data.Filter, scopeToRow(lbl))
+		diags.Append(matchDiags...)
+		if diags.HasError() {
+			return
+		}
+		if ok {
+			matched = append(matched, lbl)
+		}
+	}
+
+	listVal, listDiags := buildScopeList(ctx, matched)
+	diags.Append(listDiags...)
+	if diags.HasError() {
+		return
+	}
+	data.List = listVal
+
+	// Scalar fields stay null in filter mode.
+	data.Id = types.Int64Null()
+	data.Alias = types.StringNull()
+	data.Description = types.StringNull()
+	data.EndDatecode = types.Int64Null()
+	data.Name = types.StringNull()
+	data.ProjectId = types.Int64Null()
+	data.StartDatecode = types.Int64Null()
+}
+
+// fetchAllScope paginates ListScope and returns the full set.
+func fetchAllScope(ctx context.Context, conn *generated.Client) ([]generated.Scope, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	var all []generated.Scope
+
+	page := int64(1)
+	for {
+		out, err := conn.ListScope(ctx, generated.ListScopeParams{
+			Page:  generated.NewOptInt64(page),
+			Count: generated.NewOptInt64(int64(indexPageSize)),
+		})
+		if err != nil {
+			diags.AddError(fmt.Sprintf("listing %s", DSNameScope), err.Error())
+			return nil, diags
+		}
+		resp, ok := out.(*generated.ScopeListResponse)
+		if !ok {
+			diags.Append(errs.ResponseDiagnostics("listing "+DSNameScope, out)...)
+			return nil, diags
+		}
+		if !resp.Data.Set {
+			break
+		}
+		items := resp.Data.Value.Items
+		if items.Set && !items.Null {
+			all = append(all, items.Value...)
+		}
+		total := int64(0)
+		if resp.Data.Value.Total.Set {
+			total = resp.Data.Value.Total.Value
+		}
+		if total > 0 && int64(len(all)) >= total {
+			break
+		}
+		if !items.Set || items.Null || len(items.Value) == 0 {
+			break
+		}
+		page++
+	}
+
+	return all, diags
+}
+
+// scopeToRow converts an element into the map filter.Match expects.
+func scopeToRow(lbl generated.Scope) map[string]any {
+	row := map[string]any{
+		"alias":          lbl.Alias.Or(""),
+		"description":    lbl.Description.Or(""),
+		"end_datecode":   int64(lbl.EndDatecode.Or(0)),
+		"name":           lbl.Name.Or(""),
+		"project_id":     int64(lbl.ProjectID.Or(0)),
+		"start_datecode": int64(lbl.StartDatecode.Or(0)),
+	}
+	if lbl.ID.Set {
+		row["id"] = int64(lbl.ID.Value)
+	}
+	return row
+}
+
+// buildScopeList converts elements into a types.List of objects.
+func buildScopeList(ctx context.Context, items []generated.Scope) (types.List, diag.Diagnostics) {
+	objs := make([]attr.Value, 0, len(items))
+	for _, lbl := range items {
+		idVal := types.Int64Null()
+		if lbl.ID.Set {
+			idVal = types.Int64Value(int64(lbl.ID.Value))
+		}
+		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
+			"id":             idVal,
+			"alias":          types.StringValue(lbl.Alias.Or("")),
+			"description":    types.StringValue(lbl.Description.Or("")),
+			"end_datecode":   types.Int64Value(int64(lbl.EndDatecode.Or(0))),
+			"name":           types.StringValue(lbl.Name.Or("")),
+			"project_id":     types.Int64Value(int64(lbl.ProjectID.Or(0))),
+			"start_datecode": types.Int64Value(int64(lbl.StartDatecode.Or(0))),
+		})
+		if objDiags.HasError() {
+			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags
+		}
+		objs = append(objs, obj)
+	}
+	return types.ListValueFrom(ctx, types.ObjectType{AttrTypes: listObjectAttrTypes}, objs)
+}
+
 type scopeDataSourceModel struct {
-	Id            types.Int64  `tfsdk:"id"`
-	Alias         types.String `tfsdk:"alias"`
-	Description   types.String `tfsdk:"description"`
-	EndDatecode   types.Int64  `tfsdk:"end_datecode"`
-	Name          types.String `tfsdk:"name"`
-	ProjectId     types.Int64  `tfsdk:"project_id"`
-	StartDatecode types.Int64  `tfsdk:"start_datecode"`
+	Id            types.Int64    `tfsdk:"id"`
+	Alias         types.String   `tfsdk:"alias"`
+	Description   types.String   `tfsdk:"description"`
+	EndDatecode   types.Int64    `tfsdk:"end_datecode"`
+	Name          types.String   `tfsdk:"name"`
+	ProjectId     types.Int64    `tfsdk:"project_id"`
+	StartDatecode types.Int64    `tfsdk:"start_datecode"`
+	Filter        []filter.Model `tfsdk:"filter"`
+	List          types.List     `tfsdk:"list"`
 }

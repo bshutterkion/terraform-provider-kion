@@ -19,6 +19,7 @@ var (
 	crudVersionSupport  string
 	crudForce           bool
 	crudResource        string
+	crudStrict          bool
 )
 
 var crudCmd = &cobra.Command{
@@ -36,6 +37,7 @@ var crudCmd = &cobra.Command{
 			VersionSupport:  crudVersionSupport,
 			Force:           crudForce,
 			OnlyResource:    crudResource,
+			Strict:          crudStrict,
 		})
 		if err != nil {
 			return err
@@ -56,5 +58,6 @@ func init() {
 	crudCmd.Flags().StringVar(&crudVersionSupport, "version-support", "codegen/version_support.yaml", "path to version-support gates")
 	crudCmd.Flags().BoolVarP(&crudForce, "force", "f", false, "overwrite existing files")
 	crudCmd.Flags().StringVar(&crudResource, "resource", "", "generate only this resource")
+	crudCmd.Flags().BoolVar(&crudStrict, "strict", false, "exit non-zero if any data source was downgraded from list+filter to id-only")
 	rootCmd.AddCommand(crudCmd)
 }

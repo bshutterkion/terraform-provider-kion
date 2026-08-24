@@ -26,7 +26,14 @@ func (p *servicePackage) Resources(_ context.Context) []servicepkg.ServicePackag
 	}
 }
 
-// This resource has no read endpoint, so it exposes no data source.
+// No data source is registered for this service package: its archetype emits no
+// read, and kgen has no companion data-source template for it (see
+// companionsByName in internal/kgen/crud/bespoke.go).
+//
+// This is a statement about kgen's inputs, NOT about the API. Several types
+// reaching this branch do have a readable endpoint and did expose a data source
+// in the previous provider; for those, the missing piece is the companion
+// template, not the endpoint.
 func (p *servicePackage) DataSources(_ context.Context) []servicepkg.ServicePackageDataSource {
 	return nil
 }

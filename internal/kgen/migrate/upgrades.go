@@ -14,12 +14,21 @@ type ProjectRule struct {
 	Field string `yaml:"field"`
 }
 
+// KVListRule names the two fields of the object that each entry of an old map
+// attribute becomes, for a map(...) attribute the new schema declares as a
+// list/set of two-field objects.
+type KVListRule struct {
+	KeyField string `yaml:"key_field"`
+	ValField string `yaml:"val_field"`
+}
+
 // Transform is the per-resource old→new state mapping. Attributes not named by
 // any rule fall through by name (same name in old → passthrough; new-only → null).
 type Transform struct {
 	Rename  map[string]string      `yaml:"rename"`   // old_attr -> new_attr, value unchanged
 	IDInt   bool                   `yaml:"id_int"`   // id string -> number
 	Project map[string]ProjectRule `yaml:"project"`  // new_attr -> {from, field}
+	KVList  map[string]KVListRule  `yaml:"kv_list"`  // attr -> {key_field, val_field}: map {k: v} -> [{key_field: k, val_field: v}]
 	Unwrap  []string               `yaml:"unwrap"`   // block-set → single object ([{…}] -> {…})
 	Drop    []string               `yaml:"drop"`     // old attrs to ignore explicitly
 	OldType string                 `yaml:"old_type"` // alias resources: the old state's type name differs from the new (keyed) type

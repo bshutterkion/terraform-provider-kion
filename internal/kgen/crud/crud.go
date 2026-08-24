@@ -28,6 +28,20 @@ type Options struct {
 	VersionSupport  string // codegen/version_support.yaml
 	Force           bool
 	OnlyResource    string // "" = all
+	// Strict fails the run when any data source was downgraded from
+	// list+filter to id-only. Off by default because a handful of resources
+	// legitimately have no callable collection endpoint; on in a gate that wants
+	// the set frozen.
+	Strict bool
+}
+
+// downgrade records a data source that fell back from the list+filter shape to
+// id-only. Losing the `filter` block is a silent, config-breaking regression for
+// anyone migrating from the SDKv2 provider, so these are reported loudly and in
+// aggregate at the end of a run rather than as a lone line mid-stream.
+type downgrade struct {
+	Resource string
+	Reason   string
 }
 
 type generator struct {
@@ -39,6 +53,7 @@ type generator struct {
 	oldSchema   map[string]migrate.Resource  // codegen/schema_snapshots/old.json (lazy)
 	newSchema   map[string]migrate.Resource  // codegen/schema_snapshots/new.json (lazy)
 	root        string
+	downgrades  []downgrade // data sources that lost their filter block this run
 }
 
 // Generate is the stage entry point.
@@ -157,7 +172,28 @@ func (g *generator) generate(opts Options) (int, error) {
 		}
 		written += n
 	}
-	return written, nil
+	return written, g.reportDowngrades(opts.Strict)
+}
+
+// reportDowngrades prints the aggregated downgrade report. Every entry means a
+// data source that SHOULD accept `filter` blocks (the config maps a collection
+// read for it) instead demands a required `id` — which silently breaks
+// configurations carried over from the SDKv2 provider. Under strict it is an
+// error, so the set cannot grow unnoticed.
+func (g *generator) reportDowngrades(strict bool) error {
+	if len(g.downgrades) == 0 {
+		return nil
+	}
+	fmt.Fprintf(os.Stderr, "\n!! kgen crud: %d DATA SOURCE(S) DOWNGRADED to id-only — each lost its `filter` block\n", len(g.downgrades))
+	fmt.Fprintf(os.Stderr, "!! and now REQUIRES `id`, which breaks configurations written for the old provider.\n")
+	for _, d := range g.downgrades {
+		fmt.Fprintf(os.Stderr, "!!   kion_%s: %s\n", d.Resource, d.Reason)
+	}
+	fmt.Fprintf(os.Stderr, "!! Fix the generator (internal/kgen/crud) or accept each case deliberately.\n\n")
+	if strict {
+		return fmt.Errorf("%d data source(s) downgraded to id-only (--strict)", len(g.downgrades))
+	}
+	return nil
 }
 
 // generateResource resolves one resource and writes its generated files:
@@ -237,6 +273,11 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		byTF[mf.TFSDK] = mf
 	}
 
+	// A model that nests the whole record under one object attribute exposes none
+	// of the record's fields at the top level; promote them so the data source and
+	// sweeper can still project the record.
+	rm.RecordSubFields = recordSubFields(g.src, schemaGen, rm.Read.RespWrapperGo, byTF)
+
 	// Create-under-parent: the create op's id param is the parent id from a model
 	// attribute (not a literal discriminator). Overrides the literal create-param
 	// path resolved above.
@@ -298,13 +339,19 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	if err != nil {
 		return 0, err
 	}
-	dataSourceGo, err := renderDataSource(rm)
+	dataSourceGo, dsDowngrade, err := renderDataSource(rm)
 	if err != nil {
 		return 0, err
 	}
-	sweepGo, err := renderSweep(rm)
+	if dsDowngrade != "" {
+		g.downgrades = append(g.downgrades, downgrade{Resource: name, Reason: dsDowngrade})
+	}
+	sweepGo, sweepNote, err := renderSweep(rm)
 	if err != nil {
 		return 0, err
+	}
+	if sweepNote != "" {
+		fmt.Fprintf(os.Stderr, "kgen crud: %s — real sweeper failed (%v); using stub\n", name, sweepNote)
 	}
 
 	files := []genFile{

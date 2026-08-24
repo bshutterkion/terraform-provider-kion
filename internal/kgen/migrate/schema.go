@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 )
 
 // Attr is one attribute or nested block of a resource schema.
@@ -19,6 +20,13 @@ type Attr struct {
 	Required  bool   // attr must be set in config
 	Computed  bool   // attr is set by the provider
 	NestedObj bool   // attr: has a nested_type (object/collection of objects)
+	// NestedMode/NestedAttrs are the nesting mode and field names of the object
+	// this attribute or block carries, so a rule that names fields inside a
+	// nested object (cft's tag_key/tag_value) can be checked against the schema,
+	// and an old block whose state JSON passes straight through into a new
+	// nested-object attribute can be checked field-for-field.
+	NestedMode  string
+	NestedAttrs []string
 }
 
 // Settable reports whether a user can write this attribute in config (so a
@@ -51,6 +59,10 @@ func LoadSchema(path string) (map[string]Resource, error) {
 					} `json:"attributes"`
 					BlockTypes map[string]struct {
 						NestingMode string `json:"nesting_mode"`
+						Block       struct {
+							Attributes map[string]json.RawMessage `json:"attributes"`
+							BlockTypes map[string]json.RawMessage `json:"block_types"`
+						} `json:"block"`
 					} `json:"block_types"`
 				} `json:"block"`
 			} `json:"resource_schemas"`
@@ -64,7 +76,7 @@ func LoadSchema(path string) (map[string]Resource, error) {
 		for rtype, rs := range ps.ResourceSchemas {
 			r := Resource{Attrs: map[string]Attr{}}
 			for name, a := range rs.Block.Attributes {
-				r.Attrs[name] = Attr{
+				attr := Attr{
 					Kind:      "attr",
 					TypeJSON:  string(a.Type),
 					Optional:  a.Optional,
@@ -72,9 +84,32 @@ func LoadSchema(path string) (map[string]Resource, error) {
 					Computed:  a.Computed,
 					NestedObj: len(a.NestedType) > 0,
 				}
+				if attr.NestedObj {
+					var nt struct {
+						NestingMode string                     `json:"nesting_mode"`
+						Attributes  map[string]json.RawMessage `json:"attributes"`
+					}
+					if err := json.Unmarshal(a.NestedType, &nt); err != nil {
+						return nil, fmt.Errorf("parse %s: nested_type of %s.%s: %w", path, rtype, name, err)
+					}
+					attr.NestedMode = nt.NestingMode
+					for n := range nt.Attributes {
+						attr.NestedAttrs = append(attr.NestedAttrs, n)
+					}
+					sort.Strings(attr.NestedAttrs)
+				}
+				r.Attrs[name] = attr
 			}
 			for name, b := range rs.Block.BlockTypes {
-				r.Attrs[name] = Attr{Kind: "block", Nesting: b.NestingMode}
+				a := Attr{Kind: "block", Nesting: b.NestingMode, NestedMode: b.NestingMode}
+				for n := range b.Block.Attributes {
+					a.NestedAttrs = append(a.NestedAttrs, n)
+				}
+				for n := range b.Block.BlockTypes {
+					a.NestedAttrs = append(a.NestedAttrs, n)
+				}
+				sort.Strings(a.NestedAttrs)
+				r.Attrs[name] = a
 			}
 			out[rtype] = r
 		}

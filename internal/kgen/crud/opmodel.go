@@ -52,35 +52,115 @@ type OpModel struct {
 	RespWrapperFields []Field // the wrapper struct's fields
 }
 
-// listModel describes a resolved paginated-list endpoint (the data-source read),
+// listModel describes a resolved collection endpoint (the data-source read),
 // enabling the dual-mode data source and the real sweeper. nil when unresolved.
+//
+// Two envelope shapes exist in the SDK and both are supported:
+//
+//	shape A: type LabelListPaginatedResponse struct { Data OptLabelListPaginated }
+//	         type LabelListPaginated        struct { Items OptNilLabelArray; Total OptInt64 }
+//	shape B: type UserListResponse          struct { Data []User }
+//
+// In shape A the Data field wraps a struct that holds the items slice (and
+// usually a Total); in shape B the Data field IS the items slice. DataDirect
+// distinguishes them.
 type listModel struct {
 	Method     ClientMethod // e.g. GetLabelIndex
-	Params     *Struct      // e.g. GetLabelIndexParams
+	Params     *Struct      // e.g. GetLabelIndexParams (nil when the op has no params)
 	RespType   string       // "LabelListPaginatedResponse"
-	DataInner  string       // "LabelListPaginated"
-	ItemsGo    string       // "Items" (field in DataInner)
+	DataInner  string       // "LabelListPaginated" ("" for shape B)
+	DataOpt    bool         // the Data field is an Opt-wrapper (guard on .Set, read .Value)
+	DataDirect bool         // shape B: the Data field IS the items slice
+	ItemsGo    string       // "Items" (field in DataInner); "Data" for shape B
+	ItemsOpt   bool         // the items field is an Opt-wrapper, not a bare slice
 	ItemsNil   bool         // items wrapper has a .Null field (OptNil*)
-	ElemType   string       // "Label" (== read payload type)
-	TotalGo    string       // "Total" ("" if absent)
-	PageParam  string       // "Page"
-	CountParam string       // "Count"
+	ElemType   string       // "Label" — the SDK list element type
+	// ElemIsWrapper reports that ElemType is not the read payload but the read
+	// payload's record-wrapper sub-object (e.g. the read returns
+	// WebhookWithOwners while the index returns []Webhook, and WebhookWithOwners
+	// carries the record under .Webhook). The data source then treats that
+	// sub-object as the record, so one field mapping serves both modes.
+	ElemIsWrapper bool
+	TotalGo       string // "Total" ("" if absent)
+	Paginated     bool   // the op takes Page+Count (else it is a single-shot list)
+	PageParam     string // "Page" ("" when not paginated)
+	CountParam    string // "Count" ("" when not paginated)
+}
+
+// access renders the Go expressions the list templates use to read one page of
+// this envelope from a response variable named resp.
+func (lm *listModel) access() listAccess {
+	a := listAccess{
+		Paginated: lm.Paginated,
+		HasParams: lm.Method.ParamsType != "",
+		ItemsExpr: "resp." + lm.ItemsGo,
+	}
+	if !lm.DataDirect {
+		prefix := "resp.Data."
+		if lm.DataOpt {
+			prefix = "resp.Data.Value."
+			a.EnvelopeGuard = "resp.Data.Set"
+		}
+		a.ItemsExpr = prefix + lm.ItemsGo
+		if lm.TotalGo != "" {
+			a.TotalExpr = prefix + lm.TotalGo
+		}
+	} else if lm.TotalGo != "" {
+		a.TotalExpr = "resp." + lm.TotalGo
+	}
+	if lm.ItemsOpt {
+		a.ItemsSlice = "items.Value"
+		a.ItemsGuard = "items.Set"
+		a.ItemsBreak = "!items.Set || len(items.Value) == 0"
+		if lm.ItemsNil {
+			a.ItemsGuard = "items.Set && !items.Null"
+			a.ItemsBreak = "!items.Set || items.Null || len(items.Value) == 0"
+		}
+		return a
+	}
+	a.ItemsSlice = "items"
+	a.ItemsBreak = "len(items) == 0"
+	return a
+}
+
+// listAccess is the template-facing projection of a listModel's envelope: the
+// Go expressions that walk one response page. Keeping them here rather than
+// branching inside the templates lets one template body serve every shape.
+type listAccess struct {
+	Paginated     bool   // emit the Page/Count loop (else a single call)
+	HasParams     bool   // the op takes a params struct at all
+	EnvelopeGuard string // "resp.Data.Set" ("" when Data needs no guard)
+	ItemsExpr     string // "resp.Data.Value.Items" | "resp.Data"
+	ItemsGuard    string // "items.Set && !items.Null" ("" for a bare slice)
+	ItemsSlice    string // "items.Value" | "items"
+	ItemsBreak    string // last-page test, e.g. "len(items) == 0"
+	TotalExpr     string // "resp.Data.Value.Total" ("" when the envelope has no total)
 }
 
 // ResourceModel is everything the templates need for one resource.
 type ResourceModel struct {
-	Name          string       // snake, e.g. "label"
-	Pascal        string       // "Label"
-	Model         string       // model type, e.g. "LabelModel"
-	IDField       ModelField   // the tfsdk:"id" model field
-	Fields        []ModelField // model fields excluding id
-	Create        OpModel      //
-	Read          OpModel      //
-	Update        *OpModel     // nil if resource has no update
-	Delete        *OpModel     // nil if resource has no delete
-	List          *listModel   // nil if no resolvable list endpoint
-	Gated         bool         // resource is version-gated (emit RequireKionVersionInRange)
-	SchemaVersion int          // >0 when the resource migrates old SDKv2 state (bumps schema.Version)
+	Name    string       // snake, e.g. "label"
+	Pascal  string       // "Label"
+	Model   string       // model type, e.g. "LabelModel"
+	IDField ModelField   // the tfsdk:"id" model field
+	Fields  []ModelField // model fields excluding id
+	// RecordSubFields are the sub-attributes of a record-wrapper object attribute
+	// (azure_policy's AzurePolicyValue{description,name,parameters,policy}),
+	// promoted to top-level ModelFields. Non-empty only when the model nests the
+	// whole record under one object attribute; see recordSubFields.
+	RecordSubFields []ModelField
+	Create          OpModel    //
+	Read            OpModel    //
+	Update          *OpModel   // nil if resource has no update
+	Delete          *OpModel   // nil if resource has no delete
+	List            *listModel // nil if no resolvable list endpoint
+	// ListDowngrade explains why List is nil even though the config declared a
+	// data-source collection read — i.e. why this data source lost its `filter`
+	// block and fell back to id-only. Empty when List resolved (or when no
+	// collection read was declared at all).
+	ListDowngrade string
+	Gated         bool // resource is version-gated (emit RequireKionVersionInRange)
+	SchemaVersion int  // >0 when the resource migrates old SDKv2 state (bumps schema.Version)
 	// Asymmetric 2-param delete (e.g. compliance_control's
 	// DELETE /v4/compliance/program/{id}/control/{controlID}): the record-id
 	// param plus an extra param sourced from a model field. All "" for the
@@ -105,6 +185,18 @@ type ResourceModel struct {
 	Assocs []*assocMembershipBind
 	// Slice member syncs ([]int64 add/remove endpoints, e.g. user_group users).
 	SliceMembers []*sliceMemberBind
+}
+
+// projectedFields is the model attribute set the data source and sweeper project
+// onto the record: the flat model fields plus any promoted record-wrapper
+// sub-attributes. Identical to Fields for every flat-model resource.
+func (rm ResourceModel) projectedFields() []ModelField {
+	if len(rm.RecordSubFields) == 0 {
+		return rm.Fields
+	}
+	out := make([]ModelField, 0, len(rm.Fields)+len(rm.RecordSubFields))
+	out = append(out, rm.Fields...)
+	return append(out, rm.RecordSubFields...)
 }
 
 // Source is the AST boundary — mockable, reads only.

@@ -65,11 +65,19 @@ func (g *generator) generateNoRead(dir, name string, ops resOps, idx sdkIndex, m
 	if err != nil {
 		return 0, err
 	}
-	sweepGo, err := renderSweep(rm)
+	sweepGo, _, err := renderSweep(rm)
 	if err != nil {
 		return 0, err
 	}
-	pkgGo, err := execGoTemplate("servicepackage_noread", servicePackageNoReadTmpl, struct{ Pkg, Pascal string }{name, rm.Pascal}, "service_package.go")
+	// DataSourceCtor must be supplied even when it resolves to "": the template
+	// branches on it, and Go's text/template errors on a field that is absent
+	// from the data struct rather than treating it as empty. Omitting it here
+	// made every no_read resource fail template execution outright — not merely
+	// lose its data source — so `kgen crud` skipped the resource entirely and
+	// still exited 0. Keep this in step with the assoc, blended and raw_http
+	// call sites, which pass the same three fields.
+	dsCtor := dataSourceCompanionCtor(name, rm.Pascal)
+	pkgGo, err := execGoTemplate("servicepackage_noread", servicePackageNoReadTmpl, struct{ Pkg, Pascal, DataSourceCtor string }{name, rm.Pascal, dsCtor}, "service_package.go")
 	if err != nil {
 		return 0, err
 	}
@@ -79,7 +87,13 @@ func (g *generator) generateNoRead(dir, name string, ops resOps, idx sdkIndex, m
 		{filepath.Join(dir, "sweep.go"), sweepGo},
 		{filepath.Join(dir, "service_package.go"), pkgGo},
 	}
-	fmt.Fprintf(os.Stderr, "kgen crud: %s — no-read archetype; no data source emitted (no read endpoint)\n", name)
+	// Only worth saying when nothing was registered, and say the actual reason:
+	// this branch is reached for resources that DO declare a read path but whose
+	// read could not be resolved to a single-item op, so "no read endpoint" was
+	// misleading. A companion template is what supplies a data source here.
+	if dsCtor == "" {
+		fmt.Fprintf(os.Stderr, "kgen crud: %s — no-read archetype; no data source emitted (no companion template registered in bespoke.go)\n", name)
+	}
 	for _, f := range files {
 		if err := g.writeFile(f.path, f.data, force); err != nil {
 			return 0, err

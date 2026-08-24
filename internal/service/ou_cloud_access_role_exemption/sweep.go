@@ -26,7 +26,7 @@ func sweepOuCloudAccessRoleExemption(_ string) error {
 
 	// TODO: list kion_ou_cloud_access_role_exemption resources with the "test-acc" prefix and
 	// delete each via conn.Client.DeleteOUCloudAccessRoleExemption.
-	// A real list+delete sweeper needs paginated-list-envelope resolution — see
-	// the CRUD generator follow-up plan.
+	// A real sweeper needs both a resolvable collection endpoint and a delete op;
+	// this resource is missing at least one (see the kgen crud run output).
 	return nil
 }

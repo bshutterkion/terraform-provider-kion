@@ -96,6 +96,66 @@ func nestedSubIndex(src Source, schemaGen string, byTF map[string]ModelField) ma
 	return idx
 }
 
+// recordSubFields returns the model sub-attributes of the record-wrapper object
+// attribute named by wrapperGo, promoted to top-level ModelFields.
+//
+// It is non-empty only for a model that nests the WHOLE record under one object
+// attribute (azure_policy) instead of flattening it. Such a model exposes none
+// of the record's fields at the top level, so the data source and sweeper —
+// which project the model's attributes onto the record — would otherwise see an
+// empty attribute set and produce a `list` carrying nothing but the id. Promoting
+// them mirrors the SDKv2 provider, whose `list` rows were flat.
+//
+// Returns nil for the common flat-model case (the wrapper is not a model
+// attribute at all) and for a wrapper with no tfplugingen Value type.
+func recordSubFields(src Source, schemaGen, wrapperGo string, byTF map[string]ModelField) []ModelField {
+	if wrapperGo == "" {
+		return nil
+	}
+	var wrapper ModelField
+	for _, mf := range byTF {
+		if mf.GoName == wrapperGo {
+			wrapper = mf
+			break
+		}
+	}
+	if wrapper.TFSDK == "" || !strings.HasSuffix(wrapper.Type, "Value") {
+		return nil
+	}
+	subs, err := src.ModelFields(schemaGen, wrapper.Type)
+	if err != nil {
+		return nil
+	}
+	var out []ModelField
+	for _, sf := range subs {
+		if sf.TFSDK == "" {
+			continue // the unexported state field
+		}
+		if _, clash := byTF[sf.TFSDK]; clash {
+			continue // a top-level attribute of the same name wins
+		}
+		out = append(out, ModelField{GoName: sf.GoName, TFSDK: sf.TFSDK, Type: frameworkModelType(sf.Type)})
+	}
+	return out
+}
+
+// frameworkModelType normalizes a tfplugingen Value sub-field's type spelling
+// (basetypes.StringValue) to the types.* alias the schema/attr-type tables key
+// on. Identity for anything already in that form.
+func frameworkModelType(t string) string {
+	switch t {
+	case "basetypes.StringValue":
+		return "types.String"
+	case "basetypes.Int64Value":
+		return "types.Int64"
+	case "basetypes.BoolValue":
+		return "types.Bool"
+	case "basetypes.Float64Value":
+		return "types.Float64"
+	}
+	return t
+}
+
 // valueTypeExists reports whether the schema_gen file declares the named
 // tfplugingen Value type. It is the discriminator between a genuinely nested
 // tfplugingen attribute and a plain scalar collection: a body/response field

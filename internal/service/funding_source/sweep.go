@@ -3,11 +3,15 @@
 package funding_source
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"terraform-provider-kion/internal/conns"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
 
 func init() {
@@ -17,16 +21,49 @@ func init() {
 	})
 }
 
+// sweepFundingSource reads FundingSourceIndex (not paginated: one call yields the whole
+// collection) collecting ids whose test resources carry the acceptance-test
+// prefix, then deletes them via DeleteFundingSource.
 func sweepFundingSource(_ string) error {
 	conn, err := conns.SharedClient()
 	if err != nil {
 		return fmt.Errorf("getting shared client: %w", err)
 	}
-	_ = conn
+	ctx := context.Background()
 
-	// TODO: list kion_funding_source resources with the "test-acc" prefix and
-	// delete each via conn.Client.DeleteFundingSource.
-	// A real list+delete sweeper needs paginated-list-envelope resolution — see
-	// the CRUD generator follow-up plan.
+	var ids []int64
+	// FundingSourceIndex is not paginated: one call returns the whole collection.
+	out, err := conn.Client.FundingSourceIndex(ctx, generated.FundingSourceIndexParams{})
+	if err != nil {
+		return fmt.Errorf("listing kion_funding_source: %w", err)
+	}
+	if resp, ok := out.(*generated.FundingSourceListResponse); ok {
+		items := resp.Data
+		for _, item := range items {
+			if item.ID.Set && sweepFundingSourceMatch(item) {
+				ids = append(ids, int64(item.ID.Value))
+			}
+		}
+	}
+
+	for _, id := range ids {
+		if _, err := conn.Client.DeleteFundingSource(ctx, generated.DeleteFundingSourceParams{ID: id}); err != nil {
+			return fmt.Errorf("deleting kion_funding_source (%d): %w", id, err)
+		}
+	}
 	return nil
+}
+
+func sweepFundingSourceMatch(item generated.FundingSource) bool {
+	for _, s := range []string{
+		item.Description.Or(""),
+		item.EndDatecode.Or(""),
+		item.Name.Or(""),
+		item.StartDatecode.Or(""),
+	} {
+		if strings.HasPrefix(s, "test-acc") {
+			return true
+		}
+	}
+	return false
 }
