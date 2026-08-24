@@ -205,38 +205,46 @@ func toRecords(raw []map[string]any, r importmanifest.Resource, parentID string)
 // unwrapTypedRecord detects the per-type wrapper shape some /v3/* list
 // endpoints use, e.g.:
 //
-//	/v3/cft             -> {"cft":{...,"id":296}, "owner_users":[...], "owner_user_groups":[...]}
+//	/v3/cft             -> {"cft":{...,"id":296}, "owner_users":[...], "owner_user_groups":[...], "tags":[...]}
 //	/v3/service-catalog -> {"service_catalog_portfolio":{...,"id":4}, "owner_users":[...], "owner_user_groups":[...]}
+//	/v3/gcp-iam-role    -> {"gcp_role":{...,"id":9}, "car_restricted_users":[...], "car_restricted_ugroups":[...], "owner_users":[...], "owner_user_groups":[...]}
 //
-// The record's real id/name live under a single non-owner key whose value is
-// itself a map. That key is NOT always the resource's kind -- /v3/service-catalog
-// wraps under "service_catalog_portfolio", not "service_catalog" -- so the
-// wrapper key is detected structurally (the one key left after excluding
-// owner_users/owner_user_groups) rather than derived from the tf_type.
+// The wrapper key is NOT always the resource's kind -- /v3/service-catalog
+// wraps under "service_catalog_portfolio" (not "service_catalog"), and
+// /v3/gcp-iam-role wraps under "gcp_role" (not "gcp_iam_role") -- and the
+// sibling keys alongside the wrapper vary by type (owner_users/
+// owner_user_groups, but also tags, compliance_programs,
+// car_restricted_users/car_restricted_ugroups, is_enabled, ...), so neither
+// the wrapper key nor the sibling set can be hard-coded or derived from the
+// tf_type.
 //
-// obj must have exactly one key outside {"owner_users","owner_user_groups"}
-// (some records carry only that one key, with no owner arrays at all), and
-// that key's value must itself be a map. Anything else is left untouched --
-// being conservative here means an ambiguous shape is skipped downstream
-// (no "id") rather than mis-extracted.
+// Instead, detection is purely structural: if obj has no usable top-level
+// "id", and exactly one of its keys maps to an object that itself has an
+// "id", that inner object is the record. Any other shape -- a usable
+// top-level id, no qualifying key, or more than one -- is left untouched;
+// being conservative here means an ambiguous shape is skipped downstream (no
+// "id") rather than mis-extracted.
 func unwrapTypedRecord(obj map[string]any) map[string]any {
-	var wrapperKey string
-	nonOwnerKeys := 0
-	for k := range obj {
-		if k == "owner_users" || k == "owner_user_groups" {
+	if stringify(obj["id"]) != "" {
+		return obj
+	}
+	var candidate map[string]any
+	matches := 0
+	for _, v := range obj {
+		inner, ok := v.(map[string]any)
+		if !ok {
 			continue
 		}
-		nonOwnerKeys++
-		wrapperKey = k
+		if stringify(inner["id"]) == "" {
+			continue
+		}
+		matches++
+		candidate = inner
 	}
-	if nonOwnerKeys != 1 {
+	if matches != 1 {
 		return obj
 	}
-	inner, ok := obj[wrapperKey].(map[string]any)
-	if !ok {
-		return obj
-	}
-	return inner
+	return candidate
 }
 
 func stringify(v any) string {

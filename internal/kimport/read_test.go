@@ -326,6 +326,48 @@ func TestToRecordsUnwrapsPerTypeWrapper(t *testing.T) {
 			raw:    rec("ami", rec("id", float64(7))),
 			wantID: "7",
 		},
+		{
+			// Real shape observed live: /v3/cft -> ['cft', 'owner_user_groups', 'owner_users', 'tags'].
+			name: "cft with tags sibling",
+			raw: rec("cft", rec("id", float64(296)), "owner_users", []any{}, "owner_user_groups", []any{},
+				"tags", []any{}),
+			wantID: "296",
+		},
+		{
+			// Real shape observed live: /v3/azure-policy -> ['azure_policy',
+			// 'compliance_programs', 'owner_user_groups', 'owner_users'].
+			name: "azure_policy with compliance_programs sibling",
+			raw: rec("azure_policy", rec("id", float64(11)), "compliance_programs", []any{},
+				"owner_users", []any{}, "owner_user_groups", []any{}),
+			wantID: "11",
+		},
+		{
+			// Real shape observed live: /v3/azure-role -> ['azure_role',
+			// 'car_restricted_ugroups', 'car_restricted_users', 'owner_user_groups', 'owner_users'].
+			name: "azure_role with car_restricted siblings",
+			raw: rec("azure_role", rec("id", float64(22)), "car_restricted_ugroups", []any{},
+				"car_restricted_users", []any{}, "owner_users", []any{}, "owner_user_groups", []any{}),
+			wantID: "22",
+		},
+		{
+			// Real shape observed live: /v3/gcp-iam-role -> ['car_restricted_ugroups',
+			// 'car_restricted_users', 'gcp_role', 'owner_user_groups', 'owner_users'].
+			// The trap: wrapped under "gcp_role", not the resource kind "gcp_iam_role".
+			name: "gcp_iam_role wrapped under gcp_role",
+			raw: rec("gcp_role", rec("id", float64(33)), "car_restricted_ugroups", []any{},
+				"car_restricted_users", []any{}, "owner_users", []any{}, "owner_user_groups", []any{}),
+			wantID: "33",
+		},
+		{
+			// Real shape observed live: /v3/azure-arm-template -> ['azure_arm_template',
+			// 'compliance_programs', 'is_enabled', 'owner_user_groups', 'owner_users'].
+			// "is_enabled" is a scalar sibling, not a map -- must not be mistaken for a
+			// second candidate.
+			name: "azure_arm_template with compliance_programs and scalar is_enabled siblings",
+			raw: rec("azure_arm_template", rec("id", float64(44)), "compliance_programs", []any{},
+				"is_enabled", true, "owner_users", []any{}, "owner_user_groups", []any{}),
+			wantID: "44",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -383,6 +425,26 @@ func TestToRecordsAmbiguousTwoNonOwnerKeysNotUnwrapped(t *testing.T) {
 	}, "")
 	assert.Equal(t, 1, skipped)
 	assert.Empty(t, records)
+}
+
+// TestToRecordsSiblingWithoutIDDoesNotBlockDetection: a sibling map-valued key
+// that lacks an "id" (e.g. a "meta" blob) does not count as a second
+// candidate -- only id-bearing maps compete, so the one qualifying key
+// ("thing") is still detected.
+func TestToRecordsSiblingWithoutIDDoesNotBlockDetection(t *testing.T) {
+	t.Parallel()
+	raw := rec(
+		"thing", rec("id", float64(1), "name", "T"),
+		"meta", rec("note", "x"),
+	)
+	records, skipped := toRecords([]map[string]any{raw}, importmanifest.Resource{
+		TFType: "kion_x", ReadShape: importmanifest.ShapeGeneric, NameField: "name",
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	}, "")
+	require.Equal(t, 0, skipped)
+	require.Len(t, records, 1)
+	assert.Equal(t, "1", records[0].ID)
+	assert.Equal(t, "T", records[0].Name)
 }
 
 func TestEnumerateAssociationSkipsRecordsMissingKeyField(t *testing.T) {
