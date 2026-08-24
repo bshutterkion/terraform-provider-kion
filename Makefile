@@ -169,9 +169,19 @@ release-snapshot: ## Build the full release artifact set locally (no publish)
 
 # Just the docs tool, so CI can install it without pulling the whole codegen
 # toolchain — and so the pinned version lives in exactly one place.
+#
+# GOTOOLCHAIN=auto because tfplugindocs v0.25.0 requires Go >= 1.25.8 while
+# go.mod pins 1.25.5, and actions/setup-go sets GOTOOLCHAIN=local — so CI failed
+# with "requires go >= 1.25.8 (running go 1.25.5; GOTOOLCHAIN=local)" while any
+# developer whose toolchain floats saw it install fine.
+#
+# Scoped to installing this one tool on purpose. The toolchain a tool needs to
+# BUILD ITSELF is the tool's business; the provider must keep compiling with the
+# version go.mod pins, which is what GOTOOLCHAIN=local is protecting. Setting it
+# job-wide in the workflow would give that protection away.
 .PHONY: install-tfplugindocs
 install-tfplugindocs: ## Install the pinned tfplugindocs
-	@go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@$(TFPLUGINDOCS_VERSION)
+	@GOTOOLCHAIN=auto go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@$(TFPLUGINDOCS_VERSION)
 
 .PHONY: install-codegen-tools
 install-codegen-tools: ## Install pinned tfplugingen-openapi and tfplugingen-framework
