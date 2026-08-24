@@ -11,7 +11,7 @@
 //	kmigrate [--check] [--upgrades <path>] <dir-or-file> [<dir-or-file>...]
 //
 //	--check      print the changes without writing (dry run)
-//	--upgrades   path to state_upgrades.yaml (default codegen/state_upgrades.yaml)
+//	--upgrades   path to state_upgrades.yaml (default: built into the binary)
 package main
 
 import (
@@ -21,19 +21,32 @@ import (
 	"path/filepath"
 	"strings"
 
+	"terraform-provider-kion/codegen"
 	"terraform-provider-kion/internal/kgen/migrate"
 )
 
 func main() {
 	check := flag.Bool("check", false, "print changes without writing (dry run)")
-	upPath := flag.String("upgrades", "codegen/state_upgrades.yaml", "path to state_upgrades.yaml")
+	upPath := flag.String("upgrades", "", "path to state_upgrades.yaml (default: the copy built into this binary)")
 	flag.Parse()
 	if flag.NArg() == 0 {
 		fmt.Fprintln(os.Stderr, "usage: kmigrate [--check] [--upgrades <path>] <dir-or-file>...")
 		os.Exit(2)
 	}
 
-	ups, err := migrate.LoadUpgrades(*upPath)
+	// Default to the embedded ruleset. The previous default was the
+	// repo-relative codegen/state_upgrades.yaml, which does not exist in a
+	// customer's Terraform directory — so the first documented command failed
+	// for everyone outside a clone.
+	var (
+		ups map[string]migrate.Transform
+		err error
+	)
+	if *upPath == "" {
+		ups, err = migrate.ParseUpgrades(codegen.StateUpgradesYAML, "embedded state_upgrades.yaml")
+	} else {
+		ups, err = migrate.LoadUpgrades(*upPath)
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "kmigrate: %v\n", err)
 		os.Exit(1)

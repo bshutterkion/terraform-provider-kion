@@ -1,0 +1,3 @@
+kind: BUG FIXES
+body: "`kmigrate` no longer needs `state_upgrades.yaml` alongside it. The `--upgrades` flag defaulted to `codegen/state_upgrades.yaml`, a repository-relative path that does not exist in a practitioner's Terraform directory \u2014 so the first command in the migration guide failed for everyone outside a clone of this repo, with `open codegen/state_upgrades.yaml: no such file or directory`. The ruleset is now built into the binary, which also makes it impossible to pair `kmigrate` with a ruleset from a different commit. `--upgrades` remains as an override."
+time: 2026-08-24T13:00:00Z

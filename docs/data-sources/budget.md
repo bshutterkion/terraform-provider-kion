@@ -25,3 +25,10 @@ data "kion_budget" "example" {
 ### Required
 
 - `id` (Number) The ID of the Budget to fetch.
+
+### Read-Only
+
+- `end_datecode` (String)
+- `ou_id` (Number)
+- `project_id` (Number)
+- `start_datecode` (String)

@@ -9,6 +9,14 @@ description: |-
 
 The Kion Terraform Provider allows you to interact with an installation of Kion.
 
+## Upgrading from the previous provider
+
+Version 1.0 is a new major version built on the Terraform Plugin Framework, published at the same registry address. **Your state migrates automatically** — the provider carries state upgraders that transform old-schema state the first time you plan, and nothing is changed until you apply.
+
+Your `.tf` configuration does need updating, because some attributes were renamed and several blocks became id lists. The `kmigrate` tool attached to every release rewrites them for you; it is a single binary with no dependencies.
+
+See the [migration guide](https://github.com/kionsoftware/terraform-provider-kion/blob/main/docs/MIGRATION.md) for the full procedure and the complete list of config changes.
+
 ## Example Usage
 
 ```terraform
