@@ -288,6 +288,103 @@ func TestEnumerateGenericSkipsRecordsWithNoID(t *testing.T) {
 // --- Correction 3: association records missing the key field are skipped
 // and counted, not silently dropped. ---
 
+// --- Bug B: per-type wrapper shape ({"cft":{...,"id":296},"owner_users":[...],
+// "owner_user_groups":[...]}) is unwrapped before id/name extraction. ---
+
+func TestToRecordsUnwrapsPerTypeWrapper(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		raw    map[string]any
+		wantID string
+	}{
+		{
+			name:   "cft",
+			raw:    rec("cft", rec("id", float64(296)), "owner_users", []any{}, "owner_user_groups", []any{}),
+			wantID: "296",
+		},
+		{
+			name:   "ami",
+			raw:    rec("ami", rec("id", float64(2)), "owner_users", []any{}, "owner_user_groups", []any{}),
+			wantID: "2",
+		},
+		{
+			name:   "iam_policy",
+			raw:    rec("iam_policy", rec("id", float64(3853)), "owner_users", []any{}, "owner_user_groups", []any{}),
+			wantID: "3853",
+		},
+		{
+			// The trap: the wrapper key ("service_catalog_portfolio") does not
+			// match the resource's tf kind ("service_catalog"), so detection
+			// must be structural, not derived from TFType.
+			name:   "service_catalog wrapped under a differently-named key",
+			raw:    rec("service_catalog_portfolio", rec("id", float64(4)), "owner_users", []any{}, "owner_user_groups", []any{}),
+			wantID: "4",
+		},
+		{
+			name:   "wrapper with no owner arrays at all",
+			raw:    rec("ami", rec("id", float64(7))),
+			wantID: "7",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			records, skipped := toRecords([]map[string]any{tt.raw}, importmanifest.Resource{
+				TFType: "kion_x", ReadShape: importmanifest.ShapeGeneric,
+				ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+			}, "")
+			require.Equal(t, 0, skipped)
+			require.Len(t, records, 1)
+			assert.Equal(t, tt.wantID, records[0].ID)
+			// The outer wrapper object is preserved as Raw, not the unwrapped inner one.
+			assert.Equal(t, tt.raw, records[0].Raw)
+		})
+	}
+}
+
+func TestToRecordsExtractsNameFromWrapper(t *testing.T) {
+	t.Parallel()
+	raw := rec("cft", rec("id", float64(296), "name", "MyCFT"), "owner_users", []any{})
+	records, skipped := toRecords([]map[string]any{raw}, importmanifest.Resource{
+		TFType: "kion_cft", ReadShape: importmanifest.ShapeGeneric, NameField: "name",
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	}, "")
+	require.Equal(t, 0, skipped)
+	require.Len(t, records, 1)
+	assert.Equal(t, "296", records[0].ID)
+	assert.Equal(t, "MyCFT", records[0].Name)
+}
+
+// TestToRecordsPlainRecordUnchanged is a regression guard: a normal,
+// already-flat record must extract exactly as before.
+func TestToRecordsPlainRecordUnchanged(t *testing.T) {
+	t.Parallel()
+	raw := rec("id", float64(1), "name", "x")
+	records, skipped := toRecords([]map[string]any{raw}, importmanifest.Resource{
+		TFType: "kion_x", ReadShape: importmanifest.ShapeGeneric, NameField: "name",
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	}, "")
+	require.Equal(t, 0, skipped)
+	require.Len(t, records, 1)
+	assert.Equal(t, "1", records[0].ID)
+	assert.Equal(t, "x", records[0].Name)
+}
+
+// TestToRecordsAmbiguousTwoNonOwnerKeysNotUnwrapped: two non-owner keys is too
+// ambiguous to guess a wrapper key, so the record is left as-is -- which means
+// it has no top-level "id" and is skipped, same as any other id-less record.
+func TestToRecordsAmbiguousTwoNonOwnerKeysNotUnwrapped(t *testing.T) {
+	t.Parallel()
+	raw := rec("cft", rec("id", float64(1)), "other_key", rec("id", float64(2)))
+	records, skipped := toRecords([]map[string]any{raw}, importmanifest.Resource{
+		TFType: "kion_x", ReadShape: importmanifest.ShapeGeneric,
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	}, "")
+	assert.Equal(t, 1, skipped)
+	assert.Empty(t, records)
+}
+
 func TestEnumerateAssociationSkipsRecordsMissingKeyField(t *testing.T) {
 	t.Parallel()
 	l := &routeLister{routes: map[string]any{
