@@ -41,11 +41,18 @@ func LoadUpgrades(path string) (map[string]Transform, error) {
 	if err != nil {
 		return nil, err
 	}
+	return ParseUpgrades(raw, path)
+}
+
+// ParseUpgrades decodes state_upgrades.yaml from bytes, so callers holding an
+// embedded copy do not have to go through the filesystem. name is used only to
+// identify the source in an error.
+func ParseUpgrades(raw []byte, name string) (map[string]Transform, error) {
 	var doc struct {
 		Resources map[string]Transform `yaml:"resources"`
 	}
 	if err := yaml.Unmarshal(raw, &doc); err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
+		return nil, fmt.Errorf("parse %s: %w", name, err)
 	}
 	return doc.Resources, nil
 }

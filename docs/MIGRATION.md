@@ -22,13 +22,34 @@ tool to run, and nothing is changed until you review and apply.
    }
    ```
 
-2. **Update your configuration** to the new attribute names (see “Config changes”
-   below). Run `kmigrate` to do this automatically:
+2. **Update your configuration** to the new attribute names (see "Config changes"
+   below). `kmigrate` does this for you.
+
+   Download it from the release matching the provider version you are moving to.
+   It is a single binary with no runtime or dependencies, and it carries the
+   rewrite rules inside it — there is nothing else to fetch:
 
    ```sh
-   kmigrate --check ./   # preview the .tf changes
-   kmigrate ./           # apply them
+   # macOS on Apple silicon — substitute your platform
+   # (darwin/linux/windows x amd64/arm64)
+   V=1.0.1
+   curl -fsSLO "https://github.com/kionsoftware/terraform-provider-kion/releases/download/v${V}/kmigrate_${V}_darwin_arm64.zip"
+   unzip -j "kmigrate_${V}_darwin_arm64.zip" kmigrate && chmod +x kmigrate
    ```
+
+   Then, from the directory holding your `.tf` files:
+
+   ```sh
+   ./kmigrate --check ./   # preview the .tf changes
+   ./kmigrate ./           # apply them
+   ```
+
+   `kmigrate` rewrites `.tf` files in place, leaving comments, formatting and
+   everything it does not recognise untouched. It reports any block it cannot
+   finish — `kion_user` gains five required attributes that have no old-provider
+   equivalent, so it names those and leaves them for you.
+
+   Commit or diff the result before moving on.
 
 3. **Initialize and plan:**
 

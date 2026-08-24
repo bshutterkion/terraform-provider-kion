@@ -8,6 +8,14 @@ Generated from the Kion OpenAPI specification, this provider manages 72 service 
 
 The provider is built against a **single** Kion API version — the SDK's `generated/v3_16` sub-package. It does not ship a separate release line per Kion version. Compatibility with older self-hosted instances is handled at runtime instead: `codegen/version_support.yaml` records the Kion version range in which each resource's defining API operation exists, and resources whose operation is not present in every supported version carry a generated version gate that fails with a clear diagnostic when pointed at an instance too old to support it.
 
+## Upgrading from the previous provider
+
+Coming from the SDKv2 `kion` provider? State migrates automatically; configuration
+needs a rewrite, which [`kmigrate`](cmd/kmigrate) does for you and which ships as
+a binary on every release. **[docs/MIGRATION.md](docs/MIGRATION.md)** is the
+procedure, and [docs/MIGRATION-COVERAGE.md](docs/MIGRATION-COVERAGE.md) records
+what is covered.
+
 ## Provider Configuration
 
 ```hcl
@@ -145,7 +153,7 @@ go run ./cmd/kgen service --name CloudRule --snakename cloud_rule
 
 Then add its entries to `codegen/` (paths, archetype, and a read shape if the read is private) and regenerate.
 
-> Adding or removing a resource changes four generated surfaces — `internal/service/`, `examples/`, `docs/`, and `modules/` — and only `modules/` has a CI drift gate. Regenerate all four. It also changes the supported surface tracked by the sibling `terraform-coverage-test` project; run `make coverage-new` there and add modules for anything newly reported as a gap.
+> Adding or removing a resource changes four generated surfaces — `internal/service/`, `examples/`, `docs/`, and `modules/`. Regenerate all four; CI has a drift gate on `modules/` (`make modules-check`) and on `docs/` + `examples/` (`make docs-check`), so a missed regeneration fails the build rather than shipping stale documentation. It also changes the supported surface tracked by the sibling `terraform-coverage-test` project; run `make coverage-new` there and add modules for anything newly reported as a gap.
 
 ## Development
 

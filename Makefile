@@ -167,6 +167,22 @@ release-snapshot: ## Build the full release artifact set locally (no publish)
 	@goreleaser release --snapshot --clean --skip=sign,publish
 	@echo "$(GREEN)✓ Artifacts in ./dist$(RESET)"
 
+# Just the docs tool, so CI can install it without pulling the whole codegen
+# toolchain — and so the pinned version lives in exactly one place.
+#
+# GOTOOLCHAIN=auto because tfplugindocs v0.25.0 requires Go >= 1.25.8 while
+# go.mod pins 1.25.5, and actions/setup-go sets GOTOOLCHAIN=local — so CI failed
+# with "requires go >= 1.25.8 (running go 1.25.5; GOTOOLCHAIN=local)" while any
+# developer whose toolchain floats saw it install fine.
+#
+# Scoped to installing this one tool on purpose. The toolchain a tool needs to
+# BUILD ITSELF is the tool's business; the provider must keep compiling with the
+# version go.mod pins, which is what GOTOOLCHAIN=local is protecting. Setting it
+# job-wide in the workflow would give that protection away.
+.PHONY: install-tfplugindocs
+install-tfplugindocs: ## Install the pinned tfplugindocs
+	@GOTOOLCHAIN=auto go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@$(TFPLUGINDOCS_VERSION)
+
 .PHONY: install-codegen-tools
 install-codegen-tools: ## Install pinned tfplugingen-openapi and tfplugingen-framework
 	@echo "$(BLUE)Installing codegen tools...$(RESET)"
@@ -415,6 +431,26 @@ modules: ## Generate the per-resource Terraform modules and their docs
 	@for d in ./modules/*/; do terraform-docs $(TFDOCS_FLAGS) "$$d" >/dev/null; done
 	@terraform fmt -recursive ./modules >/dev/null
 	@echo "$(GREEN)✓ modules/ regenerated$(RESET)"
+
+# docs/ and examples/ are generated but were, until now, the only generated
+# surfaces with no drift gate — README said so outright. That is how 1.0.1
+# shipped documenting `id` as required on 38 data sources whose schemas had
+# already made it optional: internal/service/ and modules/ were regenerated
+# because CI enforced them, docs/ and examples/ were not because nothing did.
+#
+# `make docs` writes in place (unlike modules-check's scratch directory), so the
+# check is: regenerate, then ask git whether anything moved.
+.PHONY: docs-check
+docs-check: ## Fail if docs/ or examples/ differ from freshly generated output
+	@command -v tfplugindocs >/dev/null || (echo "$(RED)tfplugindocs not found: make install-tfplugindocs$(RESET)" && exit 1)
+	@$(MAKE) --no-print-directory docs >/dev/null
+	@if ! git diff --quiet -- docs examples; then \
+		echo "$(RED)FAIL: docs/ or examples/ differ from generated output. Regenerate and commit:$(RESET)"; \
+		echo "  make docs"; \
+		git --no-pager diff --stat -- docs examples; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)✓ docs/ and examples/ match generated output$(RESET)"
 
 .PHONY: modules-check
 modules-check: ## Fail if modules/ differs from freshly generated output
