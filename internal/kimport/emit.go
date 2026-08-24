@@ -74,6 +74,9 @@ func RenderImports(results []Result, providerVersion string) string {
 		caveats = append(caveats, res)
 	}
 	if len(caveats) > 0 {
+		if len(gaps) > 0 {
+			b.WriteString("\n")
+		}
 		b.WriteString("# Read with caveats:\n")
 		for _, res := range caveats {
 			fmt.Fprintf(&b, "# %-45s %-12s %s\n", res.TFType, res.Status, res.Reason)

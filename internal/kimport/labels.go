@@ -35,7 +35,10 @@ type Labeler struct {
 	taken    map[string]struct{} // tfType + "\x00" + label
 }
 
-// Allocate returns a stable label for (tfType, id), preferring name.
+// Allocate returns a stable label for (tfType, id), preferring name. Identity
+// is keyed on (tfType, id) alone: two records that share a (tfType, id) pair
+// -- e.g. two records both with an empty id -- are treated as the same
+// record and receive the same label, since id is the documented identity.
 func (l *Labeler) Allocate(tfType, name, id string) string {
 	if l.assigned == nil {
 		l.assigned = map[string]string{}

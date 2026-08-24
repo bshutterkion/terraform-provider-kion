@@ -78,3 +78,36 @@ func TestRenderImportsCaveatsDoNotDuplicateNotImportedGaps(t *testing.T) {
 	assert.Contains(t, out, "# Not imported:")
 	assert.NotContains(t, out, "# Read with caveats:")
 }
+
+// TestRenderImportsSeparatesGapsFromCaveatsWithBlankLine: when both the
+// "Not imported:" and "Read with caveats:" blocks render, they must not be
+// line-adjacent -- a bare comment header sitting directly between two
+// unrelated tables of resources reads as one continuous list. A blank line
+// must separate them.
+func TestRenderImportsSeparatesGapsFromCaveatsWithBlankLine(t *testing.T) {
+	t.Parallel()
+	rs := []Result{
+		{TFType: "kion_aws_resource_tag", Status: "unsupported", Reason: "kind: no_read"},
+		{TFType: "kion_compliance_family", Status: "ok",
+			Records: []Record{{ID: "1", Name: "PCI"}},
+			Reason:  "flat list failed (405); read parent-scoped instead"},
+	}
+	out := RenderImports(rs, "1.0.0")
+	assert.Contains(t, out, "\n\n# Read with caveats:\n")
+}
+
+// TestRenderImportsCaveatsHeaderHasNoExtraBlankLineWhenGapsAbsent: the
+// separator is only warranted when both blocks render. When "Not imported:"
+// doesn't render at all, the caveats header must not gain a spurious extra
+// blank line on top of the normal spacing already used elsewhere.
+func TestRenderImportsCaveatsHeaderHasNoExtraBlankLineWhenGapsAbsent(t *testing.T) {
+	t.Parallel()
+	rs := []Result{
+		{TFType: "kion_compliance_family", Status: "ok",
+			Reason: "flat list failed (405); read parent-scoped instead"},
+	}
+	out := RenderImports(rs, "1.0.0")
+	assert.NotContains(t, out, "# Not imported:")
+	assert.Contains(t, out, "}\n\n# Read with caveats:\n")
+	assert.NotContains(t, out, "\n\n\n# Read with caveats:\n")
+}
