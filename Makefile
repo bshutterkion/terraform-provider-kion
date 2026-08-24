@@ -279,8 +279,12 @@ crud-force: ## Regenerate ALL CRUD output, overwriting existing files (use after
 	@go run ./cmd/kgen crud --config $(GENERATOR_CONFIG) --config-overrides $(CONFIG_OVERRIDES) --sdk $(SDK_DIR) --crud-overrides $(CRUD_OVERRIDES) --test-values $(TEST_VALUES) --version-support $(VERSION_SUPPORT) --force
 	@echo "$(GREEN)✓ CRUD regenerated$(RESET)"
 
+.PHONY: import-manifest
+import-manifest: ## Generate codegen/import_manifest.json (kgen import-manifest)
+	@go run -tags '' ./cmd/kgen import-manifest
+
 .PHONY: generate
-generate: version-gen generate-schemas crud ## Regenerate the full generatable surface (version gates + schemas + CRUD)
+generate: version-gen generate-schemas crud import-manifest ## Regenerate the full generatable surface
 
 .PHONY: build-tools
 build-tools: ## Build the kgen + kalign + kconfig + kversions dev tools into ./bin/
