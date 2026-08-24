@@ -167,7 +167,8 @@ make testacc                  # Acceptance tests (needs a live Kion + credential
 make fmt
 make lint
 make vet
-make ci                       # fmt, vet, lint, test — the same checks CI runs
+make ci                       # fmt, vet, lint, test, acctest-config — the same checks CI runs
+make ci-acctest-config        # validate acceptance-test HCL against the provider schema
 make install                  # Build + copy to ~/.terraform.d/plugins/
 make modules-check            # Fail if modules/ is stale
 ```

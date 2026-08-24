@@ -1,6 +1,7 @@
 package ou_cloud_access_role_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +14,7 @@ func TestAccKionOuCloudAccessRole_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_ou_cloud_access_role.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +22,7 @@ func TestAccKionOuCloudAccessRole_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccOuCloudAccessRoleConfigBasic(),
+				Config: testAccOuCloudAccessRoleConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -39,6 +41,7 @@ func TestAccKionOuCloudAccessRole_update(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_ou_cloud_access_role.test"
 
 	resource.Test(t, resource.TestCase{
@@ -46,13 +49,13 @@ func TestAccKionOuCloudAccessRole_update(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccOuCloudAccessRoleConfigBasic(),
+				Config: testAccOuCloudAccessRoleConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
 			},
 			{
-				Config: testAccOuCloudAccessRoleConfigUpdate(),
+				Config: testAccOuCloudAccessRoleConfigUpdate(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -66,18 +69,50 @@ func TestAccKionOuCloudAccessRole_update(t *testing.T) {
 	})
 }
 
-func testAccOuCloudAccessRoleConfigBasic() string {
-	return `
-resource "kion_ou_cloud_access_role" "test" {
-  # TIP: Fill in required attributes for creating the resource.
-}
-`
+func testAccOuCloudAccessRoleConfigBasic(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
 }
 
-func testAccOuCloudAccessRoleConfigUpdate() string {
-	return `
-resource "kion_ou_cloud_access_role" "test" {
-  # TIP: Fill in updated attributes for testing the update.
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
 }
-`
+
+resource "kion_ou_cloud_access_role" "test" {
+  name                   = %[1]q
+  ou_id                  = kion_ou.test_ou.id
+  web_access             = true
+  short_term_access_keys = true
+  user_ids               = [1]
+}
+`, rName)
+}
+
+func testAccOuCloudAccessRoleConfigUpdate(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
+}
+
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
+}
+
+resource "kion_ou_cloud_access_role" "test" {
+  name                   = %[1]q
+  ou_id                  = kion_ou.test_ou.id
+  web_access             = true
+  short_term_access_keys = false
+  user_ids               = [1]
+}
+`, rName)
 }

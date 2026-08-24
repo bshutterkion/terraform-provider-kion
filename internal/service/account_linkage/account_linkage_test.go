@@ -125,7 +125,6 @@ resource "kion_account_linkage" "test" {
   azure_principal_name = "test-acc-updated"
   payer_id = 2
   user_id = 2
-  id = 2
 }
 `
 }

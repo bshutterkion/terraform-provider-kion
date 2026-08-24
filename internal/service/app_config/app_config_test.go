@@ -1,6 +1,7 @@
 package app_config_test
 
 import (
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -8,10 +9,27 @@ import (
 	"terraform-provider-kion/internal/acctest"
 )
 
+// kion_app_config manages the workspace-wide application-settings singleton:
+// there is nothing to create or destroy, so applying it permanently changes
+// settings for every user of the target Kion. These tests therefore require an
+// explicit opt-in rather than running against any instance that happens to
+// have credentials configured.
+const appConfigOptInEnvVar = "KION_ACC_APP_CONFIG_MUTATION_OK"
+
+func testAccPreCheckAppConfig(t *testing.T) {
+	t.Helper()
+
+	if os.Getenv(appConfigOptInEnvVar) == "" {
+		t.Skipf("%s must be set: kion_app_config permanently mutates workspace-wide settings on the target Kion", appConfigOptInEnvVar)
+	}
+}
+
 func TestAccKionAppConfig_basic(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
+
+	testAccPreCheckAppConfig(t)
 
 	resourceName := "kion_app_config.test"
 
@@ -38,6 +56,8 @@ func TestAccKionAppConfig_update(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
+
+	testAccPreCheckAppConfig(t)
 
 	resourceName := "kion_app_config.test"
 
@@ -66,10 +86,13 @@ func TestAccKionAppConfig_update(t *testing.T) {
 	})
 }
 
+// Every kion_app_config attribute is optional and computed, so a configuration
+// manages only the settings it names and leaves the rest at their server value.
+// These configs deliberately touch a single low-impact setting.
 func testAccAppConfigConfig_basic() string {
 	return `
 resource "kion_app_config" "test" {
-  # TIP: Fill in required attributes for creating the resource.
+  app_api_key_lifespan = 90
 }
 `
 }
@@ -77,7 +100,7 @@ resource "kion_app_config" "test" {
 func testAccAppConfigConfig_update() string {
 	return `
 resource "kion_app_config" "test" {
-  # TIP: Fill in updated attributes for testing the update.
+  app_api_key_lifespan = 120
 }
 `
 }

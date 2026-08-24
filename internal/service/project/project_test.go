@@ -1,6 +1,7 @@
 package project_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +14,7 @@ func TestAccKionProject_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_project.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +22,7 @@ func TestAccKionProject_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProjectConfigBasic(),
+				Config: testAccProjectConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -39,6 +41,7 @@ func TestAccKionProject_update(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_project.test"
 
 	resource.Test(t, resource.TestCase{
@@ -46,13 +49,13 @@ func TestAccKionProject_update(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProjectConfigBasic(),
+				Config: testAccProjectConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
 			},
 			{
-				Config: testAccProjectConfigUpdate(),
+				Config: testAccProjectConfigUpdate(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -66,18 +69,60 @@ func TestAccKionProject_update(t *testing.T) {
 	})
 }
 
-func testAccProjectConfigBasic() string {
-	return `
-resource "kion_project" "test" {
-  # TIP: Fill in required attributes for creating the resource.
-}
-`
+func testAccProjectConfigBasic(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
 }
 
-func testAccProjectConfigUpdate() string {
-	return `
-resource "kion_project" "test" {
-  # TIP: Fill in updated attributes for testing the update.
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
 }
-`
+
+resource "kion_permission_scheme" "test_perm_project" {
+  name = "%[1]s-perm-project"
+  type = "project"
+}
+
+resource "kion_project" "test" {
+  name                 = %[1]q
+  ou_id                = kion_ou.test_ou.id
+  permission_scheme_id = kion_permission_scheme.test_perm_project.id
+  description          = "test-acc project"
+  owner_user_ids       = [1]
+}
+`, rName)
+}
+
+func testAccProjectConfigUpdate(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
+}
+
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
+}
+
+resource "kion_permission_scheme" "test_perm_project" {
+  name = "%[1]s-perm-project"
+  type = "project"
+}
+
+resource "kion_project" "test" {
+  name                 = %[1]q
+  ou_id                = kion_ou.test_ou.id
+  permission_scheme_id = kion_permission_scheme.test_perm_project.id
+  description          = "test-acc project updated"
+  owner_user_ids       = [1]
+}
+`, rName)
 }

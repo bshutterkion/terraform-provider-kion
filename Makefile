@@ -343,9 +343,20 @@ clean: ## Remove build artifacts (binary, release bin/, coverage files)
 #==============================================================================
 
 .PHONY: ci
-ci: ci-fmt ci-vet ci-lint ci-test ## Run all CI checks locally (mirrors ci.yml's fmt/vet/lint/test-unit jobs)
+ci: ci-fmt ci-vet ci-lint ci-test ci-acctest-config ## Run all CI checks locally (mirrors ci.yml's fmt/vet/lint/test-unit/acctest-config jobs)
 	@echo ""
 	@echo "$(GREEN)All CI checks passed$(RESET)"
+
+# Acceptance tests only run against a live Kion, so nothing ever checked that
+# their config strings match the provider's schema. They did not: twelve carried
+# an `owner_users` block on resources whose schema declares `owner_user_ids`, and
+# two set a read-only `id`. This validates every one of them against a real
+# provider build, with no API call — see scripts/acctestconfig.
+.PHONY: ci-acctest-config
+ci-acctest-config: ## Validate acceptance-test HCL against the provider schema (matches acctest-config CI job)
+	@command -v terraform >/dev/null || (echo "$(RED)terraform is required for ci-acctest-config$(RESET)" && exit 1)
+	@echo "$(BLUE)Validating acceptance-test configs...$(RESET)"
+	@go run ./scripts/acctestconfig
 
 .PHONY: ci-fmt
 ci-fmt: ## Check code formatting (matches quality:fmt CI job)

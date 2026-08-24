@@ -287,6 +287,36 @@ jobs:
 
   # No GitLab counterpart. This repo is public; the script fails if an internal
   # path, hostname, repo name or planning doc reappears in a tracked file.
+  # Acceptance tests need a live Kion, so they never run here — which meant
+  # nothing checked that the HCL they feed Terraform even matches the provider's
+  # schema. It did not: twelve configs used an `owner_users` block on resources
+  # whose schema declares an `owner_user_ids` list attribute, and two set a
+  # read-only `id`. All of them would have failed the moment anyone ran the
+  # acceptance suite against a real instance.
+  #
+  # This validates every config against a real provider build via dev_overrides.
+  # No credentials, no API call — `terraform validate` is a schema check.
+  acctest-config:
+    name: Acceptance-test configs
+    runs-on: ubuntu-latest
+    env:
+      TF_IN_AUTOMATION: 'true'
+      TF_VERSION: 1.15.9
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - run: go run ./scripts/acctestconfig
+
   internal-refs:
     name: No internal references
     runs-on: ubuntu-latest
@@ -376,6 +406,7 @@ jobs:
       - lint
       - test-unit
       - modules
+      - acctest-config
       - internal-refs
       - secrets
       - codeql

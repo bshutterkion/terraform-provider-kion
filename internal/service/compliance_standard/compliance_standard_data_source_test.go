@@ -1,6 +1,7 @@
 package compliance_standard_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +14,7 @@ func TestAccKionComplianceStandardDataSource_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	dataSourceName := "data.kion_compliance_standard.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +22,7 @@ func TestAccKionComplianceStandardDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccComplianceStandardDataSourceConfigBasic(),
+				Config: testAccComplianceStandardDataSourceConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 				),
@@ -29,10 +31,17 @@ func TestAccKionComplianceStandardDataSource_basic(t *testing.T) {
 	})
 }
 
-func testAccComplianceStandardDataSourceConfigBasic() string {
-	return `
-data "kion_compliance_standard" "test" {
-  # TIP: Fill in filter criteria or ID to look up the data source.
+func testAccComplianceStandardDataSourceConfigBasic(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_compliance_standard" "test" {
+  name               = %[1]q
+  description        = "test-acc compliance standard"
+  created_by_user_id = 1
+  owner_user_ids     = [1]
 }
-`
+
+data "kion_compliance_standard" "test" {
+  id = kion_compliance_standard.test.id
+}
+`, rName)
 }

@@ -1,6 +1,8 @@
 package custom_account_test
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +15,17 @@ func TestAccKionCustomAccount_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	payerID := os.Getenv("KION_ACC_PAYER_ID")
+	if payerID == "" {
+		t.Skip("KION_ACC_PAYER_ID must be set to the ID of an existing Kion AWS billing source")
+	}
+
+	accountNumber := os.Getenv("KION_ACC_CUSTOM_ACCOUNT_NUMBER")
+	if accountNumber == "" {
+		t.Skip("KION_ACC_CUSTOM_ACCOUNT_NUMBER must be set to an account number for the custom (other cloud) account")
+	}
+
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_custom_account.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +33,7 @@ func TestAccKionCustomAccount_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCustomAccountConfig_basic(),
+				Config: testAccCustomAccountConfig_basic(rName, payerID, accountNumber),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -39,6 +52,17 @@ func TestAccKionCustomAccount_update(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	payerID := os.Getenv("KION_ACC_PAYER_ID")
+	if payerID == "" {
+		t.Skip("KION_ACC_PAYER_ID must be set to the ID of an existing Kion AWS billing source")
+	}
+
+	accountNumber := os.Getenv("KION_ACC_CUSTOM_ACCOUNT_NUMBER")
+	if accountNumber == "" {
+		t.Skip("KION_ACC_CUSTOM_ACCOUNT_NUMBER must be set to an account number for the custom (other cloud) account")
+	}
+
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_custom_account.test"
 
 	resource.Test(t, resource.TestCase{
@@ -46,13 +70,13 @@ func TestAccKionCustomAccount_update(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCustomAccountConfig_basic(),
+				Config: testAccCustomAccountConfig_basic(rName, payerID, accountNumber),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
 			},
 			{
-				Config: testAccCustomAccountConfig_update(),
+				Config: testAccCustomAccountConfig_update(rName, payerID, accountNumber),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -66,18 +90,74 @@ func TestAccKionCustomAccount_update(t *testing.T) {
 	})
 }
 
-func testAccCustomAccountConfig_basic() string {
-	return `
-resource "kion_custom_account" "test" {
-  # TIP: Fill in required attributes for creating the resource.
-}
-`
+func testAccCustomAccountConfig_basic(rName, payerID, accountNumber string) string {
+	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
 }
 
-func testAccCustomAccountConfig_update() string {
-	return `
-resource "kion_custom_account" "test" {
-  # TIP: Fill in updated attributes for testing the update.
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
 }
-`
+
+resource "kion_permission_scheme" "test_perm_project" {
+  name = "%[1]s-perm-project"
+  type = "project"
+}
+
+resource "kion_project" "test_project" {
+  name                 = "%[1]s-project"
+  ou_id                = kion_ou.test_ou.id
+  permission_scheme_id = kion_permission_scheme.test_perm_project.id
+  owner_user_ids       = [1]
+}
+
+resource "kion_custom_account" "test" {
+  account_name   = %[1]q
+  account_number = %[3]q
+  payer_id       = %[2]s
+  project_id     = kion_project.test_project.id
+  start_datecode = "2025-01"
+}
+`, rName, payerID, accountNumber)
+}
+
+func testAccCustomAccountConfig_update(rName, payerID, accountNumber string) string {
+	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
+}
+
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
+}
+
+resource "kion_permission_scheme" "test_perm_project" {
+  name = "%[1]s-perm-project"
+  type = "project"
+}
+
+resource "kion_project" "test_project" {
+  name                 = "%[1]s-project"
+  ou_id                = kion_ou.test_ou.id
+  permission_scheme_id = kion_permission_scheme.test_perm_project.id
+  owner_user_ids       = [1]
+}
+
+resource "kion_custom_account" "test" {
+  account_name   = "%[1]s-updated"
+  account_number = %[3]q
+  payer_id       = %[2]s
+  project_id     = kion_project.test_project.id
+  start_datecode = "2025-01"
+}
+`, rName, payerID, accountNumber)
 }

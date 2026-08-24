@@ -1,6 +1,7 @@
 package project_enforcement_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +14,7 @@ func TestAccKionProjectEnforcement_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_project_enforcement.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +22,7 @@ func TestAccKionProjectEnforcement_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProjectEnforcementConfig_basic(),
+				Config: testAccProjectEnforcementConfig_basic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -39,6 +41,7 @@ func TestAccKionProjectEnforcement_update(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_project_enforcement.test"
 
 	resource.Test(t, resource.TestCase{
@@ -46,13 +49,13 @@ func TestAccKionProjectEnforcement_update(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProjectEnforcementConfig_basic(),
+				Config: testAccProjectEnforcementConfig_basic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
 			},
 			{
-				Config: testAccProjectEnforcementConfig_update(),
+				Config: testAccProjectEnforcementConfig_update(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -66,18 +69,82 @@ func TestAccKionProjectEnforcement_update(t *testing.T) {
 	})
 }
 
-func testAccProjectEnforcementConfig_basic() string {
-	return `
-resource "kion_project_enforcement" "test" {
-  # TIP: Fill in required attributes for creating the resource.
-}
-`
+func testAccProjectEnforcementConfig_basic(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
 }
 
-func testAccProjectEnforcementConfig_update() string {
-	return `
-resource "kion_project_enforcement" "test" {
-  # TIP: Fill in updated attributes for testing the update.
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
 }
-`
+
+resource "kion_permission_scheme" "test_perm_project" {
+  name = "%[1]s-perm-project"
+  type = "project"
+}
+
+resource "kion_project" "test_project" {
+  name                 = "%[1]s-project"
+  ou_id                = kion_ou.test_ou.id
+  permission_scheme_id = kion_permission_scheme.test_perm_project.id
+  owner_user_ids       = [1]
+}
+
+resource "kion_project_enforcement" "test" {
+  project_id     = kion_project.test_project.id
+  description    = "test-acc project enforcement"
+  threshold      = 1000
+  threshold_type = "dollar"
+  timeframe      = "month"
+  amount_type    = "custom"
+  spend_option   = "spend"
+  enabled        = true
+  user_ids       = [1]
+}
+`, rName)
+}
+
+func testAccProjectEnforcementConfig_update(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
+}
+
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
+}
+
+resource "kion_permission_scheme" "test_perm_project" {
+  name = "%[1]s-perm-project"
+  type = "project"
+}
+
+resource "kion_project" "test_project" {
+  name                 = "%[1]s-project"
+  ou_id                = kion_ou.test_ou.id
+  permission_scheme_id = kion_permission_scheme.test_perm_project.id
+  owner_user_ids       = [1]
+}
+
+resource "kion_project_enforcement" "test" {
+  project_id     = kion_project.test_project.id
+  description    = "test-acc project enforcement updated"
+  threshold      = 2000
+  threshold_type = "dollar"
+  timeframe      = "month"
+  amount_type    = "custom"
+  spend_option   = "spend"
+  enabled        = true
+  user_ids       = [1]
+}
+`, rName)
 }

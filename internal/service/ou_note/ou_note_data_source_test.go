@@ -31,7 +31,15 @@ func TestAccKionOuNoteDataSource_basic(t *testing.T) {
 
 func testAccOuNoteDataSourceConfig_basic() string {
 	return `
+resource "kion_ou_note" "test" {
+  create_user_id = 1
+  name           = "test-acc-ou-note-ds"
+  ou_id          = 1
+  text           = "test-acc-value"
+}
+
 data "kion_ou_note" "test" {
+  id = kion_ou_note.test.id
 }
 `
 }

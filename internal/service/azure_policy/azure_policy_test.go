@@ -1,6 +1,7 @@
 package azure_policy_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +14,7 @@ func TestAccKionAzurePolicy_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_azure_policy.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +22,7 @@ func TestAccKionAzurePolicy_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAzurePolicyConfigBasic(),
+				Config: testAccAzurePolicyConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -39,6 +41,7 @@ func TestAccKionAzurePolicy_update(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_azure_policy.test"
 
 	resource.Test(t, resource.TestCase{
@@ -46,13 +49,13 @@ func TestAccKionAzurePolicy_update(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAzurePolicyConfigBasic(),
+				Config: testAccAzurePolicyConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
 			},
 			{
-				Config: testAccAzurePolicyConfigUpdate(),
+				Config: testAccAzurePolicyConfigUpdate(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -66,18 +69,46 @@ func TestAccKionAzurePolicy_update(t *testing.T) {
 	})
 }
 
-func testAccAzurePolicyConfigBasic() string {
-	return `
+func testAccAzurePolicyConfigBasic(rName string) string {
+	return fmt.Sprintf(`
 resource "kion_azure_policy" "test" {
-  # TIP: Fill in required attributes for creating the resource.
+  owner_users = [1]
+
+  azure_policy = {
+    name        = %[1]q
+    description = "test-acc Azure policy"
+    policy = jsonencode({
+      if = {
+        field  = "type"
+        equals = "Microsoft.Resources/subscriptions"
+      }
+      then = {
+        effect = "audit"
+      }
+    })
+  }
 }
-`
+`, rName)
 }
 
-func testAccAzurePolicyConfigUpdate() string {
-	return `
+func testAccAzurePolicyConfigUpdate(rName string) string {
+	return fmt.Sprintf(`
 resource "kion_azure_policy" "test" {
-  # TIP: Fill in updated attributes for testing the update.
+  owner_users = [1]
+
+  azure_policy = {
+    name        = %[1]q
+    description = "test-acc Azure policy updated"
+    policy = jsonencode({
+      if = {
+        field  = "type"
+        equals = "Microsoft.Resources/subscriptions"
+      }
+      then = {
+        effect = "audit"
+      }
+    })
+  }
 }
-`
+`, rName)
 }

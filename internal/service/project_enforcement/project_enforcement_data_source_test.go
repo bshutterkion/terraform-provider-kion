@@ -1,6 +1,7 @@
 package project_enforcement_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +14,7 @@ func TestAccKionProjectEnforcementDataSource_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	dataSourceName := "data.kion_project_enforcement.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +22,7 @@ func TestAccKionProjectEnforcementDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProjectEnforcementDataSourceConfig_basic(),
+				Config: testAccProjectEnforcementDataSourceConfig_basic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 				),
@@ -29,10 +31,46 @@ func TestAccKionProjectEnforcementDataSource_basic(t *testing.T) {
 	})
 }
 
-func testAccProjectEnforcementDataSourceConfig_basic() string {
-	return `
-data "kion_project_enforcement" "test" {
-  # TIP: Fill in filter criteria or ID to look up the data source.
+func testAccProjectEnforcementDataSourceConfig_basic(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
 }
-`
+
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
+}
+
+resource "kion_permission_scheme" "test_perm_project" {
+  name = "%[1]s-perm-project"
+  type = "project"
+}
+
+resource "kion_project" "test_project" {
+  name                 = "%[1]s-project"
+  ou_id                = kion_ou.test_ou.id
+  permission_scheme_id = kion_permission_scheme.test_perm_project.id
+  owner_user_ids       = [1]
+}
+
+resource "kion_project_enforcement" "test" {
+  project_id     = kion_project.test_project.id
+  description    = "test-acc project enforcement"
+  threshold      = 1000
+  threshold_type = "dollar"
+  timeframe      = "month"
+  amount_type    = "custom"
+  spend_option   = "spend"
+  enabled        = true
+  user_ids       = [1]
+}
+
+data "kion_project_enforcement" "test" {
+  project_id = kion_project_enforcement.test.project_id
+}
+`, rName)
 }

@@ -1,6 +1,8 @@
 package billing_rule_test
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +15,12 @@ func TestAccKionBillingRuleDataSource_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	billingSourceID := os.Getenv("KION_ACC_BILLING_SOURCE_ID")
+	if billingSourceID == "" {
+		t.Skip("KION_ACC_BILLING_SOURCE_ID must be set to the ID of an existing Kion billing source")
+	}
+
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	dataSourceName := "data.kion_billing_rule.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +28,7 @@ func TestAccKionBillingRuleDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccBillingRuleDataSourceConfigBasic(),
+				Config: testAccBillingRuleDataSourceConfigBasic(rName, billingSourceID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 				),
@@ -29,10 +37,19 @@ func TestAccKionBillingRuleDataSource_basic(t *testing.T) {
 	})
 }
 
-func testAccBillingRuleDataSourceConfigBasic() string {
-	return `
-data "kion_billing_rule" "test" {
-  # TIP: Fill in filter criteria or ID to look up the data source.
+func testAccBillingRuleDataSourceConfigBasic(rName, billingSourceID string) string {
+	return fmt.Sprintf(`
+resource "kion_billing_rule" "test" {
+  name               = %[1]q
+  description        = "test-acc billing rule"
+  billing_source_ids = [%[2]s]
+  rule_type          = 2
+  rule_value         = 5.0
+  start_month        = 202501
 }
-`
+
+data "kion_billing_rule" "test" {
+  id = kion_billing_rule.test.id
+}
+`, rName, billingSourceID)
 }

@@ -1,6 +1,7 @@
 package user_group_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +14,7 @@ func TestAccKionUserGroupDataSource_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	dataSourceName := "data.kion_user_group.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +22,7 @@ func TestAccKionUserGroupDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccUserGroupDataSourceConfigBasic(),
+				Config: testAccUserGroupDataSourceConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 				),
@@ -29,10 +31,16 @@ func TestAccKionUserGroupDataSource_basic(t *testing.T) {
 	})
 }
 
-func testAccUserGroupDataSourceConfigBasic() string {
-	return `
-data "kion_user_group" "test" {
-  # TIP: Fill in filter criteria or ID to look up the data source.
+func testAccUserGroupDataSourceConfigBasic(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_user_group" "test" {
+  idms_id     = 1
+  name        = %[1]q
+  description = "test-acc user group"
 }
-`
+
+data "kion_user_group" "test" {
+  id = kion_user_group.test.id
+}
+`, rName)
 }

@@ -1,6 +1,7 @@
 package user_group_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +14,7 @@ func TestAccKionUserGroup_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_user_group.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +22,7 @@ func TestAccKionUserGroup_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccUserGroupConfigBasic(),
+				Config: testAccUserGroupConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -39,6 +41,7 @@ func TestAccKionUserGroup_update(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_user_group.test"
 
 	resource.Test(t, resource.TestCase{
@@ -46,13 +49,13 @@ func TestAccKionUserGroup_update(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccUserGroupConfigBasic(),
+				Config: testAccUserGroupConfigBasic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
 			},
 			{
-				Config: testAccUserGroupConfigUpdate(),
+				Config: testAccUserGroupConfigUpdate(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -66,18 +69,22 @@ func TestAccKionUserGroup_update(t *testing.T) {
 	})
 }
 
-func testAccUserGroupConfigBasic() string {
-	return `
+func testAccUserGroupConfigBasic(rName string) string {
+	return fmt.Sprintf(`
 resource "kion_user_group" "test" {
-  # TIP: Fill in required attributes for creating the resource.
+  idms_id     = 1
+  name        = %[1]q
+  description = "test-acc user group"
 }
-`
+`, rName)
 }
 
-func testAccUserGroupConfigUpdate() string {
-	return `
+func testAccUserGroupConfigUpdate(rName string) string {
+	return fmt.Sprintf(`
 resource "kion_user_group" "test" {
-  # TIP: Fill in updated attributes for testing the update.
+  idms_id     = 1
+  name        = %[1]q
+  description = "test-acc user group updated"
 }
-`
+`, rName)
 }

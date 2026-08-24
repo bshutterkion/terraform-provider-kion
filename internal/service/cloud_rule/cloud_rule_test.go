@@ -153,7 +153,7 @@ func testAccCloudRuleConfig_basic(rName string) string {
 	return fmt.Sprintf(`
 resource "kion_cloud_rule" "test" {
   name = %[1]q
-  owner_users { id = 1 }
+  owner_user_ids = [1]
 }
 `, rName)
 }
@@ -163,7 +163,7 @@ func testAccCloudRuleConfig_update(rName string) string {
 resource "kion_cloud_rule" "test" {
   name = %[1]q
   concurrent_cft_sync = true
-  owner_users { id = 1 }
+  owner_user_ids = [1]
 }
 `, rName)
 }

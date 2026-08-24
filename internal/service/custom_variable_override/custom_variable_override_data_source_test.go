@@ -1,6 +1,7 @@
 package custom_variable_override_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +14,7 @@ func TestAccKionCustomVariableOverrideDataSource_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	dataSourceName := "data.kion_custom_variable_override.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,19 +22,62 @@ func TestAccKionCustomVariableOverrideDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCustomVariableOverrideDataSourceConfig_basic(),
+				Config: testAccCustomVariableOverrideDataSourceConfig_basic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
+					// This data source enumerates overrides; it has no "id".
+					resource.TestCheckResourceAttrSet(dataSourceName, "list.#"),
 				),
 			},
 		},
 	})
 }
 
-func testAccCustomVariableOverrideDataSourceConfig_basic() string {
-	return `
-data "kion_custom_variable_override" "test" {
-  # TIP: Fill in filter criteria or ID to look up the data source.
+func testAccCustomVariableOverrideDataSourceConfig_basic(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
 }
-`
+
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
+}
+
+resource "kion_permission_scheme" "test_perm_project" {
+  name = "%[1]s-perm-project"
+  type = "project"
+}
+
+resource "kion_project" "test_project" {
+  name                 = "%[1]s-project"
+  ou_id                = kion_ou.test_ou.id
+  permission_scheme_id = kion_permission_scheme.test_perm_project.id
+  owner_user_ids       = [1]
+}
+
+resource "kion_custom_variable" "test_cv" {
+  name                 = %[1]q
+  description          = "test-acc custom variable"
+  type                 = "string"
+  default_value_string = "test-acc-default"
+  owner_user_ids       = [1]
+}
+
+resource "kion_custom_variable_override" "test" {
+  custom_variable_id = kion_custom_variable.test_cv.id
+  entity_id          = kion_project.test_project.id
+  entity_type        = "project"
+  value_string       = "test-acc-override"
+}
+
+data "kion_custom_variable_override" "test" {
+  filter {
+    name   = "custom_variable_id"
+    values = [kion_custom_variable_override.test.custom_variable_id]
+  }
+}
+`, rName)
 }

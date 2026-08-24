@@ -1,6 +1,7 @@
 package ou_permission_mapping_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +14,7 @@ func TestAccKionOuPermissionMappingDataSource_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	dataSourceName := "data.kion_ou_permission_mapping.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,19 +22,33 @@ func TestAccKionOuPermissionMappingDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccOuPermissionMappingDataSourceConfig_basic(),
+				Config: testAccOuPermissionMappingDataSourceConfig_basic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
+					// This data source is keyed on ou_id; it has no "id".
+					resource.TestCheckResourceAttrSet(dataSourceName, "ou_id"),
+					resource.TestCheckResourceAttrSet(dataSourceName, "list.#"),
 				),
 			},
 		},
 	})
 }
 
-func testAccOuPermissionMappingDataSourceConfig_basic() string {
-	return `
-data "kion_ou_permission_mapping" "test" {
-  # TIP: Fill in filter criteria or ID to look up the data source.
+func testAccOuPermissionMappingDataSourceConfig_basic(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
 }
-`
+
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
+}
+
+data "kion_ou_permission_mapping" "test" {
+  ou_id = kion_ou.test_ou.id
+}
+`, rName)
 }

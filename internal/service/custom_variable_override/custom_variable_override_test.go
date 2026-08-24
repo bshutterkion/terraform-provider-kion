@@ -1,6 +1,7 @@
 package custom_variable_override_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -13,6 +14,7 @@ func TestAccKionCustomVariableOverride_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_custom_variable_override.test"
 
 	resource.Test(t, resource.TestCase{
@@ -20,7 +22,7 @@ func TestAccKionCustomVariableOverride_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCustomVariableOverrideConfig_basic(),
+				Config: testAccCustomVariableOverrideConfig_basic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -39,6 +41,7 @@ func TestAccKionCustomVariableOverride_update(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	resourceName := "kion_custom_variable_override.test"
 
 	resource.Test(t, resource.TestCase{
@@ -46,13 +49,13 @@ func TestAccKionCustomVariableOverride_update(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCustomVariableOverrideConfig_basic(),
+				Config: testAccCustomVariableOverrideConfig_basic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
 			},
 			{
-				Config: testAccCustomVariableOverrideConfig_update(),
+				Config: testAccCustomVariableOverrideConfig_update(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
@@ -66,18 +69,88 @@ func TestAccKionCustomVariableOverride_update(t *testing.T) {
 	})
 }
 
-func testAccCustomVariableOverrideConfig_basic() string {
-	return `
-resource "kion_custom_variable_override" "test" {
-  # TIP: Fill in required attributes for creating the resource.
-}
-`
+func testAccCustomVariableOverrideConfig_basic(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
 }
 
-func testAccCustomVariableOverrideConfig_update() string {
-	return `
-resource "kion_custom_variable_override" "test" {
-  # TIP: Fill in updated attributes for testing the update.
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
 }
-`
+
+resource "kion_permission_scheme" "test_perm_project" {
+  name = "%[1]s-perm-project"
+  type = "project"
+}
+
+resource "kion_project" "test_project" {
+  name                 = "%[1]s-project"
+  ou_id                = kion_ou.test_ou.id
+  permission_scheme_id = kion_permission_scheme.test_perm_project.id
+  owner_user_ids       = [1]
+}
+
+resource "kion_custom_variable" "test_cv" {
+  name                 = %[1]q
+  description          = "test-acc custom variable"
+  type                 = "string"
+  default_value_string = "test-acc-default"
+  owner_user_ids       = [1]
+}
+
+resource "kion_custom_variable_override" "test" {
+  custom_variable_id = kion_custom_variable.test_cv.id
+  entity_id          = kion_project.test_project.id
+  entity_type        = "project"
+  value_string       = "test-acc-override"
+}
+`, rName)
+}
+
+func testAccCustomVariableOverrideConfig_update(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
+}
+
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
+}
+
+resource "kion_permission_scheme" "test_perm_project" {
+  name = "%[1]s-perm-project"
+  type = "project"
+}
+
+resource "kion_project" "test_project" {
+  name                 = "%[1]s-project"
+  ou_id                = kion_ou.test_ou.id
+  permission_scheme_id = kion_permission_scheme.test_perm_project.id
+  owner_user_ids       = [1]
+}
+
+resource "kion_custom_variable" "test_cv" {
+  name                 = %[1]q
+  description          = "test-acc custom variable"
+  type                 = "string"
+  default_value_string = "test-acc-default"
+  owner_user_ids       = [1]
+}
+
+resource "kion_custom_variable_override" "test" {
+  custom_variable_id = kion_custom_variable.test_cv.id
+  entity_id          = kion_project.test_project.id
+  entity_type        = "project"
+  value_string       = "test-acc-override-updated"
+}
+`, rName)
 }
