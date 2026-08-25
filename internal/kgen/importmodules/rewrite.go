@@ -1,6 +1,7 @@
 package importmodules
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strings"
@@ -29,10 +30,12 @@ func (w Warning) String() string {
 // Rewrite turns every `resource "kion_*" "<label>"` block in src whose type
 // has an entry in manifest into a `module "<label>" { source =
 // "<modulesDir>/<path>" ... }` call wired to that module's variables. A
-// resource block whose type is not in the manifest is left completely
-// untouched -- byte-for-byte, including its position relative to surrounding
-// content -- as are any non-resource blocks (provider, terraform, locals,
-// ...).
+// resource block whose type is not in the manifest keeps its type, labels,
+// attributes and position, as do non-resource blocks (provider, terraform,
+// locals, ...) -- with one exception: a reference into a resource this pass
+// converted is retargeted at the module, because the resource it names stops
+// existing and Terraform would refuse to load the file. That is the only edit
+// made to a block this rewrite does not otherwise own.
 //
 // Within a converted block, each plain attribute and nested schema block is
 // mapped through the manifest's attr -> var names (module.Manifest's Block
@@ -54,6 +57,20 @@ func Rewrite(src []byte, manifest *Manifest, modulesDir string) ([]byte, []Warni
 
 	byType := manifest.ByType()
 	var warnings []Warning
+
+	// Every block this pass will convert, as "<type>.<label>". Collected up
+	// front because an expression may reference a block that appears later in
+	// the file, and a reference to a converted block has to be retargeted at
+	// the module or it points at a resource that no longer exists.
+	converted := map[string]bool{}
+	for _, block := range f.Body().Blocks() {
+		if block.Type() != "resource" || len(block.Labels()) < 2 {
+			continue
+		}
+		if _, ok := byType[block.Labels()[0]]; ok {
+			converted[block.Labels()[0]+"."+block.Labels()[1]] = true
+		}
+	}
 
 	for _, block := range f.Body().Blocks() {
 		if block.Type() != "resource" || len(block.Labels()) < 2 {
@@ -120,11 +137,54 @@ func Rewrite(src []byte, manifest *Manifest, modulesDir string) ([]byte, []Warni
 		}
 		body.SetAttributeRaw("source", srcToks)
 		for _, e := range entries {
-			body.SetAttributeRaw(e.varName, e.toks)
+			body.SetAttributeRaw(e.varName, retargetRefs(e.toks, converted))
 		}
 	}
 
+	// Blocks this pass did not convert can still reference one that it did --
+	// a `locals`, an `output`, or a resource of some other provider holding
+	// kion_ou.parent.id. Those references break for exactly the same reason,
+	// so they are retargeted too. It is the one edit made to an otherwise
+	// untouched block, and the alternative is emitting a file that does not
+	// load.
+	retargetBodyRefs(f.Body(), converted)
+
 	return hclwrite.Format(f.Bytes()), warnings, nil
+}
+
+// retargetBodyRefs walks every block that is not a module call this pass just
+// wrote, retargeting references to converted resources. Nested blocks are
+// walked too: a reference is just as broken three levels down.
+func retargetBodyRefs(body *hclwrite.Body, converted map[string]bool) {
+	if len(converted) == 0 {
+		return
+	}
+	for name, attr := range body.Attributes() {
+		toks := attr.Expr().BuildTokens(nil)
+		fixed := retargetRefs(toks, converted)
+		if !tokensEqual(toks, fixed) {
+			body.SetAttributeRaw(name, fixed)
+		}
+	}
+	for _, blk := range body.Blocks() {
+		retargetBodyRefs(blk.Body(), converted)
+	}
+}
+
+// tokensEqual reports whether two token slices render identically, so an
+// attribute is only rewritten when a reference actually changed. Rewriting
+// unconditionally would reformat expressions this pass has no business
+// touching.
+func tokensEqual(a, b hclwrite.Tokens) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !bytes.Equal(a[i].Bytes, b[i].Bytes) {
+			return false
+		}
+	}
+	return true
 }
 
 // CountKnownBlocks reports how many top-level `resource "kion_*" "<label>"`
@@ -149,6 +209,52 @@ func CountKnownBlocks(src []byte, manifest *Manifest) (rewritten, untouched int,
 		}
 	}
 	return rewritten, untouched, nil
+}
+
+// retargetRefs points references at the module that replaced the resource:
+// kion_ou.parent.id becomes module.parent.id.
+//
+// This is what makes the rewrite compose with `kion-import rewrite-refs`, and
+// composing is the point -- references, not literals, are the shape a
+// configuration should end up in, because a literal foreign key applied to a
+// different install either dangles or silently binds to whatever record holds
+// that id there.
+//
+// The retarget is mechanical rather than a guess: rewrite-refs emits exactly
+// `<type>.<label>.id` (traversalTokens hardcodes the `id` step), every
+// generated module exposes an `id` output, and Rewrite preserves the block's
+// label, so `module.<label>.id` is the same value by construction.
+//
+// Only `.id` is retargeted. A traversal into some other attribute of a
+// converted resource is left alone for FindDanglingRefs to report, because the
+// module may well not expose a matching output and inventing one would produce
+// a configuration that plans against the wrong thing.
+func retargetRefs(toks hclwrite.Tokens, converted map[string]bool) hclwrite.Tokens {
+	if len(converted) == 0 {
+		return toks
+	}
+	out := make(hclwrite.Tokens, len(toks))
+	copy(out, toks)
+	for i := 0; i+4 < len(out); i++ {
+		if out[i].Type != hclsyntax.TokenIdent ||
+			out[i+1].Type != hclsyntax.TokenDot ||
+			out[i+2].Type != hclsyntax.TokenIdent ||
+			out[i+3].Type != hclsyntax.TokenDot ||
+			out[i+4].Type != hclsyntax.TokenIdent ||
+			string(out[i+4].Bytes) != "id" {
+			continue
+		}
+		if !converted[string(out[i].Bytes)+"."+string(out[i+2].Bytes)] {
+			continue
+		}
+		// Replaced, not mutated: these tokens are still owned by the parsed
+		// tree, and rewriting their bytes in place would corrupt the source
+		// block the caller may still read.
+		swapped := *out[i]
+		swapped.Bytes = []byte("module")
+		out[i] = &swapped
+	}
+	return out
 }
 
 // blockToObject renders a nested block's own attributes as an HCL

@@ -8,20 +8,20 @@ import (
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 )
 
-// DanglingRef is a reference to a resource that Rewrite converts into a module
-// call, which therefore stops existing under the name the reference uses.
+// DanglingRef is a reference into a converted resource that Rewrite could NOT
+// retarget, and which therefore points at a resource that no longer exists.
 //
-// Rewrite copies attribute expressions through verbatim, which is what keeps it
-// honest about values it does not understand. The cost is that a traversal like
-// kion_ou.parent.id survives into the module block while kion_ou.parent itself
-// does not, and Terraform rejects the result with "Reference to undeclared
-// resource". Converting it is not something this package can do safely: the
-// replacement depends on the module exposing a matching output, which the
-// manifest does not record.
+// The common case is not this: `kion-import rewrite-refs` emits exactly
+// `<type>.<label>.id`, and retargetRefs turns those into `module.<label>.id`,
+// which is well-defined because every generated module exposes an `id` output.
+// What is left here is a traversal into some OTHER attribute of a converted
+// resource -- `kion_ou.parent.name`, say. A module exposes outputs, not
+// attributes, and there may be no output of that name, so retargeting it would
+// be a guess that plans against the wrong thing.
 //
-// So it is reported instead. A rewrite that silently produces a configuration
-// Terraform will not load is worse than one that says which references need
-// hand-editing.
+// Those are reported rather than rewritten. A configuration Terraform refuses
+// to load is a better outcome than one that loads and manages the wrong
+// record.
 type DanglingRef struct {
 	From   string // block making the reference, e.g. `module "child"`
 	Attr   string // attribute holding it, e.g. "parent_ou_id"
@@ -29,8 +29,8 @@ type DanglingRef struct {
 }
 
 func (d DanglingRef) String() string {
-	return fmt.Sprintf("%s: %s references %s, which this rewrite turns into a module",
-		d.From, d.Attr, d.Target)
+	return fmt.Sprintf("%s: %s reaches into %s, which this rewrite turns into a module "+
+		"(only .id can be retargeted, to module.<label>.id)", d.From, d.Attr, d.Target)
 }
 
 // FindDanglingRefs reports references to resource blocks that Rewrite converts.
@@ -96,9 +96,17 @@ func FindDanglingRefs(src []byte, manifest *Manifest) ([]DanglingRef, error) {
 					continue
 				}
 				target := root.Name + "." + step.Name
-				if converted[target] {
-					out = append(out, DanglingRef{From: from, Attr: name, Target: target})
+				if !converted[target] {
+					continue
 				}
+				// `.id` is retargeted to module.<label>.id by retargetRefs, so
+				// it is not dangling; anything else into a converted resource is.
+				if len(tr) >= 3 {
+					if attrStep, ok := tr[2].(hcl.TraverseAttr); ok && attrStep.Name == "id" {
+						continue
+					}
+				}
+				out = append(out, DanglingRef{From: from, Attr: name, Target: target})
 			}
 		}
 	}

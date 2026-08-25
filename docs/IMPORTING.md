@@ -23,9 +23,8 @@ kion-import rewrite-refs                       # literals -> references
 terraform apply
 ```
 
-To manage the result through the modules instead of the resources, see
-*Rewrite into module calls* below. It does not compose with `rewrite-refs`;
-pick one.
+To manage the result through the modules instead of the resources, add
+`kgen import-modules` after `rewrite-refs` -- see *Rewrite into module calls*.
 
 ## Rewrite the literal ids into references
 
@@ -145,7 +144,9 @@ kgen import-modules --in generated.tf --out modules.tf
 
 Each `resource "kion_*" "<label>"` becomes `module "<label>"` with
 `source = "./modules/terraform-kion-<name>"`. A block whose type has no module
-is left byte-for-byte alone, as is every non-resource block.
+keeps its type, labels, attributes and position, as does every non-resource
+block — except for references into converted resources, which are retargeted;
+see below.
 
 The attribute-to-variable mapping comes from `modules/module_manifest.json`,
 written by `make modules`, not from `variables.tf`. That matters because a
@@ -165,25 +166,41 @@ dropped and reported rather than guessed at:
 Wrote modules.tf: 3 block(s) rewritten, 1 left untouched, 1 attribute(s) dropped
 ```
 
-### It does not compose with `rewrite-refs`
+### References are retargeted, so run it after `rewrite-refs`
 
-Run one or the other, not both. `rewrite-refs` turns literal ids into
-references like `kion_ou.parent.id`; this rewrite turns `kion_ou.parent` into
-`module.parent`, and the reference is then pointing at a resource that no
-longer exists. Terraform rejects that with *Reference to undeclared resource*.
+`rewrite-refs` turns literal foreign keys into references, which is the shape a
+configuration should end up in. Those references are retargeted at the module:
 
-The rewrite detects this rather than emitting a file that will not load. It
-still writes the output — you need it to hand-edit — but exits non-zero:
-
-```
-  dangling: module "child": parent_ou_id references kion_ou.parent, which this rewrite turns into a module
-Error: 1 reference(s) point at resources this rewrite converted to modules; …
+```hcl
+ou_id = kion_ou.kion_ou_11.id      # before
+ou_id = module.kion_ou_11.id       # after
 ```
 
-Repairing them automatically would mean rewriting `kion_ou.parent.id` to
-`module.parent.<output>`, which depends on the module exposing a matching
-output. The manifest records variables, not outputs, so the tool has no way to
-know the right name and says so instead of guessing.
+That is mechanical rather than a guess: `rewrite-refs` emits exactly
+`<type>.<label>.id`, every generated module exposes an `id` output, and the
+block's label is preserved, so `module.<label>.id` is the same value by
+construction.
+
+Blocks the rewrite does not convert are retargeted too. A `locals`, an
+`output`, or another provider's resource holding `kion_ou.kion_ou_11.id` would
+otherwise be left naming a resource that no longer exists, and Terraform
+refuses to load the file. That reference is the one edit made to a block this
+rewrite does not otherwise own.
+
+### What is not retargeted
+
+A traversal into any attribute other than `id` — `kion_ou.parent.name`, say. A
+module exposes outputs, not attributes, and there may be no output of that
+name, so retargeting would be a guess that plans against the wrong thing. Those
+are reported and the command exits non-zero, having still written the output
+for you to hand-edit:
+
+```
+  dangling: module "child": name reaches into kion_ou.parent, which this rewrite turns into a module (only .id can be retargeted, to module.<label>.id)
+```
+
+`rewrite-refs` never produces that shape, so it should not arise from the
+standard flow.
 
 ## Choose what to import
 
