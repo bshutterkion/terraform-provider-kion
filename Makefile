@@ -242,6 +242,24 @@ config-gen: _spec-guard ## Derive the generator config from the service packages
 config-check: ## Report drift between codegen/generator_config.yaml and the service-package code
 	@go run ./cmd/kconfig check
 
+# Not part of `make ci`: both checks need spec/openapi3.json, which is gitignored,
+# so CI and a plain clone cannot run them. Run this after touching anything in
+# codegen/. See codegen/README.md.
+.PHONY: codegen-check
+codegen-check: _spec-guard ## Verify generator_config.yaml is in sync and reproducible (needs the spec)
+	@echo "$(BLUE)Checking generator config...$(RESET)"
+	@go run ./cmd/kconfig check
+	@cp $(GENERATOR_CONFIG) .generator_config.before
+	@go run ./cmd/kconfig gen --write >/dev/null
+	@if ! diff -q .generator_config.before $(GENERATOR_CONFIG) >/dev/null; then \
+		cp .generator_config.before $(GENERATOR_CONFIG); rm -f .generator_config.before; \
+		echo "$(RED)FAIL: $(GENERATOR_CONFIG) is not reproducible. Regenerating changes it,$(RESET)"; \
+		echo "$(RED)      which means it was hand-edited. Move the edit to $(CONFIG_OVERRIDES).$(RESET)"; \
+		exit 1; \
+	fi
+	@rm -f .generator_config.before
+	@echo "$(GREEN)✓ generator config in sync and reproducible$(RESET)"
+
 .PHONY: version-support
 version-support: ## Derive codegen/version_support.yaml (Kion version range per resource) from the SDK
 	@go run ./cmd/kversions -sdk $(SDK_DIR) -config $(GENERATOR_CONFIG) -overrides $(CONFIG_OVERRIDES) -out $(VERSION_SUPPORT)

@@ -1,5 +1,4 @@
 # golangci-lint v2 configuration
-# Aligned with hashicorp/terraform-provider-aws linter choices.
 # https://golangci-lint.run/docs/configuration/file/
 
 version: "2"
@@ -44,7 +43,7 @@ linters:
       exclude-functions:
         - (*os.File).Close
         # Diagnostic writes to stderr / an injected io.Writer; the write error
-        # is not actionable in CLI tooling. Matches terraform-provider-aws.
+        # is not actionable in CLI tooling.
         - fmt.Fprint
         - fmt.Fprintf
         - fmt.Fprintln

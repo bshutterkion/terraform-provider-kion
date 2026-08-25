@@ -230,8 +230,13 @@ resources:
   ou_permission_mapping:
     # Mapping resource: no POST. Created/updated via PATCH upsert; read is the index.
     # `message` is the PATCH envelope's status field. Drop it; real fields are
-    # re-expressed in schema_overrides.yaml.
+    # re-expressed in schema_overrides.yaml. update repeats the create path because
+    # they are the same upsert, and derivation attributes that one PATCH to create
+    # only, which would leave the resource with no update and force replacement.
     create:
+      path: /v3/ou/{id}/permission-mapping
+      method: PATCH
+    update:
       path: /v3/ou/{id}/permission-mapping
       method: PATCH
     read:
@@ -240,6 +245,9 @@ resources:
     ignores: [message]
   project_permission_mapping:
     create:
+      path: /v3/project/{id}/permission-mapping
+      method: PATCH
+    update:
       path: /v3/project/{id}/permission-mapping
       method: PATCH
     read:
@@ -433,6 +441,10 @@ resources:
     delete:
       path: /v3/billing-source/{id}
       method: DELETE
+    # The read is the /v4 list, so its query and pagination fields land in the
+    # resource schema. `count` is a reserved Terraform root attribute name and
+    # fails schema validation outright.
+    ignores: [count, page, sort_method, sort_order]
   ou_cloud_access_role_exemption:
     create:
       path: /v3/ou-cloud-access-role-exemption
@@ -462,6 +474,28 @@ resources:
       method: POST
     read:
       path: /beta/dashboard/{id}
+      method: GET
+
+  # Enforcements: create/update/delete derive, but the read is a list under the
+  # parent (GET .../enforcement) that no naming convention finds, so tfplugingen
+  # would drop both as INCOMPLETE.
+  funding_source_enforcement:
+    read:
+      path: /v3/funding-source/{id}/enforcement
+      method: GET
+  ou_enforcement:
+    read:
+      path: /v3/ou/{id}/enforcement
+      method: GET
+
+  # Served entirely over raw HTTP (internal/conns), so its CRUD calls no SDK op
+  # and derivation sees nothing. See codegen/private_endpoints.yaml.
+  funding_source_note:
+    create:
+      path: /v2/funding-source-note
+      method: POST
+    read:
+      path: /v2/funding-source-note/{id}
       method: GET
 
 data_sources:
@@ -693,3 +727,28 @@ data_sources:
     read:
       path: /v3/project/{id}/cloud-rule/exemption
       method: GET
+
+  # Read ops the data source reaches through a helper, so ServiceOps does not
+  # attribute the SDK call to the package.
+  ou:
+    read:
+      path: /v3/ou
+      method: GET
+  user_group:
+    read:
+      path: /v3/user-group
+      method: GET
+
+  # Derivation picks /v3/idms/group-association/{id}, whose collection is POST
+  # only, so the import manifest would list from a path that cannot be listed.
+  # The records hang off the parent.
+  saml_group_association:
+    read:
+      path: /v3/idms/{id}/group-association
+      method: GET
+
+  # Polymorphic across account/ou/project, so derivation resolves whichever GET
+  # the data source reaches first (/v3/ou) and calls it the collection. There is
+  # no single list for these; the manifest handles the type specially.
+  custom_variable_override:
+    skip: true

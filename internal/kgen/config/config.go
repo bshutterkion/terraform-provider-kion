@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -320,12 +321,22 @@ func Check(src Source, opts Options, w io.Writer) (int, error) {
 			problems++
 		}
 	}
-	// Config resources that no longer map to a service package.
+	// Config resources that no longer map to a service package. Derive only sees
+	// packages whose CRUD calls the SDK, so a resource served entirely over raw
+	// HTTP (internal/conns, declared in codegen/private_endpoints.yaml) resolves
+	// no ops and is absent from derived even though its package is right there.
+	// funding_source_note is one, and it was reported extra for exactly that
+	// reason. Check the claim being made: does the directory exist?
+	serviceRoot := orDefault(opts.ServiceRoot, "internal/service")
 	for name := range cur.Resources {
-		if _, ok := derived[name]; !ok {
-			emit("extra: config resource %q has no matching service package\n", name)
-			problems++
+		if _, ok := derived[name]; ok {
+			continue
 		}
+		if fi, err := os.Stat(filepath.Join(serviceRoot, name)); err == nil && fi.IsDir() {
+			continue
+		}
+		emit("extra: config resource %q has no matching service package\n", name)
+		problems++
 	}
 	if problems == 0 {
 		emit("config in sync with code\n")
@@ -348,6 +359,13 @@ type ovEntry struct {
 	Update  *yOp     `yaml:"update"`
 	Delete  *yOp     `yaml:"delete"`
 	Ignores []string `yaml:"ignores"` // extra OAS attributes to drop (appended to the baked-in ignores)
+
+	// Skip drops an entry derivation produced but that should not exist. Needed
+	// because derivation picks the first GET a package's code touches, which for
+	// a polymorphic data source is whichever entity it happened to reach first.
+	// codegen/import_manifest.json takes its list paths from data_sources, so a
+	// wrong entry there is not cosmetic.
+	Skip bool `yaml:"skip"`
 
 	// Schema accepts the same `schema: { ignores: [...] }` shape that the rendered
 	// generator_config.yaml uses. Authors reasonably mirror the output format when
@@ -440,6 +458,11 @@ func applyOverrides(configs []ServiceConfig, ov overridesFile) []ServiceConfig {
 	for name, e := range ov.DataSources {
 		sc := m[name]
 		sc.Name = name
+		if e.Skip {
+			sc.DataSourceRead = nil
+			m[name] = sc
+			continue
+		}
 		if op := e.Read.toOp(); op != nil {
 			sc.DataSourceRead = op
 		}

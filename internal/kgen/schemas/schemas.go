@@ -748,7 +748,7 @@ func (g *generator) applySchemaOverrides(specPath, overridesPath string) error {
 		return fmt.Errorf("parsing provider code spec: %w", err)
 	}
 
-	// Global string-id default: mirror terraform-provider-aws's
+	// Global string-id default:
 	// framework.IDAttribute(). Every resource's id is a computed string with
 	// UseStateForUnknown (the API models ids as int64, but the shipped SDKv2
 	// provider and TF convention use string ids for import + state parity).

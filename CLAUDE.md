@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Terraform provider for the Kion cloud governance platform, built on HashiCorp's Terraform Plugin Framework and structured after terraform-provider-aws. Uses kion-sdk-go (ogen-generated from the same OpenAPI spec), resolved from the module proxy via a versioned `replace` in `go.mod`.
+Terraform provider for the Kion cloud governance platform, built on HashiCorp's Terraform Plugin Framework and organized as one service package per resource. Uses kion-sdk-go (ogen-generated from the same OpenAPI spec), resolved from the module proxy via a versioned `replace` in `go.mod`.
 
 ## Common Commands
 
@@ -122,9 +122,10 @@ locally is a new bug rather than a known, already-diagnosed gap.
 ## Key Conventions
 
 - Resource names use `kion_` prefix (e.g., `kion_cloud_rule`, `kion_project`)
-- 34 service packages in `internal/service/`
-- Linting aligned with terraform-provider-aws (golangci-lint v2, `.golangci.yml`)
+- 71 service packages in `internal/service/`
+- Linting via golangci-lint v2 (`.golangci.yml`)
 - Generated `*_gen.go` files excluded from all linters
+- Everything is generated from `spec/openapi3.json`. Read [`codegen/README.md`](codegen/README.md) before changing anything under `codegen/`, and run `make codegen-check` after; `make ci` cannot, because it needs the spec
 - Service packages have targeted exclusions (revive, unused, staticcheck)
 - Lefthook pre-push hook runs `ci-fmt`/`ci-vet`/`ci-lint`/`ci-test` before allowing pushes (skipped on tag-only pushes, which match no files)
 
