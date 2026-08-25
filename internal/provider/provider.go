@@ -125,7 +125,10 @@ func (p *kionProvider) Configure(ctx context.Context, req provider.ConfigureRequ
 	}
 	httpClient := &http.Client{
 		Transport: transport,
-		Timeout:   30 * time.Second,
+		// Whole-request, and a filtered data source fetches its entire
+		// collection: 30s could not read /v3/azure-policy (51 MB, ~35s) at all.
+		// Matches kion-import's 60s.
+		Timeout: 60 * time.Second,
 	}
 
 	// Initialize the generated SDK client directly so we control the server URL
