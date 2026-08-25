@@ -96,6 +96,21 @@ Users, IDMS and stock permission schemes are the common cases — they come from
 an identity provider or ship with the install, so they are rarely yours to
 manage.
 
+### Attributes the read cannot recover
+
+Import can only give a resource what its read returns. A couple of resources
+accept a value on create that no read — public or private — gives back, so it
+imports as `null` even though it was set:
+
+| resource | attribute | why |
+|---|---|---|
+| `kion_ou_cloud_access_role_exemption` | `reason` | the private read backing it (`/v1/ou/{id}/cloud-access-role-exemption`) omits `reason`, and no other endpoint returns it either |
+| `kion_project_cloud_access_role_exemption` | `reason` | same gap, on `/v1/project/{id}/cloud-access-role-exemption` |
+
+Both attributes are Optional+Computed, so nothing errors and `terraform plan`
+is clean — the value is just gone. If the reason recorded against an exemption
+matters to you, re-enter it by hand after import.
+
 ## Choose what to import
 
 **Importing everything is rarely what you want.** Kion ships large policy and
