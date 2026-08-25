@@ -105,9 +105,14 @@ var parentOverrides = map[string]Parent{
 // return cloud RULE exemptions alongside cloud ACCESS ROLE exemptions, and only
 // the latter are these resources. Kept beside parentOverrides because it is the
 // same class of authored, live-verified knowledge the schema cannot supply.
+// kion_custom_variable_override's collections list every custom variable
+// visible at the entity, most of them merely inherited; "override" is non-null
+// on exactly the ones actually set there. Measured on a demo install: 151
+// entities x 12 variables, 21 non-null.
 var requireValidOverrides = map[string]string{
 	"kion_ou_cloud_access_role_exemption":      "ou_cloud_access_role_id",
 	"kion_project_cloud_access_role_exemption": "ou_cloud_access_role_id",
+	"kion_custom_variable_override":            "override",
 }
 
 // multiParentOverrides corrects resources enumerable under more than one
@@ -115,11 +120,34 @@ var requireValidOverrides = map[string]string{
 // Parent, but /v3/budget 405s (there is no flat list) and budgets hang off
 // two parents, both verified live: /v3/ou/{id}/budget and
 // /v3/project/{id}/budget.
+//
+// kion_custom_variable_override is the same shape with a third parent. Its
+// by-id read takes two ids (/v3/account/{account_id}/custom-variable/{custom_variable_id}),
+// which is why derivation gives up on it -- but the SINGULAR read has a plural
+// sibling, /v3/{entity}/{id}/custom-variable, that lists every variable at that
+// entity and needs only the entity id. Walking the three entity collections
+// therefore enumerates the whole cross product in one request per entity rather
+// than one per (entity, variable) pair. Each Kind doubles as the resource's own
+// entity_type; see FormatKindParentSlashKey.
 var multiParentOverrides = map[string][]Parent{
 	"kion_budget": {
 		{Kind: "ou", ListPath: "/v3/ou", ChildPath: "/v3/ou/{parent_id}/budget", ParentIDField: "ou_id"},
 		{Kind: "project", ListPath: "/v3/project", ChildPath: "/v3/project/{parent_id}/budget", ParentIDField: "project_id"},
 	},
+	"kion_custom_variable_override": {
+		{Kind: "account", ListPath: "/v3/account", ChildPath: "/v3/account/{parent_id}/custom-variable", ParentIDField: "entity_id"},
+		{Kind: "ou", ListPath: "/v3/ou", ChildPath: "/v3/ou/{parent_id}/custom-variable", ParentIDField: "entity_id"},
+		{Kind: "project", ListPath: "/v3/project", ChildPath: "/v3/project/{parent_id}/custom-variable", ParentIDField: "entity_id"},
+	},
+}
+
+// importIDOverrides fixes the import id for a resource the override tables
+// above rescue from ShapeNone, where Classify already ran and returned the
+// plain id for a resource it believed unreadable. Only
+// kion_custom_variable_override needs it: multiParentOverrides establishes the
+// read but not the three-part id its ImportState splits on.
+var importIDOverrides = map[string]ImportID{
+	"kion_custom_variable_override": {Format: FormatKindParentSlashKey, KeyField: "custom_variable_id"},
 }
 
 // explicitParentOverrides is parentOverrides' sibling for a resource whose
@@ -396,6 +424,12 @@ func Build(readPaths, dataSourcePaths, privateListPaths, privateResourcePaths ma
 			r.ReadShape = ShapeGeneric
 			r.Readable = true
 			r.Reason = ""
+		}
+
+		// Last, so it wins over whatever shape-based derivation or the
+		// override tables above computed.
+		if id, ok := importIDOverrides[tfType]; ok {
+			r.ImportID = id
 		}
 
 		out = append(out, r)

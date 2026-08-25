@@ -79,7 +79,9 @@ reproducible.
 - `custom_variable_override` is polymorphic across account, OU and project, so
   derivation resolved whichever GET the data source reached first, `/v3/ou`, and
   called it the collection. There is no single list, so the entry is suppressed
-  with `skip: true`.
+  with `skip: true`. It is still importable: `kion-import` reads all three
+  `/v3/{entity}/{id}/custom-variable` collections from `multiParentOverrides` in
+  `internal/kgen/importmanifest/generate.go`, not from this file.
 - `ou_permission_mapping` and `project_permission_mapping` create and update
   through the same PATCH upsert, and derivation attributes that one PATCH to
   create alone. Without a pinned `update` they become create-and-replace only.

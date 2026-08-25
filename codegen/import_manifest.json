@@ -379,12 +379,39 @@
       "tf_type": "kion_custom_variable_override",
       "kind": "custom_variable_override",
       "archetype": "cv_override",
-      "read_shape": "none",
-      "readable": false,
-      "import_id": {
-        "format": "id"
+      "read_shape": "parent_list",
+      "readable": true,
+      "parent": {
+        "kind": "account",
+        "list_path": "/v3/account",
+        "child_path": "/v3/account/{parent_id}/custom-variable",
+        "parent_id_field": "entity_id"
       },
-      "reason": "/v3/account/{account_id}/custom-variable/{custom_variable_id} has a compound identity (account_id, custom_variable_id) -- both ids are needed to reach a record and neither can be discovered from the other, so it is not enumerable from a flat list even though the read itself exists"
+      "require_valid_field": "override",
+      "parents": [
+        {
+          "kind": "account",
+          "list_path": "/v3/account",
+          "child_path": "/v3/account/{parent_id}/custom-variable",
+          "parent_id_field": "entity_id"
+        },
+        {
+          "kind": "ou",
+          "list_path": "/v3/ou",
+          "child_path": "/v3/ou/{parent_id}/custom-variable",
+          "parent_id_field": "entity_id"
+        },
+        {
+          "kind": "project",
+          "list_path": "/v3/project",
+          "child_path": "/v3/project/{parent_id}/custom-variable",
+          "parent_id_field": "entity_id"
+        }
+      ],
+      "import_id": {
+        "format": "kind_parent_slash_key",
+        "key_field": "custom_variable_id"
+      }
     },
     {
       "tf_type": "kion_dashboard",

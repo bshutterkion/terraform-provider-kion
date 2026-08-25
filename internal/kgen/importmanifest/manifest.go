@@ -42,13 +42,21 @@ type IDFormat string
 const (
 	FormatID             IDFormat = "id"               // req.ID is the record id
 	FormatParentSlashKey IDFormat = "parent_slash_key" // "<parent_id>/<key_id>"
+	// FormatKindParentSlashKey is "<parent_kind>/<parent_id>/<key_id>", for a
+	// resource whose parent may be one of several entity types and whose
+	// ImportState therefore needs the type named as well as the id --
+	// kion_custom_variable_override hangs off an account, an OU or a project,
+	// and cvoverride.gtpl splits req.ID into exactly those three parts. Unlike
+	// the two-part format the parent kind is load-bearing here, so Parent.Kind
+	// must match the entity_type the resource's own CRUD dispatches on.
+	FormatKindParentSlashKey IDFormat = "kind_parent_slash_key"
 )
 
 // Parent describes a parent-scoped or association read.
 type Parent struct {
-	// Kind is diagnostic only -- not consumed by the runtime enumerator, which
-	// reads ListPath/ChildPath/ParentIDField instead. Useful when eyeballing
-	// the generated JSON.
+	// Kind is diagnostic only for every IDFormat except
+	// FormatKindParentSlashKey, where it becomes the first segment of the
+	// import id and must match the resource's own entity_type vocabulary.
 	Kind          string `json:"kind"`
 	ListPath      string `json:"list_path"`
 	ChildPath     string `json:"child_path"` // contains "{parent_id}"

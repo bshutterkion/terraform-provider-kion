@@ -131,8 +131,8 @@ its slashes).
 
 `docs/import-tooling-validation.md` records full runs against a real install. As
 of the latest run **no resource errors and no records skipped for a missing
-id**: 68 rows in, 60 ok, 5 empty, 3 refused by design, 5 reading with a
-recorded caveat. Read it before
+id**: 68 rows in, 61 ok, 5 empty, 2 refused by design (both aliases), 6 reading
+with a recorded caveat. Read it before
 assuming a resource that fails locally is a new bug rather than a known,
 already-diagnosed gap — it also carries the per-defect history (API prefix,
 nested envelopes, per-type record wrappers, alias double-import, SQL null

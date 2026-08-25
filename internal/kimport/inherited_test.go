@@ -86,8 +86,8 @@ func TestWrongKindRecordsAreFiltered(t *testing.T) {
 	require.Equal(t, "ok", res.Status, res.Reason)
 	require.Len(t, res.Records, 1, "only the cloud access role exemption survives")
 	assert.Equal(t, "1/5", res.Records[0].ID)
-	assert.Contains(t, res.Reason, "another kind sharing the collection",
-		"the drop is reported, never silent")
+	assert.Contains(t, res.Reason, `no "ou_cloud_access_role_id" set`,
+		"the drop is reported, never silent, and names the discriminator")
 }
 
 // TestEveryRecordFilteredOutIsEmptyNotOk is the project case: on a live install
@@ -103,7 +103,7 @@ func TestEveryRecordFilteredOutIsEmptyNotOk(t *testing.T) {
 
 	res := Enumerate(context.Background(), l, exemptionResource())
 	assert.Equal(t, "empty", res.Status)
-	assert.Contains(t, res.Reason, "another kind sharing the collection")
+	assert.Contains(t, res.Reason, `no "ou_cloud_access_role_id" set`)
 }
 
 // TestOwnerKeyAcceptsBothRenderings: OUID is a bare number on the wire while
@@ -121,4 +121,9 @@ func TestIsValidWrapper(t *testing.T) {
 	assert.False(t, isValidWrapper(nil))
 	assert.True(t, isValidWrapper(float64(3)), "a bare id counts as present")
 	assert.False(t, isValidWrapper(float64(0)), "a literal 0 is an absent id")
+
+	// custom_variable_override's "override" is a plain object with no Valid
+	// flag; a wrapper that has one keeps its original meaning above.
+	assert.True(t, isValidWrapper(map[string]any{"value": "x"}), "plain non-empty object is present")
+	assert.False(t, isValidWrapper(map[string]any{}), "empty object is not")
 }
