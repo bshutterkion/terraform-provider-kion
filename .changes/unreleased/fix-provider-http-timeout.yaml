@@ -1,0 +1,3 @@
+kind: BUG FIXES
+body: "The provider's HTTP client now allows 60s per request rather than 30s, matching `kion-import`. The timeout covers the whole request including the response body, and a filtered data source fetches its entire collection before filtering in-process, so a large one could not be read at all: on a production-scale install `GET /v3/azure-policy` returns 51 MB in roughly 35s, and every `data \"kion_azure_policy\"` with a `filter` block failed with a bare `context deadline exceeded`. `kion-import` enumerated the same endpoint without trouble, because it already used 60s."
+time: 2026-08-25T18:20:00Z
