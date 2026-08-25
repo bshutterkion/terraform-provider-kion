@@ -54,8 +54,8 @@ func (r *billing_sourceResource) Schema(ctx context.Context, _ resource.SchemaRe
 // wraps the payload in {"data": …}.
 type billing_sourceWire struct {
 	Data struct {
+		Id                  uint64 `json:"id"`
 		CustomBillingSource struct {
-			Id               uint64 `json:"id"`
 			Name             string `json:"name"`
 			BillingStartDate int64  `json:"billing_start_date"`
 			AwsConnection    struct {
@@ -96,7 +96,7 @@ func (r *billing_sourceResource) read(ctx context.Context, id int64) (billing_so
 
 func (r *billing_sourceResource) flatten(ctx context.Context, w billing_sourceWire, m *BillingSourceModel) diag.Diagnostics {
 	var diags diag.Diagnostics
-	m.Id = types.StringValue(strconv.FormatUint(w.Data.CustomBillingSource.Id, 10))
+	m.Id = types.StringValue(strconv.FormatUint(w.Data.Id, 10))
 	m.Name = types.StringValue(w.Data.CustomBillingSource.Name)
 	m.BillingStartDate = flex.DatecodeToFramework(w.Data.CustomBillingSource.BillingStartDate)
 	AwsConnectionVal, AwsConnectionValDiags := NewAwsConnectionValue(AwsConnectionValue{}.AttributeTypes(ctx), map[string]attr.Value{
