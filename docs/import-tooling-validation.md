@@ -235,9 +235,9 @@ read shape for `scope_criteria`. All three now read clean:
 | `compliance_family` | 587, 10 skipped | **597**, no caveat |
 | `scope_criteria` | 9 skipped, 0 read | 9, no caveat |
 
-### Empty (6)
+### Empty (5)
 
-Six collections are genuinely empty on this install, including
+Five collections are genuinely empty on this install, including
 `kion_aws_resource_tag` -- which is why its new read has **no live coverage**.
 Its field names come from the spec's `AWSResourceTag` component and are exercised
 only by unit tests. Verify it against an install that has records.
