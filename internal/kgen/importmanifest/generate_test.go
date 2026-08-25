@@ -148,12 +148,16 @@ func TestBuildFallsBackToResourceReadPathWhenNoDataSource(t *testing.T) {
 	assert.True(t, r.Readable)
 }
 
-// TestBuildAliasResolvesThroughKindAliases guards kindAliases: the provider
-// serves kion_aws_cloudformation_template / kion_aws_iam_policy, but
-// generator_config.yaml keys their generator_config entries "cft" /
-// "iam_policy". Both readPaths and dataSourcePaths lookups must go through
-// the alias, not the raw tf_type-derived kind.
-func TestBuildAliasResolvesThroughKindAliases(t *testing.T) {
+// TestBuildAliasIsNotEnumerated guards against double-importing. The provider
+// serves kion_aws_cloudformation_template and kion_cft from one implementation
+// over one endpoint, likewise kion_aws_iam_policy and kion_iam_policy. Giving the
+// alias its own enumerable row read the same objects twice: on a real install
+// that was 1,348 identical iam-policy ids and 296 cft ids, 1,644 duplicate import
+// blocks that would have put two Terraform resources in charge of each record.
+//
+// The row stays, so every tf_type the provider serves is still accounted for in
+// the report, but it is not readable and carries no list path.
+func TestBuildAliasIsNotEnumerated(t *testing.T) {
 	t.Parallel()
 	m := Build(
 		map[string]string{
@@ -167,18 +171,26 @@ func TestBuildAliasResolvesThroughKindAliases(t *testing.T) {
 		map[string]string{},
 		map[string]string{},
 		map[string]archetypeInfo{},
-		[]string{"kion_aws_cloudformation_template", "kion_aws_iam_policy"},
+		[]string{"kion_aws_cloudformation_template", "kion_aws_iam_policy", "kion_cft"},
 		map[string]bool{},
 	)
 
 	cft := byType(m, "kion_aws_cloudformation_template")
-	assert.Equal(t, "/v3/cft", cft.ListPath)
-	assert.True(t, cft.Readable)
-	assert.Equal(t, "aws_cloudformation_template", cft.Kind, "Kind stays the tf_type-derived kind, not the alias")
+	assert.Equal(t, "kion_cft", cft.AliasOf)
+	assert.False(t, cft.Readable)
+	assert.Empty(t, cft.ListPath, "an alias must not carry a list path, or it gets enumerated")
+	assert.Equal(t, "aws_cloudformation_template", cft.Kind, "Kind stays the tf_type-derived kind")
+	assert.Contains(t, cft.Reason, "kion_cft")
 
 	iamPolicy := byType(m, "kion_aws_iam_policy")
-	assert.Equal(t, "/v3/iam-policy", iamPolicy.ListPath)
-	assert.True(t, iamPolicy.Readable)
+	assert.Equal(t, "kion_iam_policy", iamPolicy.AliasOf)
+	assert.False(t, iamPolicy.Readable)
+
+	// The canonical type is unaffected and still enumerable.
+	canonical := byType(m, "kion_cft")
+	assert.Empty(t, canonical.AliasOf)
+	assert.True(t, canonical.Readable)
+	assert.Equal(t, "/v3/cft", canonical.ListPath)
 }
 
 // TestBuildTwoPlaceholderPathIsUnreadable guards the compound-path veto: a

@@ -97,26 +97,26 @@
     {
       "tf_type": "kion_aws_cloudformation_template",
       "kind": "aws_cloudformation_template",
-      "archetype": "entity",
-      "read_shape": "generic",
-      "readable": true,
-      "list_path": "/v3/cft",
-      "name_field": "name",
+      "archetype": "",
+      "read_shape": "",
+      "readable": false,
       "import_id": {
-        "format": "id"
-      }
+        "format": ""
+      },
+      "reason": "second tf_type for kion_cft; importing both would put two resources in charge of one record",
+      "alias_of": "kion_cft"
     },
     {
       "tf_type": "kion_aws_iam_policy",
       "kind": "aws_iam_policy",
-      "archetype": "entity",
-      "read_shape": "generic",
-      "readable": true,
-      "list_path": "/v3/iam-policy",
-      "name_field": "name",
+      "archetype": "",
+      "read_shape": "",
+      "readable": false,
       "import_id": {
-        "format": "id"
-      }
+        "format": ""
+      },
+      "reason": "second tf_type for kion_iam_policy; importing both would put two resources in charge of one record",
+      "alias_of": "kion_iam_policy"
     },
     {
       "tf_type": "kion_aws_resource_tag",

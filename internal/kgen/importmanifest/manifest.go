@@ -77,6 +77,13 @@ type Resource struct {
 	Parents  []Parent `json:"parents,omitempty"`
 	ImportID ImportID `json:"import_id"`
 	Reason   string   `json:"reason,omitempty"`
+	// AliasOf names the tf_type this one is a second name for. The provider
+	// serves kion_aws_iam_policy and kion_iam_policy from one implementation over
+	// one endpoint, so enumerating both reads the same objects twice and would
+	// put two Terraform resources in charge of one Kion record. The row stays so
+	// every tf_type the provider serves is still accounted for, but it is not
+	// enumerated.
+	AliasOf string `json:"alias_of,omitempty"`
 }
 
 // Manifest is the generated document. Resources are sorted by TFType so a

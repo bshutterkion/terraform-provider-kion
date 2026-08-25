@@ -127,6 +127,7 @@ locally is a new bug rather than a known, already-diagnosed gap.
 - 71 service packages in `internal/service/` (plus the `accounthelper` helper package)
 - Linting via golangci-lint v2 (`.golangci.yml`)
 - Generated `*_gen.go` files excluded from all linters
+- `kion-import` enumerates a live install into import blocks; see [docs/IMPORTING.md](docs/IMPORTING.md) and [docs/import-tooling-validation.md](docs/import-tooling-validation.md)
 - Everything is generated from `spec/openapi3.json`. Read [`codegen/README.md`](codegen/README.md) before changing anything under `codegen/`, and run `make codegen-check` after; `make ci` cannot, because it needs the spec
 - Service packages have targeted exclusions (revive, unused, staticcheck)
 - Lefthook pre-push hook runs `ci-fmt`/`ci-vet`/`ci-lint`/`ci-test` before allowing pushes (skipped on tag-only pushes, which match no files)

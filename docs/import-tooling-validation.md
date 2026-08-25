@@ -10,8 +10,8 @@ after changing an archetype, a read path, or one of those tables.
 | | |
 |---|---|
 | Install | a production-scale Kion installation |
-| Date | 2026-08-24 |
-| Manifest | `codegen/import_manifest.json` — 68 resources, 65 readable |
+| Date | 2026-08-25 (superseding 2026-08-24) |
+| Manifest | `codegen/import_manifest.json`, 68 resource types |
 | Command | `kion-import --url https://kion.example.com --probe` |
 
 Credentials come from `--api-key` or `KION_APIKEY`; none are recorded here.
@@ -19,9 +19,24 @@ Credentials come from `--api-key` or `KION_APIKEY`; none are recorded here.
 ## Result
 
 ```
-Coverage: 68 resource types, 47324 records
-  ok: 49, empty: 1, error: 15, unsupported: 3
+Coverage: 68 resource types, 53513 records
+  ok: 59, empty: 2, error: 3, unsupported: 4
 ```
+
+49,556 `import` blocks generated. **Zero records skipped for a missing id.**
+
+Largest reads: `kion_azure_policy` 19425, `kion_compliance_check` 16265,
+`kion_compliance_control` 6006, `kion_project_permission_mapping` 1443,
+`kion_gcp_iam_role` 1382, `kion_iam_policy` 1348,
+`kion_funding_source_permission_mapping` 1035, `kion_azure_role` 828,
+`kion_ou_permission_mapping` 726, `kion_compliance_family` 588.
+
+The 2026-08-24 run reported `ok: 49, error: 15`. Ten of those fifteen now read,
+including every resource previously listed under "flat list not served": `budget`
+9, `compliance_control` 6006, `idms_group_association` 18, `idms_open_id` 1,
+`ou_cloud_access_role` 13, `project_cloud_access_role` 62,
+`saml_group_association` 18, `scope_criteria` 9. `ou_note` returns an empty
+collection rather than 405.
 
 47,324 `import` blocks generated. **Zero records skipped for a missing id.**
 
@@ -91,39 +106,54 @@ object.
 
 ## Still failing on this install
 
-Fifteen resources error and three are structurally unreadable. **These are recorded,
-not silently omitted** — they appear in both the report and the generated file.
+Three error, four are structurally unreadable, two are legitimately empty. **All
+are recorded, not silently omitted** -- they appear in both the report and the
+generated file.
 
 ### Structurally unreadable (expected, by design)
 
 `aws_resource_tag`, `ou_cloud_access_role_exemption`,
-`project_cloud_access_role_exemption` — all declared `kind: no_read` in
+`project_cloud_access_role_exemption` are declared `kind: no_read` in
 `crud_archetypes.yaml`: no by-id GET and no listable collection.
+`custom_variable_override` needs two ids in its path, neither discoverable
+without the other.
 
-### Flat list not served (405) — needs a parent-scoped or per-id read
+### Errors
 
-`budget`, `compliance_control`, `dashboard`, `idms_group_association`,
-`idms_open_id`, `ou_cloud_access_role`, `ou_note`, `project_cloud_access_role`,
-`saml_group_association`, `scope_criteria`
+| resource | |
+|---|---|
+| `dashboard` | `GET /beta/dashboard` 405 |
+| `funding_source_note` | `GET /v2/funding-source-note` 405 |
+| `idms_open_id_access_rule` | all 10 parents 404: `GET /v4/idms/open-id/1/access-rule` |
 
-Probed alternates that also failed: `/v3/ou/1/cloud-access-role` → 404,
-`/v3/ou/1/note` → 404, `/v4/compliance/control` → 405. `/beta/scope/{id}/criteria`
-405s for all 9 scopes, so `ParentPaths`' entry for `scope_criteria` is wrong.
+`idms_open_id` itself now reads one record, so the access-rule read is reaching
+parents that exist but hold no access rules; the 404 is the API's answer for an
+IDMS with none, not a wrong path.
 
-Note `project_note` **does** read (5 records) from `/v3/project-note` while
-`ou_note` 405s on `/v3/ou-note` — the two are not symmetric.
+### Empty
 
-### Authored path wrong (404)
+`account_linkage` and `ou_note` return empty collections. `ou_note` 405'd on the
+previous run, so this is the endpoint behaving differently, not a code change.
 
-`custom_variable_override`, `funding_source_note`, `global_permission_mapping` —
-the `SpecialPaths` / `GlobalAssociationPaths` entries do not exist on this install.
 
-### Needs a parent id in the path (400)
+### 4. Alias types were imported twice
 
-`idms_open_id_access_rule`, `idms_open_id_group_association` — both return
-`"Failed to parse to a number"`, meaning the endpoint expects an id segment. They
-should become parent-scoped reads under `idms_open_id`, which itself 405s and must
-be resolved first.
+`kion_aws_iam_policy` and `kion_iam_policy` are two names for one implementation
+over one endpoint, as are `kion_aws_cloudformation_template` and `kion_cft`. The
+manifest gave each its own row with the same `list_path`, so both were
+enumerated: 1,348 identical ids under two type names, plus 296 more, for 1,644
+duplicate `import` blocks. Applying them would have put two Terraform resources in
+charge of each Kion record, each reverting the other's drift.
+
+The schema snapshot the manifest is built from lists every tf_type the provider
+serves, aliases included. `kindAliases` existed to map an alias back to its
+generator_config key for lookup, but nothing stopped the alias getting its own
+enumerable row.
+
+Fixed: an alias row carries `alias_of` and `readable: false`, so it is still
+accounted for in the report but never enumerated. `--list-types` shows the legacy
+name against the current one, which is what an operator migrating a configuration
+needs to see.
 
 ## What this run validated
 
@@ -144,5 +174,10 @@ export KION_APIKEY=…
 ./bin/kion-import --url https://kion.example.com --probe          # read outcomes only
 ./bin/kion-import --url https://kion.example.com --out imports.tf # generate
 ```
+
+Narrow a run with `--include` / `--exclude` / `--selection`; see
+[IMPORTING.md](IMPORTING.md). Importing all 53,513 records is rarely what an
+operator wants, since Kion's shipped policy and compliance catalogs are 35,690 of
+them.
 
 Add `--api-prefix ""` for a localhost app serving the API at the root.

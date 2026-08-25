@@ -1,0 +1,3 @@
+kind: ENHANCEMENTS
+body: "`kion-import` can now be told what to import. `--include` and `--exclude` take resource type names, `--selection` reads the same lists from a YAML file so a repeated run can keep them under version control with comments, and `--list-types` prints what this build supports without needing credentials. A name matching nothing is an error rather than a silent no-op. Importing everything is rarely what an operator wants: one production-scale install enumerates 53,513 records, of which 35,690 are Kion's shipped Azure policy and compliance-check catalogs."
+time: 2026-08-25T04:00:00Z
