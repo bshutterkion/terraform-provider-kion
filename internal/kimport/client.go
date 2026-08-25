@@ -317,6 +317,7 @@ func (c *Client) List(ctx context.Context, path string) ([]map[string]any, error
 	if err != nil {
 		return nil, fmt.Errorf("GET %s: %w", path, err)
 	}
+	records = dropBlanks(records)
 	if total < 0 {
 		return records, nil // not a paginated envelope
 	}
@@ -335,6 +336,7 @@ func (c *Client) List(ctx context.Context, path string) ([]map[string]any, error
 		if err != nil {
 			return records, fmt.Errorf("GET %s (page %d): %w", path, page, err)
 		}
+		batch = dropBlanks(batch)
 		// Empty batch is a legitimate stop signal
 		if len(batch) == 0 {
 			break
@@ -342,4 +344,63 @@ func (c *Client) List(ctx context.Context, path string) ([]map[string]any, error
 		records = append(records, batch...)
 	}
 	return records, nil
+}
+
+// dropBlanks removes zero-valued padding records.
+//
+// Some collections pad every page out to `total` rather than to the page size:
+// GET /v4/compliance/program/5/family?count=100 returns 110 items on page 1 --
+// the 100 real ones plus 10 all-zero fillers -- and 110 again on page 2, that
+// time 10 real and 100 fillers. Counting the padding as records made page 1
+// look complete (`len(records) < total` was already false), paging stopped, and
+// the 10 real records only reachable on page 2 were never fetched. They then
+// surfaced as "10 record(s) skipped: no id", which reads like junk being
+// discarded rather than real records going missing.
+//
+// A record whose every value is a zero value carries no id, so it could never
+// have produced an import block; dropping it loses nothing and lets the page
+// count reflect what was actually retrieved.
+func dropBlanks(records []map[string]any) []map[string]any {
+	out := records[:0]
+	for _, rec := range records {
+		if !isBlankRecord(rec) {
+			out = append(out, rec)
+		}
+	}
+	return out
+}
+
+// isBlankRecord reports whether every value in rec is a zero value.
+func isBlankRecord(rec map[string]any) bool {
+	if len(rec) == 0 {
+		return true
+	}
+	for _, v := range rec {
+		switch t := v.(type) {
+		case nil:
+		case string:
+			if t != "" {
+				return false
+			}
+		case bool:
+			if t {
+				return false
+			}
+		case float64:
+			if t != 0 {
+				return false
+			}
+		case []any:
+			if len(t) != 0 {
+				return false
+			}
+		case map[string]any:
+			if !isBlankRecord(t) {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
 }
