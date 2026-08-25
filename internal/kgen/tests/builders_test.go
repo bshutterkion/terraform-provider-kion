@@ -84,46 +84,6 @@ func TestBuildResourceTestFile_NoSDK_StubBranch(t *testing.T) {
 	}
 }
 
-func TestBuildSweepFile_WithAndWithoutSDK(t *testing.T) {
-	// kion_label has a delete method -> the SDK-flavored sweeper.
-	withSDK := buildSweepFile("label", "kion_label", "Label")
-	for _, want := range []string{
-		"package label",
-		`resource.AddTestSweepers("kion_label"`,
-		"func sweepLabel(_ string) error {",
-		"conns.SharedClient()",
-		"conn.Client.DeleteLabel()",
-	} {
-		if !strings.Contains(withSDK, want) {
-			t.Errorf("SDK sweep file missing %q", want)
-		}
-	}
-
-	// A type not in the registry -> the stub sweeper without conns import.
-	stub := buildSweepFile("thing", "kion_thing", "Thing")
-	if strings.Contains(stub, "conns.SharedClient()") {
-		t.Error("stub sweeper should not reference conns.SharedClient")
-	}
-	if !strings.Contains(stub, "func sweepThing(_ string) error {") {
-		t.Error("expected sweepThing stub function")
-	}
-}
-
-func TestBuildSweepEntrypoint(t *testing.T) {
-	out := buildSweepEntrypoint([]string{"label", "cloud_rule"})
-	for _, want := range []string{
-		"package sweep_test",
-		"func TestMain(m *testing.M) {",
-		"resource.TestMain(m)",
-		`_ "terraform-provider-kion/internal/service/label"`,
-		`_ "terraform-provider-kion/internal/service/cloud_rule"`,
-	} {
-		if !strings.Contains(out, want) {
-			t.Errorf("sweep entrypoint missing %q", want)
-		}
-	}
-}
-
 func TestBuildDataSourceTestFile_WithMatchingResource(t *testing.T) {
 	dsSchema := dsschema.Schema{
 		Attributes: map[string]dsschema.Attribute{

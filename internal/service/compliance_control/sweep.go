@@ -2,31 +2,9 @@
 
 package compliance_control
 
-import (
-	"fmt"
-
-	"terraform-provider-kion/internal/conns"
-
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-)
-
-func init() {
-	resource.AddTestSweepers("kion_compliance_control", &resource.Sweeper{
-		Name: "kion_compliance_control",
-		F:    sweepComplianceControl,
-	})
-}
-
-func sweepComplianceControl(_ string) error {
-	conn, err := conns.SharedClient()
-	if err != nil {
-		return fmt.Errorf("getting shared client: %w", err)
-	}
-	_ = conn
-
-	// TODO: list kion_compliance_control resources with the "test-acc" prefix and
-	// delete each via conn.Client.DeleteComplianceControl.
-	// A real sweeper needs both a resolvable collection endpoint and a delete op;
-	// this resource is missing at least one (see the kgen crud run output).
-	return nil
-}
+// No acceptance-test sweeper is registered for kion_compliance_control:
+// no resolvable collection endpoint: list op GetComplianceControlPaginatedIndex requires param ID (int64) that a whole-collection read cannot supply.
+//
+// A registered sweeper that returned nil would report success to `make sweep`
+// while orphaned test-acc records accumulated, so none is registered at all.
+// Clean these up by hand, or fix the generator input that blocks enumeration.

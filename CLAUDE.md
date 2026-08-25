@@ -99,9 +99,11 @@ and `terraform apply` do both through the provider's own `Read`/`ImportState`.
 `import_manifest.json` is generated — run `make import-manifest` after changing
 an archetype or a read path. `TestManifestIsCurrent` fails if you forget.
 
-The collection paths in `internal/kgen/importmanifest/paths.go` are **authored,
-not derived** (codegen records by-id reads, which parent-scoped and association
-resources lack). Verify them with `kion-import --probe` against a live install.
+The collection paths a parent-scoped or association resource reads through are
+**authored, not derived** (codegen records by-id reads, which those shapes lack).
+They live in `codegen/config_overrides.yaml`, merged over the derivation into
+`generator_config.yaml`. Verify them with `kion-import --probe` against a live
+install.
 
 `codegen/references.yaml` is the other **authored, not derived** input: which
 attributes are foreign keys and what each points at. `kion-import rewrite-refs`
@@ -151,4 +153,4 @@ wrappers, and `no_read` resources that import as empty shells).
 
 GitHub Actions only; there is no `.gitlab-ci.yml`. `.github/workflows/ci.yml` runs on pull requests and pushes to `main`: `fmt`, `vet`, `lint`, `test-unit` (race detector + coverage), `acctest-config` (test HCL matches provider schema), `docs` (docs/examples drift gate), `modules` (drift + `terraform validate`/`test` over every module), `internal-refs`, `secrets`, `codeql`, and a `ci` aggregator job for branch protection. `.github/workflows/release.yml` runs goreleaser on a `v*` tag; the tag is the version — nothing in the repo records it. No kion-sdk-go checkout is needed anywhere: the `replace` in `go.mod` is versioned, so the module proxy resolves it (do not reintroduce a clone step in workflows — it would silently override the pin). Local `make ci` covers every job except `codeql`. See `.github/workflows/README.md`.
 
-Acceptance tests: 4 parallel workers, 120-minute timeout. Sweepers (`make sweep`) clean up orphaned `test-acc`-prefixed resources.
+Acceptance tests: 4 parallel workers, 120-minute timeout. Sweepers (`make sweep`) clean up orphaned `test-acc`-prefixed resources for the 36 resource types that have one; 14 more cannot be enumerated or deleted through the API and deliberately register nothing, each `sweep.go` saying why (`make crud-force` prints the set). `docs/TESTING.md` lists them. A sweeper only runs if `internal/sweep/sweep_test.go` blank-imports its package; `TestSweeperRegistration` guards both that list and against a sweeper body that never reaches the API.
