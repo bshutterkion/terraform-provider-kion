@@ -322,7 +322,10 @@ func nestedCollectionResult(ctx context.Context, l Lister, r importmanifest.Reso
 		// resource's kind, not the parent's, so pass "" here and let the
 		// structural fallback find the parent's own id-bearing shape.
 		fields := unwrapTypedRecord(parent, "")
-		arr, _ := fields[r.Collection].([]any)
+		arr, ok := fields[r.Collection].([]any)
+		if !ok {
+			continue
+		}
 		for _, item := range arr {
 			child, ok := item.(map[string]any)
 			if !ok {
