@@ -59,9 +59,19 @@ func Enumerate(ctx context.Context, l Lister, r importmanifest.Resource) Result 
 			res.Status, res.Reason = "error", err.Error()
 			return res
 		}
-		records, skippedNoID, skippedNoKey := toRecords(raw, r, "")
+		// A flat collection can mix kinds too, not just a parent-scoped one:
+		// /v4/billing-source returns every payer type, and only the records
+		// carrying the discriminator are this resource. Filtering here rather
+		// than in toRecords keeps "wrong kind" distinct from "no id" -- one is
+		// a record that belongs to a different resource, the other is a record
+		// this resource cannot address.
+		kept, wrongKind := filterByKind(raw, r)
+		records, skippedNoID, skippedNoKey := toRecords(kept, r, "")
 		res.Records = records
-		res.Reason = skipReason(skippedNoID, skippedNoKey)
+		res.Reason = joinReasons(
+			skipReason(skippedNoID, skippedNoKey),
+			wrongKindReason(wrongKind, r.RequireValidField),
+		)
 	case importmanifest.ShapeParentList, importmanifest.ShapeAssociation:
 		if len(r.Parents) > 0 {
 			return multiParentScopedResult(ctx, l, r)
@@ -460,6 +470,12 @@ func joinReasons(lead, rest string) string {
 	if rest == "" {
 		return lead
 	}
+	// An empty lead is now reachable: a flat collection may drop records for
+	// being the wrong kind while skipping none for a missing id, and rendering
+	// that as "; 11 record(s)..." reads like a truncated sentence.
+	if lead == "" {
+		return rest
+	}
 	return lead + "; " + rest
 }
 
@@ -539,6 +555,35 @@ func toRecords(raw []map[string]any, r importmanifest.Resource, parentID string)
 // skipReason renders toRecords' two skip counts as a Reason fragment,
 // distinguishing a record with no id from a FormatParentSlashKey record
 // missing its key field -- see toRecords' doc comment.
+// filterByKind drops records of a neighboring kind from a flat collection,
+// using the same discriminator readParentSet applies to a parent-scoped one.
+// A resource without RequireValidField keeps every record, so this is a no-op
+// for the collections that hold exactly one kind.
+func filterByKind(raw []map[string]any, r importmanifest.Resource) (kept []map[string]any, wrongKind int) {
+	if r.RequireValidField == "" {
+		return raw, 0
+	}
+	kept = make([]map[string]any, 0, len(raw))
+	for _, rec := range raw {
+		if !isValidWrapper(rec[r.RequireValidField]) {
+			wrongKind++
+			continue
+		}
+		kept = append(kept, rec)
+	}
+	return kept, wrongKind
+}
+
+// wrongKindReason words a flat-collection kind drop the same way
+// parentSetOutcome words a parent-scoped one, so the two paths read alike in
+// the report.
+func wrongKindReason(wrongKind int, field string) string {
+	if wrongKind == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d record(s) in the collection with no %q set", wrongKind, field)
+}
+
 func skipReason(skippedNoID, skippedNoKey int) string {
 	var parts []string
 	if skippedNoID > 0 {

@@ -109,10 +109,20 @@ var parentOverrides = map[string]Parent{
 // visible at the entity, most of them merely inherited; "override" is non-null
 // on exactly the ones actually set there. Measured on a demo install: 151
 // entities x 12 variables, 21 non-null.
+// kion_billing_source is the CUSTOM billing source -- it creates through
+// /v3/billing-source/custom and reads /v1/payer/{id}, unwrapping
+// custom_billing_source. Its list, /v4/billing-source, is the polymorphic
+// collection of every payer type, so without a discriminator it claims records
+// it cannot represent: the by-id read then finds no custom_billing_source key,
+// flattens everything to zero, and the resource refreshes as id="0". Every
+// payer_id pointing at one of those resolves to 0, which on one install planned
+// 6,611 accounts to be unlinked from their billing source. Measured across five
+// installs, the count reading a real id equals the custom count exactly.
 var requireValidOverrides = map[string]string{
 	"kion_ou_cloud_access_role_exemption":      "ou_cloud_access_role_id",
 	"kion_project_cloud_access_role_exemption": "ou_cloud_access_role_id",
 	"kion_custom_variable_override":            "override",
+	"kion_billing_source":                      "custom_billing_source",
 }
 
 // multiParentOverrides corrects resources enumerable under more than one
