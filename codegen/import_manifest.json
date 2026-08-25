@@ -492,7 +492,8 @@
       "list_path": "/v3/global/permission-mapping",
       "name_field": "name",
       "import_id": {
-        "format": "id"
+        "format": "id",
+        "key_field": "app_role_id"
       }
     },
     {

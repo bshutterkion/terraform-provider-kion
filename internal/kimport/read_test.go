@@ -552,6 +552,72 @@ func TestToRecordsSiblingWithoutIDDoesNotBlockDetection(t *testing.T) {
 	assert.Equal(t, "T", records[0].Name)
 }
 
+// --- Fix 2: a parentless association's import id is its key field. ---
+
+// TestToRecordsParentlessAssociationUsesKeyFieldAsID guards the real shape
+// /v3/global/permission-mapping returns: {"app_role_id":1,"user_ids":[1],
+// "user_groups_ids":[1]} -- no "id" at all. association.gtpl's ImportState
+// {{else}} branch (no parent) parses req.ID as a plain integer and assigns
+// it straight to the key field, so for a parentless association the import
+// id IS the key field's value.
+func TestToRecordsParentlessAssociationUsesKeyFieldAsID(t *testing.T) {
+	t.Parallel()
+	raw := rec("app_role_id", float64(1), "user_ids", []any{float64(1)}, "user_groups_ids", []any{float64(1)})
+	records, skipped, _ := toRecords([]map[string]any{raw}, importmanifest.Resource{
+		TFType: "kion_global_permission_mapping", ReadShape: importmanifest.ShapeAssociation,
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID, KeyField: "app_role_id"},
+	}, "")
+	require.Equal(t, 0, skipped)
+	require.Len(t, records, 1)
+	assert.Equal(t, "1", records[0].ID)
+}
+
+// TestToRecordsParentlessAssociationMissingBothIDAndKeyFieldIsSkipped guards
+// the still-a-real-gap case: neither "id" nor the key field is present, so
+// the record is skipped and counted, not silently dropped.
+func TestToRecordsParentlessAssociationMissingBothIDAndKeyFieldIsSkipped(t *testing.T) {
+	t.Parallel()
+	raw := rec("user_ids", []any{float64(1)})
+	records, skipped, _ := toRecords([]map[string]any{raw}, importmanifest.Resource{
+		TFType: "kion_global_permission_mapping", ReadShape: importmanifest.ShapeAssociation,
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID, KeyField: "app_role_id"},
+	}, "")
+	assert.Equal(t, 1, skipped)
+	assert.Empty(t, records)
+}
+
+// TestToRecordsNormalRecordWithIDUnaffectedByKeyFieldFallback guards that a
+// normal record with a top-level "id" is unaffected even when the manifest
+// happens to carry a KeyField (FormatID resources ordinarily leave KeyField
+// empty, but this proves "id" always wins when present).
+func TestToRecordsNormalRecordWithIDUnaffectedByKeyFieldFallback(t *testing.T) {
+	t.Parallel()
+	raw := rec("id", float64(42), "app_role_id", float64(1))
+	records, skipped, _ := toRecords([]map[string]any{raw}, importmanifest.Resource{
+		TFType: "kion_x", ReadShape: importmanifest.ShapeGeneric,
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID, KeyField: "app_role_id"},
+	}, "")
+	require.Equal(t, 0, skipped)
+	require.Len(t, records, 1)
+	assert.Equal(t, "42", records[0].ID)
+}
+
+// TestToRecordsShapeSpecialSingletonFallbackStillWinsOverKeyField guards
+// ordering: the KeyField fallback must not preempt the ShapeSpecial
+// singleton fallback (deriving the id from the resource's kind) when a
+// singleton record has neither "id" nor a set KeyField.
+func TestToRecordsShapeSpecialSingletonFallbackStillWinsOverKeyField(t *testing.T) {
+	t.Parallel()
+	raw := rec("smtp_host", "mail")
+	records, skipped, _ := toRecords([]map[string]any{raw}, importmanifest.Resource{
+		TFType: "kion_app_config", ReadShape: importmanifest.ShapeSpecial,
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	}, "")
+	require.Equal(t, 0, skipped)
+	require.Len(t, records, 1)
+	assert.Equal(t, "app_config", records[0].ID)
+}
+
 // --- I1: parentScopedResult must run each parent through unwrapTypedRecord
 // before reading its id. If a parent list ever uses the per-type wrapper
 // shape (the exact shape unwrapTypedRecord exists for), extracting

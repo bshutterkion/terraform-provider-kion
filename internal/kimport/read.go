@@ -213,6 +213,15 @@ func toRecords(raw []map[string]any, r importmanifest.Resource, parentID string)
 			id = parentID + "/" + key
 		default:
 			id = stringify(fields["id"])
+			if id == "" && r.ImportID.KeyField != "" {
+				// association.gtpl's ImportState {{else}} branch (no parent)
+				// parses req.ID as a plain integer and assigns it straight to
+				// the key field -- so for a parentless association (e.g.
+				// kion_global_permission_mapping, shaped
+				// {"app_role_id":1,"user_ids":[1],...} with no "id" at all)
+				// the import id IS the key field's value.
+				id = stringify(fields[r.ImportID.KeyField])
+			}
 			if id == "" {
 				if r.ReadShape != importmanifest.ShapeSpecial {
 					skippedNoID++

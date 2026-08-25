@@ -203,11 +203,16 @@ func TestBuildTwoPlaceholderPathIsUnreadable(t *testing.T) {
 // declared, e.g. kion_global_permission_mapping) parses req.ID as a plain
 // integer rather than splitting on "/". If Build claimed FormatParentSlashKey
 // here, the downstream enumerator would emit zero import blocks, silently.
+//
+// That same else-branch assigns the parsed integer directly to the KEY
+// field, not a synthesized id -- so for a parentless association the import
+// id IS the key field's value, and KeyField must still be populated (Format
+// stays FormatID) so the enumerator knows which raw field to read.
 func TestBuildParentlessAssociationUsesPlainID(t *testing.T) {
 	t.Parallel()
 	r := byType(fixture(), "kion_global_permission_mapping")
 	assert.Equal(t, FormatID, r.ImportID.Format)
-	assert.Empty(t, r.ImportID.KeyField)
+	assert.Equal(t, "app_role_id", r.ImportID.KeyField)
 	assert.True(t, r.Readable)
 	assert.Equal(t, "/v3/global/permission-mapping", r.ListPath)
 	assert.Nil(t, r.Parent)
@@ -239,7 +244,10 @@ func TestBuildKeyFieldComesFromArchetypeData(t *testing.T) {
 // comes from crud_archetypes.yaml's declared parent_field, mirroring how
 // internal/kgen/crud/assoc.go derives association.gtpl's HasParent from
 // arch.ParentField -- never from whether the chosen read path happens to
-// carry a parent-scoping placeholder.
+// carry a parent-scoping placeholder. KeyField, by contrast, is populated
+// for an association either way -- with a parent it is half of
+// "<parent>/<key>"; without one, per association.gtpl's {{else}} branch, it
+// IS the whole import id.
 func TestBuildHasParentComesFromDeclaredParentField(t *testing.T) {
 	t.Parallel()
 	readPaths := map[string]string{"ou_permission_mapping": "/v3/ou-permission-mapping/{id}"}
@@ -257,7 +265,7 @@ func TestBuildHasParentComesFromDeclaredParentField(t *testing.T) {
 	}, tfTypes)
 	r2 := byType(withoutParentField, "kion_ou_permission_mapping")
 	assert.Equal(t, FormatID, r2.ImportID.Format)
-	assert.Empty(t, r2.ImportID.KeyField)
+	assert.Equal(t, "app_role_id", r2.ImportID.KeyField)
 }
 
 // TestBuildParentScopedPathDerivesParentIDField guards the placeholder-based

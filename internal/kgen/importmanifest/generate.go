@@ -149,9 +149,13 @@ func Build(readPaths, dataSourcePaths map[string]string, archetypes map[string]a
 		// association.gtpl's ImportState only splits req.ID on "/" in its
 		// {{if .HasParent}} branch; the {{else}} branch (parentless
 		// associations, e.g. kion_global_permission_mapping) parses req.ID as
-		// a plain id. Only claim the key field when there actually is a
-		// parent to split off.
-		if r.ReadShape == ShapeAssociation && hasParent {
+		// a plain integer and assigns it directly to the KEY field (not a
+		// synthesized id) -- so for a parentless association the import id
+		// IS the key field's value, and the manifest must still carry
+		// KeyField so the enumerator knows which raw field to read it from.
+		// Format stays FormatID either way; only whether KeyField is set
+		// depends on the association having a key field at all.
+		if r.ReadShape == ShapeAssociation {
 			r.ImportID.KeyField = info.KeyField
 		}
 
