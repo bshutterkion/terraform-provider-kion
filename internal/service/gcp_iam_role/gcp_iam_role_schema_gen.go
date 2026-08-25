@@ -76,7 +76,8 @@ func GcpIamRoleResourceSchema(ctx context.Context) schema.Schema {
 			},
 			"role_permissions": schema.SetAttribute{
 				ElementType:         types.StringType,
-				Required:            true,
+				Optional:            true,
+				Computed:            true,
 				Description:         "List of GCP Permissions to assign the role",
 				MarkdownDescription: "List of GCP Permissions to assign the role",
 			},

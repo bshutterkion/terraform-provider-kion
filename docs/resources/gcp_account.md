@@ -15,16 +15,16 @@ Creates or imports a Google Cloud Project and adds it to a Kion project or the K
 ```terraform
 resource "kion_gcp_account" "example" {
   # Required
-  account_name            = "example"
-  google_cloud_project_id = "example"
-  payer_id                = 1
-  project_id              = 1
-  start_datecode          = "example"
+  account_name   = "example"
+  payer_id       = 1
+  project_id     = 1
+  start_datecode = "example"
 
   # Optional
-  # account_alias        = "example"
-  # account_type_id      = 1
-  # skip_access_checking = false
+  # account_alias           = "example"
+  # account_type_id         = 1
+  # google_cloud_project_id = "example"
+  # skip_access_checking    = false
 }
 ```
 
@@ -34,8 +34,6 @@ resource "kion_gcp_account" "example" {
 ### Required
 
 - `account_name` (String) Name of the account in the application.
-- `google_cloud_project_id` (String) Google Cloud Project ID.
-Can be found in the project id field here: https://console.cloud.google.com/iam-admin/settings
 - `payer_id` (Number) ID of the payer (aka Google Cloud Billing Account)
 - `project_id` (Number) ID of the project where the account is attached.
 - `start_datecode` (String) Date when the GCP org will begin submitting payments against a funding source (YYYY-MM)
@@ -45,6 +43,8 @@ Can be found in the project id field here: https://console.cloud.google.com/iam-
 - `account_alias` (String) Alias of the account in the application.
 - `account_type_id` (Number) The AccountTypeID is the corresponding account's type.
 Will default to 15 for GCP if not given.
+- `google_cloud_project_id` (String) Google Cloud Project ID.
+Can be found in the project id field here: https://console.cloud.google.com/iam-admin/settings
 - `skip_access_checking` (Boolean) When true, the application does not perform periodic access validation. Default is false.
 
 ### Read-Only

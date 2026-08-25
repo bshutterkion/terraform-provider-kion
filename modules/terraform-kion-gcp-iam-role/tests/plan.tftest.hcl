@@ -10,7 +10,6 @@ run "plan" {
   command = plan
 
   variables {
-    name             = "example"
-    role_permissions = []
+    name = "example"
   }
 }

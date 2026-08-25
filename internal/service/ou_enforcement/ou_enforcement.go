@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -256,6 +257,21 @@ func (r *ou_enforcementResource) Delete(ctx context.Context, req resource.Delete
 	resp.Diagnostics.Append(diags...)
 }
 
+// ImportState takes "ou_id/id" because Read lists the children under
+// their parent: with only the child id, ou_id stays zero and the read
+// 404s. Importing a real install failed this way 187 times before the parent was
+// part of the import id.
 func (r *ou_enforcementResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+	parts := strings.SplitN(req.ID, "/", 2)
+	if len(parts) != 2 {
+		resp.Diagnostics.AddError("Invalid import ID", `expected "ou_id/id"`)
+		return
+	}
+	parentID, perr := strconv.ParseInt(parts[0], 10, 64)
+	if perr != nil {
+		resp.Diagnostics.AddError("Invalid import ID", `expected "ou_id/id" with an integer parent id`)
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("ou_id"), parentID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[1])...)
 }

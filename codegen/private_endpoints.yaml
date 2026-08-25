@@ -95,7 +95,7 @@ resources:
       scalars:
         - { tf: id,                 from: "custom_billing_source.id",                 kind: id }
         - { tf: name,               from: "custom_billing_source.name",               kind: string }
-        - { tf: billing_start_date, from: "custom_billing_source.billing_start_date", kind: int_string }
+        - { tf: billing_start_date, from: "custom_billing_source.billing_start_date", kind: datecode }
       objects:
         - tf: aws_connection
           value_type: AwsConnectionValue
@@ -139,7 +139,7 @@ resources:
       scalars:
         - { tf: id,                 from: "oci_billing_source.id",                 kind: id }
         - { tf: name,               from: "oci_billing_source.name",               kind: string }
-        - { tf: billing_start_date, from: "oci_billing_source.billing_start_date", kind: int_string }
+        - { tf: billing_start_date, from: "oci_billing_source.billing_start_date", kind: datecode }
         - { tf: tenancy_ocid,       from: "oci_billing_source.tenancy_ocid",       kind: string }
         - { tf: user_ocid,          from: "oci_billing_source.user_ocid",          kind: string }
         - { tf: region,             from: "oci_billing_source.region",             kind: string }
@@ -162,7 +162,7 @@ resources:
         - { tf: id,                 from: "aws_payer.id",                           kind: id }
         - { tf: name,               from: "aws_payer.name",                         kind: string }
         - { tf: aws_account_number, from: "aws_payer.account_number",               kind: string }
-        - { tf: billing_start_date, from: "aws_payer.billing_start_date",           kind: int_string }
+        - { tf: billing_start_date, from: "aws_payer.billing_start_date",           kind: datecode }
         - { tf: bucket_access_role, from: "aws_payer.bucket_access_role",           kind: string }
         - { tf: billing_region,     from: "aws_payer.billing_region",               kind: string }
         - { tf: cur_bucket,         from: "aws_payer.billing_report_bucket",        kind: string }

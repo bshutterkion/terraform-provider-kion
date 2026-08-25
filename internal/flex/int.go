@@ -2,8 +2,10 @@
 package flex
 
 import (
+	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	"strconv"
 )
 
 // --- Expand: TF → SDK ---
@@ -143,4 +145,26 @@ func OptNilInt64ToFramework(v generated.OptNilInt64) types.Int64 {
 		return types.Int64Null()
 	}
 	return types.Int64Value(val)
+}
+
+// DatecodeToFramework renders a Kion YYYYMM datecode as the YYYY-MM string the
+// public schema validates.
+//
+// The private reads these resources use return billing_start_date as the number
+// 202406, while the public /v4 endpoint the spec is generated from returns
+// "2024-06". Formatting the number as a decimal string produced "202406", which
+// the schema's own ^\d{4}-(?:0[1-9]|1[0-2])$ validator then rejected, so
+// kion_billing_source could never be imported. 0 means unset and maps to null
+// rather than "0".
+func DatecodeToFramework(v int64) types.String {
+	if v == 0 {
+		return types.StringNull()
+	}
+	year, month := v/100, v%100
+	if year < 1000 || month < 1 || month > 12 {
+		// Not a datecode after all; hand it back unchanged rather than inventing
+		// a shape, so the validator reports the real value.
+		return types.StringValue(strconv.FormatInt(v, 10))
+	}
+	return types.StringValue(fmt.Sprintf("%04d-%02d", year, month))
 }

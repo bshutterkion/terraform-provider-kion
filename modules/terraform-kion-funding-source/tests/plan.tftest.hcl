@@ -10,10 +10,9 @@ run "plan" {
   command = plan
 
   variables {
-    amount               = 1
-    end_datecode         = "2026-01"
-    name                 = "example"
-    permission_scheme_id = 1
-    start_datecode       = "2026-01"
+    amount         = 1
+    end_datecode   = "2026-01"
+    name           = "example"
+    start_datecode = "2026-01"
   }
 }

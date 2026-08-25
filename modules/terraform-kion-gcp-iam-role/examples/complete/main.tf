@@ -3,6 +3,5 @@
 module "this" {
   source = "../.."
 
-  name             = "example"
-  role_permissions = []
+  name = "example"
 }

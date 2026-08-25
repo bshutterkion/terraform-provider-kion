@@ -67,6 +67,7 @@ variable "owner_user_ids" {
 variable "permission_scheme_id" {
   description = "ID of the permission scheme applied to the project."
   type        = number
+  default     = null
 }
 
 variable "project_funding" {

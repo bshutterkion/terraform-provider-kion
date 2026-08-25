@@ -1,8 +1,7 @@
 resource "kion_project" "example" {
   # Required
-  name                 = "example"
-  ou_id                = 1
-  permission_scheme_id = 1
+  name  = "example"
+  ou_id = 1
 
   # Optional
   # archived             = false
@@ -29,6 +28,7 @@ resource "kion_project" "example" {
   # }
   # owner_user_group_ids = []
   # owner_user_ids       = []
+  # permission_scheme_id = 1
   # project_funding = {
   #   amount            = 0.0
   #   end_datecode      = "example"

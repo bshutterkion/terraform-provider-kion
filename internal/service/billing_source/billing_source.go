@@ -98,7 +98,7 @@ func (r *billing_sourceResource) flatten(ctx context.Context, w billing_sourceWi
 	var diags diag.Diagnostics
 	m.Id = types.StringValue(strconv.FormatUint(w.Data.CustomBillingSource.Id, 10))
 	m.Name = types.StringValue(w.Data.CustomBillingSource.Name)
-	m.BillingStartDate = types.StringValue(strconv.FormatInt(w.Data.CustomBillingSource.BillingStartDate, 10))
+	m.BillingStartDate = flex.DatecodeToFramework(w.Data.CustomBillingSource.BillingStartDate)
 	AwsConnectionVal, AwsConnectionValDiags := NewAwsConnectionValue(AwsConnectionValue{}.AttributeTypes(ctx), map[string]attr.Value{
 		"account_number":     types.StringValue(w.Data.CustomBillingSource.AwsConnection.AccountNumber),
 		"bucket_access_role": types.StringValue(w.Data.CustomBillingSource.AwsConnection.RoleName),

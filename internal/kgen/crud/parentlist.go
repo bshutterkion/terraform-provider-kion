@@ -19,11 +19,11 @@ const parentListKind = "parent_list"
 // parentListData is the template payload for the parent_list archetype. It reuses
 // the entity binding types (fieldBind/sliceBind/respBind/…).
 type parentListData struct {
-	Pkg, Pascal, Model                    string
-	ResConst, ResName, TypeName, SDKAlias string
-	IDGo                                  string
-	Gated                                 bool
-	ParentIDGo, ParentParam, ChildParam   string
+	Pkg, Pascal, Model                              string
+	ResConst, ResName, TypeName, SDKAlias           string
+	IDGo                                            string
+	Gated                                           bool
+	ParentIDGo, ParentIDTF, ParentParam, ChildParam string
 	// ParentCast/ChildCast are non-empty (e.g. "uint64") when the SDK params
 	// field is not int64, so the int64 model/record ids must be converted.
 	ParentCast, ChildCast string
@@ -96,7 +96,7 @@ func (g *generator) resolveParentList(name string, ops resOps, idx sdkIndex, arc
 			d.IDGo = mf.GoName
 		}
 		if mf.TFSDK == arch.ParentIDField {
-			d.ParentIDGo = mf.GoName
+			d.ParentIDGo, d.ParentIDTF = mf.GoName, mf.TFSDK
 		}
 	}
 	if d.IDGo == "" || d.ParentIDGo == "" {

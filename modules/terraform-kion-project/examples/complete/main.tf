@@ -3,7 +3,6 @@
 module "this" {
   source = "../.."
 
-  name                 = "example"
-  ou_id                = 1
-  permission_scheme_id = 1
+  name  = "example"
+  ou_id = 1
 }
