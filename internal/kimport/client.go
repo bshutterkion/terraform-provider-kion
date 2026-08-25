@@ -30,6 +30,23 @@ type Lister interface {
 	List(ctx context.Context, path string) ([]map[string]any, error)
 }
 
+// StatusError is a non-2xx response. Callers need the code, not just the text:
+// a 404 from a child collection means the parent has none of that resource,
+// which is an expected answer, while a 502 is a real failure.
+type StatusError struct {
+	Path   string
+	Status int
+	Body   string // truncated snippet, may be empty
+}
+
+func (e *StatusError) Error() string {
+	line := fmt.Sprintf("%d %s", e.Status, http.StatusText(e.Status))
+	if e.Body != "" {
+		return fmt.Sprintf("GET %s: %s: %s", e.Path, line, e.Body)
+	}
+	return fmt.Sprintf("GET %s: %s", e.Path, line)
+}
+
 // Client is a minimal raw-HTTP Kion client.
 type Client struct {
 	baseURL string
@@ -98,10 +115,7 @@ func (c *Client) get(ctx context.Context, path string, page int) (json.RawMessag
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		bodySnippet := truncateBody(resp)
-		if bodySnippet != "" {
-			return nil, fmt.Errorf("GET %s: %s: %s", path, resp.Status, bodySnippet)
-		}
-		return nil, fmt.Errorf("GET %s: %s", path, resp.Status)
+		return nil, &StatusError{Path: path, Status: resp.StatusCode, Body: bodySnippet}
 	}
 	buf, err := io.ReadAll(resp.Body)
 	if err != nil {

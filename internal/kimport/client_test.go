@@ -3,6 +3,7 @@ package kimport
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -97,6 +98,65 @@ func TestListErrorsOnNon2xx(t *testing.T) {
 	_, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v4/compliance/family")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "405")
+}
+
+// --- StatusError: a non-2xx response must be recoverable by errors.As, with
+// the same message text the old fmt.Errorf calls produced. ---
+
+func TestListErrorsOnNon2xxIsStatusError(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, `{"status":404,"message":"IDMS not found"}`)
+	}))
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v4/idms/open-id/1/access-rule")
+	require.Error(t, err)
+
+	var statusErr *StatusError
+	require.True(t, errors.As(err, &statusErr), "expected a *StatusError, got %T: %v", err, err)
+	assert.Equal(t, http.StatusNotFound, statusErr.Status)
+	assert.Equal(t,
+		`GET /v4/idms/open-id/1/access-rule: 404 Not Found: {"status":404,"message":"IDMS not found"}`,
+		err.Error(),
+	)
+}
+
+func TestListErrorsOnNon2xxNoBodyStillMatchesOldMessageShape(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}))
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v4/compliance/family")
+	require.Error(t, err)
+
+	var statusErr *StatusError
+	require.True(t, errors.As(err, &statusErr))
+	assert.Equal(t, http.StatusMethodNotAllowed, statusErr.Status)
+	assert.Equal(t, "GET /v4/compliance/family: 405 Method Not Allowed", err.Error())
+}
+
+func TestListPage2TransportErrorIsStatusErrorThroughPagingWrap(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("page") == "1" {
+			fmt.Fprint(w, `{"items":[{"id":1},{"id":2}],"total":5}`)
+			return
+		}
+		w.WriteHeader(http.StatusBadGateway)
+	}))
+	defer srv.Close()
+
+	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/beta/scope")
+	require.Error(t, err)
+	assert.Len(t, got, 2) // page 1 records are returned despite page 2 error
+
+	var statusErr *StatusError
+	require.True(t, errors.As(err, &statusErr), "expected a *StatusError through the paging wrap, got %T: %v", err, err)
+	assert.Equal(t, http.StatusBadGateway, statusErr.Status)
 }
 
 func TestListPage2TransportError(t *testing.T) {
