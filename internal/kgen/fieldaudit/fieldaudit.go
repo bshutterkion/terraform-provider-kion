@@ -94,7 +94,7 @@ func Run(repoRoot, sdkDir string) ([]Finding, error) {
 			continue // id-only or bespoke data source: no filter surface to audit
 		}
 
-		elem, rowKeys, reached, err := parseToRow(dsPath)
+		elem, rowKeys, rowRead, reached, err := parseToRow(dsPath)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", pkg, err)
 		}
@@ -131,7 +131,9 @@ func Run(repoRoot, sdkDir string) ([]Finding, error) {
 
 		seen := map[string]bool{}
 		for _, f := range candidates {
-			if seen[f.JSON] || exposed[f.JSON] {
+			// rowRead catches a field published under a different name than its
+			// JSON one, which comparing names alone reports as a false gap.
+			if seen[f.JSON] || exposed[f.JSON] || rowRead[f.GoName] {
 				continue
 			}
 			seen[f.JSON] = true
@@ -197,16 +199,24 @@ func parseSDKStructs(path string) (map[string][]sdkField, error) {
 	return out, nil
 }
 
-// parseToRow pulls the element type, the map keys <pkg>ToRow emits, and the
-// element fields its body reaches through, out of a generated data source.
-func parseToRow(path string) (elem string, keys map[string]bool, reached map[string]bool, err error) {
+// parseToRow pulls the element type, the map keys <pkg>ToRow emits, the SDK
+// fields those keys read, and the element fields its body reaches through, out
+// of a generated data source.
+//
+// read is what makes a renamed exposure count as exposed. A data source is free
+// to publish a field under a different name -- the bespoke cloud_account one
+// emits AccountEmail as `email` -- and comparing JSON names alone reports that
+// as unexposed when it is merely spelled differently. Recording the SDK field
+// each emitted key actually reads answers the real question: does anything in
+// this row come from that field?
+func parseToRow(path string) (elem string, keys, read, reached map[string]bool, err error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, path, nil, 0)
 	if err != nil {
-		return "", nil, nil, err
+		return "", nil, nil, nil, err
 	}
 
-	keys, reached = map[string]bool{}, map[string]bool{}
+	keys, read, reached = map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, decl := range f.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
 		if !ok || !strings.HasSuffix(fn.Name.Name, "ToRow") || fn.Recv != nil {
@@ -220,6 +230,10 @@ func parseToRow(path string) (elem string, keys map[string]bool, reached map[str
 			continue
 		}
 		elem = sel.Sel.Name
+		param := ""
+		if names := fn.Type.Params.List[0].Names; len(names) > 0 {
+			param = names[0].Name
+		}
 
 		ast.Inspect(fn.Body, func(n ast.Node) bool {
 			switch v := n.(type) {
@@ -229,17 +243,27 @@ func parseToRow(path string) (elem string, keys map[string]bool, reached map[str
 						keys[s] = true
 					}
 				}
-			case *ast.IndexExpr:
-				// row["x"] = ...
-				if lit, ok := v.Index.(*ast.BasicLit); ok && lit.Kind == token.STRING {
-					if s, err := strconv.Unquote(lit.Value); err == nil {
-						keys[s] = true
+				collectFields(v.Value, param, read)
+			case *ast.AssignStmt:
+				// row["x"] = <expr>
+				for _, lhs := range v.Lhs {
+					idx, ok := lhs.(*ast.IndexExpr)
+					if !ok {
+						continue
+					}
+					if lit, ok := idx.Index.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+						if s, err := strconv.Unquote(lit.Value); err == nil {
+							keys[s] = true
+						}
+					}
+					for _, rhs := range v.Rhs {
+						collectFields(rhs, param, read)
 					}
 				}
 			case *ast.SelectorExpr:
-				// lbl.<Field>... -- records which nested field is reached into
+				// <param>.<Field>... -- records which nested field is reached into
 				if inner, ok := v.X.(*ast.SelectorExpr); ok {
-					if id, ok := inner.X.(*ast.Ident); ok && id.Name == "lbl" {
+					if id, ok := inner.X.(*ast.Ident); ok && param != "" && id.Name == param {
 						reached[inner.Sel.Name] = true
 					}
 				}
@@ -248,7 +272,47 @@ func parseToRow(path string) (elem string, keys map[string]bool, reached map[str
 		})
 		break
 	}
-	return elem, keys, reached, nil
+	return elem, keys, read, reached, nil
+}
+
+// wrapperAccessors are the ogen Opt fields and methods that sit between an
+// access path and the value; they name no SDK field of their own.
+var wrapperAccessors = map[string]bool{"Value": true, "Set": true, "Null": true, "Or": true, "Get": true}
+
+// collectFields records every SDK field name an expression reads off param,
+// including through an Opt wrapper (lbl.Ami.Value.Name yields Ami and Name).
+func collectFields(expr ast.Expr, param string, out map[string]bool) {
+	if param == "" {
+		return
+	}
+	ast.Inspect(expr, func(n ast.Node) bool {
+		sel, ok := n.(*ast.SelectorExpr)
+		if !ok || wrapperAccessors[sel.Sel.Name] || !rootsAt(sel.X, param) {
+			return true
+		}
+		out[sel.Sel.Name] = true
+		return true
+	})
+}
+
+// rootsAt reports whether a selector chain bottoms out at the named identifier.
+func rootsAt(e ast.Expr, param string) bool {
+	for {
+		switch v := e.(type) {
+		case *ast.Ident:
+			return v.Name == param
+		case *ast.SelectorExpr:
+			e = v.X
+		case *ast.CallExpr:
+			e = v.Fun
+		case *ast.IndexExpr:
+			e = v.X
+		case *ast.ParenExpr:
+			e = v.X
+		default:
+			return false
+		}
+	}
 }
 
 // parseSchemaAttrs collects the attribute names a generated schema declares.

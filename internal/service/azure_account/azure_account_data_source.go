@@ -30,16 +30,24 @@ var (
 
 // listObjectAttrTypes is the schema of an entry inside the `list` attribute.
 var listObjectAttrTypes = map[string]attr.Type{
-	"id":                   types.Int64Type,
-	"account_alias":        types.StringType,
-	"account_name":         types.StringType,
-	"account_type_id":      types.Int64Type,
-	"payer_id":             types.Int64Type,
-	"project_id":           types.Int64Type,
-	"skip_access_checking": types.BoolType,
-	"start_datecode":       types.StringType,
-	"created_at":           types.StringType,
-	"deleted_at":           types.StringType,
+	"id":                           types.Int64Type,
+	"account_alias":                types.StringType,
+	"account_name":                 types.StringType,
+	"account_type_id":              types.Int64Type,
+	"payer_id":                     types.Int64Type,
+	"project_id":                   types.Int64Type,
+	"skip_access_checking":         types.BoolType,
+	"start_datecode":               types.StringType,
+	"account_email":                types.StringType,
+	"account_number":               types.StringType,
+	"car_external_id":              types.StringType,
+	"created_at":                   types.StringType,
+	"deleted_at":                   types.StringType,
+	"include_linked_account_spend": types.BoolType,
+	"linked_account_number":        types.StringType,
+	"linked_role":                  types.StringType,
+	"service_external_id":          types.StringType,
+	"use_org_account_info":         types.BoolType,
 }
 
 // NewAzureAccountDataSource returns a new instance of the data source.
@@ -117,10 +125,34 @@ func (d *azure_accountDataSource) Schema(_ context.Context, _ datasource.SchemaR
 						"start_datecode": schema.StringAttribute{
 							Computed: true,
 						},
+						"account_email": schema.StringAttribute{
+							Computed: true,
+						},
+						"account_number": schema.StringAttribute{
+							Computed: true,
+						},
+						"car_external_id": schema.StringAttribute{
+							Computed: true,
+						},
 						"created_at": schema.StringAttribute{
 							Computed: true,
 						},
 						"deleted_at": schema.StringAttribute{
+							Computed: true,
+						},
+						"include_linked_account_spend": schema.BoolAttribute{
+							Computed: true,
+						},
+						"linked_account_number": schema.StringAttribute{
+							Computed: true,
+						},
+						"linked_role": schema.StringAttribute{
+							Computed: true,
+						},
+						"service_external_id": schema.StringAttribute{
+							Computed: true,
+						},
+						"use_org_account_info": schema.BoolAttribute{
 							Computed: true,
 						},
 					},
@@ -262,15 +294,23 @@ func fetchAllAzureAccount(ctx context.Context, conn *generated.Client) ([]genera
 // azure_accountToRow converts an element into the map filter.Match expects.
 func azure_accountToRow(lbl generated.Account) map[string]any {
 	row := map[string]any{
-		"account_alias":        lbl.AccountAlias.Or(""),
-		"account_name":         lbl.AccountName.Or(""),
-		"account_type_id":      int64(lbl.AccountTypeID.Or(0)),
-		"payer_id":             int64(lbl.PayerID.Or(0)),
-		"project_id":           int64(lbl.ProjectID.Or(0)),
-		"skip_access_checking": lbl.SkipAccessChecking.Or(false),
-		"start_datecode":       lbl.StartDatecode.Or(""),
-		"created_at":           lbl.CreatedAt.Or(""),
-		"deleted_at":           lbl.DeletedAt.Or(""),
+		"account_alias":                lbl.AccountAlias.Or(""),
+		"account_name":                 lbl.AccountName.Or(""),
+		"account_type_id":              int64(lbl.AccountTypeID.Or(0)),
+		"payer_id":                     int64(lbl.PayerID.Or(0)),
+		"project_id":                   int64(lbl.ProjectID.Or(0)),
+		"skip_access_checking":         lbl.SkipAccessChecking.Or(false),
+		"start_datecode":               lbl.StartDatecode.Or(""),
+		"account_email":                lbl.AccountEmail.Or(""),
+		"account_number":               lbl.AccountNumber.Or(""),
+		"car_external_id":              lbl.CarExternalID.Or(""),
+		"created_at":                   lbl.CreatedAt.Or(""),
+		"deleted_at":                   lbl.DeletedAt.Or(""),
+		"include_linked_account_spend": lbl.IncludeLinkedAccountSpend.Or(false),
+		"linked_account_number":        lbl.LinkedAccountNumber.Or(""),
+		"linked_role":                  lbl.LinkedRole.Or(""),
+		"service_external_id":          lbl.ServiceExternalID.Or(""),
+		"use_org_account_info":         lbl.UseOrgAccountInfo.Or(false),
 	}
 	if lbl.ID.Set {
 		row["id"] = int64(lbl.ID.Value)
@@ -287,16 +327,24 @@ func buildAzureAccountList(ctx context.Context, items []generated.Account) (type
 			idVal = types.Int64Value(int64(lbl.ID.Value))
 		}
 		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
-			"id":                   idVal,
-			"account_alias":        types.StringValue(lbl.AccountAlias.Or("")),
-			"account_name":         types.StringValue(lbl.AccountName.Or("")),
-			"account_type_id":      types.Int64Value(int64(lbl.AccountTypeID.Or(0))),
-			"payer_id":             types.Int64Value(int64(lbl.PayerID.Or(0))),
-			"project_id":           types.Int64Value(int64(lbl.ProjectID.Or(0))),
-			"skip_access_checking": types.BoolValue(lbl.SkipAccessChecking.Or(false)),
-			"start_datecode":       types.StringValue(lbl.StartDatecode.Or("")),
-			"created_at":           types.StringValue(lbl.CreatedAt.Or("")),
-			"deleted_at":           types.StringValue(lbl.DeletedAt.Or("")),
+			"id":                           idVal,
+			"account_alias":                types.StringValue(lbl.AccountAlias.Or("")),
+			"account_name":                 types.StringValue(lbl.AccountName.Or("")),
+			"account_type_id":              types.Int64Value(int64(lbl.AccountTypeID.Or(0))),
+			"payer_id":                     types.Int64Value(int64(lbl.PayerID.Or(0))),
+			"project_id":                   types.Int64Value(int64(lbl.ProjectID.Or(0))),
+			"skip_access_checking":         types.BoolValue(lbl.SkipAccessChecking.Or(false)),
+			"start_datecode":               types.StringValue(lbl.StartDatecode.Or("")),
+			"account_email":                types.StringValue(lbl.AccountEmail.Or("")),
+			"account_number":               types.StringValue(lbl.AccountNumber.Or("")),
+			"car_external_id":              types.StringValue(lbl.CarExternalID.Or("")),
+			"created_at":                   types.StringValue(lbl.CreatedAt.Or("")),
+			"deleted_at":                   types.StringValue(lbl.DeletedAt.Or("")),
+			"include_linked_account_spend": types.BoolValue(lbl.IncludeLinkedAccountSpend.Or(false)),
+			"linked_account_number":        types.StringValue(lbl.LinkedAccountNumber.Or("")),
+			"linked_role":                  types.StringValue(lbl.LinkedRole.Or("")),
+			"service_external_id":          types.StringValue(lbl.ServiceExternalID.Or("")),
+			"use_org_account_info":         types.BoolValue(lbl.UseOrgAccountInfo.Or(false)),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags
