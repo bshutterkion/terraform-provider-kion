@@ -30,13 +30,13 @@ const ManifestFileName = "module_manifest.json"
 // internal/kgen/importmodules) must therefore read this mapping from the
 // generator rather than re-deriving it from variables.tf.
 type Manifest struct {
-	Version int              `json:"version"`
-	Modules []ModuleManifest `json:"modules"`
+	Version int     `json:"version"`
+	Modules []Entry `json:"modules"`
 }
 
-// ModuleManifest is one generated module's identity and its settable
+// Entry is one generated module's identity and its settable
 // attributes.
-type ModuleManifest struct {
+type Entry struct {
 	TFType    string             `json:"tf_type"`
 	Path      string             `json:"path"`
 	Variables []VariableManifest `json:"variables"`
@@ -65,7 +65,7 @@ type VariableManifest struct {
 // Generate excludes from a module's inputs.
 func BuildManifest() *Manifest {
 	ctx := context.Background()
-	var modules []ModuleManifest
+	var modules []Entry
 
 	for _, pkg := range provider.ServicePackages() {
 		for _, r := range pkg.Resources(ctx) {
@@ -82,7 +82,7 @@ func BuildManifest() *Manifest {
 			}
 			sort.Slice(vars, func(i, j int) bool { return vars[i].Attr < vars[j].Attr })
 
-			modules = append(modules, ModuleManifest{
+			modules = append(modules, Entry{
 				TFType:    typeName,
 				Path:      Name(typeName),
 				Variables: vars,

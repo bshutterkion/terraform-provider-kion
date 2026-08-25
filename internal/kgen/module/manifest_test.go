@@ -65,7 +65,7 @@ func TestBuildManifest_dropsLastUpdated(t *testing.T) {
 	}
 }
 
-func findModule(t *testing.T, m *Manifest, tfType string) ModuleManifest {
+func findModule(t *testing.T, m *Manifest, tfType string) Entry {
 	t.Helper()
 	for _, mod := range m.Modules {
 		if mod.TFType == tfType {
@@ -73,10 +73,10 @@ func findModule(t *testing.T, m *Manifest, tfType string) ModuleManifest {
 		}
 	}
 	t.Fatalf("manifest has no module for %s", tfType)
-	return ModuleManifest{}
+	return Entry{}
 }
 
-func findVariable(t *testing.T, mod ModuleManifest, attr string) VariableManifest {
+func findVariable(t *testing.T, mod Entry, attr string) VariableManifest {
 	t.Helper()
 	for _, v := range mod.Variables {
 		if v.Attr == attr {
