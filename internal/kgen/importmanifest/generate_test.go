@@ -22,6 +22,8 @@ func fixture() *Manifest {
 		map[string]string{ // kind -> list read path, from generator_config.yaml data_sources:
 			"account": "/v3/account",
 		},
+		map[string]string{}, // kind -> flat list path, from private_endpoints.yaml list_read_only: (unused by this fixture)
+		map[string]string{}, // kind -> by-id read path, from private_endpoints.yaml resources: (unused by this fixture)
 		map[string]archetypeInfo{ // kind -> archetype fields, from crud_archetypes.yaml
 			"aws_resource_tag": {Kind: "no_read"},
 			"ou_enforcement":   {Kind: "parent_list"},
@@ -38,6 +40,7 @@ func fixture() *Manifest {
 			"kion_ou_permission_mapping", "kion_app_config", "kion_account",
 			"kion_global_permission_mapping",
 		},
+		map[string]bool{}, // tf_type -> has a top-level "name" attribute (unused by this fixture)
 	)
 }
 
@@ -134,8 +137,11 @@ func TestBuildFallsBackToResourceReadPathWhenNoDataSource(t *testing.T) {
 	m := Build(
 		map[string]string{"widget": "/v3/widget/{id}"},
 		map[string]string{}, // no data source for "widget"
+		map[string]string{},
+		map[string]string{},
 		map[string]archetypeInfo{},
 		[]string{"kion_widget"},
+		map[string]bool{},
 	)
 	r := byType(m, "kion_widget")
 	assert.Equal(t, "/v3/widget", r.ListPath)
@@ -158,8 +164,11 @@ func TestBuildAliasResolvesThroughKindAliases(t *testing.T) {
 			"cft":        "/v3/cft",
 			"iam_policy": "/v3/iam-policy",
 		},
+		map[string]string{},
+		map[string]string{},
 		map[string]archetypeInfo{},
 		[]string{"kion_aws_cloudformation_template", "kion_aws_iam_policy"},
+		map[string]bool{},
 	)
 
 	cft := byType(m, "kion_aws_cloudformation_template")
@@ -185,10 +194,13 @@ func TestBuildTwoPlaceholderPathIsUnreadable(t *testing.T) {
 			"custom_variable_override": "/v3/account/{account_id}/custom-variable/{custom_variable_id}",
 		},
 		map[string]string{},
+		map[string]string{},
+		map[string]string{},
 		map[string]archetypeInfo{
 			"custom_variable_override": {Kind: "cv_override"},
 		},
 		[]string{"kion_custom_variable_override"},
+		map[string]bool{},
 	)
 	r := byType(m, "kion_custom_variable_override")
 	assert.False(t, r.Readable)
@@ -196,6 +208,13 @@ func TestBuildTwoPlaceholderPathIsUnreadable(t *testing.T) {
 	assert.Empty(t, r.ListPath)
 	assert.Nil(t, r.Parent)
 	assert.Contains(t, r.Reason, "/v3/account/{account_id}/custom-variable/{custom_variable_id}")
+	// The reason must say the identity is compound, and must NOT claim the
+	// API has no read -- it does (a real, public GET), the identity is just
+	// two ids instead of one. See generate.go's placeholders >= 2 case.
+	assert.Contains(t, r.Reason, "account_id")
+	assert.Contains(t, r.Reason, "custom_variable_id")
+	assert.Contains(t, r.Reason, "compound identity")
+	assert.NotContains(t, r.Reason, "no read")
 }
 
 // TestBuildParentlessAssociationUsesPlainID guards the else-branch of
@@ -227,12 +246,15 @@ func TestBuildKeyFieldComesFromArchetypeData(t *testing.T) {
 	m := Build(
 		map[string]string{"widget_permission_mapping": "/v3/widget-permission-mapping/{id}"},
 		map[string]string{},
+		map[string]string{},
+		map[string]string{},
 		map[string]archetypeInfo{
 			"widget_permission_mapping": {
 				Kind: "association", KeyField: "widget_role_id", ParentField: "widget_id",
 			},
 		},
 		[]string{"kion_widget_permission_mapping"},
+		map[string]bool{},
 	)
 	r := byType(m, "kion_widget_permission_mapping")
 	assert.Equal(t, FormatParentSlashKey, r.ImportID.Format)
@@ -253,16 +275,16 @@ func TestBuildHasParentComesFromDeclaredParentField(t *testing.T) {
 	readPaths := map[string]string{"ou_permission_mapping": "/v3/ou-permission-mapping/{id}"}
 	tfTypes := []string{"kion_ou_permission_mapping"}
 
-	withParentField := Build(readPaths, map[string]string{}, map[string]archetypeInfo{
+	withParentField := Build(readPaths, map[string]string{}, map[string]string{}, map[string]string{}, map[string]archetypeInfo{
 		"ou_permission_mapping": {Kind: "association", KeyField: "app_role_id", ParentField: "ou_id"},
-	}, tfTypes)
+	}, tfTypes, map[string]bool{})
 	r := byType(withParentField, "kion_ou_permission_mapping")
 	assert.Equal(t, FormatParentSlashKey, r.ImportID.Format)
 	assert.Equal(t, "app_role_id", r.ImportID.KeyField)
 
-	withoutParentField := Build(readPaths, map[string]string{}, map[string]archetypeInfo{
+	withoutParentField := Build(readPaths, map[string]string{}, map[string]string{}, map[string]string{}, map[string]archetypeInfo{
 		"ou_permission_mapping": {Kind: "association", KeyField: "app_role_id"},
-	}, tfTypes)
+	}, tfTypes, map[string]bool{})
 	r2 := byType(withoutParentField, "kion_ou_permission_mapping")
 	assert.Equal(t, FormatID, r2.ImportID.Format)
 	assert.Equal(t, "app_role_id", r2.ImportID.KeyField)
@@ -328,8 +350,11 @@ func TestBuildParentScopedPathDerivesParentIDField(t *testing.T) {
 			m := Build(
 				map[string]string{},
 				map[string]string{c.kind: c.path},
+				map[string]string{},
+				map[string]string{},
 				map[string]archetypeInfo{c.kind: c.archetype},
 				[]string{tfType},
+				map[string]bool{},
 			)
 			r := byType(m, tfType)
 			require.NotNil(t, r.Parent, c.name)
@@ -357,12 +382,15 @@ func TestBuildOverridesOpenIDFamilyParent(t *testing.T) {
 			"idms_open_id_group_association": "/v4/idms/open-id/group-association/{id}",
 		},
 		map[string]string{},
+		map[string]string{},
+		map[string]string{},
 		map[string]archetypeInfo{},
 		[]string{
 			"kion_idms_open_id",
 			"kion_idms_open_id_access_rule",
 			"kion_idms_open_id_group_association",
 		},
+		map[string]bool{},
 	)
 
 	cases := []struct {
@@ -387,6 +415,163 @@ func TestBuildOverridesOpenIDFamilyParent(t *testing.T) {
 	}
 }
 
+// TestBuildOverridesCloudAccessRoleExemptionParent guards the two
+// *_cloud_access_role_exemption entries added to parentOverrides: both
+// resources are crud_archetypes.yaml no_read, and their private
+// per-resource read (/v1/ou/{id}/... and /v1/project/{id}/...) would
+// otherwise derive an unlistable /v1/ou or /v1/project as the parent list.
+// The override must replace that with the real, listable /v3/ou / /v3/project.
+func TestBuildOverridesCloudAccessRoleExemptionParent(t *testing.T) {
+	t.Parallel()
+	m := Build(
+		map[string]string{},
+		map[string]string{},
+		map[string]string{},
+		map[string]string{ // private_endpoints.yaml resources: read paths
+			"ou_cloud_access_role_exemption":      "/v1/ou/{id}/cloud-access-role-exemption",
+			"project_cloud_access_role_exemption": "/v1/project/{id}/cloud-access-role-exemption",
+		},
+		map[string]archetypeInfo{
+			"ou_cloud_access_role_exemption":      {Kind: "no_read"},
+			"project_cloud_access_role_exemption": {Kind: "no_read"},
+		},
+		[]string{
+			"kion_ou_cloud_access_role_exemption",
+			"kion_project_cloud_access_role_exemption",
+		},
+		map[string]bool{},
+	)
+
+	ou := byType(m, "kion_ou_cloud_access_role_exemption")
+	require.NotNil(t, ou.Parent)
+	assert.Equal(t, "/v3/ou", ou.Parent.ListPath)
+	assert.Equal(t, "/v1/ou/{parent_id}/cloud-access-role-exemption", ou.Parent.ChildPath)
+	assert.Equal(t, "ou_id", ou.Parent.ParentIDField)
+	assert.Equal(t, ShapeParentList, ou.ReadShape)
+	assert.True(t, ou.Readable)
+
+	project := byType(m, "kion_project_cloud_access_role_exemption")
+	require.NotNil(t, project.Parent)
+	assert.Equal(t, "/v3/project", project.Parent.ListPath)
+	assert.Equal(t, "/v1/project/{parent_id}/cloud-access-role-exemption", project.Parent.ChildPath)
+	assert.Equal(t, "project_id", project.Parent.ParentIDField)
+	assert.Equal(t, ShapeParentList, project.ReadShape)
+	assert.True(t, project.Readable)
+}
+
+// TestBuildNoReadArchetypeIsReadableWithAListPath guards Fix 1's core claim:
+// crud_archetypes.yaml's no_read means "no by-id GET," not "unreadable."
+// kion_aws_resource_tag has no by-id read but IS listable at a flat
+// collection endpoint named only in private_endpoints.yaml's list_read_only:
+// section -- which generator_config.yaml-only derivation could never see.
+func TestBuildNoReadArchetypeIsReadableWithAListPath(t *testing.T) {
+	t.Parallel()
+	m := Build(
+		map[string]string{},
+		map[string]string{},
+		map[string]string{"aws_resource_tag": "/v3/aws-resource-tag"}, // private_endpoints.yaml list_read_only:
+		map[string]string{},
+		map[string]archetypeInfo{"aws_resource_tag": {Kind: "no_read"}},
+		[]string{"kion_aws_resource_tag"},
+		map[string]bool{},
+	)
+	r := byType(m, "kion_aws_resource_tag")
+	assert.True(t, r.Readable)
+	assert.Equal(t, ShapeGeneric, r.ReadShape)
+	assert.Equal(t, "/v3/aws-resource-tag", r.ListPath)
+	assert.Empty(t, r.Reason)
+}
+
+// TestBuildPrivateListReadOnlyPathBeatsGeneratorConfigPaths guards the
+// resolution order's top slot: list_read_only names a real, already-flat
+// collection outright, so it must win even when generator_config.yaml also
+// has a (by-id) path for the same kind.
+func TestBuildPrivateListReadOnlyPathBeatsGeneratorConfigPaths(t *testing.T) {
+	t.Parallel()
+	m := Build(
+		map[string]string{"widget": "/v3/widget/{id}"},
+		map[string]string{"widget": "/v3/widget-list"},
+		map[string]string{"widget": "/v3/widget-flat-list"},
+		map[string]string{},
+		map[string]archetypeInfo{},
+		[]string{"kion_widget"},
+		map[string]bool{},
+	)
+	r := byType(m, "kion_widget")
+	assert.Equal(t, "/v3/widget-flat-list", r.ListPath)
+	assert.True(t, r.Readable)
+}
+
+// TestBuildPrivateResourceReadPathIsLastResort guards the resolution order's
+// bottom slot: private_endpoints.yaml's resources: read path is used only
+// when generator_config.yaml has nothing at all for that kind. Uses a
+// fictitious kind (not kion_dashboard, which explicitFlatListOverrides would
+// otherwise mask) so the fallback chain itself is what's under test.
+func TestBuildPrivateResourceReadPathIsLastResort(t *testing.T) {
+	t.Parallel()
+	m := Build(
+		map[string]string{}, // nothing in generator_config.yaml resources:
+		map[string]string{}, // nothing in generator_config.yaml data_sources:
+		map[string]string{}, // not list-read-only
+		map[string]string{"widget": "/v1/widget/{id}"}, // private_endpoints.yaml resources:
+		map[string]archetypeInfo{"widget": {Kind: "raw_http"}},
+		[]string{"kion_widget"},
+		map[string]bool{},
+	)
+	r := byType(m, "kion_widget")
+	assert.True(t, r.Readable)
+	assert.Equal(t, "/v1/widget", r.ListPath)
+}
+
+// TestBuildExplicitParentOverrideForFundingSourceNote guards Fix 2's
+// parent-scoped half: kion_funding_source_note's real read
+// (/v2/funding-source/{id}/funding-source-note) is recorded in neither
+// generator_config.yaml nor private_endpoints.yaml, so explicitParentOverrides
+// is the only thing that can produce it.
+func TestBuildExplicitParentOverrideForFundingSourceNote(t *testing.T) {
+	t.Parallel()
+	m := Build(
+		map[string]string{},
+		map[string]string{},
+		map[string]string{},
+		map[string]string{},
+		map[string]archetypeInfo{"funding_source_note": {Kind: "raw_http"}},
+		[]string{"kion_funding_source_note"},
+		map[string]bool{},
+	)
+	r := byType(m, "kion_funding_source_note")
+	require.NotNil(t, r.Parent)
+	assert.Equal(t, "/v3/funding-source", r.Parent.ListPath)
+	assert.Equal(t, "/v2/funding-source/{parent_id}/funding-source-note", r.Parent.ChildPath)
+	assert.Equal(t, "funding_source_id", r.Parent.ParentIDField)
+	assert.Equal(t, ShapeParentList, r.ReadShape)
+	assert.True(t, r.Readable)
+	assert.Empty(t, r.ListPath)
+}
+
+// TestBuildExplicitFlatListOverrideForDashboard guards Fix 2's flat-list
+// half: kion_dashboard's real plural collection, /v1/dashboards, is recorded
+// in neither generator_config.yaml nor private_endpoints.yaml (which only
+// records the private by-id read), so explicitFlatListOverrides is the only
+// thing that can produce it.
+func TestBuildExplicitFlatListOverrideForDashboard(t *testing.T) {
+	t.Parallel()
+	m := Build(
+		map[string]string{},
+		map[string]string{},
+		map[string]string{},
+		map[string]string{"dashboard": "/v1/dashboard/{id}"}, // present, but must lose to the override
+		map[string]archetypeInfo{"dashboard": {Kind: "raw_http"}},
+		[]string{"kion_dashboard"},
+		map[string]bool{},
+	)
+	r := byType(m, "kion_dashboard")
+	assert.Equal(t, "/v1/dashboards", r.ListPath)
+	assert.Equal(t, ShapeGeneric, r.ReadShape)
+	assert.True(t, r.Readable)
+	assert.Nil(t, r.Parent)
+}
+
 // TestBuildOverridesBudgetWithTwoParents guards Fix 4: /v3/budget 405s live
 // (there is no flat list), and budgets hang off two parents, both verified
 // live -- /v3/ou/{id}/budget and /v3/project/{id}/budget. multiParentOverrides
@@ -397,8 +582,11 @@ func TestBuildOverridesBudgetWithTwoParents(t *testing.T) {
 	m := Build(
 		map[string]string{"budget": "/v3/budget/{id}"},
 		map[string]string{},
+		map[string]string{},
+		map[string]string{},
 		map[string]archetypeInfo{},
 		[]string{"kion_budget"},
+		map[string]bool{},
 	)
 	r := byType(m, "kion_budget")
 
@@ -419,6 +607,31 @@ func TestBuildOverridesBudgetWithTwoParents(t *testing.T) {
 	assert.Equal(t, ShapeParentList, r.ReadShape)
 	assert.True(t, r.Readable)
 	assert.Empty(t, r.ListPath)
+}
+
+// TestBuildNameFieldOnlyWhenSchemaHasNameAttribute guards Fix 5: NameField
+// must come from the schema snapshot's declared attributes, not a package
+// constant -- a resource without a top-level "name" attribute (like
+// kion_aws_resource_tag) must get an empty NameField, not "name".
+func TestBuildNameFieldOnlyWhenSchemaHasNameAttribute(t *testing.T) {
+	t.Parallel()
+	m := Build(
+		map[string]string{
+			"ou":               "/v3/ou/{id}",
+			"aws_resource_tag": "/v3/aws-resource-tag",
+		},
+		map[string]string{},
+		map[string]string{},
+		map[string]string{},
+		map[string]archetypeInfo{},
+		[]string{"kion_ou", "kion_aws_resource_tag"},
+		map[string]bool{"kion_ou": true}, // kion_aws_resource_tag deliberately absent
+	)
+	ou := byType(m, "kion_ou")
+	assert.Equal(t, "name", ou.NameField)
+
+	tag := byType(m, "kion_aws_resource_tag")
+	assert.Empty(t, tag.NameField)
 }
 
 func TestManifestMarshalsDeterministically(t *testing.T) {

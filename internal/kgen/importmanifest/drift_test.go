@@ -101,6 +101,7 @@ func mirrorCodegen(t *testing.T, root, dst string) {
 	for _, rel := range []string{
 		"codegen/generator_config.yaml",
 		"codegen/crud_archetypes.yaml",
+		"codegen/private_endpoints.yaml",
 		"codegen/schema_snapshots/new.json",
 	} {
 		data, err := os.ReadFile(filepath.Join(root, rel))
