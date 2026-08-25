@@ -38,6 +38,7 @@ var listObjectAttrTypes = map[string]attr.Type{
 	"sns_arns":               types.StringType,
 	"template_parameters":    types.StringType,
 	"termination_protection": types.BoolType,
+	"system_managed":         types.BoolType,
 }
 
 // NewCftDataSource returns a new instance of the data source.
@@ -113,6 +114,9 @@ func (d *cftDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, re
 							Computed: true,
 						},
 						"termination_protection": schema.BoolAttribute{
+							Computed: true,
+						},
+						"system_managed": schema.BoolAttribute{
 							Computed: true,
 						},
 					},
@@ -261,6 +265,7 @@ func cftToRow(lbl generated.CFTWithOwnersAndTags) map[string]any {
 		"sns_arns":               lbl.Cft.Value.SnsArns.Or(""),
 		"template_parameters":    lbl.Cft.Value.TemplateParameters.Or(""),
 		"termination_protection": lbl.Cft.Value.TerminationProtection.Or(false),
+		"system_managed":         lbl.Cft.Value.SystemManaged.Or(false),
 	}
 	if lbl.Cft.Value.ID.Set {
 		row["id"] = int64(lbl.Cft.Value.ID.Value)
@@ -285,6 +290,7 @@ func buildCftList(ctx context.Context, items []generated.CFTWithOwnersAndTags) (
 			"sns_arns":               types.StringValue(lbl.Cft.Value.SnsArns.Or("")),
 			"template_parameters":    types.StringValue(lbl.Cft.Value.TemplateParameters.Or("")),
 			"termination_protection": types.BoolValue(lbl.Cft.Value.TerminationProtection.Or(false)),
+			"system_managed":         types.BoolValue(lbl.Cft.Value.SystemManaged.Or(false)),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags

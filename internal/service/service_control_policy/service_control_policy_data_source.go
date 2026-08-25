@@ -30,10 +30,12 @@ var (
 
 // listObjectAttrTypes is the schema of an entry inside the `list` attribute.
 var listObjectAttrTypes = map[string]attr.Type{
-	"id":          types.Int64Type,
-	"description": types.StringType,
-	"name":        types.StringType,
-	"policy":      types.StringType,
+	"id":                    types.Int64Type,
+	"description":           types.StringType,
+	"name":                  types.StringType,
+	"policy":                types.StringType,
+	"aws_managed_policy":    types.BoolType,
+	"system_managed_policy": types.BoolType,
 }
 
 // NewServiceControlPolicyDataSource returns a new instance of the data source.
@@ -85,6 +87,12 @@ func (d *service_control_policyDataSource) Schema(_ context.Context, _ datasourc
 							Computed: true,
 						},
 						"policy": schema.StringAttribute{
+							Computed: true,
+						},
+						"aws_managed_policy": schema.BoolAttribute{
+							Computed: true,
+						},
+						"system_managed_policy": schema.BoolAttribute{
 							Computed: true,
 						},
 					},
@@ -218,9 +226,11 @@ func fetchAllServiceControlPolicy(ctx context.Context, conn *generated.Client) (
 // service_control_policyToRow converts an element into the map filter.Match expects.
 func service_control_policyToRow(lbl generated.ServiceControlPolicyWithOwners) map[string]any {
 	row := map[string]any{
-		"description": lbl.ServiceControlPolicy.Value.Description.Or(""),
-		"name":        lbl.ServiceControlPolicy.Value.Name.Or(""),
-		"policy":      lbl.ServiceControlPolicy.Value.Policy.Or(""),
+		"description":           lbl.ServiceControlPolicy.Value.Description.Or(""),
+		"name":                  lbl.ServiceControlPolicy.Value.Name.Or(""),
+		"policy":                lbl.ServiceControlPolicy.Value.Policy.Or(""),
+		"aws_managed_policy":    lbl.ServiceControlPolicy.Value.AWSManagedPolicy.Or(false),
+		"system_managed_policy": lbl.ServiceControlPolicy.Value.SystemManagedPolicy.Or(false),
 	}
 	if lbl.ServiceControlPolicy.Value.ID.Set {
 		row["id"] = int64(lbl.ServiceControlPolicy.Value.ID.Value)
@@ -237,10 +247,12 @@ func buildServiceControlPolicyList(ctx context.Context, items []generated.Servic
 			idVal = types.Int64Value(int64(lbl.ServiceControlPolicy.Value.ID.Value))
 		}
 		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
-			"id":          idVal,
-			"description": types.StringValue(lbl.ServiceControlPolicy.Value.Description.Or("")),
-			"name":        types.StringValue(lbl.ServiceControlPolicy.Value.Name.Or("")),
-			"policy":      types.StringValue(lbl.ServiceControlPolicy.Value.Policy.Or("")),
+			"id":                    idVal,
+			"description":           types.StringValue(lbl.ServiceControlPolicy.Value.Description.Or("")),
+			"name":                  types.StringValue(lbl.ServiceControlPolicy.Value.Name.Or("")),
+			"policy":                types.StringValue(lbl.ServiceControlPolicy.Value.Policy.Or("")),
+			"aws_managed_policy":    types.BoolValue(lbl.ServiceControlPolicy.Value.AWSManagedPolicy.Or(false)),
+			"system_managed_policy": types.BoolValue(lbl.ServiceControlPolicy.Value.SystemManagedPolicy.Or(false)),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags

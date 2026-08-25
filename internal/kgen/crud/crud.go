@@ -53,6 +53,10 @@ type generator struct {
 	oldSchema   map[string]migrate.Resource  // codegen/schema_snapshots/old.json (lazy)
 	newSchema   map[string]migrate.Resource  // codegen/schema_snapshots/new.json (lazy)
 	root        string
+	// fieldPolicy is codegen/unexposed_fields.yaml: the response fields a list
+	// data source must withhold. Loaded once per run alongside the other
+	// codegen inputs above.
+	fieldPolicy FieldPolicy
 	downgrades  []downgrade // data sources that lost their filter block this run
 }
 
@@ -71,6 +75,12 @@ func (g *generator) generate(opts Options) (int, error) {
 		}
 		root = r
 	}
+
+	policy, err := LoadFieldPolicy(root)
+	if err != nil {
+		return 0, err
+	}
+	g.fieldPolicy = policy
 
 	cfgPath := opts.Config
 	if cfgPath == "" {
@@ -339,7 +349,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	if err != nil {
 		return 0, err
 	}
-	dataSourceGo, dsDowngrade, err := renderDataSource(rm)
+	dataSourceGo, dsDowngrade, err := renderDataSource(rm, g.fieldPolicy)
 	if err != nil {
 		return 0, err
 	}

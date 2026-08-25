@@ -59,7 +59,10 @@ Optional:
 
 Read-Only:
 
+- `azure_managed_policy_def_id` (String)
+- `ct_managed` (Boolean)
 - `description` (String)
+- `enabled` (Boolean)
 - `id` (Number)
 - `name` (String)
 - `parameters` (String)

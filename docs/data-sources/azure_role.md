@@ -58,7 +58,10 @@ Optional:
 
 Read-Only:
 
+- `azure_managed_policy` (Boolean)
 - `description` (String)
+- `enabled` (Boolean)
 - `id` (Number)
 - `name` (String)
 - `role_permissions` (String)
+- `system_managed_policy` (Boolean)

@@ -30,11 +30,14 @@ var (
 
 // listObjectAttrTypes is the schema of an entry inside the `list` attribute.
 var listObjectAttrTypes = map[string]attr.Type{
-	"id":          types.Int64Type,
-	"description": types.StringType,
-	"name":        types.StringType,
-	"parameters":  types.StringType,
-	"policy":      types.StringType,
+	"id":                          types.Int64Type,
+	"description":                 types.StringType,
+	"name":                        types.StringType,
+	"parameters":                  types.StringType,
+	"policy":                      types.StringType,
+	"azure_managed_policy_def_id": types.StringType,
+	"ct_managed":                  types.BoolType,
+	"enabled":                     types.BoolType,
 }
 
 // NewAzurePolicyDataSource returns a new instance of the data source.
@@ -92,6 +95,15 @@ func (d *azure_policyDataSource) Schema(_ context.Context, _ datasource.SchemaRe
 							Computed: true,
 						},
 						"policy": schema.StringAttribute{
+							Computed: true,
+						},
+						"azure_managed_policy_def_id": schema.StringAttribute{
+							Computed: true,
+						},
+						"ct_managed": schema.BoolAttribute{
+							Computed: true,
+						},
+						"enabled": schema.BoolAttribute{
 							Computed: true,
 						},
 					},
@@ -227,10 +239,13 @@ func fetchAllAzurePolicy(ctx context.Context, conn *generated.Client) ([]generat
 // azure_policyToRow converts an element into the map filter.Match expects.
 func azure_policyToRow(lbl generated.AzurePolicyAugmented) map[string]any {
 	row := map[string]any{
-		"description": lbl.AzurePolicy.Value.Description.Or(""),
-		"name":        lbl.AzurePolicy.Value.Name.Or(""),
-		"parameters":  lbl.AzurePolicy.Value.Parameters.Or(""),
-		"policy":      lbl.AzurePolicy.Value.Policy.Or(""),
+		"description":                 lbl.AzurePolicy.Value.Description.Or(""),
+		"name":                        lbl.AzurePolicy.Value.Name.Or(""),
+		"parameters":                  lbl.AzurePolicy.Value.Parameters.Or(""),
+		"policy":                      lbl.AzurePolicy.Value.Policy.Or(""),
+		"azure_managed_policy_def_id": lbl.AzurePolicy.Value.AzureManagedPolicyDefID.Or(""),
+		"ct_managed":                  lbl.AzurePolicy.Value.CtManaged.Or(false),
+		"enabled":                     lbl.AzurePolicy.Value.Enabled.Or(false),
 	}
 	if lbl.AzurePolicy.Value.ID.Set {
 		row["id"] = int64(lbl.AzurePolicy.Value.ID.Value)
@@ -247,11 +262,14 @@ func buildAzurePolicyList(ctx context.Context, items []generated.AzurePolicyAugm
 			idVal = types.Int64Value(int64(lbl.AzurePolicy.Value.ID.Value))
 		}
 		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
-			"id":          idVal,
-			"description": types.StringValue(lbl.AzurePolicy.Value.Description.Or("")),
-			"name":        types.StringValue(lbl.AzurePolicy.Value.Name.Or("")),
-			"parameters":  types.StringValue(lbl.AzurePolicy.Value.Parameters.Or("")),
-			"policy":      types.StringValue(lbl.AzurePolicy.Value.Policy.Or("")),
+			"id":                          idVal,
+			"description":                 types.StringValue(lbl.AzurePolicy.Value.Description.Or("")),
+			"name":                        types.StringValue(lbl.AzurePolicy.Value.Name.Or("")),
+			"parameters":                  types.StringValue(lbl.AzurePolicy.Value.Parameters.Or("")),
+			"policy":                      types.StringValue(lbl.AzurePolicy.Value.Policy.Or("")),
+			"azure_managed_policy_def_id": types.StringValue(lbl.AzurePolicy.Value.AzureManagedPolicyDefID.Or("")),
+			"ct_managed":                  types.BoolValue(lbl.AzurePolicy.Value.CtManaged.Or(false)),
+			"enabled":                     types.BoolValue(lbl.AzurePolicy.Value.Enabled.Or(false)),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags

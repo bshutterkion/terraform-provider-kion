@@ -33,13 +33,16 @@ var (
 
 // listObjectAttrTypes is the schema of an entry inside the `list` attribute.
 var listObjectAttrTypes = map[string]attr.Type{
-	"id":            types.Int64Type,
-	"description":   types.StringType,
-	"grouping_type": types.StringType,
-	"name":          types.StringType,
-	"terse_name":    types.StringType,
-	"verbose_name":  types.StringType,
-	"version":       types.StringType,
+	"id":                                types.Int64Type,
+	"description":                       types.StringType,
+	"grouping_type":                     types.StringType,
+	"name":                              types.StringType,
+	"terse_name":                        types.StringType,
+	"verbose_name":                      types.StringType,
+	"version":                           types.StringType,
+	"managed_resource_library_checksum": types.StringType,
+	"managed_resource_library_id":       types.StringType,
+	"system_managed_program":            types.BoolType,
 }
 
 // NewComplianceProgramDataSource returns a new instance of the data source.
@@ -109,6 +112,15 @@ func (d *compliance_programDataSource) Schema(_ context.Context, _ datasource.Sc
 							Computed: true,
 						},
 						"version": schema.StringAttribute{
+							Computed: true,
+						},
+						"managed_resource_library_checksum": schema.StringAttribute{
+							Computed: true,
+						},
+						"managed_resource_library_id": schema.StringAttribute{
+							Computed: true,
+						},
+						"system_managed_program": schema.BoolAttribute{
 							Computed: true,
 						},
 					},
@@ -269,12 +281,15 @@ func fetchAllComplianceProgram(ctx context.Context, conn *generated.Client) ([]g
 // compliance_programToRow converts an element into the map filter.Match expects.
 func compliance_programToRow(lbl generated.ComplianceProgram) map[string]any {
 	row := map[string]any{
-		"description":   lbl.Description.Or(""),
-		"grouping_type": lbl.GroupingType.Or(""),
-		"name":          lbl.Name.Or(""),
-		"terse_name":    lbl.TerseName.Or(""),
-		"verbose_name":  lbl.VerboseName.Or(""),
-		"version":       lbl.Version.Or(""),
+		"description":                       lbl.Description.Or(""),
+		"grouping_type":                     lbl.GroupingType.Or(""),
+		"name":                              lbl.Name.Or(""),
+		"terse_name":                        lbl.TerseName.Or(""),
+		"verbose_name":                      lbl.VerboseName.Or(""),
+		"version":                           lbl.Version.Or(""),
+		"managed_resource_library_checksum": lbl.ManagedResourceLibraryChecksum.Or(""),
+		"managed_resource_library_id":       lbl.ManagedResourceLibraryID.Or(""),
+		"system_managed_program":            lbl.SystemManagedProgram.Or(false),
 	}
 	if lbl.ID.Set {
 		row["id"] = int64(lbl.ID.Value)
@@ -291,13 +306,16 @@ func buildComplianceProgramList(ctx context.Context, items []generated.Complianc
 			idVal = types.Int64Value(int64(lbl.ID.Value))
 		}
 		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
-			"id":            idVal,
-			"description":   types.StringValue(lbl.Description.Or("")),
-			"grouping_type": types.StringValue(lbl.GroupingType.Or("")),
-			"name":          types.StringValue(lbl.Name.Or("")),
-			"terse_name":    types.StringValue(lbl.TerseName.Or("")),
-			"verbose_name":  types.StringValue(lbl.VerboseName.Or("")),
-			"version":       types.StringValue(lbl.Version.Or("")),
+			"id":                                idVal,
+			"description":                       types.StringValue(lbl.Description.Or("")),
+			"grouping_type":                     types.StringValue(lbl.GroupingType.Or("")),
+			"name":                              types.StringValue(lbl.Name.Or("")),
+			"terse_name":                        types.StringValue(lbl.TerseName.Or("")),
+			"verbose_name":                      types.StringValue(lbl.VerboseName.Or("")),
+			"version":                           types.StringValue(lbl.Version.Or("")),
+			"managed_resource_library_checksum": types.StringValue(lbl.ManagedResourceLibraryChecksum.Or("")),
+			"managed_resource_library_id":       types.StringValue(lbl.ManagedResourceLibraryID.Or("")),
+			"system_managed_program":            types.BoolValue(lbl.SystemManagedProgram.Or(false)),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags
