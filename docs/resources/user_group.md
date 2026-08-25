@@ -43,11 +43,11 @@ resource "kion_user_group" "example" {
 - `add_self_as_viewer` (Boolean) This option will add the user group as a viewer of itself after it is created.
 - `description` (String) Description of the user group in the application.
 - `last_updated` (String) The last time this resource was updated.
-- `owner_user_group_ids` (List of Number) List of groups IDs who will own the group. Is required if no owner user IDs are listed.
-- `owner_user_ids` (List of Number) List of user IDs who will own the group. Is required if no owner group IDs are listed.
-- `user_ids` (List of Number) IDs of the users in the user group.
-- `viewer_user_group_ids` (List of Number) List of groups IDs who will own the group. Is required if no owner user IDs are listed.
-- `viewer_user_ids` (List of Number) List of user IDs who will own the group. Is required if no owner group IDs are listed.
+- `owner_user_group_ids` (Set of Number) List of groups IDs who will own the group. Is required if no owner user IDs are listed.
+- `owner_user_ids` (Set of Number) List of user IDs who will own the group. Is required if no owner group IDs are listed.
+- `user_ids` (Set of Number) IDs of the users in the user group.
+- `viewer_user_group_ids` (Set of Number) List of groups IDs who will own the group. Is required if no owner user IDs are listed.
+- `viewer_user_ids` (Set of Number) List of user IDs who will own the group. Is required if no owner group IDs are listed.
 
 ### Read-Only
 

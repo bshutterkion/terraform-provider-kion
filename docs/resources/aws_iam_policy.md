@@ -42,12 +42,12 @@ resource "kion_aws_iam_policy" "example" {
 
 - `aws_iam_path` (String) Text of the IAM Path in AWS to be stored in AWS.
 - `car_restricted` (Boolean) True if the policy has been restricted for use by a subset of Users/UGroups on a Cloud Access Role.
-- `car_restricted_user_group_ids` (List of Number) List of groups IDs who have been allowed to use the iam policy on Cloud Access Roles in the system.
-- `car_restricted_user_ids` (List of Number) List of user IDs who have been allowed to use the iam policy on Cloud Access Roles in the system.
+- `car_restricted_user_group_ids` (Set of Number) List of groups IDs who have been allowed to use the iam policy on Cloud Access Roles in the system.
+- `car_restricted_user_ids` (Set of Number) List of user IDs who have been allowed to use the iam policy on Cloud Access Roles in the system.
 - `description` (String) Description for the IAM policy in the application.
 - `last_updated` (String) The last time this resource was updated.
-- `owner_user_group_ids` (List of Number) List of groups IDs who will own the iam policy. Is required if no owner user IDs are listed.
-- `owner_user_ids` (List of Number) List of user IDs who will own the iam policy. Is required if no owner group IDs are listed.
+- `owner_user_group_ids` (Set of Number) List of groups IDs who will own the iam policy. Is required if no owner user IDs are listed.
+- `owner_user_ids` (Set of Number) List of user IDs who will own the iam policy. Is required if no owner group IDs are listed.
 
 ### Read-Only
 

@@ -13,7 +13,7 @@ variable "end_datecode" {
 
 variable "funding_source_ids" {
   description = "Optional funding source IDs to use when data is not specified. This value is ignored is data is specified. If specified, the amount is distributed evenly across months and funding sources. Funding sources will be processed in order from first to last."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 

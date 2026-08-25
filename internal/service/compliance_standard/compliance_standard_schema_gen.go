@@ -20,7 +20,7 @@ func ComplianceStandardResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Cloud Rule ID the Compliance Standard should be added to",
 				MarkdownDescription: "Cloud Rule ID the Compliance Standard should be added to",
 			},
-			"compliance_check_ids": schema.ListAttribute{
+			"compliance_check_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -67,14 +67,14 @@ func ComplianceStandardResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Name of the Compliance Standard in the application.",
 				MarkdownDescription: "Name of the Compliance Standard in the application.",
 			},
-			"owner_user_group_ids": schema.ListAttribute{
+			"owner_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of groups IDs who will own the Compliance Standard. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the Compliance Standard. Is required if no owner user IDs are listed.",
 			},
-			"owner_user_ids": schema.ListAttribute{
+			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -88,7 +88,7 @@ func ComplianceStandardResourceSchema(ctx context.Context) schema.Schema {
 
 type ComplianceStandardModel struct {
 	CloudRuleId        types.Int64  `tfsdk:"cloud_rule_id"`
-	ComplianceCheckIds types.List   `tfsdk:"compliance_check_ids"`
+	ComplianceCheckIds types.Set    `tfsdk:"compliance_check_ids"`
 	CreatedAt          types.String `tfsdk:"created_at"`
 	CreatedByUserId    types.Int64  `tfsdk:"created_by_user_id"`
 	CtManaged          types.Bool   `tfsdk:"ct_managed"`
@@ -96,6 +96,6 @@ type ComplianceStandardModel struct {
 	Id                 types.String `tfsdk:"id"`
 	LastUpdated        types.String `tfsdk:"last_updated"`
 	Name               types.String `tfsdk:"name"`
-	OwnerUserGroupIds  types.List   `tfsdk:"owner_user_group_ids"`
-	OwnerUserIds       types.List   `tfsdk:"owner_user_ids"`
+	OwnerUserGroupIds  types.Set    `tfsdk:"owner_user_group_ids"`
+	OwnerUserIds       types.Set    `tfsdk:"owner_user_ids"`
 }

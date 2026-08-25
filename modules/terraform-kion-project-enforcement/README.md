@@ -50,14 +50,14 @@ No modules.
 | cloud\_rule\_id | Optional ID of cloud rule that is attached to the enforcement. Use endpoint /v3/cloud-rule to get a list of valid cloud rules and IDs. | `number` | `null` | no |
 | description | Optional, user-provided description of the enforcement. | `string` | `null` | no |
 | enabled | Whether the enforcement is enabled. | `bool` | `null` | no |
-| notification\_emails | List of external email addresses that will receive notifications from the enforcement. | `list(string)` | `null` | no |
+| notification\_emails | List of external email addresses that will receive notifications from the enforcement. | `set(string)` | `null` | no |
 | notification\_frequency | Frequency of notifications for this enforcement. Valid values are "daily". | `string` | `null` | no |
 | overburn | Flag that specifies if enforcement will place project in a overburn state when triggered. Options are: true, false. | `bool` | `null` | no |
 | service\_id | Option ID of service to set enforcement against. Use endpoint /v3/cloud-provider/service to get a list of valid services and IDs. | `number` | `null` | no |
 | spend\_option | Type of spend option. Valid values are "spend", "remaining", "spend\_rate". | `string` | `null` | no |
 | threshold\_type | Type of the threshold value. Valid values are "dollar", "percent". | `string` | `null` | no |
-| user\_group\_ids | List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed. | `list(number)` | `null` | no |
-| user\_ids | List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed. | `list(number)` | `null` | no |
+| user\_group\_ids | List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed. | `set(number)` | `null` | no |
+| user\_ids | List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed. | `set(number)` | `null` | no |
 
 ## Outputs
 

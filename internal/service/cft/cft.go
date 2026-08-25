@@ -66,11 +66,11 @@ func (r *cftResource) Create(ctx context.Context, req resource.CreateRequest, re
 			TagValue: flex.OptStringFromFramework(elem.TagValue),
 		})
 	}
-	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserGroupIds)
+	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserGroupIds)
 	resp.Diagnostics.Append(ownerUserGroupIdsDiags...)
-	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserIds)
+	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserIds)
 	resp.Diagnostics.Append(ownerUserIdsDiags...)
-	regions, regionsDiags := flex.StringSliceFromFramework(ctx, plan.Regions)
+	regions, regionsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.Regions)
 	resp.Diagnostics.Append(regionsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -171,7 +171,7 @@ func (r *cftResource) Update(ctx context.Context, req resource.UpdateRequest, re
 			TagValue: flex.OptStringFromFramework(elem.TagValue),
 		})
 	}
-	regions, regionsDiags := flex.StringSliceFromFramework(ctx, plan.Regions)
+	regions, regionsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.Regions)
 	resp.Diagnostics.Append(regionsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -270,7 +270,7 @@ func flattenCft(ctx context.Context, apiObject any, model *CftModel) diag.Diagno
 			model.SnsArns = flex.OptStringToFramework(v.Data.Value.Cft.Value.SnsArns)
 			model.TemplateParameters = flex.OptStringToFramework(v.Data.Value.Cft.Value.TemplateParameters)
 			model.TerminationProtection = flex.OptNilBoolToFramework(v.Data.Value.Cft.Value.TerminationProtection)
-			regions, regionsDiags := flex.StringSliceToFramework(ctx, v.Data.Value.Cft.Value.Regions)
+			regions, regionsDiags := flex.StringSliceToFrameworkSet(ctx, v.Data.Value.Cft.Value.Regions)
 			diags.Append(regionsDiags...)
 			model.Regions = regions
 			var tagsValsElems []TagsValue
@@ -291,7 +291,7 @@ func flattenCft(ctx context.Context, apiObject any, model *CftModel) diag.Diagno
 					ownerUserGroupsIDs = append(ownerUserGroupsIDs, int64(elem.ID.Value))
 				}
 			}
-			ownerUserGroupsIDsColl, ownerUserGroupsIDsCD := types.ListValueFrom(ctx, types.Int64Type, ownerUserGroupsIDs)
+			ownerUserGroupsIDsColl, ownerUserGroupsIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUserGroupsIDs)
 			diags.Append(ownerUserGroupsIDsCD...)
 			model.OwnerUserGroupIds = ownerUserGroupsIDsColl
 			var ownerUsersIDs []int64
@@ -300,7 +300,7 @@ func flattenCft(ctx context.Context, apiObject any, model *CftModel) diag.Diagno
 					ownerUsersIDs = append(ownerUsersIDs, int64(elem.ID.Value))
 				}
 			}
-			ownerUsersIDsColl, ownerUsersIDsCD := types.ListValueFrom(ctx, types.Int64Type, ownerUsersIDs)
+			ownerUsersIDsColl, ownerUsersIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUsersIDs)
 			diags.Append(ownerUsersIDsCD...)
 			model.OwnerUserIds = ownerUsersIDsColl
 		}

@@ -48,8 +48,8 @@ No modules.
 | permission\_scheme\_id | ID of the permission scheme applied to the ou. | `number` | n/a | yes |
 | description | Description for the OU in the application. | `string` | `null` | no |
 | labels | The labels applied to the OU. | `map(string)` | `null` | no |
-| owner\_user\_group\_ids | List of groups IDs who will own the ou. Is required if no owner user IDs are listed. | `list(number)` | `null` | no |
-| owner\_user\_ids | List of user IDs who will own the ou. Is required if no owner group IDs are listed. | `list(number)` | `null` | no |
+| owner\_user\_group\_ids | List of groups IDs who will own the ou. Is required if no owner user IDs are listed. | `set(number)` | `null` | no |
+| owner\_user\_ids | List of user IDs who will own the ou. Is required if no owner group IDs are listed. | `set(number)` | `null` | no |
 
 ## Outputs
 

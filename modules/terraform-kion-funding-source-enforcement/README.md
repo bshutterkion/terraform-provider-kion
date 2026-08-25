@@ -51,8 +51,8 @@ No modules.
 | enabled | Whether the enforcement is enabled. | `bool` | `null` | no |
 | overburn | Flag that specifies if enforcement will place project in a overburn state when triggered. Options are: true, false. | `bool` | `null` | no |
 | spend\_option | Type of spend option. Valid values are "spend", "remaining". | `string` | `null` | no |
-| ugroup\_ids | List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed. | `list(number)` | `null` | no |
-| user\_ids | List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed. | `list(number)` | `null` | no |
+| ugroup\_ids | List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed. | `set(number)` | `null` | no |
+| user\_ids | List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed. | `set(number)` | `null` | no |
 
 ## Outputs
 

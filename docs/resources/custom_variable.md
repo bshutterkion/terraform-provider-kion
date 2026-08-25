@@ -46,8 +46,8 @@ The key validation message can be up to 255 characters.
 variable type. The key validation regex can be up to 255 characters.
 - `last_updated` (String) The last time this resource was updated.
 - `name` (String) Name is the name of the custom variable. The name can be up to 255 characters.
-- `owner_user_group_ids` (List of Number) OwnerUGroupIDs is the list of user group IDs who will own the custom variable.
-- `owner_user_ids` (List of Number) OwnerUserIDs is the list of user IDs who will own the custom variable.
+- `owner_user_group_ids` (Set of Number) OwnerUGroupIDs is the list of user group IDs who will own the custom variable.
+- `owner_user_ids` (Set of Number) OwnerUserIDs is the list of user IDs who will own the custom variable.
 - `type` (String) Type is the type of the custom variable. The supported types are string, list, and map.
 - `value_validation_message` (String) ValueValidationMessage is the message displayed when the custom variable value(s) do not match the regular expression.
 The validation message can be up to 255 characters.

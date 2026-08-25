@@ -24,30 +24,30 @@ variable "name" {
 
 variable "owner_user_group_ids" {
   description = "List of groups IDs who will own the group. Is required if no owner user IDs are listed."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "owner_user_ids" {
   description = "List of user IDs who will own the group. Is required if no owner group IDs are listed."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "user_ids" {
   description = "IDs of the users in the user group."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "viewer_user_group_ids" {
   description = "List of groups IDs who will own the group. Is required if no owner user IDs are listed."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "viewer_user_ids" {
   description = "List of user IDs who will own the group. Is required if no owner group IDs are listed."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }

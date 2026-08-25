@@ -80,9 +80,9 @@ func flattenOuEnforcement(ctx context.Context, rec generated.OUEnforcement, mode
 	model.Timeframe = flex.OptStringToFramework(rec.Timeframe)
 	model.TriggerPlannedAmountType = flex.OptStringToFramework(rec.TriggerPlannedAmountType)
 	model.Triggered = flex.OptNilBoolToFramework(rec.Triggered)
-	ugroupIds, _ := flex.Uint64SliceToFramework(ctx, rec.UgroupIds.Value)
+	ugroupIds, _ := flex.Uint64SliceToFrameworkSet(ctx, rec.UgroupIds.Value)
 	model.UgroupIds = ugroupIds
-	userIds, _ := flex.Uint64SliceToFramework(ctx, rec.UserIds.Value)
+	userIds, _ := flex.Uint64SliceToFrameworkSet(ctx, rec.UserIds.Value)
 	model.UserIds = userIds
 }
 
@@ -96,9 +96,9 @@ func (r *ou_enforcementResource) Create(ctx context.Context, req resource.Create
 	}
 	parentID := plan.OuId.ValueInt64()
 
-	ugroupIds, ugroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.UgroupIds)
+	ugroupIds, ugroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UgroupIds)
 	resp.Diagnostics.Append(ugroupIdsDiags...)
-	userIds, userIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.UserIds)
+	userIds, userIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserIds)
 	resp.Diagnostics.Append(userIdsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -185,9 +185,9 @@ func (r *ou_enforcementResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
-	ugroupIds, ugroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.UgroupIds)
+	ugroupIds, ugroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UgroupIds)
 	resp.Diagnostics.Append(ugroupIdsDiags...)
-	userIds, userIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.UserIds)
+	userIds, userIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserIds)
 	resp.Diagnostics.Append(userIdsDiags...)
 	if resp.Diagnostics.HasError() {
 		return

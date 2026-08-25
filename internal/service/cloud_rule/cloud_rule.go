@@ -56,35 +56,35 @@ func (r *cloud_ruleResource) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
-	automationPolicyIds, automationPolicyIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.AutomationPolicyIds)
+	automationPolicyIds, automationPolicyIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.AutomationPolicyIds)
 	resp.Diagnostics.Append(automationPolicyIdsDiags...)
-	azureArmTemplateDefinitionIds, azureArmTemplateDefinitionIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.AzureArmTemplateDefinitionIds)
+	azureArmTemplateDefinitionIds, azureArmTemplateDefinitionIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.AzureArmTemplateDefinitionIds)
 	resp.Diagnostics.Append(azureArmTemplateDefinitionIdsDiags...)
-	azurePolicyDefinitionIds, azurePolicyDefinitionIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.AzurePolicyDefinitionIds)
+	azurePolicyDefinitionIds, azurePolicyDefinitionIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.AzurePolicyDefinitionIds)
 	resp.Diagnostics.Append(azurePolicyDefinitionIdsDiags...)
-	azureRoleDefinitionIds, azureRoleDefinitionIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.AzureRoleDefinitionIds)
+	azureRoleDefinitionIds, azureRoleDefinitionIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.AzureRoleDefinitionIds)
 	resp.Diagnostics.Append(azureRoleDefinitionIdsDiags...)
-	cftIds, cftIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.CftIds)
+	cftIds, cftIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.CftIds)
 	resp.Diagnostics.Append(cftIdsDiags...)
-	complianceStandardIds, complianceStandardIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.ComplianceStandardIds)
+	complianceStandardIds, complianceStandardIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.ComplianceStandardIds)
 	resp.Diagnostics.Append(complianceStandardIdsDiags...)
-	gcpIamRoleIds, gcpIamRoleIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.GcpIamRoleIds)
+	gcpIamRoleIds, gcpIamRoleIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.GcpIamRoleIds)
 	resp.Diagnostics.Append(gcpIamRoleIdsDiags...)
-	iamPolicyIds, iamPolicyIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.IamPolicyIds)
+	iamPolicyIds, iamPolicyIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.IamPolicyIds)
 	resp.Diagnostics.Append(iamPolicyIdsDiags...)
-	internalAmiIds, internalAmiIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.InternalAmiIds)
+	internalAmiIds, internalAmiIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.InternalAmiIds)
 	resp.Diagnostics.Append(internalAmiIdsDiags...)
-	internalPortfolioIds, internalPortfolioIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.InternalPortfolioIds)
+	internalPortfolioIds, internalPortfolioIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.InternalPortfolioIds)
 	resp.Diagnostics.Append(internalPortfolioIdsDiags...)
-	ouIds, ouIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OuIds)
+	ouIds, ouIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OuIds)
 	resp.Diagnostics.Append(ouIdsDiags...)
-	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserGroupIds)
+	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserGroupIds)
 	resp.Diagnostics.Append(ownerUserGroupIdsDiags...)
-	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserIds)
+	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserIds)
 	resp.Diagnostics.Append(ownerUserIdsDiags...)
-	projectIds, projectIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.ProjectIds)
+	projectIds, projectIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.ProjectIds)
 	resp.Diagnostics.Append(projectIdsDiags...)
-	serviceControlPolicyIds, serviceControlPolicyIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.ServiceControlPolicyIds)
+	serviceControlPolicyIds, serviceControlPolicyIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.ServiceControlPolicyIds)
 	resp.Diagnostics.Append(serviceControlPolicyIdsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -219,8 +219,8 @@ func (r *cloud_ruleResource) Update(ctx context.Context, req resource.UpdateRequ
 
 	// Sync owners: the update body does not carry them, so diff prior state vs
 	// plan and add/remove via the dedicated owner endpoints.
-	addOwnerUsers, removeOwnerUsers := flex.Uint64ListDiff(ctx, state.OwnerUserIds, plan.OwnerUserIds, &resp.Diagnostics)
-	addOwnerGroups, removeOwnerGroups := flex.Uint64ListDiff(ctx, state.OwnerUserGroupIds, plan.OwnerUserGroupIds, &resp.Diagnostics)
+	addOwnerUsers, removeOwnerUsers := flex.Uint64SetDiff(ctx, state.OwnerUserIds, plan.OwnerUserIds, &resp.Diagnostics)
+	addOwnerGroups, removeOwnerGroups := flex.Uint64SetDiff(ctx, state.OwnerUserGroupIds, plan.OwnerUserGroupIds, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -245,19 +245,19 @@ func (r *cloud_ruleResource) Update(ctx context.Context, req resource.UpdateRequ
 
 	// Sync associations: the update body carries none, so diff prior state vs
 	// plan per id-list and add/remove via the bulk associations endpoints.
-	assocAddAutomationPolicyIds, assocRemoveAutomationPolicyIds := flex.Uint64ListDiff(ctx, state.AutomationPolicyIds, plan.AutomationPolicyIds, &resp.Diagnostics)
-	assocAddAzureArmTemplateDefinitionIds, assocRemoveAzureArmTemplateDefinitionIds := flex.Uint64ListDiff(ctx, state.AzureArmTemplateDefinitionIds, plan.AzureArmTemplateDefinitionIds, &resp.Diagnostics)
-	assocAddAzurePolicyDefinitionIds, assocRemoveAzurePolicyDefinitionIds := flex.Uint64ListDiff(ctx, state.AzurePolicyDefinitionIds, plan.AzurePolicyDefinitionIds, &resp.Diagnostics)
-	assocAddAzureRoleDefinitionIds, assocRemoveAzureRoleDefinitionIds := flex.Uint64ListDiff(ctx, state.AzureRoleDefinitionIds, plan.AzureRoleDefinitionIds, &resp.Diagnostics)
-	assocAddCftIds, assocRemoveCftIds := flex.Uint64ListDiff(ctx, state.CftIds, plan.CftIds, &resp.Diagnostics)
-	assocAddComplianceStandardIds, assocRemoveComplianceStandardIds := flex.Uint64ListDiff(ctx, state.ComplianceStandardIds, plan.ComplianceStandardIds, &resp.Diagnostics)
-	assocAddGcpIamRoleIds, assocRemoveGcpIamRoleIds := flex.Uint64ListDiff(ctx, state.GcpIamRoleIds, plan.GcpIamRoleIds, &resp.Diagnostics)
-	assocAddIamPolicyIds, assocRemoveIamPolicyIds := flex.Uint64ListDiff(ctx, state.IamPolicyIds, plan.IamPolicyIds, &resp.Diagnostics)
-	assocAddInternalAmiIds, assocRemoveInternalAmiIds := flex.Uint64ListDiff(ctx, state.InternalAmiIds, plan.InternalAmiIds, &resp.Diagnostics)
-	assocAddInternalPortfolioIds, assocRemoveInternalPortfolioIds := flex.Uint64ListDiff(ctx, state.InternalPortfolioIds, plan.InternalPortfolioIds, &resp.Diagnostics)
-	assocAddOuIds, assocRemoveOuIds := flex.Uint64ListDiff(ctx, state.OuIds, plan.OuIds, &resp.Diagnostics)
-	assocAddProjectIds, assocRemoveProjectIds := flex.Uint64ListDiff(ctx, state.ProjectIds, plan.ProjectIds, &resp.Diagnostics)
-	assocAddServiceControlPolicyIds, assocRemoveServiceControlPolicyIds := flex.Uint64ListDiff(ctx, state.ServiceControlPolicyIds, plan.ServiceControlPolicyIds, &resp.Diagnostics)
+	assocAddAutomationPolicyIds, assocRemoveAutomationPolicyIds := flex.Uint64SetDiff(ctx, state.AutomationPolicyIds, plan.AutomationPolicyIds, &resp.Diagnostics)
+	assocAddAzureArmTemplateDefinitionIds, assocRemoveAzureArmTemplateDefinitionIds := flex.Uint64SetDiff(ctx, state.AzureArmTemplateDefinitionIds, plan.AzureArmTemplateDefinitionIds, &resp.Diagnostics)
+	assocAddAzurePolicyDefinitionIds, assocRemoveAzurePolicyDefinitionIds := flex.Uint64SetDiff(ctx, state.AzurePolicyDefinitionIds, plan.AzurePolicyDefinitionIds, &resp.Diagnostics)
+	assocAddAzureRoleDefinitionIds, assocRemoveAzureRoleDefinitionIds := flex.Uint64SetDiff(ctx, state.AzureRoleDefinitionIds, plan.AzureRoleDefinitionIds, &resp.Diagnostics)
+	assocAddCftIds, assocRemoveCftIds := flex.Uint64SetDiff(ctx, state.CftIds, plan.CftIds, &resp.Diagnostics)
+	assocAddComplianceStandardIds, assocRemoveComplianceStandardIds := flex.Uint64SetDiff(ctx, state.ComplianceStandardIds, plan.ComplianceStandardIds, &resp.Diagnostics)
+	assocAddGcpIamRoleIds, assocRemoveGcpIamRoleIds := flex.Uint64SetDiff(ctx, state.GcpIamRoleIds, plan.GcpIamRoleIds, &resp.Diagnostics)
+	assocAddIamPolicyIds, assocRemoveIamPolicyIds := flex.Uint64SetDiff(ctx, state.IamPolicyIds, plan.IamPolicyIds, &resp.Diagnostics)
+	assocAddInternalAmiIds, assocRemoveInternalAmiIds := flex.Uint64SetDiff(ctx, state.InternalAmiIds, plan.InternalAmiIds, &resp.Diagnostics)
+	assocAddInternalPortfolioIds, assocRemoveInternalPortfolioIds := flex.Uint64SetDiff(ctx, state.InternalPortfolioIds, plan.InternalPortfolioIds, &resp.Diagnostics)
+	assocAddOuIds, assocRemoveOuIds := flex.Uint64SetDiff(ctx, state.OuIds, plan.OuIds, &resp.Diagnostics)
+	assocAddProjectIds, assocRemoveProjectIds := flex.Uint64SetDiff(ctx, state.ProjectIds, plan.ProjectIds, &resp.Diagnostics)
+	assocAddServiceControlPolicyIds, assocRemoveServiceControlPolicyIds := flex.Uint64SetDiff(ctx, state.ServiceControlPolicyIds, plan.ServiceControlPolicyIds, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -370,7 +370,7 @@ func flattenCloudRule(ctx context.Context, apiObject any, model *CloudRuleModel)
 					azureArmTemplateDefinitionsIDs = append(azureArmTemplateDefinitionsIDs, int64(elem.ID.Value))
 				}
 			}
-			azureArmTemplateDefinitionsIDsColl, azureArmTemplateDefinitionsIDsCD := types.ListValueFrom(ctx, types.Int64Type, azureArmTemplateDefinitionsIDs)
+			azureArmTemplateDefinitionsIDsColl, azureArmTemplateDefinitionsIDsCD := types.SetValueFrom(ctx, types.Int64Type, azureArmTemplateDefinitionsIDs)
 			diags.Append(azureArmTemplateDefinitionsIDsCD...)
 			model.AzureArmTemplateDefinitionIds = azureArmTemplateDefinitionsIDsColl
 			var azurePolicyDefinitionsIDs []int64
@@ -379,7 +379,7 @@ func flattenCloudRule(ctx context.Context, apiObject any, model *CloudRuleModel)
 					azurePolicyDefinitionsIDs = append(azurePolicyDefinitionsIDs, int64(elem.ID.Value))
 				}
 			}
-			azurePolicyDefinitionsIDsColl, azurePolicyDefinitionsIDsCD := types.ListValueFrom(ctx, types.Int64Type, azurePolicyDefinitionsIDs)
+			azurePolicyDefinitionsIDsColl, azurePolicyDefinitionsIDsCD := types.SetValueFrom(ctx, types.Int64Type, azurePolicyDefinitionsIDs)
 			diags.Append(azurePolicyDefinitionsIDsCD...)
 			model.AzurePolicyDefinitionIds = azurePolicyDefinitionsIDsColl
 			var azureRoleDefinitionsIDs []int64
@@ -388,7 +388,7 @@ func flattenCloudRule(ctx context.Context, apiObject any, model *CloudRuleModel)
 					azureRoleDefinitionsIDs = append(azureRoleDefinitionsIDs, int64(elem.ID.Value))
 				}
 			}
-			azureRoleDefinitionsIDsColl, azureRoleDefinitionsIDsCD := types.ListValueFrom(ctx, types.Int64Type, azureRoleDefinitionsIDs)
+			azureRoleDefinitionsIDsColl, azureRoleDefinitionsIDsCD := types.SetValueFrom(ctx, types.Int64Type, azureRoleDefinitionsIDs)
 			diags.Append(azureRoleDefinitionsIDsCD...)
 			model.AzureRoleDefinitionIds = azureRoleDefinitionsIDsColl
 			var complianceStandardsIDs []int64
@@ -397,7 +397,7 @@ func flattenCloudRule(ctx context.Context, apiObject any, model *CloudRuleModel)
 					complianceStandardsIDs = append(complianceStandardsIDs, int64(elem.ID.Value))
 				}
 			}
-			complianceStandardsIDsColl, complianceStandardsIDsCD := types.ListValueFrom(ctx, types.Int64Type, complianceStandardsIDs)
+			complianceStandardsIDsColl, complianceStandardsIDsCD := types.SetValueFrom(ctx, types.Int64Type, complianceStandardsIDs)
 			diags.Append(complianceStandardsIDsCD...)
 			model.ComplianceStandardIds = complianceStandardsIDsColl
 			var gcpIamRolesIDs []int64
@@ -406,7 +406,7 @@ func flattenCloudRule(ctx context.Context, apiObject any, model *CloudRuleModel)
 					gcpIamRolesIDs = append(gcpIamRolesIDs, int64(elem.ID.Value))
 				}
 			}
-			gcpIamRolesIDsColl, gcpIamRolesIDsCD := types.ListValueFrom(ctx, types.Int64Type, gcpIamRolesIDs)
+			gcpIamRolesIDsColl, gcpIamRolesIDsCD := types.SetValueFrom(ctx, types.Int64Type, gcpIamRolesIDs)
 			diags.Append(gcpIamRolesIDsCD...)
 			model.GcpIamRoleIds = gcpIamRolesIDsColl
 			var ousIDs []int64
@@ -415,7 +415,7 @@ func flattenCloudRule(ctx context.Context, apiObject any, model *CloudRuleModel)
 					ousIDs = append(ousIDs, int64(elem.ID.Value))
 				}
 			}
-			ousIDsColl, ousIDsCD := types.ListValueFrom(ctx, types.Int64Type, ousIDs)
+			ousIDsColl, ousIDsCD := types.SetValueFrom(ctx, types.Int64Type, ousIDs)
 			diags.Append(ousIDsCD...)
 			model.OuIds = ousIDsColl
 			var ownerUserGroupsIDs []int64
@@ -424,7 +424,7 @@ func flattenCloudRule(ctx context.Context, apiObject any, model *CloudRuleModel)
 					ownerUserGroupsIDs = append(ownerUserGroupsIDs, int64(elem.ID.Value))
 				}
 			}
-			ownerUserGroupsIDsColl, ownerUserGroupsIDsCD := types.ListValueFrom(ctx, types.Int64Type, ownerUserGroupsIDs)
+			ownerUserGroupsIDsColl, ownerUserGroupsIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUserGroupsIDs)
 			diags.Append(ownerUserGroupsIDsCD...)
 			model.OwnerUserGroupIds = ownerUserGroupsIDsColl
 			var ownerUsersIDs []int64
@@ -433,7 +433,7 @@ func flattenCloudRule(ctx context.Context, apiObject any, model *CloudRuleModel)
 					ownerUsersIDs = append(ownerUsersIDs, int64(elem.ID.Value))
 				}
 			}
-			ownerUsersIDsColl, ownerUsersIDsCD := types.ListValueFrom(ctx, types.Int64Type, ownerUsersIDs)
+			ownerUsersIDsColl, ownerUsersIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUsersIDs)
 			diags.Append(ownerUsersIDsCD...)
 			model.OwnerUserIds = ownerUsersIDsColl
 			var projectsIDs []int64
@@ -442,7 +442,7 @@ func flattenCloudRule(ctx context.Context, apiObject any, model *CloudRuleModel)
 					projectsIDs = append(projectsIDs, int64(elem.ID.Value))
 				}
 			}
-			projectsIDsColl, projectsIDsCD := types.ListValueFrom(ctx, types.Int64Type, projectsIDs)
+			projectsIDsColl, projectsIDsCD := types.SetValueFrom(ctx, types.Int64Type, projectsIDs)
 			diags.Append(projectsIDsCD...)
 			model.ProjectIds = projectsIDsColl
 		}

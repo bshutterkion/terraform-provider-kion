@@ -53,18 +53,18 @@ resource "kion_ou_cloud_access_role" "example" {
 
 - `aws_iam_path` (String) Text of the IAM Path in AWS to be stored in AWS.
 - `aws_iam_permissions_boundary` (Number) ID of the AWS IAM policy to be used as a permissions boundary for this role.
-- `aws_iam_policies` (List of Number) IDs of the AWS IAM policies attached to this role.
+- `aws_iam_policies` (Set of Number) IDs of the AWS IAM policies attached to this role.
 - `aws_iam_role_name` (String) AWS IAM role name corresponding to the cloud access role.
 - `aws_session_tags` (Attributes List) AWS Session Tags used in this role when accessing the AWS console. (see [below for nested schema](#nestedatt--aws_session_tags))
-- `azure_role_definitions` (List of Number) IDs of the Azure Role Definitions attached to this role.
-- `gcp_iam_roles` (List of Number) IDs of the GCP IAM roles attached to this role.
+- `azure_role_definitions` (Set of Number) IDs of the Azure Role Definitions attached to this role.
+- `gcp_iam_roles` (Set of Number) IDs of the GCP IAM roles attached to this role.
 - `last_updated` (String) The last time this resource was updated.
 - `long_term_access_keys` (Boolean) If long term access is true, users of this cloud access role can generate aws long-term access keys.
 Will default to false if not set.
 - `short_term_access_keys` (Boolean) If short term access is true, users of this cloud access role can generate short-term access keys.
 Will default to false if not set.
-- `user_group_ids` (List of Number) IDs of the user groups allowed to use this role to access the AWS console.
-- `user_ids` (List of Number) IDs of the users allowed to use this role to access the AWS console.
+- `user_group_ids` (Set of Number) IDs of the user groups allowed to use this role to access the AWS console.
+- `user_ids` (Set of Number) IDs of the users allowed to use this role to access the AWS console.
 - `web_access` (Boolean) If web access is true, users of this cloud access role can log into the console
 Will default to false if not set.
 

@@ -60,35 +60,35 @@ func UserGroupResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Name of the user group in the application.",
 				MarkdownDescription: "Name of the user group in the application.",
 			},
-			"owner_user_group_ids": schema.ListAttribute{
+			"owner_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of groups IDs who will own the group. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the group. Is required if no owner user IDs are listed.",
 			},
-			"owner_user_ids": schema.ListAttribute{
+			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of user IDs who will own the group. Is required if no owner group IDs are listed.",
 				MarkdownDescription: "List of user IDs who will own the group. Is required if no owner group IDs are listed.",
 			},
-			"user_ids": schema.ListAttribute{
+			"user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "IDs of the users in the user group.",
 				MarkdownDescription: "IDs of the users in the user group.",
 			},
-			"viewer_user_group_ids": schema.ListAttribute{
+			"viewer_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of groups IDs who will own the group. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the group. Is required if no owner user IDs are listed.",
 			},
-			"viewer_user_ids": schema.ListAttribute{
+			"viewer_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -109,9 +109,9 @@ type UserGroupModel struct {
 	IdmsId             types.Int64  `tfsdk:"idms_id"`
 	LastUpdated        types.String `tfsdk:"last_updated"`
 	Name               types.String `tfsdk:"name"`
-	OwnerUserGroupIds  types.List   `tfsdk:"owner_user_group_ids"`
-	OwnerUserIds       types.List   `tfsdk:"owner_user_ids"`
-	UserIds            types.List   `tfsdk:"user_ids"`
-	ViewerUserGroupIds types.List   `tfsdk:"viewer_user_group_ids"`
-	ViewerUserIds      types.List   `tfsdk:"viewer_user_ids"`
+	OwnerUserGroupIds  types.Set    `tfsdk:"owner_user_group_ids"`
+	OwnerUserIds       types.Set    `tfsdk:"owner_user_ids"`
+	UserIds            types.Set    `tfsdk:"user_ids"`
+	ViewerUserGroupIds types.Set    `tfsdk:"viewer_user_group_ids"`
+	ViewerUserIds      types.Set    `tfsdk:"viewer_user_ids"`
 }

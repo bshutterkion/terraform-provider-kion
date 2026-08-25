@@ -397,7 +397,7 @@ func bodyBinds(body *Struct, byTF map[string]ModelField, idTF string, skip map[s
 			scalars = append(scalars, fieldBind{SDKField: f.GoName, ModelGo: mf.GoName, Converter: conv})
 			continue
 		}
-		if expand, _, wrap, ok := sliceConverter(f.Type); ok {
+		if expand, _, wrap, ok := sliceConverter(f.Type, mf.Type); ok {
 			sliceOut = append(sliceOut, sliceBind{SDKField: f.GoName, ModelGo: mf.GoName, Func: expand, Var: lowerFirst(f.GoName), Wrap: wrap})
 			continue
 		}
@@ -489,7 +489,7 @@ func respBinds(fields []Field, byTF map[string]ModelField, idTF, prefix string, 
 			out = append(out, respBind{ModelGo: mf.GoName, SDKPath: prefix + f.GoName, Converter: conv})
 			continue
 		}
-		if _, flatten, wrap, ok := sliceConverter(f.Type); ok {
+		if _, flatten, wrap, ok := sliceConverter(f.Type, mf.Type); ok {
 			path := prefix + f.GoName
 			if wrap != "" {
 				path += ".Value" // unwrap the nil-aware slice wrapper

@@ -36,8 +36,8 @@ resource "kion_service_control_policy" "example" {
 ### Optional
 
 - `description` (String) Description for the Service Control policy in the application.
-- `owner_user_group_ids` (List of Number) List of groups IDs who will own the service_control policy. Is required if no owner user IDs are listed.
-- `owner_user_ids` (List of Number) List of user IDs who will own the service_control policy. Is required if no owner group IDs are listed.
+- `owner_user_group_ids` (Set of Number) List of groups IDs who will own the service_control policy. Is required if no owner user IDs are listed.
+- `owner_user_ids` (Set of Number) List of user IDs who will own the service_control policy. Is required if no owner group IDs are listed.
 
 ### Read-Only
 

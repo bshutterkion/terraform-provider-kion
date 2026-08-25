@@ -46,11 +46,11 @@ No modules.
 | policy | Text of the IAM policy in AWS to be stored in AWS. | `string` | n/a | yes |
 | aws\_iam\_path | Text of the IAM Path in AWS to be stored in AWS. | `string` | `null` | no |
 | car\_restricted | True if the policy has been restricted for use by a subset of Users/UGroups on a Cloud Access Role. | `bool` | `null` | no |
-| car\_restricted\_user\_group\_ids | List of groups IDs who have been allowed to use the iam policy on Cloud Access Roles in the system. | `list(number)` | `null` | no |
-| car\_restricted\_user\_ids | List of user IDs who have been allowed to use the iam policy on Cloud Access Roles in the system. | `list(number)` | `null` | no |
+| car\_restricted\_user\_group\_ids | List of groups IDs who have been allowed to use the iam policy on Cloud Access Roles in the system. | `set(number)` | `null` | no |
+| car\_restricted\_user\_ids | List of user IDs who have been allowed to use the iam policy on Cloud Access Roles in the system. | `set(number)` | `null` | no |
 | description | Description for the IAM policy in the application. | `string` | `null` | no |
-| owner\_user\_group\_ids | List of groups IDs who will own the iam policy. Is required if no owner user IDs are listed. | `list(number)` | `null` | no |
-| owner\_user\_ids | List of user IDs who will own the iam policy. Is required if no owner group IDs are listed. | `list(number)` | `null` | no |
+| owner\_user\_group\_ids | List of groups IDs who will own the iam policy. Is required if no owner user IDs are listed. | `set(number)` | `null` | no |
+| owner\_user\_ids | List of user IDs who will own the iam policy. Is required if no owner group IDs are listed. | `set(number)` | `null` | no |
 
 ## Outputs
 

@@ -47,8 +47,8 @@ No modules.
 | name | Name of the webhook in the application. | `string` | n/a | yes |
 | timeout\_in\_seconds | The number of seconds the application will wait before considering the webhook "timed out". | `number` | n/a | yes |
 | description | Description for the webhook in the application. | `string` | `null` | no |
-| owner\_user\_group\_ids | List of groups IDs who will own the webhook. Is required if no owner user IDs are listed. | `list(number)` | `null` | no |
-| owner\_user\_ids | List of user IDs who will own the webhook. Is required if no owner group IDs are listed. | `list(number)` | `null` | no |
+| owner\_user\_group\_ids | List of groups IDs who will own the webhook. Is required if no owner user IDs are listed. | `set(number)` | `null` | no |
+| owner\_user\_ids | List of user IDs who will own the webhook. Is required if no owner group IDs are listed. | `set(number)` | `null` | no |
 | request\_body | HTTP request payload body to use when the webhook is triggered. | `string` | `null` | no |
 | request\_headers | HTTP headers to use when the webhook is triggered. | `string` | `null` | no |
 | request\_method | HTTP request method to use when the webhook is triggered. | `string` | `null` | no |

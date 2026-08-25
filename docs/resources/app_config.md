@@ -74,7 +74,7 @@ resource "kion_app_config" "example" {
 - `smtp_port` (Number) The SMTP port.
 - `smtp_skip_verify` (Boolean) Indicates if the app should skip SMTP verification.
 - `smtp_username` (String) The SMTP username.
-- `supported_aws_regions` (List of String) The list of supported AWS regions.
+- `supported_aws_regions` (Set of String) The list of supported AWS regions.
 
 ### Read-Only
 

@@ -45,7 +45,7 @@ No modules.
 | end\_datecode | Year and month the budget ends. This is an exclusive date. | `string` | n/a | yes |
 | start\_datecode | Year and month the budget starts. | `string` | n/a | yes |
 | amount | Total amount for the budget. This is required if data is not specified. Budget entries are created between start\_datecode and end\_datecode (exclusive) with the amount evenly distributed across the months. | `number` | `null` | no |
-| funding\_source\_ids | Optional funding source IDs to use when data is not specified. This value is ignored is data is specified. If specified, the amount is distributed evenly across months and funding sources. Funding sources will be processed in order from first to last. | `list(number)` | `null` | no |
+| funding\_source\_ids | Optional funding source IDs to use when data is not specified. This value is ignored is data is specified. If specified, the amount is distributed evenly across months and funding sources. Funding sources will be processed in order from first to last. | `set(number)` | `null` | no |
 | ou\_id | ID of OU this budget is attached to. Required for OU thresholds. | `number` | `null` | no |
 | project\_id | ID of project this budget is attached to. Required for project budgets. | `number` | `null` | no |
 

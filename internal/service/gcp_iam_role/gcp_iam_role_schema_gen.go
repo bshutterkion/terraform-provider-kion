@@ -14,14 +14,14 @@ import (
 func GcpIamRoleResourceSchema(ctx context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"car_restricted_user_group_ids": schema.ListAttribute{
+			"car_restricted_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of groups IDs who have been allowed to use the GCP Role on Cloud Access Roles in the system.",
 				MarkdownDescription: "List of groups IDs who have been allowed to use the GCP Role on Cloud Access Roles in the system.",
 			},
-			"car_restricted_user_ids": schema.ListAttribute{
+			"car_restricted_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -53,28 +53,28 @@ func GcpIamRoleResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Name of the GCP Role in the application.",
 				MarkdownDescription: "Name of the GCP Role in the application.",
 			},
-			"owner_user_group_ids": schema.ListAttribute{
+			"owner_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of group IDs who will own the GCP Role. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of group IDs who will own the GCP Role. Is required if no owner user IDs are listed.",
 			},
-			"owner_user_ids": schema.ListAttribute{
+			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of user IDs who will own the GCP Role. Is required if no owner group IDs are listed.",
 				MarkdownDescription: "List of user IDs who will own the GCP Role. Is required if no owner group IDs are listed.",
 			},
-			"role_denials": schema.ListAttribute{
+			"role_denials": schema.SetAttribute{
 				ElementType:         types.StringType,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of GCP Permissions to deny when applying this role. Wildcards are supported.",
 				MarkdownDescription: "List of GCP Permissions to deny when applying this role. Wildcards are supported.",
 			},
-			"role_permissions": schema.ListAttribute{
+			"role_permissions": schema.SetAttribute{
 				ElementType:         types.StringType,
 				Required:            true,
 				Description:         "List of GCP Permissions to assign the role",
@@ -86,14 +86,14 @@ func GcpIamRoleResourceSchema(ctx context.Context) schema.Schema {
 }
 
 type GcpIamRoleModel struct {
-	CarRestrictedUserGroupIds types.List   `tfsdk:"car_restricted_user_group_ids"`
-	CarRestrictedUserIds      types.List   `tfsdk:"car_restricted_user_ids"`
+	CarRestrictedUserGroupIds types.Set    `tfsdk:"car_restricted_user_group_ids"`
+	CarRestrictedUserIds      types.Set    `tfsdk:"car_restricted_user_ids"`
 	Description               types.String `tfsdk:"description"`
 	GcpRoleLaunchStage        types.Int64  `tfsdk:"gcp_role_launch_stage"`
 	Id                        types.String `tfsdk:"id"`
 	Name                      types.String `tfsdk:"name"`
-	OwnerUserGroupIds         types.List   `tfsdk:"owner_user_group_ids"`
-	OwnerUserIds              types.List   `tfsdk:"owner_user_ids"`
-	RoleDenials               types.List   `tfsdk:"role_denials"`
-	RolePermissions           types.List   `tfsdk:"role_permissions"`
+	OwnerUserGroupIds         types.Set    `tfsdk:"owner_user_group_ids"`
+	OwnerUserIds              types.Set    `tfsdk:"owner_user_ids"`
+	RoleDenials               types.Set    `tfsdk:"role_denials"`
+	RolePermissions           types.Set    `tfsdk:"role_permissions"`
 }

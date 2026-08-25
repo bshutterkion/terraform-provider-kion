@@ -13,13 +13,13 @@ variable "name" {
 
 variable "owner_user_group_ids" {
   description = "List of groups IDs who will own the CloudFormation template. Is required if no user IDs are listed."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "owner_user_ids" {
   description = "List of user IDs who will own the CloudFormation template. Is required if no group IDs are listed."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
@@ -36,7 +36,7 @@ variable "region" {
 
 variable "regions" {
   description = "List of the AWS regions where the CloudFormation template applies."
-  type        = list(string)
+  type        = set(string)
 }
 
 variable "sns_arns" {

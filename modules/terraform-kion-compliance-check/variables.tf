@@ -24,7 +24,7 @@ variable "compliance_check_type_id" {
 
 variable "compliance_control_ids" {
   description = "List of Compliance Control IDs to which this Compliance Check is linked."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
@@ -77,19 +77,19 @@ variable "name" {
 
 variable "owner_user_group_ids" {
   description = "List of groups IDs who will own the Compliance Check. Is required if no owner user IDs are listed."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "owner_user_ids" {
   description = "List of user IDs who will own the Compliance Check. Is required if no owner group IDs are listed."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "regions" {
   description = "List of the AWS regions where the compliance check applies. Required when check type id is cloud custodian."
-  type        = list(string)
+  type        = set(string)
   default     = null
 }
 

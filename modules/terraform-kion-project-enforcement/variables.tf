@@ -26,7 +26,7 @@ variable "enabled" {
 
 variable "notification_emails" {
   description = "List of external email addresses that will receive notifications from the enforcement."
-  type        = list(string)
+  type        = set(string)
   default     = null
 }
 
@@ -77,12 +77,12 @@ variable "timeframe" {
 
 variable "user_group_ids" {
   description = "List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "user_ids" {
   description = "List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }

@@ -153,6 +153,6 @@ variable "smtp_username" {
 
 variable "supported_aws_regions" {
   description = "The list of supported AWS regions."
-  type        = list(string)
+  type        = set(string)
   default     = null
 }

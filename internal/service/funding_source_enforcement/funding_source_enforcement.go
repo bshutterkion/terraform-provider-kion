@@ -79,7 +79,7 @@ func flattenFundingSourceEnforcement(ctx context.Context, rec generated.FundingS
 	model.Threshold = flex.OptInt64ToFramework(rec.Threshold)
 	model.Timeframe = flex.OptStringToFramework(rec.Timeframe)
 	model.Triggered = flex.OptNilBoolToFramework(rec.Triggered)
-	userIds, _ := flex.Uint64SliceToFramework(ctx, rec.UserIds.Value)
+	userIds, _ := flex.Uint64SliceToFrameworkSet(ctx, rec.UserIds.Value)
 	model.UserIds = userIds
 }
 
@@ -93,9 +93,9 @@ func (r *funding_source_enforcementResource) Create(ctx context.Context, req res
 	}
 	parentID := plan.FundingSourceId.ValueInt64()
 
-	ugroupIds, ugroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.UgroupIds)
+	ugroupIds, ugroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UgroupIds)
 	resp.Diagnostics.Append(ugroupIdsDiags...)
-	userIds, userIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.UserIds)
+	userIds, userIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserIds)
 	resp.Diagnostics.Append(userIdsDiags...)
 	if resp.Diagnostics.HasError() {
 		return

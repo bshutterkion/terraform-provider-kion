@@ -34,7 +34,7 @@ variable "phone" {
 
 variable "user_group_ids" {
   description = "List of IDs of groups the user is in."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 

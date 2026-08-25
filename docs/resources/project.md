@@ -74,8 +74,8 @@ the account. Should be true unless using a custom module.
 - `labels` (Map of String) The labels applied to the project.
 - `last_updated` (String) The last time this resource was updated.
 - `move_ou_settings` (Attributes Set) Settings applied when moving the project between OUs. (see [below for nested schema](#nestedatt--move_ou_settings))
-- `owner_user_group_ids` (List of Number) List of groups IDs who will own the project. Is required if no owner user IDs are listed.
-- `owner_user_ids` (List of Number) List of user IDs who will own the project. Is required if no owner group IDs are listed.
+- `owner_user_group_ids` (Set of Number) List of groups IDs who will own the project. Is required if no owner user IDs are listed.
+- `owner_user_ids` (Set of Number) List of user IDs who will own the project. Is required if no owner group IDs are listed.
 - `project_funding` (Attributes List) (see [below for nested schema](#nestedatt--project_funding))
 
 ### Read-Only

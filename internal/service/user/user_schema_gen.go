@@ -54,7 +54,7 @@ func UserResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Phone number of the user.",
 				MarkdownDescription: "Phone number of the user.",
 			},
-			"user_group_ids": schema.ListAttribute{
+			"user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -79,6 +79,6 @@ type UserModel struct {
 	LastName     types.String `tfsdk:"last_name"`
 	Mfa          types.Int64  `tfsdk:"mfa"`
 	Phone        types.String `tfsdk:"phone"`
-	UserGroupIds types.List   `tfsdk:"user_group_ids"`
+	UserGroupIds types.Set    `tfsdk:"user_group_ids"`
 	Username     types.String `tfsdk:"username"`
 }

@@ -620,6 +620,13 @@ func (g *generator) applySchemaOverrides(specPath, overridesPath string) error {
 		return err
 	}
 
+	// Association id lists are unordered; see applyAssociationSetDefault.
+	for _, key := range []string{"resources", "datasources"} {
+		if err := applyAssociationSetDefault(spec[key]); err != nil {
+			return err
+		}
+	}
+
 	fmt.Printf("==> applying schema overrides from %s\n", filepath.Base(overridesPath))
 	for _, section := range []struct {
 		key string
@@ -1050,3 +1057,111 @@ func Test{{.Pascal}}DataSourceSchema(t *testing.T) {
 	}
 }
 `))
+
+// associationSetSuffix marks attributes that hold a set of related object ids.
+// Kion's API returns these in no meaningful order, and the SDKv2 provider
+// modeled every one of them as a TypeSet.
+const associationSetSuffix = "_ids"
+
+// unorderedListNames are collections whose element type alone does not identify
+// them (they hold strings, not ids) but which are still unordered sets in the
+// API. Evidence, not guesswork: each produced an order-only diff on a real
+// migration — the same members returned in a different order than the
+// configuration listed them.
+//
+// `regions` was originally left ordered on the assumption that a practitioner
+// might care about region order. The migration proved otherwise: the API
+// returned us-west-1 and us-west-2 transposed relative to the imported config,
+// and it was the single remaining difference across 843 resources.
+var unorderedListNames = map[string]bool{
+	"regions":               true,
+	"supported_aws_regions": true,
+	"role_permissions":      true,
+	"role_denials":          true,
+	"notification_emails":   true,
+	"scopes":                true,
+}
+
+// applyAssociationSetDefault retypes `*_ids` list attributes as sets.
+//
+// The OpenAPI spec describes these as JSON arrays, so the generator produced
+// schema.ListAttribute — an ORDERED type. The SDKv2 provider used TypeSet, which
+// compares by membership. That difference is invisible until a configuration
+// written for the old provider is migrated: state holds the set in hash order
+// while config holds it in API order, the two are equal as sets and unequal as
+// lists, and `terraform plan` reports a diff in which every element is removed
+// and re-added at a different position.
+//
+// Observed on a real installation: of 98 attribute differences across 843
+// migrated resources, 96 were exactly this — same members, different order, no
+// actual change. Sorting on read does not fix it, because a provider cannot
+// reorder a practitioner's configuration; only set semantics can.
+//
+// Applied as a default rather than per-attribute overrides because it holds for
+// every association attribute (107 of them across 43 service packages) and
+// should keep holding for resources added later. A resource that genuinely needs
+// an ordered `*_ids` attribute can still say so in schema_overrides.yaml, which
+// runs after this.
+func applyAssociationSetDefault(node any) error {
+	list, ok := node.([]any)
+	if !ok {
+		return nil
+	}
+	for _, item := range list {
+		obj, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		schemaObj, ok := obj["schema"].(map[string]any)
+		if !ok {
+			continue
+		}
+		attrs, ok := schemaObj["attributes"].([]any)
+		if !ok {
+			continue
+		}
+		for _, a := range attrs {
+			am, ok := a.(map[string]any)
+			if !ok {
+				continue
+			}
+			name, ok := am["name"].(string)
+			if !ok {
+				continue
+			}
+			l, ok := am["list"].(map[string]any)
+			if !ok {
+				continue
+			}
+			// Two ways to recognize an association collection:
+			//
+			//   - a list of int64. In this API a bare list of integers is always
+			//     a collection of related object ids; there is no attribute where
+			//     the order of such a list carries meaning. This is what catches
+			//     the ones that do NOT follow the naming convention —
+			//     aws_iam_policies, azure_role_definitions, gcp_iam_roles — which
+			//     a suffix rule alone missed, leaving them still producing
+			//     order-only diffs.
+			//   - a name ending in _ids, for id collections of some other element
+			//     type.
+			//
+			// Deliberately NOT every list: `regions` is a list of strings whose
+			// order a practitioner may care about, and string lists in general
+			// are not safe to reinterpret as unordered.
+			isInt64List := false
+			if et, ok := l["element_type"].(map[string]any); ok {
+				_, isInt64List = et["int64"]
+			}
+			if !isInt64List &&
+				!strings.HasSuffix(name, associationSetSuffix) &&
+				!unorderedListNames[name] {
+				continue
+			}
+			// Move the `list` node to `set`; the element type and every other
+			// setting travel with it untouched.
+			am["set"] = l
+			delete(am, "list")
+		}
+	}
+	return nil
+}
