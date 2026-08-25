@@ -252,6 +252,111 @@ func TestEnumerateGenericFallbackAlsoFailsReportsOriginalError(t *testing.T) {
 
 // --- Correction 2: the singleton id fallback is ShapeSpecial-only. ---
 
+// --- Fix 1: unwrapTypedRecord must prefer the key matching the resource's
+// kind over the purely structural "exactly one id-bearing map" rule, because
+// the CAR endpoints carry two id-bearing sibling maps (the CAR itself and
+// its parent ou/project) and the old rule either skipped both as ambiguous
+// or, worse, could resolve to the parent's id instead of the CAR's own. ---
+
+func TestToRecordsOUCloudAccessRolePrefersItsOwnKindOverParentOU(t *testing.T) {
+	t.Parallel()
+	raw := rec(
+		"ou_cloud_access_role", rec("id", float64(5), "name", "MyCAR"),
+		"ou", rec("id", float64(1), "name", "Engineering"),
+		"aws_iam_policies", []any{},
+	)
+	records, skipped, _ := toRecords([]map[string]any{raw}, importmanifest.Resource{
+		TFType: "kion_ou_cloud_access_role", Kind: "ou_cloud_access_role",
+		ReadShape: importmanifest.ShapeGeneric, NameField: "name",
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	}, "")
+	require.Equal(t, 0, skipped)
+	require.Len(t, records, 1)
+	assert.Equal(t, "5", records[0].ID, "must resolve to the CAR's own id, not the parent ou's")
+	assert.Equal(t, "MyCAR", records[0].Name)
+}
+
+func TestToRecordsProjectCloudAccessRolePrefersItsOwnKindOverParentProject(t *testing.T) {
+	t.Parallel()
+	raw := rec(
+		"project_cloud_access_role", rec("id", float64(7)),
+		"project", rec("id", float64(2)),
+		"users", []any{},
+	)
+	records, skipped, _ := toRecords([]map[string]any{raw}, importmanifest.Resource{
+		TFType: "kion_project_cloud_access_role", Kind: "project_cloud_access_role",
+		ReadShape: importmanifest.ShapeGeneric,
+		ImportID:  importmanifest.ImportID{Format: importmanifest.FormatID},
+	}, "")
+	require.Equal(t, 0, skipped)
+	require.Len(t, records, 1)
+	assert.Equal(t, "7", records[0].ID, "must resolve to the CAR's own id, not the parent project's")
+}
+
+// TestToRecordsWrapperKeyMismatchesKindStillFallsBackToStructuralRule guards
+// the two known wrappers whose key does NOT match the resource's kind --
+// service_catalog_portfolio (kind "service_catalog") and gcp_role (kind
+// "gcp_iam_role") -- so step 1 (kind match) must miss and step 2
+// (structural fallback) must still resolve them, even with a real,
+// non-empty Kind set on the resource.
+func TestToRecordsWrapperKeyMismatchesKindStillFallsBackToStructuralRule(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		tfType string
+		kind   string
+		raw    map[string]any
+		wantID string
+	}{
+		{
+			name:   "service_catalog wraps under service_catalog_portfolio",
+			tfType: "kion_service_catalog", kind: "service_catalog",
+			raw:    rec("service_catalog_portfolio", rec("id", float64(4)), "owner_users", []any{}),
+			wantID: "4",
+		},
+		{
+			name:   "gcp_iam_role wraps under gcp_role",
+			tfType: "kion_gcp_iam_role", kind: "gcp_iam_role",
+			raw:    rec("gcp_role", rec("id", float64(9)), "owner_users", []any{}),
+			wantID: "9",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			records, skipped, _ := toRecords([]map[string]any{tt.raw}, importmanifest.Resource{
+				TFType: tt.tfType, Kind: tt.kind, ReadShape: importmanifest.ShapeGeneric,
+				ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+			}, "")
+			require.Equal(t, 0, skipped)
+			require.Len(t, records, 1)
+			assert.Equal(t, tt.wantID, records[0].ID)
+		})
+	}
+}
+
+// TestUnwrapTypedRecordEmptyKindFallsBackToStructuralRule guards the
+// parentScopedResult call site, which has no reliable kind for the parent
+// record it unwraps and passes "" -- step 1 must be a no-op in that case,
+// leaving the structural rule as the only path.
+func TestUnwrapTypedRecordEmptyKindFallsBackToStructuralRule(t *testing.T) {
+	t.Parallel()
+	obj := rec("thing", rec("id", float64(1), "name", "T"))
+	got := unwrapTypedRecord(obj, "")
+	assert.Equal(t, float64(1), got["id"])
+	assert.Equal(t, "T", got["name"])
+}
+
+// TestUnwrapTypedRecordPlainRecordUnchangedRegardlessOfKind is a regression
+// guard: a record that already has a usable top-level id is returned as-is
+// even when kind happens to match one of its keys.
+func TestUnwrapTypedRecordPlainRecordUnchangedRegardlessOfKind(t *testing.T) {
+	t.Parallel()
+	obj := rec("id", float64(1), "name", "x")
+	got := unwrapTypedRecord(obj, "x")
+	assert.Equal(t, obj, got)
+}
+
 func TestEnumerateSpecialSingletonWithNoIDUsesKind(t *testing.T) {
 	t.Parallel()
 	l := &routeLister{routes: map[string]any{

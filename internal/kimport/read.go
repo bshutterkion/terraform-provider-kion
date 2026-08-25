@@ -114,7 +114,12 @@ func parentScopedResult(ctx context.Context, l Lister, r importmanifest.Resource
 		// A parent list can use the per-type wrapper shape too (the exact
 		// shape unwrapTypedRecord exists for) -- unwrap before reading id,
 		// or every parent silently drops with no count and no reason.
-		fields := unwrapTypedRecord(parent)
+		// unwrapTypedRecord's kind-match step is for the CHILD resource r,
+		// which isn't the parent's own kind -- r.Parent carries no reliable
+		// tf_type-derived kind for the parent entity, so pass "" and let it
+		// fall through to the structural "exactly one id-bearing map" rule,
+		// which already handles this shape correctly.
+		fields := unwrapTypedRecord(parent, "")
 		pid := stringify(fields["id"])
 		if pid == "" {
 			parentsSkipped++
@@ -191,7 +196,7 @@ func joinReasons(lead, rest string) string {
 func toRecords(raw []map[string]any, r importmanifest.Resource, parentID string) (out []Record, skippedNoID, skippedNoKey int) {
 	out = make([]Record, 0, len(raw))
 	for _, obj := range raw {
-		fields := unwrapTypedRecord(obj)
+		fields := unwrapTypedRecord(obj, r.Kind)
 
 		var id string
 		switch r.ImportID.Format {
@@ -244,31 +249,50 @@ func skipReason(skippedNoID, skippedNoKey int) string {
 	return strings.Join(parts, "; ")
 }
 
-// unwrapTypedRecord detects the per-type wrapper shape some /v3/* list
-// endpoints use, e.g.:
+// unwrapTypedRecord detects the per-type wrapper shape some /v3/* and /v4/*
+// list endpoints use, e.g.:
 //
-//	/v3/cft             -> {"cft":{...,"id":296}, "owner_users":[...], "owner_user_groups":[...], "tags":[...]}
-//	/v3/service-catalog -> {"service_catalog_portfolio":{...,"id":4}, "owner_users":[...], "owner_user_groups":[...]}
-//	/v3/gcp-iam-role    -> {"gcp_role":{...,"id":9}, "car_restricted_users":[...], "car_restricted_ugroups":[...], "owner_users":[...], "owner_user_groups":[...]}
+//	/v3/cft                       -> {"cft":{...,"id":296}, "owner_users":[...], "owner_user_groups":[...], "tags":[...]}
+//	/v3/service-catalog           -> {"service_catalog_portfolio":{...,"id":4}, "owner_users":[...], "owner_user_groups":[...]}
+//	/v3/gcp-iam-role              -> {"gcp_role":{...,"id":9}, "car_restricted_users":[...], "car_restricted_ugroups":[...], "owner_users":[...], "owner_user_groups":[...]}
+//	/v4/ou-cloud-access-role      -> {"ou_cloud_access_role":{...,"id":5}, "ou":{...,"id":1}, "aws_iam_policies":[...], ...}
+//	/v4/project-cloud-access-role -> {"project_cloud_access_role":{...,"id":7}, "project":{...,"id":2}, "users":[...], ...}
 //
-// The wrapper key is NOT always the resource's kind -- /v3/service-catalog
+// kind is the resource's codegen kind (tf_type minus the "kion_" prefix,
+// i.e. Resource.Kind); the wrapper key usually -- but not always -- matches
+// it. When it does, that is authoritative: try it first, before the
+// structural fallback below.
+//
+// That ordering matters because the CAR endpoints above carry TWO
+// id-bearing sibling maps (the CAR itself, and its parent ou/project) --
+// under the old purely-structural rule ("exactly one key maps to an object
+// with an id") both are ambiguous and get skipped as id-less, and if the tie
+// ever broke the other way it would silently import the *parent's* id
+// instead of the record's own. Checking obj[kind] first resolves the
+// ambiguity correctly by construction.
+//
+// The wrapper key is NOT always the resource's kind, though -- /v3/service-catalog
 // wraps under "service_catalog_portfolio" (not "service_catalog"), and
 // /v3/gcp-iam-role wraps under "gcp_role" (not "gcp_iam_role") -- and the
 // sibling keys alongside the wrapper vary by type (owner_users/
 // owner_user_groups, but also tags, compliance_programs,
-// car_restricted_users/car_restricted_ugroups, is_enabled, ...), so neither
-// the wrapper key nor the sibling set can be hard-coded or derived from the
-// tf_type.
-//
-// Instead, detection is purely structural: if obj has no usable top-level
-// "id", and exactly one of its keys maps to an object that itself has an
-// "id", that inner object is the record. Any other shape -- a usable
-// top-level id, no qualifying key, or more than one -- is left untouched;
-// being conservative here means an ambiguous shape is skipped downstream (no
-// "id") rather than mis-extracted.
-func unwrapTypedRecord(obj map[string]any) map[string]any {
+// car_restricted_users/car_restricted_ugroups, is_enabled, ...), so for
+// those (and whenever kind is "" -- e.g. the caller is unwrapping a parent
+// record with no reliable kind to hand, see the parentScopedResult call
+// site) detection falls back to the purely structural rule: if obj has no
+// usable top-level "id", and exactly one of its keys maps to an object that
+// itself has an "id", that inner object is the record. Any other shape -- a
+// usable top-level id, no qualifying key, or more than one -- is left
+// untouched; being conservative here means an ambiguous shape is skipped
+// downstream (no "id") rather than mis-extracted.
+func unwrapTypedRecord(obj map[string]any, kind string) map[string]any {
 	if stringify(obj["id"]) != "" {
 		return obj
+	}
+	if kind != "" {
+		if inner, ok := obj[kind].(map[string]any); ok && stringify(inner["id"]) != "" {
+			return inner
+		}
 	}
 	var candidate map[string]any
 	matches := 0
