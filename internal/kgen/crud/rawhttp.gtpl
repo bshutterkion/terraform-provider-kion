@@ -16,7 +16,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"terraform-provider-kion/internal/conns"
-	"terraform-provider-kion/internal/framework"
+	{{if .UsesFlex}}"terraform-provider-kion/internal/flex"
+	{{end}}"terraform-provider-kion/internal/framework"
 )
 
 const {{.ResConst}} = "{{.ResName}}"

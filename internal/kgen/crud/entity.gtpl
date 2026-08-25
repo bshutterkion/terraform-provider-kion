@@ -505,6 +505,11 @@ func flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj}}ctx co
 				{{.Var}} = append({{.Var}}, {{.IDExpr}})
 				{{- end}}
 			}
+			{{- if eq .Coll "Set"}}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			{{.Var}} = flex.DedupeInt64({{.Var}})
+			{{- end}}
 			{{.Var}}Coll, {{.Var}}CD := types.{{.Coll}}ValueFrom(ctx, types.Int64Type, {{.Var}})
 			diags.Append({{.Var}}CD...)
 			model.{{.ModelGo}} = {{.Var}}Coll

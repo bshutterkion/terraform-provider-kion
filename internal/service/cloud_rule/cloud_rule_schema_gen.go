@@ -4,7 +4,11 @@ package cloud_rule
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -20,6 +24,9 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of Automation Policies attached to the Cloud Rule",
 				MarkdownDescription: "List of Automation Policies attached to the Cloud Rule",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"azure_arm_template_definition_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -27,6 +34,9 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of Azure ARM template definition IDs to attach to the Cloud Rule.",
 				MarkdownDescription: "List of Azure ARM template definition IDs to attach to the Cloud Rule.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"azure_policy_definition_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -34,6 +44,9 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of Azure Policy IDs to attach to the Cloud Rule.",
 				MarkdownDescription: "List of Azure Policy IDs to attach to the Cloud Rule.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"azure_role_definition_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -41,11 +54,17 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of Azure Role Definition IDs to attach to the Cloud Rule.",
 				MarkdownDescription: "List of Azure Role Definition IDs to attach to the Cloud Rule.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"built_in": schema.BoolAttribute{
 				Computed:            true,
 				Description:         "Whether the cloud rule is built in.",
 				MarkdownDescription: "Whether the cloud rule is built in.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"cft_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -53,6 +72,9 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of CloudFormation template IDs to attach to the Cloud Rule.",
 				MarkdownDescription: "List of CloudFormation template IDs to attach to the Cloud Rule.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"compliance_standard_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -60,18 +82,27 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of Compliance Standards attached to the Cloud Rule",
 				MarkdownDescription: "List of Compliance Standards attached to the Cloud Rule",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"concurrent_cft_sync": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Whether to run CFTs concurrently or not.\nIf true, the application will deploy all templates at once in any order. (Faster)\nIf false, the application will deploy each template in order and wait for completion before advancing to the next. (Slower)",
 				MarkdownDescription: "Whether to run CFTs concurrently or not.\nIf true, the application will deploy all templates at once in any order. (Faster)\nIf false, the application will deploy each template in order and wait for completion before advancing to the next. (Slower)",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"description": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Description of the Cloud Rule in more detail.",
 				MarkdownDescription: "Description of the Cloud Rule in more detail.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"gcp_iam_role_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -79,6 +110,9 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of Google Cloud IAM role IDs to attach to the Cloud Rule.",
 				MarkdownDescription: "List of Google Cloud IAM role IDs to attach to the Cloud Rule.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"iam_policy_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -86,6 +120,9 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of IAM Policy IDs to attach to the Cloud Rule.",
 				MarkdownDescription: "List of IAM Policy IDs to attach to the Cloud Rule.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -101,6 +138,9 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of AMIs to attach to the Cloud Rule.",
 				MarkdownDescription: "List of AMIs to attach to the Cloud Rule.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"internal_portfolio_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -108,6 +148,9 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of Service Catalog Portfolio IDs attached to the Cloud Rule.",
 				MarkdownDescription: "List of Service Catalog Portfolio IDs attached to the Cloud Rule.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"labels": schema.MapAttribute{
 				ElementType:         types.StringType,
@@ -115,12 +158,18 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The labels applied to the cloud rule.",
 				MarkdownDescription: "The labels applied to the cloud rule.",
+				PlanModifiers: []planmodifier.Map{
+					mapplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"last_updated": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The last time this resource was updated.",
 				MarkdownDescription: "The last time this resource was updated.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Required:            true,
@@ -133,6 +182,9 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of OUs where the Cloud Rule will be applied.",
 				MarkdownDescription: "List of OUs where the Cloud Rule will be applied.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -140,6 +192,9 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of groups that own the Cloud Rule.",
 				MarkdownDescription: "List of groups that own the Cloud Rule.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -147,18 +202,27 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of users that own the Cloud Rule.",
 				MarkdownDescription: "List of users that own the Cloud Rule.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"post_webhook_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "ID of a post-rule webhook to attach to the Cloud Rule.",
 				MarkdownDescription: "ID of a post-rule webhook to attach to the Cloud Rule.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"pre_webhook_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "ID of a pre-rule webhook to attach to the Cloud Rule.",
 				MarkdownDescription: "ID of a pre-rule webhook to attach to the Cloud Rule.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"project_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -166,6 +230,9 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of projects where the Cloud Rule will be applied.",
 				MarkdownDescription: "List of projects where the Cloud Rule will be applied.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"service_control_policy_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -173,12 +240,18 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of Service Control Policies attached to the Cloud Rule",
 				MarkdownDescription: "List of Service Control Policies attached to the Cloud Rule",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"source": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Filters results to only return Cloud Rules from a given source\n\nExample\\: user, action_plan, enforcement, funding_source",
 				MarkdownDescription: "Filters results to only return Cloud Rules from a given source\n\nExample\\: user, action_plan, enforcement, funding_source",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Cloud Rule.",

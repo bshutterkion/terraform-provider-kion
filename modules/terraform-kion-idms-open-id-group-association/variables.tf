@@ -15,6 +15,7 @@ variable "assertion_regex" {
 variable "open_id_id" {
   description = "The ID of the OpenID IDMS the group association belongs to."
   type        = number
+  default     = null
 }
 
 variable "update_on_login" {

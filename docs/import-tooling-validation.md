@@ -166,6 +166,88 @@ needs to see.
 - **The one-result-per-row contract holds** against the real manifest: 68 rows in,
   68 results out, every failure attributed.
 
+## Private reads that render SQL null wrappers
+
+Enumerating a record is not the same as reading it. `--probe` only exercises the
+list endpoint, so `kion_project_note` and `kion_dashboard` both reported `ok`
+while every one of their records failed at `terraform plan
+-generate-config-out`, where the provider's own `Read` runs:
+
+```
+decoding response: json: cannot unmarshal object into Go struct field
+project_noteWire.data.updated_at of type string
+```
+
+Their private reads render several columns through Go's `sql.Null*` types, so
+those arrive as objects and the whole response fails to decode. Observed
+directly against a live install:
+
+| endpoint | attribute | on the wire |
+|---|---|---|
+| `/v2/project-note/{id}` | `last_update_user_id` | `{"Int":0,"Valid":false}` |
+| `/v2/project-note/{id}` | `updated_at` | `{"Time":"0001-01-01T00:00:00Z","Valid":false}` |
+| `/v1/dashboard/{id}` | `description` | `{"String":"…","Valid":true}` |
+| `/v1/dashboard/{id}` | `updated_at` | `{"Time":"…","Valid":true}` |
+| `/v1/dashboard/{id}` | `config` | the JSON **object**, not a string of JSON |
+
+`created_at` is a plain string on both, so the wrapping is per-column and cannot
+be inferred from the attribute's name or type. `spec_additions.yaml` declares the
+private Dashboard by hand and had all three of these wrong, which is why the
+generated wire struct disagreed with reality.
+
+Declare the real shape per attribute in `private_endpoints.yaml` under
+`read_kinds` (`null_int`, `null_string`, `null_time`, `json_string`). Unlike
+`read_shape` this keeps the single wire struct, so a resource whose write is also
+raw keeps working: the `flex.Null*` types encode back to the bare scalar.
+
+**When a resource fails only under `plan`, fetch its private read directly and
+compare it field by field against the generated wire struct.** The probe cannot
+see this class of failure.
+
+## `no_read` did not mean unreadable
+
+Three resources — `kion_ou_cloud_access_role_exemption`,
+`kion_project_cloud_access_role_exemption` and `kion_aws_resource_tag` — used the
+`no_read` archetype, whose `Read` is a no-op that echoes state. `ImportState` sets
+only the id, so `-generate-config-out` wrote **empty bodies**:
+
+```hcl
+# __generated__ by Terraform from "14"
+resource "kion_ou_cloud_access_role_exemption" "kion_ou_cloud_access_role_exemption_14" {
+}
+```
+
+The plan reported `0 to change` because every attribute is Optional+Computed and
+null, so this looked green while describing nothing.
+
+`no_read` means the public spec has no **by-id** GET, not that the record cannot
+be read. Both exemptions are readable from the private
+`/v1/{ou,project}/{id}/cloud-access-role-exemption` collection, and
+`aws_resource_tag` from the public flat `/v3/aws-resource-tag`. All three now
+declare a `parent_read` in `private_endpoints.yaml`.
+
+Two properties of those collections had to be handled, both measured live:
+
+- **Inherited, not owned.** `/v1/ou/{id}/cloud-access-role-exemption` returns
+  every exemption visible to that OU's subtree, so one record comes back under
+  many OUs — 329 rows for 22 distinct records, 22 OUs returning 5 distinct sets.
+  The id in the path is therefore *not* the record's owner; its own `OUID` is.
+  `Parent.ParentIDJSON` tells the enumerator to use it, which is what makes the
+  `"<parent>/<id>"` import id resolve.
+- **Kind-mixing.** The same collection returns cloud **rule** exemptions
+  alongside cloud **access role** exemptions. Only 6 of the 22 OU records were
+  the latter, and **0 of 12** on the project side. `Resource.RequireValidField`
+  names the discriminator (`ou_cloud_access_role_id` being `Valid`); the drops
+  are reported in the run's Reason, never silent.
+
+After the fix, the same install enumerates 6 OU exemptions with their true owners
+(`1/5`, `1/7`, `1/24`, `1/25`, `11/4`, `42/26`) and generates real configuration
+for each. `reason` is in the schema and in the create body but absent from the
+read payload, so it stays unreadable.
+
+**A green `terraform plan` is not proof of coverage.** Check that the generated
+configuration has attributes in it.
+
 ## Reproducing
 
 ```sh

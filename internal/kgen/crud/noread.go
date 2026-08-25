@@ -61,6 +61,18 @@ func (g *generator) generateNoRead(dir, name string, ops resOps, idx sdkIndex, m
 	}
 	rm.Gated = gated
 
+	// A no_read resource may still be readable over a private collection; see
+	// parentread.go for why a resource without one imports as an empty shell.
+	if pe, ok := g.privEnds[name]; ok && pe.ParentRead != nil {
+		byTF := map[string]ModelField{}
+		for _, mf := range model {
+			byTF[mf.TFSDK] = mf
+		}
+		if rm.ParentRead, err = buildParentRead(name, *pe.ParentRead, byTF, rm.IDField.GoName); err != nil {
+			return 0, err
+		}
+	}
+
 	resourceGo, err := renderEntity(rm)
 	if err != nil {
 		return 0, err

@@ -168,3 +168,12 @@ func DatecodeToFramework(v int64) types.String {
 	}
 	return types.StringValue(fmt.Sprintf("%04d-%02d", year, month))
 }
+
+// NullIntToFramework converts Kion's sql.NullInt64 wire shape,
+// {"Int":1,"Valid":true}, to a types.Int64 that is null when not valid.
+func NullIntToFramework(v int64, valid bool) types.Int64 {
+	if !valid {
+		return types.Int64Null()
+	}
+	return types.Int64Value(v)
+}

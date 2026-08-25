@@ -331,6 +331,9 @@ func flattenOuCloudAccessRole(ctx context.Context, apiObject any, model *OuCloud
 					aWSIamPoliciesIDs = append(aWSIamPoliciesIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			aWSIamPoliciesIDs = flex.DedupeInt64(aWSIamPoliciesIDs)
 			aWSIamPoliciesIDsColl, aWSIamPoliciesIDsCD := types.SetValueFrom(ctx, types.Int64Type, aWSIamPoliciesIDs)
 			diags.Append(aWSIamPoliciesIDsCD...)
 			model.AwsIamPolicies = aWSIamPoliciesIDsColl
@@ -340,6 +343,9 @@ func flattenOuCloudAccessRole(ctx context.Context, apiObject any, model *OuCloud
 					azureRoleDefinitionsIDs = append(azureRoleDefinitionsIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			azureRoleDefinitionsIDs = flex.DedupeInt64(azureRoleDefinitionsIDs)
 			azureRoleDefinitionsIDsColl, azureRoleDefinitionsIDsCD := types.SetValueFrom(ctx, types.Int64Type, azureRoleDefinitionsIDs)
 			diags.Append(azureRoleDefinitionsIDsCD...)
 			model.AzureRoleDefinitions = azureRoleDefinitionsIDsColl
@@ -349,6 +355,9 @@ func flattenOuCloudAccessRole(ctx context.Context, apiObject any, model *OuCloud
 					gcpIamRolesIDs = append(gcpIamRolesIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			gcpIamRolesIDs = flex.DedupeInt64(gcpIamRolesIDs)
 			gcpIamRolesIDsColl, gcpIamRolesIDsCD := types.SetValueFrom(ctx, types.Int64Type, gcpIamRolesIDs)
 			diags.Append(gcpIamRolesIDsCD...)
 			model.GcpIamRoles = gcpIamRolesIDsColl
@@ -358,6 +367,9 @@ func flattenOuCloudAccessRole(ctx context.Context, apiObject any, model *OuCloud
 					userGroupsIDs = append(userGroupsIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			userGroupsIDs = flex.DedupeInt64(userGroupsIDs)
 			userGroupsIDsColl, userGroupsIDsCD := types.SetValueFrom(ctx, types.Int64Type, userGroupsIDs)
 			diags.Append(userGroupsIDsCD...)
 			model.UserGroupIds = userGroupsIDsColl
@@ -367,6 +379,9 @@ func flattenOuCloudAccessRole(ctx context.Context, apiObject any, model *OuCloud
 					usersIDs = append(usersIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			usersIDs = flex.DedupeInt64(usersIDs)
 			usersIDsColl, usersIDsCD := types.SetValueFrom(ctx, types.Int64Type, usersIDs)
 			diags.Append(usersIDsCD...)
 			model.UserIds = usersIDsColl

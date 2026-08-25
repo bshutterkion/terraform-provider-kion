@@ -15,9 +15,11 @@ Manages a Kion Global Permission Mapping.
 ```terraform
 resource "kion_global_permission_mapping" "example" {
   # Required
-  app_role_id     = 1
-  user_groups_ids = []
-  user_ids        = []
+  app_role_id = 1
+
+  # Optional
+  # user_groups_ids = []
+  # user_ids        = []
 }
 ```
 
@@ -27,6 +29,9 @@ resource "kion_global_permission_mapping" "example" {
 ### Required
 
 - `app_role_id` (Number) The ID of the app role.
+
+### Optional
+
 - `user_groups_ids` (Set of Number) The IDs of the user groups in the mapping.
 - `user_ids` (Set of Number) The IDs of the users in the mapping.
 

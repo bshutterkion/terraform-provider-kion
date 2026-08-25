@@ -9,7 +9,6 @@ Terraform module for `kion_idms_open_id_group_association`, generated from the p
 module "idms_open_id_group_association" {
   source = "..."
 
-  open_id_id = 1
 }
 ```
 
@@ -41,9 +40,9 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
-| open\_id\_id | The ID of the OpenID IDMS the group association belongs to. | `number` | n/a | yes |
 | assertion\_name | AssertionName name of the assertion in OpenID. | `string` | `null` | no |
 | assertion\_regex | AssertionRegex is the regular expression used to determine a match. | `string` | `null` | no |
+| open\_id\_id | The ID of the OpenID IDMS the group association belongs to. | `number` | `null` | no |
 | update\_on\_login | ShouldUpdateOnLogin denotes if the group associations should be updated every time a user logs in. | `bool` | `null` | no |
 | user\_group\_id | UgroupID is the ID of the user group this assertion will map to. | `number` | `null` | no |
 

@@ -370,6 +370,9 @@ func flattenCloudRule(ctx context.Context, apiObject any, model *CloudRuleModel)
 					azureArmTemplateDefinitionsIDs = append(azureArmTemplateDefinitionsIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			azureArmTemplateDefinitionsIDs = flex.DedupeInt64(azureArmTemplateDefinitionsIDs)
 			azureArmTemplateDefinitionsIDsColl, azureArmTemplateDefinitionsIDsCD := types.SetValueFrom(ctx, types.Int64Type, azureArmTemplateDefinitionsIDs)
 			diags.Append(azureArmTemplateDefinitionsIDsCD...)
 			model.AzureArmTemplateDefinitionIds = azureArmTemplateDefinitionsIDsColl
@@ -379,6 +382,9 @@ func flattenCloudRule(ctx context.Context, apiObject any, model *CloudRuleModel)
 					azurePolicyDefinitionsIDs = append(azurePolicyDefinitionsIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			azurePolicyDefinitionsIDs = flex.DedupeInt64(azurePolicyDefinitionsIDs)
 			azurePolicyDefinitionsIDsColl, azurePolicyDefinitionsIDsCD := types.SetValueFrom(ctx, types.Int64Type, azurePolicyDefinitionsIDs)
 			diags.Append(azurePolicyDefinitionsIDsCD...)
 			model.AzurePolicyDefinitionIds = azurePolicyDefinitionsIDsColl
@@ -388,6 +394,9 @@ func flattenCloudRule(ctx context.Context, apiObject any, model *CloudRuleModel)
 					azureRoleDefinitionsIDs = append(azureRoleDefinitionsIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			azureRoleDefinitionsIDs = flex.DedupeInt64(azureRoleDefinitionsIDs)
 			azureRoleDefinitionsIDsColl, azureRoleDefinitionsIDsCD := types.SetValueFrom(ctx, types.Int64Type, azureRoleDefinitionsIDs)
 			diags.Append(azureRoleDefinitionsIDsCD...)
 			model.AzureRoleDefinitionIds = azureRoleDefinitionsIDsColl
@@ -397,6 +406,9 @@ func flattenCloudRule(ctx context.Context, apiObject any, model *CloudRuleModel)
 					complianceStandardsIDs = append(complianceStandardsIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			complianceStandardsIDs = flex.DedupeInt64(complianceStandardsIDs)
 			complianceStandardsIDsColl, complianceStandardsIDsCD := types.SetValueFrom(ctx, types.Int64Type, complianceStandardsIDs)
 			diags.Append(complianceStandardsIDsCD...)
 			model.ComplianceStandardIds = complianceStandardsIDsColl
@@ -406,6 +418,9 @@ func flattenCloudRule(ctx context.Context, apiObject any, model *CloudRuleModel)
 					gcpIamRolesIDs = append(gcpIamRolesIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			gcpIamRolesIDs = flex.DedupeInt64(gcpIamRolesIDs)
 			gcpIamRolesIDsColl, gcpIamRolesIDsCD := types.SetValueFrom(ctx, types.Int64Type, gcpIamRolesIDs)
 			diags.Append(gcpIamRolesIDsCD...)
 			model.GcpIamRoleIds = gcpIamRolesIDsColl
@@ -415,6 +430,9 @@ func flattenCloudRule(ctx context.Context, apiObject any, model *CloudRuleModel)
 					ousIDs = append(ousIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			ousIDs = flex.DedupeInt64(ousIDs)
 			ousIDsColl, ousIDsCD := types.SetValueFrom(ctx, types.Int64Type, ousIDs)
 			diags.Append(ousIDsCD...)
 			model.OuIds = ousIDsColl
@@ -424,6 +442,9 @@ func flattenCloudRule(ctx context.Context, apiObject any, model *CloudRuleModel)
 					ownerUserGroupsIDs = append(ownerUserGroupsIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			ownerUserGroupsIDs = flex.DedupeInt64(ownerUserGroupsIDs)
 			ownerUserGroupsIDsColl, ownerUserGroupsIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUserGroupsIDs)
 			diags.Append(ownerUserGroupsIDsCD...)
 			model.OwnerUserGroupIds = ownerUserGroupsIDsColl
@@ -433,6 +454,9 @@ func flattenCloudRule(ctx context.Context, apiObject any, model *CloudRuleModel)
 					ownerUsersIDs = append(ownerUsersIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			ownerUsersIDs = flex.DedupeInt64(ownerUsersIDs)
 			ownerUsersIDsColl, ownerUsersIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUsersIDs)
 			diags.Append(ownerUsersIDsCD...)
 			model.OwnerUserIds = ownerUsersIDsColl
@@ -442,6 +466,9 @@ func flattenCloudRule(ctx context.Context, apiObject any, model *CloudRuleModel)
 					projectsIDs = append(projectsIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			projectsIDs = flex.DedupeInt64(projectsIDs)
 			projectsIDsColl, projectsIDsCD := types.SetValueFrom(ctx, types.Int64Type, projectsIDs)
 			diags.Append(projectsIDsCD...)
 			model.ProjectIds = projectsIDsColl

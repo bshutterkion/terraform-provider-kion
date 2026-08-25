@@ -4,6 +4,9 @@ package ou_permission_mapping
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -21,6 +24,9 @@ func OuPermissionMappingResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The synthetic ID of the mapping.",
 				MarkdownDescription: "The synthetic ID of the mapping.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"ou_id": schema.Int64Attribute{
 				Required:            true,
@@ -29,15 +35,23 @@ func OuPermissionMappingResourceSchema(ctx context.Context) schema.Schema {
 			},
 			"user_groups_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
-				Required:            true,
+				Optional:            true,
+				Computed:            true,
 				Description:         "The IDs of the user groups in the mapping.",
 				MarkdownDescription: "The IDs of the user groups in the mapping.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
-				Required:            true,
+				Optional:            true,
+				Computed:            true,
 				Description:         "The IDs of the users in the mapping.",
 				MarkdownDescription: "The IDs of the users in the mapping.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Ou Permission Mapping.",

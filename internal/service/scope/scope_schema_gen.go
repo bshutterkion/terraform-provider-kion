@@ -5,6 +5,7 @@ package scope
 import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -20,6 +21,9 @@ func ScopeResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Alias of the scope in the application.",
 				MarkdownDescription: "Alias of the scope in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"criteria": schema.StringAttribute{
 				CustomType:          jsontypes.NormalizedType{},
@@ -32,12 +36,18 @@ func ScopeResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Description of the scope in the application.",
 				MarkdownDescription: "Description of the scope in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"end_datecode": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "End datecode for the scope (YYYYMM format), if applicable.",
 				MarkdownDescription: "End datecode for the scope (YYYYMM format), if applicable.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -57,12 +67,18 @@ func ScopeResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "ID of the project associated with this scope.",
 				MarkdownDescription: "ID of the project associated with this scope.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"start_datecode": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Start datecode for the scope (YYYYMM format).",
 				MarkdownDescription: "Start datecode for the scope (YYYYMM format).",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Scope.",

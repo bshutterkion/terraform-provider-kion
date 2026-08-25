@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -52,30 +54,45 @@ func IdmsOpenIdResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "AccessRules defines the console access defined for matching users in Kion",
 				MarkdownDescription: "AccessRules defines the console access defined for matching users in Kion",
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"authorization_endpoint": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "AuthorizationEndpoint is the endpoint the OpenID provider determines to kick off the authentication process",
 				MarkdownDescription: "AuthorizationEndpoint is the endpoint the OpenID provider determines to kick off the authentication process",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"client_id": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "ClientID that links Kion to the OpenID Provider, determined when configuring OpenID",
 				MarkdownDescription: "ClientID that links Kion to the OpenID Provider, determined when configuring OpenID",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"email_claim": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "EmailClaim defines an optional mapping of an OpenID claim value to a user's email attribute in Kion",
 				MarkdownDescription: "EmailClaim defines an optional mapping of an OpenID claim value to a user's email attribute in Kion",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"first_name_claim": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "FirstNameClaim defines an optional mapping of an OpenID claim value to a user's first name attribute in Kion",
 				MarkdownDescription: "FirstNameClaim defines an optional mapping of an OpenID claim value to a user's first name attribute in Kion",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -90,30 +107,45 @@ func IdmsOpenIdResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Issuer is the URL for the OpenID Provider",
 				MarkdownDescription: "Issuer is the URL for the OpenID Provider",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"jwks_uri": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "JwksURI describes the endpoint of an OpenID provider used to retrieve token security information for validation",
 				MarkdownDescription: "JwksURI describes the endpoint of an OpenID provider used to retrieve token security information for validation",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"last_name_claim": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "LastNameClaim defines an optional mapping of an OpenID claim value to a user's last name attribute in Kion",
 				MarkdownDescription: "LastNameClaim defines an optional mapping of an OpenID claim value to a user's last name attribute in Kion",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Name of the OpenID in the application.",
 				MarkdownDescription: "Name of the OpenID in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"phone_claim": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "PhoneClaim defines an optional mapping of an OpenID claim value to a user's phone attribute in Kion",
 				MarkdownDescription: "PhoneClaim defines an optional mapping of an OpenID claim value to a user's phone attribute in Kion",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"scopes": schema.SetAttribute{
 				ElementType:         types.StringType,
@@ -121,12 +153,18 @@ func IdmsOpenIdResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Scopes define the claim variables that an OpenID provider will include in an auth request. Specifics depend on the OpenID provider.",
 				MarkdownDescription: "Scopes define the claim variables that an OpenID provider will include in an auth request. Specifics depend on the OpenID provider.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"username_claim": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "UsernameClaim defines an optional mapping of an OpenID claim value to a user's username attribute in Kion. Required to uniquely identify users",
 				MarkdownDescription: "UsernameClaim defines an optional mapping of an OpenID claim value to a user's username attribute in Kion. Required to uniquely identify users",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion OpenID Connect identity management system (IDMS).",
@@ -171,6 +209,12 @@ func (t AccessRulesType) String() string {
 
 func (t AccessRulesType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewAccessRulesValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewAccessRulesValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 

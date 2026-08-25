@@ -6,6 +6,7 @@ import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -21,6 +22,9 @@ func ComplianceControlResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "ARMTemplateDefinitionIDs is a set of ARM template ids applied to the control.",
 				MarkdownDescription: "ARMTemplateDefinitionIDs is a set of ARM template ids applied to the control.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"aws_cloudformation_policy_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -28,6 +32,9 @@ func ComplianceControlResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "AWSCloudformationPolicyIDs is a set of AWS cloudformation policy ids applied to the control.",
 				MarkdownDescription: "AWSCloudformationPolicyIDs is a set of AWS cloudformation policy ids applied to the control.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"azure_policy_definition_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -35,6 +42,9 @@ func ComplianceControlResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "AzurePolicyDefinitionIDs is a set of Azure policy ids applied to the control.",
 				MarkdownDescription: "AzurePolicyDefinitionIDs is a set of Azure policy ids applied to the control.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"cloud_provider_policy_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -42,6 +52,9 @@ func ComplianceControlResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "CloudProviderPolicyIDs is a set of cloud provider policy ids applied to the control.",
 				MarkdownDescription: "CloudProviderPolicyIDs is a set of cloud provider policy ids applied to the control.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"compliance_check_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -49,12 +62,18 @@ func ComplianceControlResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "ComplianceCheckIDs is a set of compliance check ids applied to the control.",
 				MarkdownDescription: "ComplianceCheckIDs is a set of compliance check ids applied to the control.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"compliance_family_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Description for the compliance control in the application.",
 				MarkdownDescription: "Description for the compliance control in the application.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"compliance_levels": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -62,18 +81,27 @@ func ComplianceControlResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "ComplianceLevels is a set of levels to which the control belongs.",
 				MarkdownDescription: "ComplianceLevels is a set of levels to which the control belongs.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"control_number": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "ControlNumber of the compliance control in the application.",
 				MarkdownDescription: "ControlNumber of the compliance control in the application.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"description": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Description for the compliance control in the application.",
 				MarkdownDescription: "Description for the compliance control in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -88,6 +116,9 @@ func ComplianceControlResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Name of the compliance control in the application.",
 				MarkdownDescription: "Name of the compliance control in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"program_id": schema.Int64Attribute{
 				Required:            true,
@@ -102,12 +133,18 @@ func ComplianceControlResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Severity for the compliance control in the application.",
 				MarkdownDescription: "Severity for the compliance control in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"title": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Title for the compliance control in the application.",
 				MarkdownDescription: "Title for the compliance control in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Compliance Control.",

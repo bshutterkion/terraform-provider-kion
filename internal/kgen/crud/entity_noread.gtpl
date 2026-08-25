@@ -5,15 +5,18 @@ package {{.Pkg}}
 
 import (
 	"context"
-	"fmt"
+	{{if .ParentRead}}"encoding/json"
+	{{end}}"fmt"
 	"strconv"
-
+	{{if and .ParentRead .ParentRead.HasParent}}"strings"
+	{{end}}
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	{{.SDKAlias}} "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
-	"terraform-provider-kion/internal/errs"
+	{{if .ParentRead}}"terraform-provider-kion/internal/conns"
+	{{end}}"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
 )
@@ -110,6 +113,80 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
+{{if .ParentRead}}{{with .ParentRead}}
+// {{$.Pkg}}Record is one record of the private collection that backs the read.
+// The public spec has no single-record GET for {{$.TypeName}}, only POST and
+// DELETE, so this collection is the only way to read one back.
+{{.WireStructGo}}
+
+type {{$.Pkg}}Envelope struct {
+	Data []{{$.Pkg}}Record `json:"data"`
+}
+
+// read{{$.Pascal}} returns the record with the given id from the collection,
+// or found=false when it holds no such record.
+{{if .HasParent}}//
+// The collection is inherited, not owned: it returns every record visible to
+// that parent's subtree, so the same record comes back under many parents and
+// the id in the path is not its owner. The owner is taken from the record's own
+// {{.ParentJSON}}.{{end}}
+func (r *{{$.Pkg}}Resource) read{{$.Pascal}}(ctx context.Context{{if .HasParent}}, parentID int64{{end}}, id int64) ({{$.Pkg}}Record, bool, error) {
+	path := {{if .HasParent}}strings.Replace("{{.Path}}", "{parent_id}", strconv.FormatInt(parentID, 10), 1){{else}}"{{.Path}}"{{end}}
+	body, err := r.Meta().RawGet(ctx, path)
+	if err != nil {
+		if conns.IsRawNotFound(err) {
+			return {{$.Pkg}}Record{}, false, nil
+		}
+		return {{$.Pkg}}Record{}, false, err
+	}
+	var env {{$.Pkg}}Envelope
+	if err := json.Unmarshal(body, &env); err != nil {
+		return {{$.Pkg}}Record{}, false, fmt.Errorf("decoding response: %w", err)
+	}
+	for _, rec := range env.Data {
+		if rec.ID != id {
+			continue
+		}
+		{{- if .Require}}
+		// The collection mixes in records of a neighboring kind; only those
+		// carrying a valid {{.Require}} are {{$.TypeName}}.
+		if rec.{{.RequireGo}} == nil || !rec.{{.RequireGo}}.Valid {
+			return {{$.Pkg}}Record{}, false, nil
+		}
+		{{- end}}
+		return rec, true, nil
+	}
+	return {{$.Pkg}}Record{}, false, nil
+}
+
+func (r *{{$.Pkg}}Resource) flatten{{$.Pascal}}(rec {{$.Pkg}}Record, m *{{$.Model}}) {
+	{{.FlattenGo}}
+}
+
+func (r *{{$.Pkg}}Resource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var state {{$.Model}}
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	id, err := strconv.ParseInt(state.{{$.IDGo}}.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+	rec, found, err := r.read{{$.Pascal}}(ctx{{if .HasParent}}, state.{{.ParentGo}}.ValueInt64(){{end}}, id)
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("reading %s (ID: %d)", {{$.ResConst}}, id), err.Error())
+		return
+	}
+	if !found {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+	r.flatten{{$.Pascal}}(rec, &state)
+	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
+}
+{{end}}{{else}}
 func (r *{{.Pkg}}Resource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	// {{.TypeName}} has no read endpoint; there is nothing to refresh, so the
 	// existing state is preserved as-is (no drift detection is possible).
@@ -120,6 +197,7 @@ func (r *{{.Pkg}}Resource) Read(ctx context.Context, req resource.ReadRequest, r
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
+{{end}}
 
 func (r *{{.Pkg}}Resource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
 	resp.Diagnostics.AddError("Not supported", "{{.TypeName}} cannot be updated in place; changes force replacement.")
@@ -165,5 +243,22 @@ func (r *{{.Pkg}}Resource) Delete(_ context.Context, _ resource.DeleteRequest, r
 }
 {{end}}
 func (r *{{.Pkg}}Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+{{- if and .ParentRead .ParentRead.HasParent}}
+	// The read is a parent-scoped collection, so the parent id has to arrive
+	// with the import id; there is no way to discover it from the record id.
+	parts := strings.SplitN(req.ID, "/", 2)
+	if len(parts) != 2 {
+		resp.Diagnostics.AddError("Invalid import ID", `expected "{{.ParentRead.ParentTF}}/id"`)
+		return
+	}
+	parentID, perr := strconv.ParseInt(parts[0], 10, 64)
+	if perr != nil {
+		resp.Diagnostics.AddError("Invalid import ID", `expected "{{.ParentRead.ParentTF}}/id" with an integer parent id`)
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("{{.ParentRead.ParentTF}}"), parentID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[1])...)
+{{- else}}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+{{- end}}
 }

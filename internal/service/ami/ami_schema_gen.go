@@ -4,7 +4,10 @@ package ami
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -29,42 +32,63 @@ func AmiResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Description for the AMI in the application.",
 				MarkdownDescription: "Description for the AMI in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"expiration_alert_number": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "TThe amount of time before the expiration alert is shown",
 				MarkdownDescription: "TThe amount of time before the expiration alert is shown",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"expiration_alert_unit": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The unit for the expiration alert lead time (e.g. \"days\").",
 				MarkdownDescription: "The unit for the expiration alert lead time (e.g. \"days\").",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"expiration_notify": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Will notify the owners that the shared AMI has expired",
 				MarkdownDescription: "Will notify the owners that the shared AMI has expired",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"expiration_warning_number": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The amount of time before the expiration warning is sent",
 				MarkdownDescription: "The amount of time before the expiration warning is sent",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"expiration_warning_unit": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The unit for the expiration warning lead time (e.g. \"days\").",
 				MarkdownDescription: "The unit for the expiration warning lead time (e.g. \"days\").",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"expires_at": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The expiration timestamp for the AMI, as an RFC3339 string.",
 				MarkdownDescription: "The expiration timestamp for the AMI, as an RFC3339 string.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -85,6 +109,9 @@ func AmiResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of groups IDs who will own the ami. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the ami. Is required if no owner user IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -92,6 +119,9 @@ func AmiResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user IDs who will own the ami. Is required if no owner group IDs are listed.",
 				MarkdownDescription: "List of user IDs who will own the ami. Is required if no owner group IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"region": schema.StringAttribute{
 				Required:            true,
@@ -103,12 +133,18 @@ func AmiResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Will sync the expiration date from the system into the AMI in AWS.",
 				MarkdownDescription: "Will sync the expiration date from the system into the AMI in AWS.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"sync_tags": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Will sync the AWS tags from the source AMI into all the accounts where the AMI is shared.",
 				MarkdownDescription: "Will sync the AWS tags from the source AMI into all the accounts where the AMI is shared.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion AMI.",

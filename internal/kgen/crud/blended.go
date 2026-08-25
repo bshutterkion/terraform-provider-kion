@@ -181,7 +181,7 @@ func (g *generator) resolveBlended(name string, ops resOps, idx sdkIndex, pe raw
 		d.RawRead = &rawReadData{Method: readMethod, Path: pe.Read.Path, IDGo: rm.IDField.GoName, Nested: true, WireStructGo: wireGo, FlattenGo: flattenGo,
 			UsesAttr: len(pe.ReadShape.Objects) > 0 || pe.ReadShape.Explode != nil}
 	} else {
-		fields, idGo, ferr := rawModelFields(model)
+		fields, idGo, ferr := rawModelFields(model, pe.ReadKinds)
 		if ferr != nil {
 			return entityData{}, fmt.Errorf("%s raw read: %w", name, ferr)
 		}

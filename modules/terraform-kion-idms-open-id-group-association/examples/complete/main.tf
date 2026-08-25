@@ -3,5 +3,4 @@
 module "this" {
   source = "../.."
 
-  open_id_id = 1
 }

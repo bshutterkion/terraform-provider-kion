@@ -31,6 +31,19 @@ resources:
     read:   { method: GET,    path: "/v1/dashboard/{id}",   spec: private }
     update: { method: PATCH,  path: "/beta/dashboard/{id}", spec: public }
     delete: { method: DELETE, path: "/beta/dashboard/{id}", spec: public }
+    # /v1/dashboard's payload does not match the string-typed Dashboard that
+    # spec_additions.yaml declares by hand, so the whole response failed to
+    # decode and no dashboard could be imported. Observed on a live install:
+    #   config      the JSON object itself, not a string of JSON
+    #   description {"String":"…","Valid":true}   (sql.NullString)
+    #   updated_at  {"Time":"…","Valid":true}     (sql.NullTime)
+    # created_at, name, is_default really are plain. global_visibility,
+    # is_hidden and pin_for_sharees are wrapped too but absent from the model,
+    # so the decoder ignores them.
+    read_kinds:
+      config: json_string
+      description: null_string
+      updated_at: null_time
 
   # Blended. Public spec exposes create + list + PATCH update, but no by-id read
   # and no delete; those are internal /v1.
@@ -49,6 +62,16 @@ resources:
     read:   { method: GET,    path: "/v2/project-note/{id}", spec: private }
     update: { method: PATCH,  path: "/v2/project-note/{id}", spec: private }
     delete: { method: DELETE, path: "/v3/project-note/{id}", spec: public }
+    # /v2/project-note returns two columns through Go's SQL null wrappers, so
+    # the whole response failed to decode and no note could be imported.
+    # Observed on a live install:
+    #   last_update_user_id {"Int":0,"Valid":false}
+    #   updated_at          {"Time":"0001-01-01T00:00:00Z","Valid":false}
+    # created_at is a plain string. The data source already flattens
+    # last_update_user_id by hand, via generated.OptNullUint.
+    read_kinds:
+      last_update_user_id: null_int
+      updated_at: null_time
 
   # Fully raw (unlike project_note's blend): nothing public at all. Every op
   # is internal /v2. Completes the note family alongside project_note + ou_note.
@@ -217,16 +240,64 @@ resources:
 
   # Public /v3/*-cloud-access-role-exemption has create+delete but no read; the
   # reads are internal /v1 lists under the parent OU/project.
+  #
+  # Both carry a `parent_read`, which is what turns their no-op read into a real
+  # one (see internal/kgen/crud/parentread.go). Without it they imported as
+  # empty shells -- `resource "kion_ou_cloud_access_role_exemption" "x" {}` --
+  # and the plan reported no changes, because every attribute is
+  # Optional+Computed and null. All 22 records on a live install did that.
+  #
+  # Two traps, both observed live and both handled here:
+  #   * the collection is INHERITED, so one record comes back under every OU in
+  #     its subtree (329 rows, 22 distinct records) and the id in the path is
+  #     not its owner -- the record's own OUID is. Hence parent_json.
+  #   * it mixes cloud RULE exemptions in with cloud ACCESS ROLE exemptions.
+  #     Only 6 of those 22 were the latter. Hence `require`.
+  # `reason` is in the schema and in the create body but absent from the read
+  # payload, so it stays unreadable.
   ou_cloud_access_role_exemption:
     reason: no public read; internal list under the parent OU
     create: { method: POST,   path: "/v3/ou-cloud-access-role-exemption",      spec: public }
     read:   { method: GET,    path: "/v1/ou/{id}/cloud-access-role-exemption", spec: private }
     delete: { method: DELETE, path: "/v3/ou-cloud-access-role-exemption/{id}", spec: public }
+    parent_read:
+      path: "/v1/ou/{parent_id}/cloud-access-role-exemption"
+      parent_tf: ou_id
+      parent_json: OUID
+      require: ou_cloud_access_role_id
+      fields:
+        - { tf: ou_cloud_access_role_id, from: ou_cloud_access_role_id, kind: null_int }
+
+  # A project exemption exempts an OU cloud access role FOR a project, so it
+  # keys on ou_cloud_access_role_id too -- see the ProjectCloudAccessRoleExemption
+  # create body, which is {id, ou_cloud_access_role_id, project_id, reason}.
+  # The verification install has none (all 12 records its collection returns are
+  # cloud RULE exemptions), so the filter is what keeps them out.
   project_cloud_access_role_exemption:
     reason: no public read; internal list under the parent project
     create: { method: POST,   path: "/v3/project-cloud-access-role-exemption",      spec: public }
     read:   { method: GET,    path: "/v1/project/{id}/cloud-access-role-exemption", spec: private }
     delete: { method: DELETE, path: "/v3/project-cloud-access-role-exemption/{id}", spec: public }
+    parent_read:
+      path: "/v1/project/{parent_id}/cloud-access-role-exemption"
+      parent_tf: project_id
+      parent_json: project_id
+      require: ou_cloud_access_role_id
+      fields:
+        - { tf: ou_cloud_access_role_id, from: ou_cloud_access_role_id, kind: null_int }
+
+  # The third resource that had a no-op read, and the easy one: the spec has the
+  # collection GET, POST and DELETE, but no by-id GET, so it too imported as an
+  # empty shell. The collection is flat and public, so the read needs no parent
+  # and the import id stays the plain id. Fields match the spec's AWSResourceTag.
+  # NOT verified against live data: the verification install has no records.
+  aws_resource_tag:
+    reason: public spec has the collection GET but no by-id read
+    parent_read:
+      path: "/v3/aws-resource-tag"
+      fields:
+        - { tf: resource_key,   from: resource_key,   kind: string }
+        - { tf: resource_value, from: resource_value, kind: string }
 
   # Example of the public/private DUPLICATE pattern. ou_note is fully covered by the
   # public spec (v3); a private v2 twin also exists. Listed to document the pattern

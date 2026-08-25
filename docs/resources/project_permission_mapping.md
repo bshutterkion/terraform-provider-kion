@@ -15,10 +15,12 @@ Manages a Kion Project Permission Mapping.
 ```terraform
 resource "kion_project_permission_mapping" "example" {
   # Required
-  app_role_id     = 1
-  project_id      = 1
-  user_groups_ids = []
-  user_ids        = []
+  app_role_id = 1
+  project_id  = 1
+
+  # Optional
+  # user_groups_ids = []
+  # user_ids        = []
 }
 ```
 
@@ -29,6 +31,9 @@ resource "kion_project_permission_mapping" "example" {
 
 - `app_role_id` (Number) The ID of the app role.
 - `project_id` (Number) The ID of the project.
+
+### Optional
+
 - `user_groups_ids` (Set of Number) The IDs of the user groups in the mapping.
 - `user_ids` (Set of Number) The IDs of the users in the mapping.
 

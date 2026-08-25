@@ -5,6 +5,7 @@ package azure_role
 import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -20,6 +21,9 @@ func AzureRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of groups IDs who have been allowed to use the Azure Role on Cloud Access Roles in the system.",
 				MarkdownDescription: "List of groups IDs who have been allowed to use the Azure Role on Cloud Access Roles in the system.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"car_restricted_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -27,12 +31,18 @@ func AzureRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user IDs who have been allowed to use the Azure Role on Cloud Access Roles in the system.",
 				MarkdownDescription: "List of user IDs who have been allowed to use the Azure Role on Cloud Access Roles in the system.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"description": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Description for the Azure Role in the application.",
 				MarkdownDescription: "Description for the Azure Role in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -53,6 +63,9 @@ func AzureRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of group IDs who will own the Azure Role. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of group IDs who will own the Azure Role. Is required if no owner user IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -60,6 +73,9 @@ func AzureRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user IDs who will own the Azure Role. Is required if no owner group IDs are listed.",
 				MarkdownDescription: "List of user IDs who will own the Azure Role. Is required if no owner group IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"role_permissions": schema.StringAttribute{
 				Required:            true,

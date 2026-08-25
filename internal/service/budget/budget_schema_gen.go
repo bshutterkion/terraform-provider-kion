@@ -4,7 +4,9 @@ package budget
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -19,6 +21,9 @@ func BudgetResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Total amount for the budget. This is required if data is not specified.\nBudget entries are created between start_datecode and end_datecode (exclusive)\nwith the amount evenly distributed across the months.",
 				MarkdownDescription: "Total amount for the budget. This is required if data is not specified.\nBudget entries are created between start_datecode and end_datecode (exclusive)\nwith the amount evenly distributed across the months.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"end_datecode": schema.StringAttribute{
 				Required:            true,
@@ -31,6 +36,9 @@ func BudgetResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Optional funding source IDs to use when data is not specified.\nThis value is ignored is data is specified.\nIf specified, the amount is distributed evenly across months and funding sources.\nFunding sources will be processed in order from first to last.",
 				MarkdownDescription: "Optional funding source IDs to use when data is not specified.\nThis value is ignored is data is specified.\nIf specified, the amount is distributed evenly across months and funding sources.\nFunding sources will be processed in order from first to last.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -45,12 +53,18 @@ func BudgetResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "ID of OU this budget is attached to. Required for OU thresholds.",
 				MarkdownDescription: "ID of OU this budget is attached to. Required for OU thresholds.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"project_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "ID of project this budget is attached to. Required for project budgets.",
 				MarkdownDescription: "ID of project this budget is attached to. Required for project budgets.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"start_datecode": schema.StringAttribute{
 				Required:            true,

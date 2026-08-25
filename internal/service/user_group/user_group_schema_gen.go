@@ -4,7 +4,9 @@ package user_group
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -19,22 +21,34 @@ func UserGroupResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "This option will add the user group as a viewer of itself after it is created.",
 				MarkdownDescription: "This option will add the user group as a viewer of itself after it is created.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"created_at": schema.StringAttribute{
 				Computed:            true,
 				Description:         "When the user group was created.",
 				MarkdownDescription: "When the user group was created.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"description": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Description of the user group in the application.",
 				MarkdownDescription: "Description of the user group in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"enabled": schema.BoolAttribute{
 				Computed:            true,
 				Description:         "Whether the user group is enabled.",
 				MarkdownDescription: "Whether the user group is enabled.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -54,6 +68,9 @@ func UserGroupResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The last time this resource was updated.",
 				MarkdownDescription: "The last time this resource was updated.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Required:            true,
@@ -66,6 +83,9 @@ func UserGroupResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of groups IDs who will own the group. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the group. Is required if no owner user IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -73,6 +93,9 @@ func UserGroupResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user IDs who will own the group. Is required if no owner group IDs are listed.",
 				MarkdownDescription: "List of user IDs who will own the group. Is required if no owner group IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -80,6 +103,9 @@ func UserGroupResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "IDs of the users in the user group.",
 				MarkdownDescription: "IDs of the users in the user group.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"viewer_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -87,6 +113,9 @@ func UserGroupResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of groups IDs who will own the group. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the group. Is required if no owner user IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"viewer_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -94,6 +123,9 @@ func UserGroupResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user IDs who will own the group. Is required if no owner group IDs are listed.",
 				MarkdownDescription: "List of user IDs who will own the group. Is required if no owner group IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion User Group.",

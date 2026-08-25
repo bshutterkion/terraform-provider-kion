@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"terraform-provider-kion/internal/conns"
+	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
 )
 
@@ -47,14 +48,14 @@ func (r *dashboardResource) Schema(ctx context.Context, _ resource.SchemaRequest
 // dashboardWire is the JSON body/record shape (keys are the schema attribute
 // names). Kion wraps reads in {"data": …} and returns {"record_id": …} on create.
 type dashboardWire struct {
-	ID              int64  `json:"id,omitempty"`
-	Config          string `json:"config,omitempty"`
-	CreatedAt       string `json:"created_at,omitempty"`
-	CreatedByUserId int64  `json:"created_by_user_id,omitempty"`
-	Description     string `json:"description,omitempty"`
-	IsDefault       bool   `json:"is_default,omitempty"`
-	Name            string `json:"name,omitempty"`
-	UpdatedAt       string `json:"updated_at,omitempty"`
+	ID              int64            `json:"id,omitempty"`
+	Config          *flex.JSONString `json:"config,omitempty"`
+	CreatedAt       string           `json:"created_at,omitempty"`
+	CreatedByUserId int64            `json:"created_by_user_id,omitempty"`
+	Description     *flex.NullString `json:"description,omitempty"`
+	IsDefault       bool             `json:"is_default,omitempty"`
+	Name            string           `json:"name,omitempty"`
+	UpdatedAt       *flex.NullTime   `json:"updated_at,omitempty"`
 }
 
 type dashboardReadEnvelope struct {
@@ -67,25 +68,25 @@ type dashboardCreateEnvelope struct {
 
 func (r *dashboardResource) wireFromModel(plan *DashboardModel) dashboardWire {
 	return dashboardWire{
-		Config:          plan.Config.ValueString(),
+		Config:          flex.JSONStringFromFramework(plan.Config),
 		CreatedAt:       plan.CreatedAt.ValueString(),
 		CreatedByUserId: plan.CreatedByUserId.ValueInt64(),
-		Description:     plan.Description.ValueString(),
+		Description:     flex.NullStringFromFramework(plan.Description),
 		IsDefault:       plan.IsDefault.ValueBool(),
 		Name:            plan.Name.ValueString(),
-		UpdatedAt:       plan.UpdatedAt.ValueString(),
+		UpdatedAt:       flex.NullTimeFromFramework(plan.UpdatedAt),
 	}
 }
 
 func (r *dashboardResource) flatten(w dashboardWire, m *DashboardModel) {
 	m.Id = types.StringValue(strconv.FormatInt(w.ID, 10))
-	m.Config = types.StringValue(w.Config)
+	m.Config = flex.JSONStringPtrToFramework(w.Config)
 	m.CreatedAt = types.StringValue(w.CreatedAt)
 	m.CreatedByUserId = types.Int64Value(w.CreatedByUserId)
-	m.Description = types.StringValue(w.Description)
+	m.Description = flex.NullStringPtrToFramework(w.Description)
 	m.IsDefault = types.BoolValue(w.IsDefault)
 	m.Name = types.StringValue(w.Name)
-	m.UpdatedAt = types.StringValue(w.UpdatedAt)
+	m.UpdatedAt = flex.NullTimePtrToFramework(w.UpdatedAt)
 }
 
 // read fetches the record by id; found is false on a 404.

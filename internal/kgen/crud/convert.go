@@ -7,6 +7,29 @@ package crud
 // slices, sets), the caller then refuses the resource for a crud_override.
 
 // expandConverter returns the flex.*FromFramework helper for a request-body field.
+// normalizedConverter handles a field the schema types as jsontypes.Normalized
+// while the SDK carries it as a plain string. The SDK type alone cannot tell
+// them apart, and comparing JSON byte-for-byte made every plan report a
+// whitespace change.
+func normalizedConverter(sdkType, tfType string, expand bool) (string, bool) {
+	if tfType != "jsontypes.Normalized" {
+		return "", false
+	}
+	switch sdkType {
+	case "string":
+		if expand {
+			return "flex.NormalizedStringFromFramework", true
+		}
+		return "flex.NormalizedStringToFramework", true
+	case "OptString":
+		if expand {
+			return "flex.OptNormalizedStringFromFramework", true
+		}
+		return "flex.OptNormalizedStringToFramework", true
+	}
+	return "", false
+}
+
 func expandConverter(f Field) (string, bool) {
 	switch f.Type {
 	case "string":

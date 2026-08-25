@@ -39,6 +39,14 @@ func Classify(archetype string, readPath string, hasParent bool) (ReadShape, IDF
 			return ShapeNone, FormatID, false,
 				"crud_archetypes.yaml declares kind: no_read (no by-id GET) and no list-only or private read path was found either"
 		}
+		// A no_read resource with a parent-scoped `parent_read` gets the
+		// compound ImportState from entity_noread.gtpl (it has to: the read is a
+		// parent collection and the parent id cannot be discovered from the
+		// record id), so its import id must match. One without a parent --
+		// kion_aws_resource_tag, whose collection is flat -- keeps the plain id.
+		if hasParent {
+			return ShapeParentList, FormatParentSlashKey, true, ""
+		}
 		return ShapeGeneric, FormatID, true, ""
 	case "datasource_only":
 		return ShapeNone, FormatID, false,
