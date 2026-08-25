@@ -47,6 +47,7 @@ variable "oauth_client_id" {
 variable "oauth_client_secret" {
   description = "OAuthClientSecret is the client secret for an oauth client in the service account's project"
   type        = string
+  sensitive   = true
   default     = null
 }
 

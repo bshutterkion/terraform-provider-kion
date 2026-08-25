@@ -37,10 +37,13 @@ project_enforcement:
 
 # aws_account's create body uses account_email/account_name/organizational_unit;
 # the resource model uses email/name/aws_organizational_unit.
-aws_account:
+aws_account: &cloud_account_renames
   account_email: email
   account_name: name
   organizational_unit: aws_organizational_unit
+
+# account renders the same template as aws_account and so must rename identically.
+account: *cloud_account_renames
 
 # The custom_variable record's own id comes through as custom_variable_id; the
 # generator (and Terraform convention) want a plain string `id`.

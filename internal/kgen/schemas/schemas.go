@@ -552,14 +552,20 @@ type schemaOverride struct {
 }
 
 type attributeOverride struct {
-	Remove                   bool                         `yaml:"remove"`                     // drop the attribute entirely (e.g. a list-query param that leaked into a resource schema)
-	Type                     string                       `yaml:"type"`                       // retype the attribute, e.g. int64 -> string
-	ElementType              string                       `yaml:"element_type"`               // element type for list/map/set, e.g. string
-	ComputedOptionalRequired string                       `yaml:"computed_optional_required"` // computed|optional|required|computed_optional
-	Description              string                       `yaml:"description"`
-	PlanModifiers            []string                     `yaml:"plan_modifiers"` // e.g. stringplanmodifier.UseStateForUnknown()
-	CustomType               *customTypeOverride          `yaml:"custom_type"`    // wrap a scalar in a framework custom type (e.g. jsontypes.Normalized)
-	Attributes               map[string]attributeOverride `yaml:"attributes"`     // nested attributes for single_nested/set_nested/list_nested
+	Remove                   bool   `yaml:"remove"`                     // drop the attribute entirely (e.g. a list-query param that leaked into a resource schema)
+	Type                     string `yaml:"type"`                       // retype the attribute, e.g. int64 -> string
+	ElementType              string `yaml:"element_type"`               // element type for list/map/set, e.g. string
+	ComputedOptionalRequired string `yaml:"computed_optional_required"` // computed|optional|required|computed_optional
+	Description              string `yaml:"description"`
+	// Sensitive marks the attribute secret so Terraform redacts it from plan and
+	// apply output. The OpenAPI spec has no way to say "this is a credential", so
+	// without an explicit override every generated schema exposed its secrets in
+	// cleartext — smtp_password, oauth_client_secret, tenant_client_secret,
+	// key_secret and private_key were all unmarked.
+	Sensitive     bool                         `yaml:"sensitive"`
+	PlanModifiers []string                     `yaml:"plan_modifiers"` // e.g. stringplanmodifier.UseStateForUnknown()
+	CustomType    *customTypeOverride          `yaml:"custom_type"`    // wrap a scalar in a framework custom type (e.g. jsontypes.Normalized)
+	Attributes    map[string]attributeOverride `yaml:"attributes"`     // nested attributes for single_nested/set_nested/list_nested
 }
 
 // customTypeOverride wraps a scalar attribute in a Terraform framework custom
@@ -837,6 +843,9 @@ func applyAttrOverride(attr map[string]any, ao attributeOverride) error {
 	if ao.Description != "" {
 		typeObj["description"] = ao.Description
 	}
+	if ao.Sensitive {
+		typeObj["sensitive"] = true
+	}
 	if len(ao.PlanModifiers) > 0 {
 		pms := make([]any, 0, len(ao.PlanModifiers))
 		for _, pm := range ao.PlanModifiers {
@@ -854,30 +863,91 @@ func applyAttrOverride(attr map[string]any, ao attributeOverride) error {
 		typeObj["plan_modifiers"] = pms
 	}
 	if len(ao.Attributes) > 0 {
-		// Recursively build nested attribute nodes (sorted for determinism).
-		names := make([]string, 0, len(ao.Attributes))
-		for n := range ao.Attributes {
-			names = append(names, n)
-		}
-		sort.Strings(names)
-		children := make([]any, 0, len(names))
-		for _, cn := range names {
-			child := map[string]any{"name": cn}
-			if err := applyAttrOverride(child, ao.Attributes[cn]); err != nil {
-				return fmt.Errorf("%s.%s: %w", curType, cn, err)
+		// Merge into the children the spec already produced rather than replacing
+		// them. This block used to build the list from scratch, so overriding one
+		// field of a nested object silently deleted every sibling — naming just
+		// azure_connection.tenant_client_secret erased the rest of the connection
+		// block and left an attribute with no type at all, which the provider code
+		// spec rejects. Existing children are updated in place; children named only
+		// in the override are appended, preserving the add-if-missing behavior.
+		//
+		// single_nested holds `attributes` directly; list/set_nested wrap them in a
+		// nested_object, per the tfplugingen provider code spec.
+		var existing []any
+		var setChildren func([]any)
+		if no, ok := typeObj["nested_object"].(map[string]any); ok {
+			if a, ok := no["attributes"].([]any); ok {
+				existing = a
 			}
-			children = append(children, child)
+			setChildren = func(v []any) { no["attributes"] = v }
+		} else if a, ok := typeObj["attributes"].([]any); ok {
+			existing = a
+			setChildren = func(v []any) { typeObj["attributes"] = v }
 		}
-		// single_nested holds `attributes` directly; list/set_nested wrap them
-		// in a nested_object, per the tfplugingen provider code spec.
-		switch ao.Type {
-		case "set_nested", "list_nested":
-			typeObj["nested_object"] = map[string]any{"attributes": children}
-		default:
-			typeObj["attributes"] = children
+		if setChildren == nil {
+			switch ao.Type {
+			case "set_nested", "list_nested":
+				no := map[string]any{}
+				typeObj["nested_object"] = no
+				setChildren = func(v []any) { no["attributes"] = v }
+			default:
+				setChildren = func(v []any) { typeObj["attributes"] = v }
+			}
 		}
+		children, err := mergeAttrOverrides(existing, ao.Attributes)
+		if err != nil {
+			return fmt.Errorf("%s: %w", curType, err)
+		}
+		setChildren(children)
 	}
 	return nil
+}
+
+// mergeAttrOverrides applies overrides onto an existing attribute-node list:
+// matching nodes are mutated in place, `remove: true` drops them, and names not
+// already present are appended (sorted, for deterministic output).
+func mergeAttrOverrides(existing []any, overrides map[string]attributeOverride) ([]any, error) {
+	present := make(map[string]bool, len(existing))
+	out := make([]any, 0, len(existing)+len(overrides))
+	for _, a := range existing {
+		am, ok := a.(map[string]any)
+		if !ok {
+			out = append(out, a)
+			continue
+		}
+		an, ok := am["name"].(string)
+		if !ok {
+			out = append(out, a)
+			continue
+		}
+		ao, has := overrides[an]
+		if has && ao.Remove {
+			continue
+		}
+		present[an] = true
+		out = append(out, a)
+		if !has {
+			continue
+		}
+		if err := applyAttrOverride(am, ao); err != nil {
+			return nil, fmt.Errorf("%s: %w", an, err)
+		}
+	}
+	missing := make([]string, 0, len(overrides))
+	for an, ao := range overrides {
+		if !present[an] && !ao.Remove {
+			missing = append(missing, an)
+		}
+	}
+	sort.Strings(missing)
+	for _, an := range missing {
+		child := map[string]any{"name": an}
+		if err := applyAttrOverride(child, overrides[an]); err != nil {
+			return nil, fmt.Errorf("%s: %w", an, err)
+		}
+		out = append(out, child)
+	}
+	return out, nil
 }
 
 // isNestedType reports whether a provider-code-spec attribute type holds child

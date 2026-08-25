@@ -49,6 +49,23 @@ func (r *awsAccountResource) Metadata(_ context.Context, req resource.MetadataRe
 	resp.TypeName = req.ProviderTypeName + "_aws_account"
 }
 
+// Schema is declared here rather than delegating to AwsAccountResourceSchema in
+// aws_account_schema_gen.go, unlike every other resource. The generated schema is
+// now accurate — it agrees with this one on all 28 attribute names and on their
+// optional/computed/required flags — but three shapes cannot be expressed by the
+// code generator, and each difference would break existing configurations:
+//
+//   - aws_organizational_unit and move_project_settings are nested *blocks* here
+//     (`aws_organizational_unit { ... }`); tfplugingen-framework emits only nested
+//     *attributes* (`aws_organizational_unit = { ... }`). That is a change to the
+//     HCL a user writes, not just to the schema.
+//   - id is Int64 here and String in the generated schema, so delegating would
+//     change the type of a value already in every state file.
+//
+// Until the generator can emit blocks, this stays hand-written. The generated
+// file is still produced and kept correct so docs and any future switchover have
+// a faithful source; see codegen/schema_overrides.yaml, where account aliases
+// aws_account's attributes because both resources render this one template.
 func (r *awsAccountResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		Description: "Creates or imports an AWS Account and adds it to a Kion project or the Kion account cache.\n\n" +

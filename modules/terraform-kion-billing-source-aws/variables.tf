@@ -114,6 +114,7 @@ variable "key_id" {
 variable "key_secret" {
   description = "The AWS Secret Access Key used to access the billing s3 bucket"
   type        = string
+  sensitive   = true
   default     = null
 }
 
