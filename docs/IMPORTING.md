@@ -124,3 +124,30 @@ one lists the whole collection.
 
 It also has no equivalent of the old `--sync` (pushing repository state back into
 Kion) or the `--clone-*` flags. Those are a different job from importing.
+
+## The generated file is self-contained
+
+`imports.tf` carries its own `terraform { required_providers { … } }` block, so
+put it in an empty directory. Dropping it beside a configuration that already
+declares its providers fails with:
+
+```
+Error: Duplicate required providers configuration
+A module may have only one required providers configuration.
+```
+
+## Parent-scoped import ids
+
+Resources whose read finds the record under a parent take a compound id, and
+`kion-import` emits it for you:
+
+```hcl
+import {
+  to = kion_project_enforcement.example
+  id = "42/167"     # project_id/id
+}
+```
+
+`kion_scope_criteria` is the same shape (`scope_id/criteria_id`). Importing one
+of these with a bare id leaves the parent unset, and the read looks for the
+record under parent `0`.

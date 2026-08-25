@@ -35,7 +35,11 @@ func Classify(archetype string, readPath string, hasParent bool) (ReadShape, IDF
 		}
 		return ShapeAssociation, FormatID, true, ""
 	case "parent_list", "compound_key_parent_read":
-		return ShapeParentList, FormatID, true, ""
+		// Both look the record up under its parent, so both split req.ID on "/"
+		// in ImportState: compound_key_parent_read always has, and parent_list
+		// now does too. A bare id leaves the parent zero and every read 404s,
+		// which is how 187 enforcement imports failed against a real install.
+		return ShapeParentList, FormatParentSlashKey, true, ""
 	case "singleton", "raw_http", "cv_override":
 		return ShapeSpecial, FormatID, true, ""
 	}

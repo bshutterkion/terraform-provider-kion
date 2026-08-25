@@ -1,0 +1,3 @@
+kind: BUG FIXES
+body: "`kion-import` now emits parent-scoped import ids for resources whose read finds the record under a parent. `kion_project_enforcement`, `kion_ou_enforcement`, `kion_funding_source_enforcement` and `kion_scope_criteria` were given a bare id, which leaves the parent unset so the read looks under parent 0 and fails; against a real install that was 187 failed imports. It also no longer emits a record whose id is 0, which produced an import block for an object that does not exist."
+time: 2026-08-25T06:05:00Z
