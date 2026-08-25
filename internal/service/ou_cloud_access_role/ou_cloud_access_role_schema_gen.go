@@ -7,7 +7,11 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -25,12 +29,18 @@ func OuCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Text of the IAM Path in AWS to be stored in AWS.",
 				MarkdownDescription: "Text of the IAM Path in AWS to be stored in AWS.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"aws_iam_permissions_boundary": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "ID of the AWS IAM policy to be used as a permissions boundary for this role.",
 				MarkdownDescription: "ID of the AWS IAM policy to be used as a permissions boundary for this role.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"aws_iam_policies": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -38,12 +48,18 @@ func OuCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "IDs of the AWS IAM policies attached to this role.",
 				MarkdownDescription: "IDs of the AWS IAM policies attached to this role.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"aws_iam_role_name": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "AWS IAM role name corresponding to the cloud access role.",
 				MarkdownDescription: "AWS IAM role name corresponding to the cloud access role.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"aws_session_tags": schema.ListNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
@@ -89,6 +105,9 @@ func OuCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "AWS Session Tags used in this role when accessing the AWS console.",
 				MarkdownDescription: "AWS Session Tags used in this role when accessing the AWS console.",
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"azure_role_definitions": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -96,6 +115,9 @@ func OuCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "IDs of the Azure Role Definitions attached to this role.",
 				MarkdownDescription: "IDs of the Azure Role Definitions attached to this role.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"gcp_iam_roles": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -103,6 +125,9 @@ func OuCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "IDs of the GCP IAM roles attached to this role.",
 				MarkdownDescription: "IDs of the GCP IAM roles attached to this role.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -117,12 +142,18 @@ func OuCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The last time this resource was updated.",
 				MarkdownDescription: "The last time this resource was updated.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"long_term_access_keys": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "If long term access is true, users of this cloud access role can generate aws long-term access keys.\nWill default to false if not set.",
 				MarkdownDescription: "If long term access is true, users of this cloud access role can generate aws long-term access keys.\nWill default to false if not set.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Required:            true,
@@ -139,6 +170,9 @@ func OuCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "If short term access is true, users of this cloud access role can generate short-term access keys.\nWill default to false if not set.",
 				MarkdownDescription: "If short term access is true, users of this cloud access role can generate short-term access keys.\nWill default to false if not set.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -146,6 +180,9 @@ func OuCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "IDs of the user groups allowed to use this role to access the AWS console.",
 				MarkdownDescription: "IDs of the user groups allowed to use this role to access the AWS console.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -153,12 +190,18 @@ func OuCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "IDs of the users allowed to use this role to access the AWS console.",
 				MarkdownDescription: "IDs of the users allowed to use this role to access the AWS console.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"web_access": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "If web access is true, users of this cloud access role can log into the console\nWill default to false if not set.",
 				MarkdownDescription: "If web access is true, users of this cloud access role can log into the console\nWill default to false if not set.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Ou Cloud Access Role.",

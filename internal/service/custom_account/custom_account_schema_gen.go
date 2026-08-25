@@ -22,6 +22,9 @@ func CustomAccountResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Alias of the account in the application.",
 				MarkdownDescription: "Alias of the account in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"account_name": schema.StringAttribute{
 				Required:            true,

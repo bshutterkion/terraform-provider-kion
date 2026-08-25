@@ -231,6 +231,9 @@ func flattenUser(ctx context.Context, apiObject any, model *UserModel) diag.Diag
 					userGroupsIDs = append(userGroupsIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			userGroupsIDs = flex.DedupeInt64(userGroupsIDs)
 			userGroupsIDsColl, userGroupsIDsCD := types.SetValueFrom(ctx, types.Int64Type, userGroupsIDs)
 			diags.Append(userGroupsIDsCD...)
 			model.UserGroupIds = userGroupsIDsColl

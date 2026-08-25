@@ -260,13 +260,19 @@ func Build(readPaths, dataSourcePaths, privateListPaths, privateResourcePaths ma
 				}
 			} else {
 				r.ReadShape = ShapeParentList
-				// Read finds the child under its parent, so the import id must
-				// carry both. The child is keyed by its own "id" here; the
-				// compound archetype names a different child field and sets
-				// KeyField itself.
-				r.ImportID.Format = FormatParentSlashKey
-				if r.ImportID.KeyField == "" {
-					r.ImportID.KeyField = "id"
+				// Only an archetype whose ImportState actually splits on "/" may
+				// take a compound id. Reaching a record through a parent is not
+				// enough: compliance_family and compliance_level declare no
+				// archetype, so they get entity.gtpl's id-only ImportState and
+				// merely fall back to a parent-scoped read when their flat list
+				// 405s. Handing those "<parent>/<id>" made Read parse the whole
+				// string as an integer, which is 652 of the 667 "Invalid ID"
+				// failures a verification run produced.
+				if archetype == "parent_list" || archetype == "compound_key_parent_read" {
+					r.ImportID.Format = FormatParentSlashKey
+					if r.ImportID.KeyField == "" {
+						r.ImportID.KeyField = "id"
+					}
 				}
 			}
 

@@ -234,6 +234,9 @@ func flattenWebhook(ctx context.Context, apiObject any, model *WebhookModel) dia
 					ownerUserGroupsIDs = append(ownerUserGroupsIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			ownerUserGroupsIDs = flex.DedupeInt64(ownerUserGroupsIDs)
 			ownerUserGroupsIDsColl, ownerUserGroupsIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUserGroupsIDs)
 			diags.Append(ownerUserGroupsIDsCD...)
 			model.OwnerUserGroupIds = ownerUserGroupsIDsColl
@@ -243,6 +246,9 @@ func flattenWebhook(ctx context.Context, apiObject any, model *WebhookModel) dia
 					ownerUsersIDs = append(ownerUsersIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			ownerUsersIDs = flex.DedupeInt64(ownerUsersIDs)
 			ownerUsersIDsColl, ownerUsersIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUsersIDs)
 			diags.Append(ownerUsersIDsCD...)
 			model.OwnerUserIds = ownerUsersIDsColl

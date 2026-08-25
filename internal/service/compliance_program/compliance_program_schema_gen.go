@@ -19,12 +19,18 @@ func ComplianceProgramResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Description for the Compliance Program in the application.",
 				MarkdownDescription: "Description for the Compliance Program in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"grouping_type": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "GroupType of the Compliance Program in the application.",
 				MarkdownDescription: "GroupType of the Compliance Program in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -44,12 +50,18 @@ func ComplianceProgramResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "TerseName of the Compliance Program in the application.\nThis is a concise name meant for easy identification and small UI spaces like program icons.",
 				MarkdownDescription: "TerseName of the Compliance Program in the application.\nThis is a concise name meant for easy identification and small UI spaces like program icons.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"verbose_name": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "VerboseName of the Compliance Program in the application.\nThis is a more detailed program name meant to suppliment the Name or TerseName in specific contexts.",
 				MarkdownDescription: "VerboseName of the Compliance Program in the application.\nThis is a more detailed program name meant to suppliment the Name or TerseName in specific contexts.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"version": schema.StringAttribute{
 				Required:            true,

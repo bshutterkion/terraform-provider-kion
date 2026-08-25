@@ -5,6 +5,8 @@ package billing_source_oci
 import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -22,6 +24,9 @@ func BillingSourceOciResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The Account Type ID is the corresponding billing source account's type.\n26 - OCI Commercial\n27 - OCI Government\n28 - OCI Federal",
 				MarkdownDescription: "The Account Type ID is the corresponding billing source account's type.\n26 - OCI Commercial\n27 - OCI Government\n28 - OCI Federal",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"billing_start_date": schema.StringAttribute{
 				Required:            true,
@@ -36,6 +41,9 @@ func BillingSourceOciResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The api access fingerprint",
 				MarkdownDescription: "The api access fingerprint",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -50,12 +58,18 @@ func BillingSourceOciResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Indicates whether the billing source is a parent OCI tenancy.",
 				MarkdownDescription: "Indicates whether the billing source is a parent OCI tenancy.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Name of the billing source.",
 				MarkdownDescription: "Name of the billing source.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"private_key": schema.StringAttribute{
 				Optional:            true,
@@ -63,42 +77,63 @@ func BillingSourceOciResourceSchema(ctx context.Context) schema.Schema {
 				Sensitive:           true,
 				Description:         "The private key used for API Access",
 				MarkdownDescription: "The private key used for API Access",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"region": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The OCI default api region",
 				MarkdownDescription: "The OCI default api region",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"skip_validation": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "When true, will skip validating the connection to the billing source",
 				MarkdownDescription: "When true, will skip validating the connection to the billing source",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"tenancy_ocid": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The OCID of the tenancy",
 				MarkdownDescription: "The OCID of the tenancy",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"use_focus_reports": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Use FOCUS Reports - If true, Kion will use FOCUS reports for this billing source",
 				MarkdownDescription: "Use FOCUS Reports - If true, Kion will use FOCUS reports for this billing source",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"use_proprietary_reports": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Use Proprietary Reports - If true, Kion will use proprietary reports for this billing source",
 				MarkdownDescription: "Use Proprietary Reports - If true, Kion will use proprietary reports for this billing source",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"user_ocid": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The OCID of the api user",
 				MarkdownDescription: "The OCID of the api user",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion OCI Billing Source.",

@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -25,6 +28,9 @@ func CftResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Description of the Cloudformation template in the application.",
 				MarkdownDescription: "Description of the Cloudformation template in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -45,6 +51,9 @@ func CftResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of groups IDs who will own the CloudFormation template. Is required if no user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the CloudFormation template. Is required if no user IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -52,6 +61,9 @@ func CftResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user IDs who will own the CloudFormation template. Is required if no group IDs are listed.",
 				MarkdownDescription: "List of user IDs who will own the CloudFormation template. Is required if no group IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"policy": schema.StringAttribute{
 				Required:            true,
@@ -63,6 +75,9 @@ func CftResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "DEPRECATED! USE THE regions FIELD.\nAWS region where the CloudFormation template applies.",
 				MarkdownDescription: "DEPRECATED! USE THE regions FIELD.\nAWS region where the CloudFormation template applies.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"regions": schema.SetAttribute{
 				ElementType:         types.StringType,
@@ -75,6 +90,9 @@ func CftResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of comma separated AWS SNS ARNs that will trigger once the CFT is done applying.",
 				MarkdownDescription: "List of comma separated AWS SNS ARNs that will trigger once the CFT is done applying.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"tags": schema.ListNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
@@ -102,18 +120,27 @@ func CftResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "AWS Stack Tags used in this role when accessing the AWS console.",
 				MarkdownDescription: "AWS Stack Tags used in this role when accessing the AWS console.",
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"template_parameters": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of CloudFormation parameters in a JSON array.",
 				MarkdownDescription: "List of CloudFormation parameters in a JSON array.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"termination_protection": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Sets the termination protection status for this CFT.",
 				MarkdownDescription: "Sets the termination protection status for this CFT.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Cft.",

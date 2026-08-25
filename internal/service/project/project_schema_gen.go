@@ -7,7 +7,12 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -25,12 +30,18 @@ func ProjectResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Whether the project is archived.",
 				MarkdownDescription: "Whether the project is archived.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"auto_pay": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "True means the application can use the spend plan to process payments from\nthe account. Should be true unless using a custom module.",
 				MarkdownDescription: "True means the application can use the spend plan to process payments from\nthe account. Should be true unless using a custom module.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"budget": schema.SetNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
@@ -101,18 +112,27 @@ func ProjectResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The project budget.",
 				MarkdownDescription: "The project budget.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"default_aws_region": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Default AWS region that the project will use for assuming into accounts.",
 				MarkdownDescription: "Default AWS region that the project will use for assuming into accounts.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"description": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Description for the project in the application.",
 				MarkdownDescription: "Description for the project in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -128,12 +148,18 @@ func ProjectResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The labels applied to the project.",
 				MarkdownDescription: "The labels applied to the project.",
+				PlanModifiers: []planmodifier.Map{
+					mapplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"last_updated": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The last time this resource was updated.",
 				MarkdownDescription: "The last time this resource was updated.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"move_ou_settings": schema.SetNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
@@ -161,6 +187,9 @@ func ProjectResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Settings applied when moving the project between OUs.",
 				MarkdownDescription: "Settings applied when moving the project between OUs.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Required:            true,
@@ -178,6 +207,9 @@ func ProjectResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of groups IDs who will own the project. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the project. Is required if no owner user IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -185,12 +217,18 @@ func ProjectResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user IDs who will own the project. Is required if no owner group IDs are listed.",
 				MarkdownDescription: "List of user IDs who will own the project. Is required if no owner group IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"permission_scheme_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "ID of the permission scheme applied to the project.",
 				MarkdownDescription: "ID of the permission scheme applied to the project.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"project_funding": schema.ListNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
@@ -234,6 +272,9 @@ func ProjectResourceSchema(ctx context.Context) schema.Schema {
 				},
 				Optional: true,
 				Computed: true,
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Project.",

@@ -4,7 +4,9 @@ package webhook
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -24,6 +26,9 @@ func WebhookResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Description for the webhook in the application.",
 				MarkdownDescription: "Description for the webhook in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -44,6 +49,9 @@ func WebhookResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of groups IDs who will own the webhook. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the webhook. Is required if no owner user IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -51,36 +59,54 @@ func WebhookResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user IDs who will own the webhook. Is required if no owner group IDs are listed.",
 				MarkdownDescription: "List of user IDs who will own the webhook. Is required if no owner group IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"request_body": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "HTTP request payload body to use when the webhook is triggered.",
 				MarkdownDescription: "HTTP request payload body to use when the webhook is triggered.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"request_headers": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "HTTP headers to use when the webhook is triggered.",
 				MarkdownDescription: "HTTP headers to use when the webhook is triggered.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"request_method": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "HTTP request method to use when the webhook is triggered.",
 				MarkdownDescription: "HTTP request method to use when the webhook is triggered.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"should_send_secure_info": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Will be true when the request to the webhook will include temporary AWS access keys.",
 				MarkdownDescription: "Will be true when the request to the webhook will include temporary AWS access keys.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"skip_ssl": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Will be true when the request to the webhook will skip certificate verification.",
 				MarkdownDescription: "Will be true when the request to the webhook will skip certificate verification.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"timeout_in_seconds": schema.Int64Attribute{
 				Required:            true,
@@ -92,6 +118,9 @@ func WebhookResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Will be true when intending to send the request headers specified above.",
 				MarkdownDescription: "Will be true when intending to send the request headers specified above.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Webhook.",

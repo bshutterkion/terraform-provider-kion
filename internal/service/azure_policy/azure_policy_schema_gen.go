@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -54,6 +56,9 @@ func AzurePolicyResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "AzurePolicyDefinitionCreate represents an create Azure Policy Definition, complete with the policy itself and its parameters.",
 				MarkdownDescription: "AzurePolicyDefinitionCreate represents an create Azure Policy Definition, complete with the policy itself and its parameters.",
+				PlanModifiers: []planmodifier.Object{
+					objectplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -69,6 +74,9 @@ func AzurePolicyResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user group IDs that will be owners of the azure policy.",
 				MarkdownDescription: "List of user group IDs that will be owners of the azure policy.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_users": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -76,6 +84,9 @@ func AzurePolicyResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user IDs that will be owners of the azure policy.",
 				MarkdownDescription: "List of user IDs that will be owners of the azure policy.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Azure Policy.",

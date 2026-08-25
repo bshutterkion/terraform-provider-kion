@@ -5,6 +5,8 @@ package azure_account
 import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -22,6 +24,9 @@ func AzureAccountResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Alias of the account in the application.",
 				MarkdownDescription: "Alias of the account in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"account_name": schema.StringAttribute{
 				Required:            true,
@@ -33,6 +38,9 @@ func AzureAccountResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The Account Type ID is the corresponding account's type.\n3 - Azure CSP Standard\n6 - Azure EA\n7 - Azure EA Government\n8 - Azure CSP Standard Resource Group\n9 - Azure EA Resource Group\n10 - Azure EA Government Resource Group\n11 - Azure CSP Government\n12 - Azure CSP Government Resource Group\nWill default to 3 if not given.",
 				MarkdownDescription: "The Account Type ID is the corresponding account's type.\n3 - Azure CSP Standard\n6 - Azure EA\n7 - Azure EA Government\n8 - Azure CSP Standard Resource Group\n9 - Azure EA Resource Group\n10 - Azure EA Government Resource Group\n11 - Azure CSP Government\n12 - Azure CSP Government Resource Group\nWill default to 3 if not given.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -57,6 +65,9 @@ func AzureAccountResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "When true, the application does not perform periodic access validation. Default is false.",
 				MarkdownDescription: "When true, the application does not perform periodic access validation. Default is false.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"start_datecode": schema.StringAttribute{
 				Required:            true,
@@ -71,6 +82,9 @@ func AzureAccountResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Azure Subscription UUID.",
 				MarkdownDescription: "Azure Subscription UUID.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Azure Account.",

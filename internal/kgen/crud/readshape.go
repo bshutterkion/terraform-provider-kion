@@ -66,6 +66,10 @@ func kindWire(kind string) (string, error) {
 		return "string", nil
 	case "int_string", "int", "datecode":
 		return "int64", nil
+	case "null_int":
+		return "struct {\n\t\tInt   int64 `json:\"Int\"`\n\t\tValid bool  `json:\"Valid\"`\n\t}", nil
+	case "null_string":
+		return "struct {\n\t\tString string `json:\"String\"`\n\t\tValid  bool   `json:\"Valid\"`\n\t}", nil
 	case "bool":
 		return "bool", nil
 	}
@@ -86,6 +90,12 @@ func kindConv(kind, expr string) (string, error) {
 		return "types.StringValue(" + expr + ")", nil
 	case "int":
 		return "types.Int64Value(" + expr + ")", nil
+	case "null_int":
+		// Kion serializes sql.NullInt64 as {"Int":1,"Valid":true}; declaring it
+		// int64 made the whole read fail to decode.
+		return "flex.NullIntToFramework(" + expr + ".Int, " + expr + ".Valid)", nil
+	case "null_string":
+		return "flex.NullStringToFramework(" + expr + ".String, " + expr + ".Valid)", nil
 	case "bool":
 		return "types.BoolValue(" + expr + ")", nil
 	}

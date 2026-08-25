@@ -291,8 +291,7 @@
         "parent_id_field": "compliance_program_id"
       },
       "import_id": {
-        "format": "parent_slash_key",
-        "key_field": "id"
+        "format": "id"
       }
     },
     {
@@ -309,8 +308,7 @@
         "parent_id_field": "compliance_program_id"
       },
       "import_id": {
-        "format": "parent_slash_key",
-        "key_field": "id"
+        "format": "id"
       }
     },
     {
@@ -327,8 +325,7 @@
         "parent_id_field": "compliance_program_id"
       },
       "import_id": {
-        "format": "parent_slash_key",
-        "key_field": "id"
+        "format": "id"
       }
     },
     {
@@ -548,8 +545,7 @@
         "parent_id_field": "idms_id"
       },
       "import_id": {
-        "format": "parent_slash_key",
-        "key_field": "id"
+        "format": "id"
       }
     },
     {
@@ -683,8 +679,7 @@
         "parent_id_field": "ou_id"
       },
       "import_id": {
-        "format": "parent_slash_key",
-        "key_field": "id"
+        "format": "id"
       }
     },
     {
@@ -826,8 +821,7 @@
         "parent_id_field": "idms_id"
       },
       "import_id": {
-        "format": "parent_slash_key",
-        "key_field": "id"
+        "format": "id"
       }
     },
     {

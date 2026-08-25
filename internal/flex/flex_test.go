@@ -383,3 +383,19 @@ func TestSliceToFrameworkSetDedupes(t *testing.T) {
 	null, _ := flex.Uint64SliceToFrameworkSet(ctx, nil)
 	assert.True(t, null.IsNull())
 }
+
+// TestCanonicalJSONMatchesJsonencode covers the byte equality a generated
+// configuration needs: terraform's jsonencode emits compact JSON with sorted
+// keys, and the read must produce the same bytes or every plan reports a change.
+func TestCanonicalJSONMatchesJsonencode(t *testing.T) {
+	t.Parallel()
+	got := flex.NormalizedStringToFramework("{\n  \"b\": 2,\n  \"a\": [1, 2]\n}")
+	assert.Equal(t, `{"a":[1,2],"b":2}`, got.ValueString(), "keys sorted, whitespace removed")
+
+	// Not JSON: returned untouched. CloudFormation templates are often YAML.
+	yaml := "---\nAWSTemplateFormatVersion: 2010-09-09\n"
+	assert.Equal(t, yaml, flex.NormalizedStringToFramework(yaml).ValueString())
+
+	// Already canonical: unchanged.
+	assert.Equal(t, `{"a":1}`, flex.NormalizedStringToFramework(`{"a":1}`).ValueString())
+}

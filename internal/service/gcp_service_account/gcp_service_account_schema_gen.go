@@ -5,6 +5,7 @@ package gcp_service_account
 import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -20,19 +21,28 @@ func GcpServiceAccountResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Description is a brief description of the service account",
 				MarkdownDescription: "Description is a brief description of the service account",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"disabled": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Disabled is true if the service account is disabled with GCP",
 				MarkdownDescription: "Disabled is true if the service account is disabled with GCP",
-				Default:             booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
+				Default: booldefault.StaticBool(false),
 			},
 			"display_name": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "DisplayName is a human-friendly name for the service account",
 				MarkdownDescription: "DisplayName is a human-friendly name for the service account",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"email": schema.StringAttribute{
 				Required:            true,
@@ -67,6 +77,9 @@ func GcpServiceAccountResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "OAuthClientID is the client id for an oauth client in the service account's project",
 				MarkdownDescription: "OAuthClientID is the client id for an oauth client in the service account's project",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"oauth_client_secret": schema.StringAttribute{
 				Optional:            true,
@@ -74,6 +87,9 @@ func GcpServiceAccountResourceSchema(ctx context.Context) schema.Schema {
 				Sensitive:           true,
 				Description:         "OAuthClientSecret is the client secret for an oauth client in the service account's project",
 				MarkdownDescription: "OAuthClientSecret is the client secret for an oauth client in the service account's project",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"unique_id": schema.StringAttribute{
 				Required:            true,

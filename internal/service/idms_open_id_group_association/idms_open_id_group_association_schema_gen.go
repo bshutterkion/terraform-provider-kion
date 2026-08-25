@@ -4,6 +4,8 @@ package idms_open_id_group_association
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,12 +21,18 @@ func IdmsOpenIdGroupAssociationResourceSchema(ctx context.Context) schema.Schema
 				Computed:            true,
 				Description:         "AssertionName name of the assertion in OpenID.",
 				MarkdownDescription: "AssertionName name of the assertion in OpenID.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"assertion_regex": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "AssertionRegex is the regular expression used to determine a match.",
 				MarkdownDescription: "AssertionRegex is the regular expression used to determine a match.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -35,21 +43,31 @@ func IdmsOpenIdGroupAssociationResourceSchema(ctx context.Context) schema.Schema
 				},
 			},
 			"open_id_id": schema.Int64Attribute{
-				Required:            true,
+				Optional:            true,
+				Computed:            true,
 				Description:         "The ID of the OpenID IDMS the group association belongs to.",
 				MarkdownDescription: "The ID of the OpenID IDMS the group association belongs to.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"update_on_login": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "ShouldUpdateOnLogin denotes if the group associations should be updated every time a user logs in.",
 				MarkdownDescription: "ShouldUpdateOnLogin denotes if the group associations should be updated every time a user logs in.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"user_group_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "UgroupID is the ID of the user group this assertion will map to.",
 				MarkdownDescription: "UgroupID is the ID of the user group this assertion will map to.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a group association for a Kion OpenID Connect IDMS.",

@@ -4,6 +4,9 @@ package project_note
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -16,54 +19,84 @@ func ProjectNoteResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "ID of the user who created the note.",
 				MarkdownDescription: "ID of the user who created the note.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"create_user_name": schema.StringAttribute{
 				Computed:            true,
 				Description:         "Name of the user who created the note.",
 				MarkdownDescription: "Name of the user who created the note.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"created_at": schema.StringAttribute{
 				Computed:            true,
 				Description:         "When the note was created.",
 				MarkdownDescription: "When the note was created.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
 				Description:         "The ID of the project note.",
 				MarkdownDescription: "The ID of the project note.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"last_update_user_id": schema.Int64Attribute{
 				Computed:            true,
 				Description:         "ID of the user who last updated the note.",
 				MarkdownDescription: "ID of the user who last updated the note.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"last_update_user_name": schema.StringAttribute{
 				Computed:            true,
 				Description:         "Name of the user who last updated the note.",
 				MarkdownDescription: "Name of the user who last updated the note.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Name of the note.",
 				MarkdownDescription: "Name of the note.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"project_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "ID of the project.",
 				MarkdownDescription: "ID of the project.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"text": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Body text of the note.",
 				MarkdownDescription: "Body text of the note.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"updated_at": schema.StringAttribute{
 				Computed:            true,
 				Description:         "When the note was last updated.",
 				MarkdownDescription: "When the note was last updated.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Project Note.",

@@ -783,6 +783,12 @@ func (g *generator) applySchemaOverrides(specPath, overridesPath string) error {
 		}
 	}
 
+	// After overrides, so an attribute a sidecar retyped gets the plan-modifier
+	// package matching its final type rather than its spec-derived one.
+	if err := applyUseStateForUnknownDefault(spec["resources"]); err != nil {
+		return err
+	}
+
 	out, err := json.MarshalIndent(spec, "", "  ")
 	if err != nil {
 		return err
@@ -1368,6 +1374,80 @@ func applyAssociationSetDefault(node any) error {
 			// setting travel with it untouched.
 			am["set"] = l
 			delete(am, "list")
+		}
+	}
+	return nil
+}
+
+// planModifierPkg maps a provider-code-spec attribute type to the framework's
+// typed plan-modifier package. Types absent here have no UseStateForUnknown.
+var planModifierPkg = map[string]string{
+	"string": "stringplanmodifier", "int64": "int64planmodifier",
+	"bool": "boolplanmodifier", "float64": "float64planmodifier",
+	"number": "numberplanmodifier", "list": "listplanmodifier",
+	"set": "setplanmodifier", "map": "mapplanmodifier",
+	// Nested collections carry their own IR key, and missing them left
+	// kion_cft.tags reporting "(known after apply)" on every plan.
+	"list_nested": "listplanmodifier", "set_nested": "setplanmodifier",
+	"map_nested": "mapplanmodifier", "single_nested": "objectplanmodifier",
+}
+
+// applyUseStateForUnknownDefault gives every Computed attribute the
+// UseStateForUnknown plan modifier.
+//
+// Without it a Computed attribute is unknown on every plan, so Terraform renders
+// it "(known after apply)" and counts the resource as changing even when nothing
+// did. Importing a real install planned 2,561 in-place updates on that alone:
+// kion_iam_policy proposed a change to aws_iam_path, last_updated, path_suffix
+// and both owner id sets for all 1,348 records, none of which had moved.
+//
+// An attribute the server genuinely recomputes should opt out by declaring its
+// own plan_modifiers in schema_overrides.yaml, which wins because this runs
+// first and only fills an empty list.
+func applyUseStateForUnknownDefault(node any) error {
+	list, ok := node.([]any)
+	if !ok {
+		return nil
+	}
+	for _, item := range list {
+		obj, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		schemaObj, ok := obj["schema"].(map[string]any)
+		if !ok {
+			continue
+		}
+		attrs, ok := schemaObj["attributes"].([]any)
+		if !ok {
+			continue
+		}
+		for _, a := range attrs {
+			am, ok := a.(map[string]any)
+			if !ok {
+				continue
+			}
+			for typeName, pkg := range planModifierPkg {
+				typeObj, ok := am[typeName].(map[string]any)
+				if !ok {
+					continue
+				}
+				cor, ok := typeObj["computed_optional_required"].(string)
+				if !ok || (cor != "computed" && cor != "computed_optional") {
+					continue
+				}
+				if _, exists := typeObj["plan_modifiers"]; exists {
+					continue
+				}
+				typeObj["plan_modifiers"] = []any{map[string]any{
+					"custom": map[string]any{
+						"imports": []any{map[string]any{
+							"path": planModifierBase + pkg,
+						}},
+						"schema_definition": pkg + ".UseStateForUnknown()",
+					},
+				}}
+			}
 		}
 	}
 	return nil

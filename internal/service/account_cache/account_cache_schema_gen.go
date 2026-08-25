@@ -8,6 +8,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -27,12 +30,18 @@ func AccountCacheResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Alias of the account in the application.",
 				MarkdownDescription: "Alias of the account in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"account_email": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Root email of the account if created inside the application, otherwise it will be an empty string. Note: If an account placeholder email (e.g. `jdoe+%s@example.com`) has been set, account_email MUST be empty. In this case, account_email will be set to the account placeholder email formatted with the account_name field (e.g. `jdoe+account_name@example.com`). Otherwise, account_email is required.",
 				MarkdownDescription: "Root email of the account if created inside the application, otherwise it will be an empty string. Note: If an account placeholder email (e.g. `jdoe+%s@example.com`) has been set, account_email MUST be empty. In this case, account_email will be set to the account placeholder email formatted with the account_name field (e.g. `jdoe+account_name@example.com`). Otherwise, account_email is required.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 				Validators: []validator.String{
 					stringvalidator.LengthAtMost(64),
 				},
@@ -47,40 +56,61 @@ func AccountCacheResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The account number.",
 				MarkdownDescription: "The account number.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"account_type_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "AccountTypeID is used to specify the AWS Account Type being created. If not explicitly set, the partition that Kion is running in will be used.\nFor AWS Commercial accounts, this value is 1.\nFor AWS Government accounts, this value is 2.\nFor AWS C2S accounts, this value is 4.\nFor AWS SC2S accounts, this value is 5.",
 				MarkdownDescription: "AccountTypeID is used to specify the AWS Account Type being created. If not explicitly set, the partition that Kion is running in will be used.\nFor AWS Commercial accounts, this value is 1.\nFor AWS Government accounts, this value is 2.\nFor AWS C2S accounts, this value is 4.\nFor AWS SC2S accounts, this value is 5.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"car_external_id": schema.StringAttribute{
 				Computed:            true,
 				Description:         "The cloud access role external ID.",
 				MarkdownDescription: "The cloud access role external ID.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"commercial_account_name": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Name of the Commercial Account in the application. If none is provided, a default value of\n\"{Name} - Commercial\" will be used instead. If include_linked_account_spend is set to true,\nthis value will be ignored.",
 				MarkdownDescription: "Name of the Commercial Account in the application. If none is provided, a default value of\n\"{Name} - Commercial\" will be used instead. If include_linked_account_spend is set to true,\nthis value will be ignored.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"create_govcloud": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "CreateGovcloud determines if this account should be created in govcloud. The default value is false.",
 				MarkdownDescription: "CreateGovcloud determines if this account should be created in govcloud. The default value is false.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"created_at": schema.StringAttribute{
 				Computed:            true,
 				Description:         "When the account cache was created.",
 				MarkdownDescription: "When the account cache was created.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"gov_account_name": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Name of the GovCloud Account in the application.\nIf no value is provided, \"{Name} - GovCloud\" will be used if create_govcloud is true",
 				MarkdownDescription: "Name of the GovCloud Account in the application.\nIf no value is provided, \"{Name} - GovCloud\" will be used if create_govcloud is true",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -95,23 +125,35 @@ func AccountCacheResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "When true, the application will include linked account spend from linked govcloud or commercial accounts. If a Govcloud account is created with include linked account spend set to false, cloudtamer.io will create both a commercial and govcloud account and add them both to the cache. Default is false.",
 				MarkdownDescription: "When true, the application will include linked account spend from linked govcloud or commercial accounts. If a Govcloud account is created with include linked account spend set to false, cloudtamer.io will create both a commercial and govcloud account and add them both to the cache. Default is false.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"last_updated": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The last time this resource was updated.",
 				MarkdownDescription: "The last time this resource was updated.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"linked_account_number": schema.StringAttribute{
 				Computed:            true,
 				Description:         "The linked account number.",
 				MarkdownDescription: "The linked account number.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"linked_role": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Name of the AWS Organizations service role. Default as well as what AWS recommends is: OrganizationAccountAccessRole.",
 				MarkdownDescription: "Name of the AWS Organizations service role. Default as well as what AWS recommends is: OrganizationAccountAccessRole.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"organizational_unit": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
@@ -137,6 +179,9 @@ func AccountCacheResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "PayerOrganizationalUnit represents an organizational unit in an AWS payer's organization.",
 				MarkdownDescription: "PayerOrganizationalUnit represents an organizational unit in an AWS payer's organization.",
+				PlanModifiers: []planmodifier.Object{
+					objectplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"payer_id": schema.Int64Attribute{
 				Required:            true,
@@ -147,12 +192,18 @@ func AccountCacheResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The service external ID.",
 				MarkdownDescription: "The service external ID.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"skip_access_checking": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Whether access checking is skipped.",
 				MarkdownDescription: "Whether access checking is skipped.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a cached account in Kion. This resource represents an account that lives in the account cache (not yet assigned to a project). To assign a cached account to a project, use kion_aws_account with project_id set.",

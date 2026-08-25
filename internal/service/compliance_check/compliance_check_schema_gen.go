@@ -4,8 +4,11 @@ package compliance_check
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -20,12 +23,18 @@ func ComplianceCheckResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "AzurePolicyID refers to the ID of the Azure Policy in cloudtamer.io which will be deployed and scraped to determine\ncompliance status of Azure resources. Should only be provided for Azure Policy checks.",
 				MarkdownDescription: "AzurePolicyID refers to the ID of the Azure Policy in cloudtamer.io which will be deployed and scraped to determine\ncompliance status of Azure resources. Should only be provided for Azure Policy checks.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"body": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "TODO: add a valid example here\nBody of the Compliance Check defining what actions will be run.",
 				MarkdownDescription: "TODO: add a valid example here\nBody of the Compliance Check defining what actions will be run.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"cloud_provider_id": schema.Int64Attribute{
 				Required:            true,
@@ -43,46 +52,70 @@ func ComplianceCheckResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of Compliance Control IDs to which this Compliance Check is linked.",
 				MarkdownDescription: "List of Compliance Control IDs to which this Compliance Check is linked.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"compliance_standard_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "ComplianceStandardID is an optional field for which compliance standard the created check should be associated with.",
 				MarkdownDescription: "ComplianceStandardID is an optional field for which compliance standard the created check should be associated with.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"created_at": schema.StringAttribute{
 				Computed:            true,
 				Description:         "When the compliance check was created.",
 				MarkdownDescription: "When the compliance check was created.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"created_by_user_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "CreatedByUserID refers to the User in the application who created the Compliance Check. Will be the requesting User's ID if not specified.",
 				MarkdownDescription: "CreatedByUserID refers to the User in the application who created the Compliance Check. Will be the requesting User's ID if not specified.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"ct_managed": schema.BoolAttribute{
 				Computed:            true,
 				Description:         "Whether the compliance check is managed by Kion.",
 				MarkdownDescription: "Whether the compliance check is managed by Kion.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"description": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Description for the Compliance Check in the application.",
 				MarkdownDescription: "Description for the Compliance Check in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"frequency_minutes": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "FrequencyMinutes defines how often the check will be run. Is required if check type is Cloud Custodian or Azure Policy.",
 				MarkdownDescription: "FrequencyMinutes defines how often the check will be run. Is required if check type is Cloud Custodian or Azure Policy.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"frequency_type_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "FrequencyTypeID refers to the duration type of the frequency it will be checked. Is required if check type is Cloud Custodian or Azure Policy.\n2 - minutes\n3 - hours\n4 - days",
 				MarkdownDescription: "FrequencyTypeID refers to the duration type of the frequency it will be checked. Is required if check type is Cloud Custodian or Azure Policy.\n2 - minutes\n3 - hours\n4 - days",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -97,23 +130,35 @@ func ComplianceCheckResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "IsAllRegions determines if the check should be applied to all regions applied on the system",
 				MarkdownDescription: "IsAllRegions determines if the check should be applied to all regions applied on the system",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"is_auto_archived": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "IsAutoArchived defines whether existing findings should be archived before new findings are reported.",
 				MarkdownDescription: "IsAutoArchived defines whether existing findings should be archived before new findings are reported.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"last_scan_id": schema.Int64Attribute{
 				Computed:            true,
 				Description:         "The ID of the most recent scan.",
 				MarkdownDescription: "The ID of the most recent scan.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"last_updated": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The last time this resource was updated.",
 				MarkdownDescription: "The last time this resource was updated.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Required:            true,
@@ -126,6 +171,9 @@ func ComplianceCheckResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of groups IDs who will own the Compliance Check. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the Compliance Check. Is required if no owner user IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -133,6 +181,9 @@ func ComplianceCheckResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user IDs who will own the Compliance Check. Is required if no owner group IDs are listed.",
 				MarkdownDescription: "List of user IDs who will own the Compliance Check. Is required if no owner group IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"regions": schema.SetAttribute{
 				ElementType:         types.StringType,
@@ -140,13 +191,19 @@ func ComplianceCheckResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of the AWS regions where the compliance check applies. Required when check type id is cloud custodian.",
 				MarkdownDescription: "List of the AWS regions where the compliance check applies. Required when check type id is cloud custodian.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"severity_type_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "SeverityTypeID for the severity level of the compliance check\n1 - Informational.\n2 - Low.\n3 - Medium (Default).\n4 - High.",
 				MarkdownDescription: "SeverityTypeID for the severity level of the compliance check\n1 - Informational.\n2 - Low.\n3 - Medium (Default).\n4 - High.",
-				Default:             int64default.StaticInt64(3),
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
+				Default: int64default.StaticInt64(3),
 			},
 		},
 		Description: "Manages a Kion Compliance Check.",

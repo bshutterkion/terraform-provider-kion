@@ -656,3 +656,38 @@ func TestManifestMarshalsDeterministically(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, string(a), string(b))
 }
+
+// TestBuildParentFallbackKeepsPlainID guards the distinction between reaching a
+// record through a parent and having an ImportState that splits on "/".
+//
+// compliance_family and compliance_level declare no archetype, so they get
+// entity.gtpl's id-only ImportState, and only fall back to a parent-scoped read
+// when their flat list 405s. Giving them a compound id made Read parse
+// "12/284" as an integer: 652 failures on a real install.
+func TestBuildParentFallbackKeepsPlainID(t *testing.T) {
+	t.Parallel()
+	m := Build(
+		map[string]string{"compliance_family": "/v3/compliance/family/{id}"},
+		map[string]string{"compliance_family": "/v3/compliance/family/{id}"},
+		nil, nil,
+		map[string]archetypeInfo{}, // no archetype: defaults to entity
+		[]string{"kion_compliance_family"},
+		nil,
+	)
+	r := byType(m, "kion_compliance_family")
+	assert.Equal(t, FormatID, r.ImportID.Format,
+		"an entity that merely falls back to a parent-scoped read keeps a plain id")
+
+	// A declared parent_list still gets the compound id its ImportState parses.
+	m2 := Build(
+		map[string]string{"ou_enforcement": "/v3/ou/{id}/enforcement"},
+		map[string]string{"ou_enforcement": "/v3/ou/{id}/enforcement"},
+		nil, nil,
+		map[string]archetypeInfo{"ou_enforcement": {Kind: "parent_list", ParentField: "ou_id"}},
+		[]string{"kion_ou_enforcement"},
+		nil,
+	)
+	r2 := byType(m2, "kion_ou_enforcement")
+	assert.Equal(t, FormatParentSlashKey, r2.ImportID.Format)
+	assert.Equal(t, "id", r2.ImportID.KeyField)
+}

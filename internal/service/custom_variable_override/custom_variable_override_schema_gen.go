@@ -51,6 +51,9 @@ func CustomVariableOverrideResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The last time this resource was updated.",
 				MarkdownDescription: "The last time this resource was updated.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"value_list": schema.ListAttribute{
 				ElementType:         types.StringType,
