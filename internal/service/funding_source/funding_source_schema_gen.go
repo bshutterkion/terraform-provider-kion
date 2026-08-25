@@ -4,7 +4,9 @@ package funding_source
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -24,6 +26,9 @@ func FundingSourceResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Description for the funding source in the application.",
 				MarkdownDescription: "Description for the funding source in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"end_datecode": schema.StringAttribute{
 				Required:            true,
@@ -48,6 +53,9 @@ func FundingSourceResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "ID of the top level OU that will receive the funding from this funding source.",
 				MarkdownDescription: "ID of the top level OU that will receive the funding from this funding source.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -55,6 +63,9 @@ func FundingSourceResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of groups IDs who will own the funding source. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the funding source. Is required if no owner user IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -62,12 +73,18 @@ func FundingSourceResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user IDs who will own the funding source. Is required if no owner group IDs are listed.",
 				MarkdownDescription: "List of user IDs who will own the funding source. Is required if no owner group IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"permission_scheme_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "ID of the permission scheme applied to the funding source.",
 				MarkdownDescription: "ID of the permission scheme applied to the funding source.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"start_datecode": schema.StringAttribute{
 				Required:            true,

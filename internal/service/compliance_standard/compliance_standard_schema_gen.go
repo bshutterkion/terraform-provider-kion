@@ -4,7 +4,10 @@ package compliance_standard
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -19,6 +22,9 @@ func ComplianceStandardResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Cloud Rule ID the Compliance Standard should be added to",
 				MarkdownDescription: "Cloud Rule ID the Compliance Standard should be added to",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"compliance_check_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -26,11 +32,17 @@ func ComplianceStandardResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of compliance checks associated with the compliance standard",
 				MarkdownDescription: "List of compliance checks associated with the compliance standard",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"created_at": schema.StringAttribute{
 				Computed:            true,
 				Description:         "When the compliance standard was created.",
 				MarkdownDescription: "When the compliance standard was created.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"created_by_user_id": schema.Int64Attribute{
 				Required:            true,
@@ -41,12 +53,18 @@ func ComplianceStandardResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Whether the compliance standard is managed by Kion.",
 				MarkdownDescription: "Whether the compliance standard is managed by Kion.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"description": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Description for the Compliance Standard in the application.",
 				MarkdownDescription: "Description for the Compliance Standard in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -61,6 +79,9 @@ func ComplianceStandardResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The last time this resource was updated.",
 				MarkdownDescription: "The last time this resource was updated.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Required:            true,
@@ -73,6 +94,9 @@ func ComplianceStandardResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of groups IDs who will own the Compliance Standard. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the Compliance Standard. Is required if no owner user IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -80,6 +104,9 @@ func ComplianceStandardResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user IDs who will own the Compliance Standard. Is required if no owner group IDs are listed.",
 				MarkdownDescription: "List of user IDs who will own the Compliance Standard. Is required if no owner group IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Compliance Standard.",

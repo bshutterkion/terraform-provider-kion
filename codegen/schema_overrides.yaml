@@ -23,6 +23,18 @@
 
 resources:
 
+  # --- JSON-valued attributes -------------------------------------------
+  # These carry JSON as a string. The API's rendering never matches what a
+  # practitioner wrote, so every plan reported a change "# whitespace changes"
+  # and nothing could round-trip: 2,539 of the 2,561 in-place updates a
+  # verification import produced were exactly this.
+  #
+  # The fix is in flex, not here: reads canonicalise to the compact,
+  # key-sorted form Terraform's jsonencode emits, so the two are byte-equal.
+  # jsontypes.Normalized is NOT the answer -- semantic equality is not
+  # consulted when a generated configuration is planned, and its validator
+  # rejects the YAML CloudFormation templates are often written in.
+
   # --- Required attributes the read cannot supply -------------------------
   # A Required attribute must be recoverable from Read, or the resource can
   # never be imported: `terraform plan -generate-config-out` writes config from
@@ -396,12 +408,12 @@ resources:
       user_ids:
         type: set
         element_type: int64
-        computed_optional_required: required
+        computed_optional_required: computed_optional
         description: The IDs of the users in the mapping.
       user_groups_ids:
         type: set
         element_type: int64
-        computed_optional_required: required
+        computed_optional_required: computed_optional
         description: The IDs of the user groups in the mapping.
   project_permission_mapping:
     description: "Manages a Kion Project Permission Mapping."
@@ -422,12 +434,12 @@ resources:
       user_ids:
         type: set
         element_type: int64
-        computed_optional_required: required
+        computed_optional_required: computed_optional
         description: The IDs of the users in the mapping.
       user_groups_ids:
         type: set
         element_type: int64
-        computed_optional_required: required
+        computed_optional_required: computed_optional
         description: The IDs of the user groups in the mapping.
   project_enforcement:
     description: "Manages enforcement rules for projects to control service usage based on various criteria likespend limits and timeframe restrictions. . This resource allows for creating, reading, updating, and deleting project-specific enforcement settings."
@@ -494,7 +506,7 @@ resources:
     attributes:
       open_id_id:
         type: int64
-        computed_optional_required: required
+        computed_optional_required: computed_optional
         description: The ID of the OpenID IDMS the group association belongs to.
   aws_account:
     description: "Creates or imports an AWS Account and adds it to a Kion project or the Kion account cache. If account_number is provided, an existing account will be imported into Kion, otherwise a new AWS account will be created.  If project_id is provided the account will be added to the corresponding project, otherwise the account will be added to the account cache. Once added, an account can be moved between projects or in and out of the account cache by changing the project_id.  When moving accounts between projects, use move_project_settings to control how financials will be treated between the old and new project. NOTE: This resource requires Kion v3.8.4 or greater."
@@ -664,12 +676,12 @@ resources:
       user_ids:
         type: set
         element_type: int64
-        computed_optional_required: required
+        computed_optional_required: computed_optional
         description: The IDs of the users in the mapping.
       user_groups_ids:
         type: set
         element_type: int64
-        computed_optional_required: required
+        computed_optional_required: computed_optional
         description: The IDs of the user groups in the mapping.
   funding_source_permission_mapping:
     description: "Manages a Kion Funding Source Permission Mapping."
@@ -690,12 +702,12 @@ resources:
       user_ids:
         type: set
         element_type: int64
-        computed_optional_required: required
+        computed_optional_required: computed_optional
         description: The IDs of the users in the mapping.
       user_groups_ids:
         type: set
         element_type: int64
-        computed_optional_required: required
+        computed_optional_required: computed_optional
         description: The IDs of the user groups in the mapping.
   dashboard:
     description: "Manages a Kion Dashboard."
@@ -921,18 +933,34 @@ resources:
         computed_optional_required: computed_optional
   azure_arm_template:
     description: "Manages a Kion Azure Arm Template."
+    attributes:
   azure_policy:
     description: "Manages a Kion Azure Policy."
   azure_role:
     description: "Manages a Kion Azure Role."
+    attributes:
   billing_rule:
     description: "Manages a Kion Billing Rule."
+    attributes:
+      description:
+        computed_optional_required: computed_optional
+      name:
+        computed_optional_required: computed_optional
+      rule_type:
+        computed_optional_required: computed_optional
+      rule_value:
+        computed_optional_required: computed_optional
+      start_month:
+        computed_optional_required: computed_optional
+      billing_source_ids:
+        computed_optional_required: computed_optional
   budget:
     description: "Manages a Kion Budget."
   category:
     description: "Manages a Kion Category."
   cft:
     description: "Manages a Kion Cft."
+    attributes:
   compliance_family:
     description: "Manages a Kion Compliance Family."
   compliance_level:
@@ -981,11 +1009,12 @@ resources:
     description: "Manages a Kion Project Line Item."
   service_control_policy:
     description: "Manages a Kion Service Control Policy."
+    attributes:
   user:
     description: "Manages a Kion User."
   webhook:
     description: "Manages a Kion Webhook."
-
+    attributes:
   # Resources with no committed doc page before now, so no prior description
   # to carry forward.
   account_linkage:

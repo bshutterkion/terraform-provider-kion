@@ -13,9 +13,11 @@ variable "ou_id" {
 variable "user_groups_ids" {
   description = "The IDs of the user groups in the mapping."
   type        = set(number)
+  default     = null
 }
 
 variable "user_ids" {
   description = "The IDs of the users in the mapping."
   type        = set(number)
+  default     = null
 }

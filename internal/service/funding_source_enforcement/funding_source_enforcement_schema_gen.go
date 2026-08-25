@@ -5,7 +5,10 @@ package funding_source_enforcement
 import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -21,18 +24,27 @@ func FundingSourceEnforcementResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Optional ID of cloud rule that is attached to the enforcement.\nUse endpoint /v3/cloud-rule to get a list of valid cloud rules and IDs.",
 				MarkdownDescription: "Optional ID of cloud rule that is attached to the enforcement.\nUse endpoint /v3/cloud-rule to get a list of valid cloud rules and IDs.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"description": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Optional, user-provided description of the enforcement.",
 				MarkdownDescription: "Optional, user-provided description of the enforcement.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"enabled": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Whether the enforcement is enabled.",
 				MarkdownDescription: "Whether the enforcement is enabled.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"funding_source_id": schema.Int64Attribute{
 				Required:            true,
@@ -52,14 +64,20 @@ func FundingSourceEnforcementResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Flag that specifies if enforcement will place project in a overburn state when triggered. Options are: true, false.",
 				MarkdownDescription: "Flag that specifies if enforcement will place project in a overburn state when triggered. Options are: true, false.",
-				Default:             booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
+				Default: booldefault.StaticBool(false),
 			},
 			"spend_option": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Type of spend option.\nValid values are \"spend\", \"remaining\".",
 				MarkdownDescription: "Type of spend option.\nValid values are \"spend\", \"remaining\".",
-				Default:             stringdefault.StaticString("spend"),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+				Default: stringdefault.StaticString("spend"),
 			},
 			"threshold": schema.Int64Attribute{
 				Required:            true,
@@ -75,6 +93,9 @@ func FundingSourceEnforcementResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Whether the enforcement has been triggered.",
 				MarkdownDescription: "Whether the enforcement has been triggered.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"ugroup_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -82,6 +103,9 @@ func FundingSourceEnforcementResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed.",
 				MarkdownDescription: "List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -89,6 +113,9 @@ func FundingSourceEnforcementResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed.",
 				MarkdownDescription: "List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Funding Source Enforcement.",

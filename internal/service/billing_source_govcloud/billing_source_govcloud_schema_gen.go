@@ -4,6 +4,8 @@ package billing_source_govcloud
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,18 +21,27 @@ func BillingSourceGovcloudResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Setting for whether account creation in govcloud is enabled or not in this billing source.",
 				MarkdownDescription: "Setting for whether account creation in govcloud is enabled or not in this billing source.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"aws_account_number": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "AWS account number.",
 				MarkdownDescription: "AWS account number.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"car_external_id": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The external ID used when assuming the cloud access role for this billing source.",
 				MarkdownDescription: "The external ID used when assuming the cloud access role for this billing source.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -45,18 +56,27 @@ func BillingSourceGovcloudResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Name of the payer in the application.",
 				MarkdownDescription: "Name of the payer in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"payer_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The ID of the Payer that this govcloud info is attached to.",
 				MarkdownDescription: "The ID of the Payer that this govcloud info is attached to.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"service_external_id": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The external ID used for automated internal actions using the service role for this billing source.",
 				MarkdownDescription: "The external ID used for automated internal actions using the service role for this billing source.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages the GovCloud information attached to an existing Kion commercial billing source. One per billing source, addressed by the commercial payer's id.",

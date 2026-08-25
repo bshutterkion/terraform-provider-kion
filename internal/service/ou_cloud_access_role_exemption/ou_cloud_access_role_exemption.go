@@ -5,14 +5,17 @@ package ou_cloud_access_role_exemption
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
+	"terraform-provider-kion/internal/conns"
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
@@ -76,14 +79,81 @@ func (r *ou_cloud_access_role_exemptionResource) Create(ctx context.Context, req
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
+// ou_cloud_access_role_exemptionRecord is one record of the private collection that backs the read.
+// The public spec has no single-record GET for kion_ou_cloud_access_role_exemption, only POST and
+// DELETE, so this collection is the only way to read one back.
+type ou_cloud_access_role_exemptionRecord struct {
+	ID                  int64         `json:"id"`
+	OUID                *flex.NullInt `json:"OUID"`
+	OuCloudAccessRoleId *flex.NullInt `json:"ou_cloud_access_role_id"`
+}
+
+type ou_cloud_access_role_exemptionEnvelope struct {
+	Data []ou_cloud_access_role_exemptionRecord `json:"data"`
+}
+
+// readOuCloudAccessRoleExemption returns the record with the given id from the collection,
+// or found=false when it holds no such record.
+//
+// The collection is inherited, not owned: it returns every record visible to
+// that parent's subtree, so the same record comes back under many parents and
+// the id in the path is not its owner. The owner is taken from the record's own
+// OUID.
+func (r *ou_cloud_access_role_exemptionResource) readOuCloudAccessRoleExemption(ctx context.Context, parentID int64, id int64) (ou_cloud_access_role_exemptionRecord, bool, error) {
+	path := strings.Replace("/v1/ou/{parent_id}/cloud-access-role-exemption", "{parent_id}", strconv.FormatInt(parentID, 10), 1)
+	body, err := r.Meta().RawGet(ctx, path)
+	if err != nil {
+		if conns.IsRawNotFound(err) {
+			return ou_cloud_access_role_exemptionRecord{}, false, nil
+		}
+		return ou_cloud_access_role_exemptionRecord{}, false, err
+	}
+	var env ou_cloud_access_role_exemptionEnvelope
+	if err := json.Unmarshal(body, &env); err != nil {
+		return ou_cloud_access_role_exemptionRecord{}, false, fmt.Errorf("decoding response: %w", err)
+	}
+	for _, rec := range env.Data {
+		if rec.ID != id {
+			continue
+		}
+		// The collection mixes in records of a neighboring kind; only those
+		// carrying a valid ou_cloud_access_role_id are kion_ou_cloud_access_role_exemption.
+		if rec.OuCloudAccessRoleId == nil || !rec.OuCloudAccessRoleId.Valid {
+			return ou_cloud_access_role_exemptionRecord{}, false, nil
+		}
+		return rec, true, nil
+	}
+	return ou_cloud_access_role_exemptionRecord{}, false, nil
+}
+
+func (r *ou_cloud_access_role_exemptionResource) flattenOuCloudAccessRoleExemption(rec ou_cloud_access_role_exemptionRecord, m *OuCloudAccessRoleExemptionModel) {
+	m.Id = types.StringValue(strconv.FormatInt(rec.ID, 10))
+	m.OuId = flex.NullIntPtrToFramework(rec.OUID)
+	m.OuCloudAccessRoleId = flex.NullIntPtrToFramework(rec.OuCloudAccessRoleId)
+
+}
+
 func (r *ou_cloud_access_role_exemptionResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	// kion_ou_cloud_access_role_exemption has no read endpoint; there is nothing to refresh, so the
-	// existing state is preserved as-is (no drift detection is possible).
 	var state OuCloudAccessRoleExemptionModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	id, err := strconv.ParseInt(state.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+	rec, found, err := r.readOuCloudAccessRoleExemption(ctx, state.OuId.ValueInt64(), id)
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("reading %s (ID: %d)", ResNameOuCloudAccessRoleExemption, id), err.Error())
+		return
+	}
+	if !found {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+	r.flattenOuCloudAccessRoleExemption(rec, &state)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -118,5 +188,18 @@ func (r *ou_cloud_access_role_exemptionResource) Delete(ctx context.Context, req
 }
 
 func (r *ou_cloud_access_role_exemptionResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+	// The read is a parent-scoped collection, so the parent id has to arrive
+	// with the import id; there is no way to discover it from the record id.
+	parts := strings.SplitN(req.ID, "/", 2)
+	if len(parts) != 2 {
+		resp.Diagnostics.AddError("Invalid import ID", `expected "ou_id/id"`)
+		return
+	}
+	parentID, perr := strconv.ParseInt(parts[0], 10, 64)
+	if perr != nil {
+		resp.Diagnostics.AddError("Invalid import ID", `expected "ou_id/id" with an integer parent id`)
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("ou_id"), parentID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[1])...)
 }

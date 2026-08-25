@@ -5,6 +5,4 @@ module "this" {
 
   app_role_id       = 1
   funding_source_id = 1
-  user_groups_ids   = []
-  user_ids          = []
 }

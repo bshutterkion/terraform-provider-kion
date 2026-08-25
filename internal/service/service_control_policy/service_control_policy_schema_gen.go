@@ -5,6 +5,7 @@ package service_control_policy
 import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -19,6 +20,9 @@ func ServiceControlPolicyResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Description for the Service Control policy in the application.",
 				MarkdownDescription: "Description for the Service Control policy in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -39,6 +43,9 @@ func ServiceControlPolicyResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of groups IDs who will own the service_control policy. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the service_control policy. Is required if no owner user IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -46,6 +53,9 @@ func ServiceControlPolicyResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user IDs who will own the service_control policy. Is required if no owner group IDs are listed.",
 				MarkdownDescription: "List of user IDs who will own the service_control policy. Is required if no owner group IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"policy": schema.StringAttribute{
 				Required:            true,

@@ -5,7 +5,10 @@ package ou_enforcement
 import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -21,19 +24,28 @@ func OuEnforcementResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Optional ID of cloud rule that is attached to the enforcement.\nUse endpoint /v3/cloud-rule to get a list of valid cloud rules and IDs.",
 				MarkdownDescription: "Optional ID of cloud rule that is attached to the enforcement.\nUse endpoint /v3/cloud-rule to get a list of valid cloud rules and IDs.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"description": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Optional, user-provided description of the enforcement.",
 				MarkdownDescription: "Optional, user-provided description of the enforcement.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"enabled": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Whether the enforcement is enabled.",
 				MarkdownDescription: "Whether the enforcement is enabled.",
-				Default:             booldefault.StaticBool(true),
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
+				Default: booldefault.StaticBool(true),
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -53,13 +65,19 @@ func OuEnforcementResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Flag that specifies if enforcement will place project in a overburn state when triggered. Options are: true, false.",
 				MarkdownDescription: "Flag that specifies if enforcement will place project in a overburn state when triggered. Options are: true, false.",
-				Default:             booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
+				Default: booldefault.StaticBool(false),
 			},
 			"service_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Option ID of service to set enforcement against.\nUse endpoint /v3/cloud-provider/service to get a list of valid services and IDs.",
 				MarkdownDescription: "Option ID of service to set enforcement against.\nUse endpoint /v3/cloud-provider/service to get a list of valid services and IDs.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"threshold": schema.Int64Attribute{
 				Required:            true,
@@ -71,7 +89,10 @@ func OuEnforcementResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Type of the threshold value.\nValid values are \"dollar\", \"percent\".",
 				MarkdownDescription: "Type of the threshold value.\nValid values are \"dollar\", \"percent\".",
-				Default:             stringdefault.StaticString("dollar"),
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+				Default: stringdefault.StaticString("dollar"),
 			},
 			"timeframe": schema.StringAttribute{
 				Required:            true,
@@ -83,11 +104,17 @@ func OuEnforcementResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "For OU percent enforcements, controls whether percentage is calculated against an aggregate budget or active threshold when applicable.",
 				MarkdownDescription: "For OU percent enforcements, controls whether percentage is calculated against an aggregate budget or active threshold when applicable.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"triggered": schema.BoolAttribute{
 				Computed:            true,
 				Description:         "Whether the enforcement has been triggered.",
 				MarkdownDescription: "Whether the enforcement has been triggered.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"ugroup_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -95,6 +122,9 @@ func OuEnforcementResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed.",
 				MarkdownDescription: "List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -102,6 +132,9 @@ func OuEnforcementResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed.",
 				MarkdownDescription: "List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion OU Enforcement.",

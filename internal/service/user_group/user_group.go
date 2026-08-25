@@ -328,6 +328,9 @@ func flattenUserGroup(ctx context.Context, apiObject any, model *UserGroupModel)
 					ownerUsersIDs = append(ownerUsersIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			ownerUsersIDs = flex.DedupeInt64(ownerUsersIDs)
 			ownerUsersIDsColl, ownerUsersIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUsersIDs)
 			diags.Append(ownerUsersIDsCD...)
 			model.OwnerUserIds = ownerUsersIDsColl
@@ -337,6 +340,9 @@ func flattenUserGroup(ctx context.Context, apiObject any, model *UserGroupModel)
 					usersIDs = append(usersIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			usersIDs = flex.DedupeInt64(usersIDs)
 			usersIDsColl, usersIDsCD := types.SetValueFrom(ctx, types.Int64Type, usersIDs)
 			diags.Append(usersIDsCD...)
 			model.UserIds = usersIDsColl
@@ -346,6 +352,9 @@ func flattenUserGroup(ctx context.Context, apiObject any, model *UserGroupModel)
 					viewerUsersIDs = append(viewerUsersIDs, int64(elem.ID.Value))
 				}
 			}
+			// A Set rejects duplicate elements, and the API does return an owner
+			// twice on some records; three imports failed outright on this.
+			viewerUsersIDs = flex.DedupeInt64(viewerUsersIDs)
 			viewerUsersIDsColl, viewerUsersIDsCD := types.SetValueFrom(ctx, types.Int64Type, viewerUsersIDs)
 			diags.Append(viewerUsersIDsCD...)
 			model.ViewerUserIds = viewerUsersIDsColl

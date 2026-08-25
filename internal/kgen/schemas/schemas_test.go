@@ -442,6 +442,79 @@ func TestDedupTopLevelDecls(t *testing.T) {
 	assert.NoError(t, perr, "deduped source still parses")
 }
 
+// unguardedValueFromObject is tfplugingen's output for a nested-object
+// CustomType: it reads in.Attributes() with no null/unknown check, even though
+// the inverse ToObjectValue and the sibling ValueFromTerraform both have one.
+const unguardedValueFromObject = `package p
+
+import (
+	"context"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+)
+
+func (t AzurePolicyType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	attributes := in.Attributes()
+
+	descriptionAttribute, ok := attributes["description"]
+
+	if !ok {
+		diags.AddError("Attribute Missing", ` + "`description is missing from object`" + `)
+
+		return nil, diags
+	}
+
+	_ = descriptionAttribute
+
+	return NewAzurePolicyValueMust(nil, attributes), diags
+}
+`
+
+// TestGuardValueFromObject verifies the null/unknown guard is injected into a
+// generated ValueFromObject. Without it, an Optional+Computed single-nested
+// attribute carrying objectplanmodifier.UseStateForUnknown fails every plan:
+// the framework round-trips the plan value through ToObjectValue -> plan
+// modifiers -> ValueFromObject, and an unknown ObjectValue has no attributes,
+// so the generated code reports `Attribute Missing`.
+func TestGuardValueFromObject(t *testing.T) {
+	got := guardValueFromObject(unguardedValueFromObject)
+
+	assert.Contains(t, got, "if in.IsNull()", "null guard injected")
+	assert.Contains(t, got, "return NewAzurePolicyValueNull(), diags", "null returns the typed null value")
+	assert.Contains(t, got, "if in.IsUnknown()", "unknown guard injected")
+	assert.Contains(t, got, "return NewAzurePolicyValueUnknown(), diags", "unknown returns the typed unknown value")
+
+	// The guards must precede the attribute lookup that would otherwise fail.
+	assert.Less(t, strings.Index(got, "if in.IsUnknown()"), strings.Index(got, "in.Attributes()"),
+		"guards precede the attribute read")
+
+	_, perr := parser.ParseFile(token.NewFileSet(), "x.go", got, 0)
+	assert.NoError(t, perr, "guarded source still parses")
+}
+
+// TestGuardValueFromObject_idempotent verifies a second pass is a no-op, so
+// regenerating over already-guarded output does not stack duplicate guards.
+func TestGuardValueFromObject_idempotent(t *testing.T) {
+	once := guardValueFromObject(unguardedValueFromObject)
+	twice := guardValueFromObject(once)
+
+	assert.Equal(t, once, twice, "already-guarded source is unchanged")
+	assert.Equal(t, 1, strings.Count(twice, "if in.IsNull()"), "guard not duplicated")
+}
+
+// TestGuardValueFromObject_leavesOtherFuncsAlone verifies the transform touches
+// only ValueFromObject methods, and returns unparseable source unchanged.
+func TestGuardValueFromObject_leavesOtherFuncsAlone(t *testing.T) {
+	src := "package p\n\nfunc (t FooType) ValueFromTerraform(in int) int { return in }\n"
+
+	got := guardValueFromObject(src)
+
+	assert.NotContains(t, got, "IsNull()", "unrelated methods untouched")
+	assert.Equal(t, "not go source", guardValueFromObject("not go source"), "unparseable source returned as-is")
+}
+
 // TestMergeSpecAdditions verifies OpenAPI fragments (paths + component schemas)
 // from the additions sidecar are merged into the spec, used to supply endpoints
 // the public spec omits (e.g. dashboard's private read) so tfplugingen can

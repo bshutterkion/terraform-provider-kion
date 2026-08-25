@@ -11,8 +11,6 @@ module "funding_source_permission_mapping" {
 
   app_role_id       = 1
   funding_source_id = 1
-  user_groups_ids   = []
-  user_ids          = []
 }
 ```
 
@@ -46,8 +44,8 @@ No modules.
 | ---- | ----------- | ---- | ------- | :------: |
 | app\_role\_id | The ID of the app role. | `number` | n/a | yes |
 | funding\_source\_id | The ID of the funding source. | `number` | n/a | yes |
-| user\_groups\_ids | The IDs of the user groups in the mapping. | `set(number)` | n/a | yes |
-| user\_ids | The IDs of the users in the mapping. | `set(number)` | n/a | yes |
+| user\_groups\_ids | The IDs of the user groups in the mapping. | `set(number)` | `null` | no |
+| user\_ids | The IDs of the users in the mapping. | `set(number)` | `null` | no |
 
 ## Outputs
 

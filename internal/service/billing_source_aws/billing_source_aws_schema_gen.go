@@ -5,6 +5,7 @@ package billing_source_aws
 import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -22,6 +23,9 @@ func BillingSourceAwsResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "When true, cloudtamer is able to automatically create accounts in this billing source.",
 				MarkdownDescription: "When true, cloudtamer is able to automatically create accounts in this billing source.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"account_type_id": schema.Int64Attribute{
 				Required:            true,
@@ -38,18 +42,27 @@ func BillingSourceAwsResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "AWS Account Number of the s3 bucket holding the billing reports",
 				MarkdownDescription: "AWS Account Number of the s3 bucket holding the billing reports",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"billing_region": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Region of the s3 bucket holding billing reports (both CUR and DBR reports)",
 				MarkdownDescription: "Region of the s3 bucket holding billing reports (both CUR and DBR reports)",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"billing_report_type": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Specify the available billing report types for this Billing Source.\nAvailable options are:\n\"none\" - Do not use any proprietary billing report\n\"cur\" - Use the AWS Cost and Usage Report\n\"dbrrt\" - Use the AWS Detailed Billing Report with Resources and Tags\nIf omitted, \"cur\" is assumed.",
 				MarkdownDescription: "Specify the available billing report types for this Billing Source.\nAvailable options are:\n\"none\" - Do not use any proprietary billing report\n\"cur\" - Use the AWS Cost and Usage Report\n\"dbrrt\" - Use the AWS Detailed Billing Report with Resources and Tags\nIf omitted, \"cur\" is assumed.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"billing_start_date": schema.StringAttribute{
 				Required:            true,
@@ -64,66 +77,99 @@ func BillingSourceAwsResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Alternate role for accessing the billing buckets (optional).",
 				MarkdownDescription: "Alternate role for accessing the billing buckets (optional).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"cur_bucket": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Name of the bucket containing the cost and usage reports. Required if not using only DBR",
 				MarkdownDescription: "Name of the bucket containing the cost and usage reports. Required if not using only DBR",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"cur_bucket_region": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Region of the bucket containing the cost and usage reports. Required if not using only DBR",
 				MarkdownDescription: "Region of the bucket containing the cost and usage reports. Required if not using only DBR",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"cur_name": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Name of the cost and usage report. Required if not using only DBR",
 				MarkdownDescription: "Name of the cost and usage report. Required if not using only DBR",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"cur_prefix": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Report prefix for the cost and usage reports. Required if not using only DBR",
 				MarkdownDescription: "Report prefix for the cost and usage reports. Required if not using only DBR",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"focus_billing_bucket_account_number": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "AWS Account Number of the s3 bucket holding the FOCUS reports",
 				MarkdownDescription: "AWS Account Number of the s3 bucket holding the FOCUS reports",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"focus_billing_report_bucket": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Name of the bucket containing the FOCUS reports",
 				MarkdownDescription: "Name of the bucket containing the FOCUS reports",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"focus_billing_report_bucket_region": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Region of the bucket containing the FOCUS reports",
 				MarkdownDescription: "Region of the bucket containing the FOCUS reports",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"focus_billing_report_name": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Name of the FOCUS billing report",
 				MarkdownDescription: "Name of the FOCUS billing report",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"focus_billing_report_prefix": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Prefix for the FOCUS billing reports",
 				MarkdownDescription: "Prefix for the FOCUS billing reports",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"focus_bucket_access_role": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Alternate role for accessing the focus billing buckets (optional).",
 				MarkdownDescription: "Alternate role for accessing the focus billing buckets (optional).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -138,6 +184,9 @@ func BillingSourceAwsResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The AWS Access Key used to access the billing s3 bucket",
 				MarkdownDescription: "The AWS Access Key used to access the billing s3 bucket",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"key_secret": schema.StringAttribute{
 				Optional:            true,
@@ -145,6 +194,9 @@ func BillingSourceAwsResourceSchema(ctx context.Context) schema.Schema {
 				Sensitive:           true,
 				Description:         "The AWS Secret Access Key used to access the billing s3 bucket",
 				MarkdownDescription: "The AWS Secret Access Key used to access the billing s3 bucket",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"linked_role": schema.StringAttribute{
 				Required:            true,
@@ -156,6 +208,9 @@ func BillingSourceAwsResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Name of the bucket containing the monthly reports (detailed billing reports). Only required when Only CUR is false",
 				MarkdownDescription: "Name of the bucket containing the monthly reports (detailed billing reports). Only required when Only CUR is false",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Required:            true,
@@ -167,18 +222,27 @@ func BillingSourceAwsResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "DEPRECATED: Use billing_report_type to specify your billing report type\nOnly use the Detailed Billing Report and Detailed Billing Report With Resources And Tags for financial reports.",
 				MarkdownDescription: "DEPRECATED: Use billing_report_type to specify your billing report type\nOnly use the Detailed Billing Report and Detailed Billing Report With Resources And Tags for financial reports.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"skip_validation": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "When true, will skip validating the connection to the billing source",
 				MarkdownDescription: "When true, will skip validating the connection to the billing source",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"use_focus_reports": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Use FOCUS Reports - If true, cloudtamer will use FOCUS reports for this billing source",
 				MarkdownDescription: "Use FOCUS Reports - If true, cloudtamer will use FOCUS reports for this billing source",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion AWS Billing Source.",

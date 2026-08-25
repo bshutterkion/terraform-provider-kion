@@ -4,6 +4,7 @@ package project_cloud_access_role_exemption
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -27,18 +28,27 @@ func ProjectCloudAccessRoleExemptionResourceSchema(ctx context.Context) schema.S
 				Computed:            true,
 				Description:         "ID of the ou cloud access role in the application being exempted from.",
 				MarkdownDescription: "ID of the ou cloud access role in the application being exempted from.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"project_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "ID of the project in the application.",
 				MarkdownDescription: "ID of the project in the application.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"reason": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Reason the Cloud Access Role is being exempted.",
 				MarkdownDescription: "Reason the Cloud Access Role is being exempted.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Project Cloud Access Role Exemption.",

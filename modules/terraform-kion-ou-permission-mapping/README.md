@@ -9,10 +9,8 @@ Terraform module for `kion_ou_permission_mapping`, generated from the provider s
 module "ou_permission_mapping" {
   source = "..."
 
-  app_role_id     = 1
-  ou_id           = 1
-  user_groups_ids = []
-  user_ids        = []
+  app_role_id = 1
+  ou_id       = 1
 }
 ```
 
@@ -46,8 +44,8 @@ No modules.
 | ---- | ----------- | ---- | ------- | :------: |
 | app\_role\_id | The ID of the app role. | `number` | n/a | yes |
 | ou\_id | The ID of the OU. | `number` | n/a | yes |
-| user\_groups\_ids | The IDs of the user groups in the mapping. | `set(number)` | n/a | yes |
-| user\_ids | The IDs of the users in the mapping. | `set(number)` | n/a | yes |
+| user\_groups\_ids | The IDs of the user groups in the mapping. | `set(number)` | `null` | no |
+| user\_ids | The IDs of the users in the mapping. | `set(number)` | `null` | no |
 
 ## Outputs
 

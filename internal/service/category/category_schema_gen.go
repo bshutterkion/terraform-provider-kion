@@ -4,6 +4,7 @@ package category
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,6 +20,9 @@ func CategoryResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Category description.",
 				MarkdownDescription: "Category description.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -38,6 +42,9 @@ func CategoryResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Payer ID of related Payer of the category in the application.",
 				MarkdownDescription: "Payer ID of related Payer of the category in the application.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Category.",

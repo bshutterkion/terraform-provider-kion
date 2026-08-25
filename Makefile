@@ -438,10 +438,11 @@ ci-docs: install-tfplugindocs ## Check docs/ and examples/ are not stale (matche
 	@$(MAKE) --no-print-directory docs-check
 
 .PHONY: ci-modules
-ci-modules: install-terraform-docs ## Check modules/ is not stale (matches the modules CI job's staleness gate)
+ci-modules: install-terraform-docs ## Check modules/ is current and plans cleanly (matches the modules CI job)
 	@command -v terraform >/dev/null || (echo "$(RED)terraform is required for ci-modules$(RESET)" && exit 1)
 	@echo "$(BLUE)Checking modules/ is current...$(RESET)"
 	@$(MAKE) --no-print-directory modules-check
+	@$(MAKE) --no-print-directory modules-test
 
 .PHONY: ci-internal-refs
 ci-internal-refs: ## Check for internal-only references (matches internal-refs CI job)
@@ -531,3 +532,49 @@ modules-check: ## Fail if modules/ differs from freshly generated output
 	  echo "$(YELLOW)modules/ is stale. Run: make modules$(RESET)"; \
 	  rm -rf .modules-check; exit 1; \
 	fi
+
+# The other half of the modules CI job. modules-check only compares text, so a
+# module could be perfectly in sync with the generator and still fail to plan --
+# which is exactly what happened when every Computed attribute gained
+# UseStateForUnknown: kion_account_cache, kion_azure_policy and kion_billing_source
+# all failed `terraform test` with "Attribute Missing" while the drift gate stayed
+# green, and nothing local caught it.
+#
+# Runs on a copy, so modules/ never collects .terraform/ or a lock file. The
+# provider under test is the one built from the working tree, served from a
+# filesystem mirror rather than dev_overrides because `terraform test` requires
+# `terraform init`, which dev_overrides skips. Plan-only: the provider is pointed
+# at an unroutable endpoint and never contacted, so no credentials are needed.
+.PHONY: modules-test
+modules-test: ## Run terraform init/validate/test over every module against the working-tree provider
+	@command -v terraform >/dev/null || (echo "$(RED)terraform is required for modules-test$(RESET)" && exit 1)
+	@echo "$(BLUE)Building the provider under test...$(RESET)"
+	@rm -rf .modules-test .tfdev
+	@mkdir -p .tfdev
+	@go build -o .tfdev/terraform-provider-kion .
+	@mirror=".tfdev/mirror/registry.terraform.io/kionsoftware/kion/1.0.0/$$(go env GOOS)_$$(go env GOARCH)"; \
+	  mkdir -p "$$mirror"; \
+	  cp .tfdev/terraform-provider-kion "$$mirror/terraform-provider-kion_v1.0.0"
+	@printf 'provider_installation {\n  filesystem_mirror {\n    path    = "%s/.tfdev/mirror"\n    include = ["registry.terraform.io/kionsoftware/kion"]\n  }\n  direct {\n    exclude = ["registry.terraform.io/kionsoftware/kion"]\n  }\n}\n' "$$(pwd)" > .tfdev/dev.tfrc
+	@cp -R ./modules ./.modules-test
+	@echo "$(BLUE)Validating and testing modules...$(RESET)"
+	@export TF_CLI_CONFIG_FILE="$$(pwd)/.tfdev/dev.tfrc" TF_IN_AUTOMATION=true; \
+	pass=0; fail=0; \
+	for dir in ./.modules-test/*/; do \
+	  name=$$(basename "$$dir"); \
+	  if ! (cd "$$dir" && terraform init -input=false >/dev/null 2>&1); then \
+	    fail=$$((fail+1)); echo "$(RED)### $$name: init failed$(RESET)"; continue; \
+	  fi; \
+	  if ! out=$$(cd "$$dir" && terraform validate -no-color 2>&1) || ! echo "$$out" | grep -q "Success!"; then \
+	    fail=$$((fail+1)); echo "$(RED)### $$name (validate)$(RESET)"; echo "$$out" | grep -E "^Error|^ *on " | head -5; continue; \
+	  fi; \
+	  if out=$$(cd "$$dir" && terraform test -no-color 2>&1) && echo "$$out" | grep -q "^Success!"; then \
+	    pass=$$((pass+1)); \
+	  else \
+	    fail=$$((fail+1)); echo "$(RED)### $$name (test)$(RESET)"; echo "$$out" | grep -A4 "^Error" | head -6; \
+	  fi; \
+	done; \
+	echo "modules: pass=$$pass fail=$$fail"; \
+	rm -rf .modules-test .tfdev; \
+	if [ "$$fail" -ne 0 ]; then exit 1; fi; \
+	echo "$(GREEN)✓ every module inits, validates and plans$(RESET)"

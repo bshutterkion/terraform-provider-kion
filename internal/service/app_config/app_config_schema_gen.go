@@ -4,6 +4,11 @@ package app_config
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -17,131 +22,197 @@ func AppConfigResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Indicates whether all users can see the names of OU's in the organization chart.",
 				MarkdownDescription: "Indicates whether all users can see the names of OU's in the organization chart.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"allocation_mode": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Indicates if allocation mode is enabled in the application.",
 				MarkdownDescription: "Indicates if allocation mode is enabled in the application.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"allow_custom_permission_schemes": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Indicates whether custom permission schemes are allowed or not.",
 				MarkdownDescription: "Indicates whether custom permission schemes are allowed or not.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"app_api_key_creation_enabled": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Indicates if App API Key creation is enabled.",
 				MarkdownDescription: "Indicates if App API Key creation is enabled.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"app_api_key_lifespan": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Indicates the lifespan of App API Keys in days.",
 				MarkdownDescription: "Indicates the lifespan of App API Keys in days.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"app_api_key_limit": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Indicates the max amount of App API Keys per user.",
 				MarkdownDescription: "Indicates the max amount of App API Keys per user.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"aws_access_key_creation_enabled": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Indicates whether AWS access keys creation is enabled.",
 				MarkdownDescription: "Indicates whether AWS access keys creation is enabled.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"budget_mode": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Indicates if budget mode is enabled in the application.",
 				MarkdownDescription: "Indicates if budget mode is enabled in the application.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"cloud_rule_group_ownership_only": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Indicates if cloud rules are restricted to User Group ownership only. Setting this to true will remove all users from cloud rules. This cannot be undone.",
 				MarkdownDescription: "Indicates if cloud rules are restricted to User Group ownership only. Setting this to true will remove all users from cloud rules. This cannot be undone.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"cost_savings_allow_terminate": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Indicates whether resource termination is allowed in-app.",
 				MarkdownDescription: "Indicates whether resource termination is allowed in-app.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"cost_savings_enabled": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Indicates whether Cost Savings is enabled or not.",
 				MarkdownDescription: "Indicates whether Cost Savings is enabled or not.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"cost_savings_post_token_life_hours": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Post token life (hours) for Cloud Custodian webhook actions to execute.",
 				MarkdownDescription: "Post token life (hours) for Cloud Custodian webhook actions to execute.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"default_org_chart_view": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Defines the default organization chart view.",
 				MarkdownDescription: "Defines the default organization chart view.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"enforce_funding": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Indicates whether spend plans or budgets must be created on all projects.",
 				MarkdownDescription: "Indicates whether spend plans or budgets must be created on all projects.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"enforce_funding_sources": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Indicates whether every project should have a funding source.",
 				MarkdownDescription: "Indicates whether every project should have a funding source.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"event_driven_enabled": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Indicates whether event driven is enabled or not.",
 				MarkdownDescription: "Indicates whether event driven is enabled or not.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
 				Description:         "Static identifier for the app-config singleton.",
 				MarkdownDescription: "Static identifier for the app-config singleton.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"reserved_instances_enabled": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Indicates whether reserved instances are enabled or not.",
 				MarkdownDescription: "Indicates whether reserved instances are enabled or not.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"resource_inventory_enabled": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Indicates whether resource inventory is enabled or not.",
 				MarkdownDescription: "Indicates whether resource inventory is enabled or not.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"smtp_enabled": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Indicates whether SMTP is enabled or not.",
 				MarkdownDescription: "Indicates whether SMTP is enabled or not.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"smtp_from": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The SMTP from address.",
 				MarkdownDescription: "The SMTP from address.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"smtp_host": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The SMTP host.",
 				MarkdownDescription: "The SMTP host.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"smtp_password": schema.StringAttribute{
 				Optional:            true,
@@ -149,24 +220,36 @@ func AppConfigResourceSchema(ctx context.Context) schema.Schema {
 				Sensitive:           true,
 				Description:         "The SMTP password.",
 				MarkdownDescription: "The SMTP password.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"smtp_port": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The SMTP port.",
 				MarkdownDescription: "The SMTP port.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"smtp_skip_verify": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Indicates if the app should skip SMTP verification.",
 				MarkdownDescription: "Indicates if the app should skip SMTP verification.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"smtp_username": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The SMTP username.",
 				MarkdownDescription: "The SMTP username.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"supported_aws_regions": schema.SetAttribute{
 				ElementType:         types.StringType,
@@ -174,6 +257,9 @@ func AppConfigResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The list of supported AWS regions.",
 				MarkdownDescription: "The list of supported AWS regions.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages the Kion App Config (workspace-wide application settings singleton).",

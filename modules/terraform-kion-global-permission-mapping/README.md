@@ -9,9 +9,7 @@ Terraform module for `kion_global_permission_mapping`, generated from the provid
 module "global_permission_mapping" {
   source = "..."
 
-  app_role_id     = 1
-  user_groups_ids = []
-  user_ids        = []
+  app_role_id = 1
 }
 ```
 
@@ -44,8 +42,8 @@ No modules.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | app\_role\_id | The ID of the app role. | `number` | n/a | yes |
-| user\_groups\_ids | The IDs of the user groups in the mapping. | `set(number)` | n/a | yes |
-| user\_ids | The IDs of the users in the mapping. | `set(number)` | n/a | yes |
+| user\_groups\_ids | The IDs of the user groups in the mapping. | `set(number)` | `null` | no |
+| user\_ids | The IDs of the users in the mapping. | `set(number)` | `null` | no |
 
 ## Outputs
 
