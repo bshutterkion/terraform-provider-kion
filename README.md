@@ -1,10 +1,10 @@
 # Terraform Provider for Kion
 
-A Terraform provider for the [Kion](https://kion.io) cloud governance platform, built on the [Terraform Plugin Framework](https://developer.hashicorp.com/terraform/plugin/framework) and structured after the [HashiCorp AWS provider](https://github.com/hashicorp/terraform-provider-aws).
+A Terraform provider for the [Kion](https://kion.io) cloud governance platform, built on the [Terraform Plugin Framework](https://developer.hashicorp.com/terraform/plugin/framework).
 
 ## Overview
 
-Generated from the Kion OpenAPI specification, this provider manages 72 service packages covering organizational management, cloud access, compliance, financial governance, and more. Almost everything is generated: resource CRUD, schemas, data sources, acceptance-test scaffolding, `.tf` examples, registry docs, and a Terraform module per resource.
+Generated from the Kion OpenAPI specification, this provider manages 71 service packages covering organizational management, cloud access, compliance, financial governance, and more. Almost everything is generated: resource CRUD, schemas, data sources, acceptance-test scaffolding, `.tf` examples, registry docs, and a Terraform module per resource.
 
 The provider is built against a single Kion API version, the SDK's `generated/v3_16` sub-package. It does not ship a separate release line per Kion version. Compatibility with older self-hosted instances is handled at runtime instead: `codegen/version_support.yaml` records the Kion version range in which each resource's defining API operation exists, and resources whose operation is not present in every supported version carry a generated version gate that fails with a clear diagnostic when pointed at an instance too old to support it.
 
@@ -52,7 +52,7 @@ Configuration fails if neither `api_key` nor `auth_token` is supplied, and if `a
 
 ### Service package pattern
 
-The provider follows the [AWS provider's service-package architecture](https://hashicorp.github.io/terraform-provider-aws/service-package-layout/). Each Kion resource lives in its own package under `internal/service/<name>/`:
+Each Kion resource lives in its own package under `internal/service/<name>/`:
 
 ```
 internal/service/label/
@@ -88,14 +88,14 @@ Resources embed `framework.ResourceWithConfigure` (data sources embed `framework
 │   ├── kgen/                   # Generator implementation and templates
 │   ├── provider/               # Provider definition and registration
 │   ├── provider_kion/          # Generated provider schema (from tfplugingen)
-│   ├── service/                # 72 service packages (one per resource)
+│   ├── service/                # 71 service packages, plus accounthelper (shared, not a package)
 │   └── servicepkg/             # Shared registration types
 ├── spec/                       # gitignored: local codegen input, fetched by make refresh-spec
 ├── modules/                    # 72 generated Terraform modules (one per resource)
 ├── examples/                   # Generated .tf examples (resources, data sources, provider)
 ├── docs/                       # Registry documentation (tfplugindocs)
 ├── .github/workflows/          # GitHub Actions: ci.yml gates, release.yml publishes
-├── .golangci.yml               # Linter config (aligned with terraform-provider-aws)
+├── .golangci.yml               # Linter config
 ├── .goreleaser.yml             # Release artifact layout (Terraform Registry)
 ├── lefthook.yml                # Pre-push git hooks
 └── Makefile                    # build, test, lint, CI, install, codegen
@@ -117,7 +117,7 @@ A few endpoints the public spec does not expose are served over raw HTTP through
 
 ## Code generation
 
-Nearly the whole provider is generated. The inputs live in `codegen/` and are the files to edit:
+Nearly the whole provider is generated. The inputs live in `codegen/` and are the files to edit. **[`codegen/README.md`](codegen/README.md) is the guide**: what each input does, the invariants, and the traps that have cost real time.
 
 | File | Purpose |
 |---|---|

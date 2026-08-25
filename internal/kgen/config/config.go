@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -320,12 +321,22 @@ func Check(src Source, opts Options, w io.Writer) (int, error) {
 			problems++
 		}
 	}
-	// Config resources that no longer map to a service package.
+	// Config resources that no longer map to a service package. Derive only sees
+	// packages whose CRUD calls the SDK, so a resource served entirely over raw
+	// HTTP (internal/conns, declared in codegen/private_endpoints.yaml) resolves
+	// no ops and is absent from derived even though its package is right there.
+	// funding_source_note is one, and it was reported extra for exactly that
+	// reason. Check the claim being made: does the directory exist?
+	serviceRoot := orDefault(opts.ServiceRoot, "internal/service")
 	for name := range cur.Resources {
-		if _, ok := derived[name]; !ok {
-			emit("extra: config resource %q has no matching service package\n", name)
-			problems++
+		if _, ok := derived[name]; ok {
+			continue
 		}
+		if fi, err := os.Stat(filepath.Join(serviceRoot, name)); err == nil && fi.IsDir() {
+			continue
+		}
+		emit("extra: config resource %q has no matching service package\n", name)
+		problems++
 	}
 	if problems == 0 {
 		emit("config in sync with code\n")

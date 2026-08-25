@@ -433,6 +433,10 @@ resources:
     delete:
       path: /v3/billing-source/{id}
       method: DELETE
+    # The read is the /v4 list, so its query and pagination fields land in the
+    # resource schema. `count` is a reserved Terraform root attribute name and
+    # fails schema validation outright.
+    ignores: [count, page, sort_method, sort_order]
   ou_cloud_access_role_exemption:
     create:
       path: /v3/ou-cloud-access-role-exemption
@@ -462,6 +466,28 @@ resources:
       method: POST
     read:
       path: /beta/dashboard/{id}
+      method: GET
+
+  # Enforcements: create/update/delete derive, but the read is a list under the
+  # parent (GET .../enforcement) that no naming convention finds, so tfplugingen
+  # would drop both as INCOMPLETE.
+  funding_source_enforcement:
+    read:
+      path: /v3/funding-source/{id}/enforcement
+      method: GET
+  ou_enforcement:
+    read:
+      path: /v3/ou/{id}/enforcement
+      method: GET
+
+  # Served entirely over raw HTTP (internal/conns), so its CRUD calls no SDK op
+  # and derivation sees nothing. See codegen/private_endpoints.yaml.
+  funding_source_note:
+    create:
+      path: /v2/funding-source-note
+      method: POST
+    read:
+      path: /v2/funding-source-note/{id}
       method: GET
 
 data_sources:
@@ -692,4 +718,15 @@ data_sources:
   project_cloud_access_role_exemption:
     read:
       path: /v3/project/{id}/cloud-rule/exemption
+      method: GET
+
+  # Read ops the data source reaches through a helper, so ServiceOps does not
+  # attribute the SDK call to the package.
+  ou:
+    read:
+      path: /v3/ou
+      method: GET
+  user_group:
+    read:
+      path: /v3/user-group
       method: GET
