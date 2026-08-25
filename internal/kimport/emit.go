@@ -30,16 +30,37 @@ func RenderImports(results []Result, providerVersion string) string {
 	sorted := append([]Result(nil), results...)
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].TFType < sorted[j].TFType })
 
+	// Labeler.Allocate keys identity on (tfType, id) and deliberately returns
+	// the same label for two records that share an id (id is the documented
+	// identity). Emitting one "import" block per record would then produce
+	// two blocks with the same "to =" address; Terraform rejects the whole
+	// file on a duplicate import address, so one such collision would destroy
+	// every other block in the run. Dedup here implements the labeler's
+	// stated intent instead of only half-applying it, and the dropped count
+	// is surfaced below as a caveat rather than silently disappearing.
 	var labeler Labeler
+	emitted := map[string]bool{}  // tfType + "\x00" + id -> already rendered
+	dupCounts := map[string]int{} // tfType -> duplicate records skipped
 	for _, res := range sorted {
 		if len(res.Records) == 0 {
 			continue
 		}
-		fmt.Fprintf(&b, "# %s (%d)\n", res.TFType, len(res.Records))
+		var blocks strings.Builder
 		for _, rec := range res.Records {
+			key := res.TFType + "\x00" + rec.ID
+			if emitted[key] {
+				dupCounts[res.TFType]++
+				continue
+			}
+			emitted[key] = true
 			label := labeler.Allocate(res.TFType, rec.Name, rec.ID)
-			fmt.Fprintf(&b, "import {\n  to = %s.%s\n  id = %q\n}\n", res.TFType, label, rec.ID)
+			fmt.Fprintf(&blocks, "import {\n  to = %s.%s\n  id = %q\n}\n", res.TFType, label, rec.ID)
 		}
+		if blocks.Len() == 0 {
+			continue // every record for this type was a duplicate
+		}
+		fmt.Fprintf(&b, "# %s (%d)\n", res.TFType, len(res.Records))
+		b.WriteString(blocks.String())
 		b.WriteString("\n")
 	}
 
@@ -65,13 +86,22 @@ func RenderImports(results []Result, providerVersion string) string {
 	// something was. Report them separately.
 	var caveats []Result
 	for _, res := range sorted {
-		if res.Reason == "" {
+		reason := res.Reason
+		if d := dupCounts[res.TFType]; d > 0 {
+			note := fmt.Sprintf("%d duplicate record(s) skipped", d)
+			if reason == "" {
+				reason = note
+			} else {
+				reason = reason + "; " + note
+			}
+		}
+		if reason == "" {
 			continue
 		}
 		if res.Status == "unsupported" || res.Status == "error" {
 			continue // already reported above
 		}
-		caveats = append(caveats, res)
+		caveats = append(caveats, Result{TFType: res.TFType, Status: res.Status, Reason: reason})
 	}
 	if len(caveats) > 0 {
 		if len(gaps) > 0 {

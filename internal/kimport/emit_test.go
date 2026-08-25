@@ -111,3 +111,36 @@ func TestRenderImportsCaveatsHeaderHasNoExtraBlankLineWhenGapsAbsent(t *testing.
 	assert.Contains(t, out, "}\n\n# Read with caveats:\n")
 	assert.NotContains(t, out, "\n\n\n# Read with caveats:\n")
 }
+
+// --- C1: Labeler.Allocate deliberately returns the same label for two
+// records sharing a (tfType, id) pair, but RenderImports must not then emit
+// two import blocks with the same "to =" address -- Terraform rejects the
+// whole file on a duplicate import address, so one duplicate destroys every
+// other block. RenderImports must dedup on (tfType, id) and report the
+// dropped count as a caveat.
+
+func TestRenderImportsDedupsRecordsSharingAnID(t *testing.T) {
+	t.Parallel()
+	rs := []Result{
+		{TFType: "kion_ou", Status: "ok", Records: []Record{
+			{ID: "7", Name: "Engineering"}, {ID: "7", Name: "Engineering (dup)"},
+		}},
+	}
+	out := RenderImports(rs, "1.0.0")
+	assert.Equal(t, 1, strings.Count(out, "import {"), "one duplicate id must produce exactly one block")
+	assert.Contains(t, out, `to = kion_ou.engineering`)
+	assert.Contains(t, out, "# Read with caveats:")
+	assert.Contains(t, out, "1 duplicate record(s) skipped")
+}
+
+func TestRenderImportsKeepsBothBlocksForDistinctIDs(t *testing.T) {
+	t.Parallel()
+	rs := []Result{
+		{TFType: "kion_ou", Status: "ok", Records: []Record{
+			{ID: "7", Name: "Engineering"}, {ID: "8", Name: "Sales"},
+		}},
+	}
+	out := RenderImports(rs, "1.0.0")
+	assert.Equal(t, 2, strings.Count(out, "import {"))
+	assert.NotContains(t, out, "# Read with caveats:")
+}
