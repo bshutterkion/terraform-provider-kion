@@ -13,10 +13,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
 
 	"github.com/spf13/cobra"
 
 	"terraform-provider-kion/codegen"
+	"terraform-provider-kion/internal/kgen/importmanifest"
 	"terraform-provider-kion/internal/kimport"
 )
 
@@ -29,6 +31,10 @@ var (
 	flagManifest        string
 	flagProbe           bool
 	flagAPIPrefix       string
+	flagInclude         []string
+	flagExclude         []string
+	flagSelection       string
+	flagListTypes       bool
 )
 
 func main() {
@@ -57,6 +63,14 @@ The API key is read from --api-key or the KION_APIKEY environment variable.`,
 		"override the embedded import manifest (maintainers)")
 	root.Flags().BoolVar(&flagProbe, "probe", false,
 		"report per-resource read outcomes and write nothing")
+	root.Flags().StringSliceVar(&flagInclude, "include", nil,
+		"only these resource types (repeatable, comma-separated); default is everything readable")
+	root.Flags().StringSliceVar(&flagExclude, "exclude", nil,
+		"skip these resource types (repeatable, comma-separated), applied after --include")
+	root.Flags().StringVar(&flagSelection, "selection", "",
+		"YAML file with include/exclude lists; --include/--exclude add to it")
+	root.Flags().BoolVar(&flagListTypes, "list-types", false,
+		"print the resource types this build can import and exit")
 	root.Flags().StringVar(&flagAPIPrefix, "api-prefix", "/api",
 		"path prefix the install serves its API under, appended to --url. "+
 			"Hosted installs serve under /api (the default); set to \"\" only when hitting an app "+
@@ -69,6 +83,15 @@ The API key is read from --api-key or the KION_APIKEY environment variable.`,
 }
 
 func run(_ *cobra.Command, _ []string) error {
+	// --list-types answers "what can I put in --include" and reads only the
+	// embedded manifest, so it must not demand credentials.
+	if flagListTypes {
+		manifest, err := kimport.LoadManifest(codegen.ImportManifestJSON)
+		if err != nil {
+			return err
+		}
+		return listTypes(manifest.Resources)
+	}
 	if flagURL == "" {
 		return fmt.Errorf("--url is required (or set KION_URL)")
 	}
@@ -88,12 +111,29 @@ func run(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
+	if flagListTypes {
+		return listTypes(manifest.Resources)
+	}
+
+	sel, err := kimport.LoadSelection(flagSelection)
+	if err != nil {
+		return err
+	}
+	selected, err := sel.Merge(flagInclude, flagExclude).Apply(manifest.Resources)
+	if err != nil {
+		return err
+	}
+
 	ctx := context.Background()
 	client := kimport.NewClient(flagURL, flagAPIKey, flagSkipSSL, flagAPIPrefix)
 
-	fmt.Printf("Enumerating %s (%d resource types)\n", flagURL, len(manifest.Resources))
-	results := make([]kimport.Result, 0, len(manifest.Resources))
-	for _, r := range manifest.Resources {
+	scope := fmt.Sprintf("%d resource types", len(selected))
+	if len(selected) != len(manifest.Resources) {
+		scope = fmt.Sprintf("%d of %d resource types", len(selected), len(manifest.Resources))
+	}
+	fmt.Printf("Enumerating %s (%s)\n", flagURL, scope)
+	results := make([]kimport.Result, 0, len(selected))
+	for _, r := range selected {
 		results = append(results, kimport.Enumerate(ctx, client, r))
 	}
 
@@ -112,5 +152,29 @@ func run(_ *cobra.Command, _ []string) error {
 	fmt.Printf("Wrote %s\n", flagOut)
 	fmt.Print(kimport.FormatReport(results))
 	fmt.Printf("\nNext:\n  terraform init\n  terraform plan -generate-config-out=generated.tf\n")
+	return nil
+}
+
+// listTypes prints what this build can import, so --include and --exclude can be
+// written without opening the manifest. Aliases are shown against the type they
+// duplicate rather than hidden, because a configuration written for the old
+// provider names them and an operator needs to know what to use instead.
+func listTypes(rs []importmanifest.Resource) error {
+	sort.Slice(rs, func(i, j int) bool { return rs[i].TFType < rs[j].TFType })
+	var readable, skipped int
+	for _, r := range rs {
+		switch {
+		case r.AliasOf != "":
+			fmt.Printf("  %-46s alias of %s\n", r.TFType, r.AliasOf)
+			skipped++
+		case !r.Readable:
+			fmt.Printf("  %-46s not importable: %s\n", r.TFType, r.Reason)
+			skipped++
+		default:
+			fmt.Printf("  %s\n", r.TFType)
+			readable++
+		}
+	}
+	fmt.Printf("\n%d importable, %d not\n", readable, skipped)
 	return nil
 }

@@ -8,6 +8,14 @@ Generated from the Kion OpenAPI specification, this provider manages 71 service 
 
 The provider is built against a single Kion API version, the SDK's `generated/v3_16` sub-package. It does not ship a separate release line per Kion version. Compatibility with older self-hosted instances is handled at runtime instead: `codegen/version_support.yaml` records the Kion version range in which each resource's defining API operation exists, and resources whose operation is not present in every supported version carry a generated version gate that fails with a clear diagnostic when pointed at an instance too old to support it.
 
+## Importing an existing install
+
+`kion-import` reads a live Kion install and writes Terraform `import` blocks;
+`terraform plan -generate-config-out` then writes the configuration. See
+**[docs/IMPORTING.md](docs/IMPORTING.md)**, which covers choosing what to import,
+because a real install carries tens of thousands of records in Kion's shipped
+catalogs.
+
 ## Upgrading from the previous provider
 
 Coming from the SDKv2 `kion` provider? State migrates automatically; configuration

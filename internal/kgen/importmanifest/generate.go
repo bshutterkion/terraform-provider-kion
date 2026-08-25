@@ -120,6 +120,19 @@ func Build(readPaths, dataSourcePaths map[string]string, archetypes map[string]a
 			lookupKind = alias
 		}
 
+		// An alias reads the same endpoint as its canonical type. Record the
+		// relationship and stop: enumerating both would double-import.
+		if canonical, ok := kindAliases[kind]; ok {
+			out = append(out, Resource{
+				TFType:   tfType,
+				Kind:     kind,
+				AliasOf:  "kion_" + canonical,
+				Readable: false,
+				Reason:   "second tf_type for kion_" + canonical + "; importing both would put two resources in charge of one record",
+			})
+			continue
+		}
+
 		info := archetypes[lookupKind]
 		archetype := info.Kind
 		if archetype == "" {
