@@ -42,6 +42,10 @@ go run ./cmd/kgen service --name CloudRule --snakename cloud_rule
 # Enumerate a live install into Terraform import blocks
 ./bin/kion-import --url https://kion.example.com --out imports.tf
 ./bin/kion-import --url https://kion.example.com --probe   # read outcomes only
+
+# Rewrite an imported configuration to go through modules/ instead of resources
+make import-modules-check IMPORT_IN=generated.tf IMPORT_OUT=modules.tf  # rewrite + terraform validate
+make import-modules IMPORT_IN=generated.tf                              # rewrite only
 ```
 
 Run a single unit test: `go test -run 'TestJoinAPIPrefix' ./internal/kimport/`

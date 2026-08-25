@@ -26,6 +26,14 @@ TEST ?= $$(go list ./... | grep -v 'vendor')
 # ci-fmt and pre-push hook. vet/lint/test use `go list ./...`, which stops at
 # those worktrees' own module boundaries and never had the problem.
 GOFILES := $(shell git ls-files --cached --others --exclude-standard '*.go' 2>/dev/null)
+# The provider version modules/*/versions.tf pins. The terraform-driven targets
+# serve the working-tree provider under this version so `terraform init` in a
+# module resolves without reaching the registry, which has no 1.0.0 yet.
+MODULE_PROVIDER_VERSION := 1.0.0
+# Defaults for the import rewrite; override on the command line.
+IMPORT_IN ?= generated.tf
+IMPORT_OUT ?= modules.tf
+IMPORT_MODULES_DIR ?= ./modules
 
 # Schema code generation (HashiCorp Terraform plugin code generation tools).
 # Pinned for reproducible output. Orchestrated by `kgen schemas` (Go); see
@@ -567,6 +575,57 @@ modules-check: ## Fail if modules/ differs from freshly generated output
 # UseStateForUnknown: kion_account_cache, kion_azure_policy and kion_billing_source
 # all failed `terraform test` with "Attribute Missing" while the drift gate stayed
 # green, and nothing local caught it.
+.PHONY: import-modules
+import-modules: ## Rewrite an imported config into module calls (IMPORT_IN=, IMPORT_OUT=)
+	@go run ./cmd/kgen import-modules \
+	  --in $(IMPORT_IN) --out $(IMPORT_OUT) --modules-dir $(IMPORT_MODULES_DIR) --force
+
+# Proves the rewrite produced something Terraform accepts, which the rewrite
+# itself cannot tell you: it checks that the output parses and that every
+# attribute maps to a module variable, not that the module's own requirements
+# are met. A Required variable the source resource never set, or a type the
+# module declares differently, only surfaces here.
+#
+# Runs in a scratch copy so the working directory never collects .terraform/ or
+# a lock file, and plan-only -- the provider is never contacted, so no
+# credentials are needed.
+.PHONY: import-modules-check
+import-modules-check: tfdev-mirror ## Rewrite IMPORT_IN, then prove terraform init + validate accept it
+	@rm -rf .import-check
+	@mkdir -p .import-check
+	@go run ./cmd/kgen import-modules \
+	  --in $(IMPORT_IN) --out .import-check/main.tf --modules-dir ../modules --force
+	@echo "$(BLUE)Validating the rewritten configuration...$(RESET)"
+	@export TF_CLI_CONFIG_FILE="$$(pwd)/.tfdev/dev.tfrc" TF_IN_AUTOMATION=true; \
+	if ! out=$$(cd .import-check && terraform init -input=false -no-color 2>&1); then \
+	  echo "$(RED)### terraform init failed$(RESET)"; echo "$$out" | tail -15; \
+	  rm -rf .import-check .tfdev; exit 1; \
+	fi; \
+	if ! out=$$(cd .import-check && terraform validate -no-color 2>&1); then \
+	  echo "$(RED)### terraform validate failed$(RESET)"; echo "$$out" | grep -E "^Error|^ *on |required" | head -20; \
+	  echo "$(YELLOW)The rewritten config is at .import-check/main.tf$(RESET)"; \
+	  rm -rf .tfdev; exit 1; \
+	fi; \
+	echo "$$out" | tail -1
+	@cp .import-check/main.tf $(IMPORT_OUT)
+	@rm -rf .import-check .tfdev
+	@echo "$(GREEN)✓ $(IMPORT_OUT) rewritten and accepted by terraform validate$(RESET)"
+
+# Serve the working-tree provider from a filesystem mirror at the version
+# modules/ pins. dev_overrides cannot do this job: `terraform init` skips it,
+# and both `terraform test` and validating a module call require init.
+.PHONY: tfdev-mirror
+tfdev-mirror: ## Build .tfdev/: the working-tree provider as a filesystem mirror
+	@command -v terraform >/dev/null || (echo "$(RED)terraform is required$(RESET)" && exit 1)
+	@echo "$(BLUE)Building the provider under test...$(RESET)"
+	@rm -rf .tfdev
+	@mkdir -p .tfdev
+	@go build -o .tfdev/terraform-provider-$(NAME) .
+	@mirror=".tfdev/mirror/registry.terraform.io/$(NAMESPACE)/$(NAME)/$(MODULE_PROVIDER_VERSION)/$$(go env GOOS)_$$(go env GOARCH)"; \
+	  mkdir -p "$$mirror"; \
+	  cp .tfdev/terraform-provider-$(NAME) "$$mirror/terraform-provider-$(NAME)_v$(MODULE_PROVIDER_VERSION)"
+	@printf 'provider_installation {\n  filesystem_mirror {\n    path    = "%s/.tfdev/mirror"\n    include = ["registry.terraform.io/$(NAMESPACE)/$(NAME)"]\n  }\n  direct {\n    exclude = ["registry.terraform.io/$(NAMESPACE)/$(NAME)"]\n  }\n}\n' "$$(pwd)" > .tfdev/dev.tfrc
+
 #
 # Runs on a copy, so modules/ never collects .terraform/ or a lock file. The
 # provider under test is the one built from the working tree, served from a
@@ -575,15 +634,8 @@ modules-check: ## Fail if modules/ differs from freshly generated output
 # at an unroutable endpoint and never contacted, so no credentials are needed.
 .PHONY: modules-test
 modules-test: ## Run terraform init/validate/test over every module against the working-tree provider
-	@command -v terraform >/dev/null || (echo "$(RED)terraform is required for modules-test$(RESET)" && exit 1)
-	@echo "$(BLUE)Building the provider under test...$(RESET)"
-	@rm -rf .modules-test .tfdev
-	@mkdir -p .tfdev
-	@go build -o .tfdev/terraform-provider-kion .
-	@mirror=".tfdev/mirror/registry.terraform.io/kionsoftware/kion/1.0.0/$$(go env GOOS)_$$(go env GOARCH)"; \
-	  mkdir -p "$$mirror"; \
-	  cp .tfdev/terraform-provider-kion "$$mirror/terraform-provider-kion_v1.0.0"
-	@printf 'provider_installation {\n  filesystem_mirror {\n    path    = "%s/.tfdev/mirror"\n    include = ["registry.terraform.io/kionsoftware/kion"]\n  }\n  direct {\n    exclude = ["registry.terraform.io/kionsoftware/kion"]\n  }\n}\n' "$$(pwd)" > .tfdev/dev.tfrc
+	@rm -rf .modules-test
+	@$(MAKE) --no-print-directory tfdev-mirror
 	@cp -R ./modules ./.modules-test
 	@echo "$(BLUE)Validating and testing modules...$(RESET)"
 	@export TF_CLI_CONFIG_FILE="$$(pwd)/.tfdev/dev.tfrc" TF_IN_AUTOMATION=true; \
