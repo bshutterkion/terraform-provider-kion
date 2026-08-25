@@ -57,14 +57,14 @@ func AppConfigResourceSchema(ctx context.Context) schema.Schema {
 			"budget_mode": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
-				Description:         "Indicates if budget mode is enabled in the application",
-				MarkdownDescription: "Indicates if budget mode is enabled in the application",
+				Description:         "Indicates if budget mode is enabled in the application.",
+				MarkdownDescription: "Indicates if budget mode is enabled in the application.",
 			},
 			"cloud_rule_group_ownership_only": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
-				Description:         "Indicates if cloud rules are restricted to User Group ownership only.\nSetting this to true will remove all users from cloud rules.\nThis cannot be undone.",
-				MarkdownDescription: "Indicates if cloud rules are restricted to User Group ownership only.\nSetting this to true will remove all users from cloud rules.\nThis cannot be undone.",
+				Description:         "Indicates if cloud rules are restricted to User Group ownership only. Setting this to true will remove all users from cloud rules. This cannot be undone.",
+				MarkdownDescription: "Indicates if cloud rules are restricted to User Group ownership only. Setting this to true will remove all users from cloud rules. This cannot be undone.",
 			},
 			"cost_savings_allow_terminate": schema.BoolAttribute{
 				Optional:            true,
@@ -87,14 +87,14 @@ func AppConfigResourceSchema(ctx context.Context) schema.Schema {
 			"default_org_chart_view": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
-				Description:         "Defines the default organization chart view.\n\noneOf: list, policy, compliance, financial, spend",
-				MarkdownDescription: "Defines the default organization chart view.\n\noneOf: list, policy, compliance, financial, spend",
+				Description:         "Defines the default organization chart view.",
+				MarkdownDescription: "Defines the default organization chart view.",
 			},
 			"enforce_funding": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
-				Description:         "Indicates whether spend plans or budgets must be created on all projects.\n\nexamples: true",
-				MarkdownDescription: "Indicates whether spend plans or budgets must be created on all projects.\n\nexamples: true",
+				Description:         "Indicates whether spend plans or budgets must be created on all projects.",
+				MarkdownDescription: "Indicates whether spend plans or budgets must be created on all projects.",
 			},
 			"enforce_funding_sources": schema.BoolAttribute{
 				Optional:            true,
@@ -110,8 +110,8 @@ func AppConfigResourceSchema(ctx context.Context) schema.Schema {
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
-				Description:         "Static identifier for the single app-config record.",
-				MarkdownDescription: "Static identifier for the single app-config record.",
+				Description:         "Static identifier for the app-config singleton.",
+				MarkdownDescription: "Static identifier for the app-config singleton.",
 			},
 			"reserved_instances_enabled": schema.BoolAttribute{
 				Optional:            true,
@@ -172,8 +172,8 @@ func AppConfigResourceSchema(ctx context.Context) schema.Schema {
 				ElementType:         types.StringType,
 				Optional:            true,
 				Computed:            true,
-				Description:         "The list of supported AWS regions",
-				MarkdownDescription: "The list of supported AWS regions",
+				Description:         "The list of supported AWS regions.",
+				MarkdownDescription: "The list of supported AWS regions.",
 			},
 		},
 		Description: "Manages the Kion App Config (workspace-wide application settings singleton).",

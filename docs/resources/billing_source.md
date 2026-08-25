@@ -79,7 +79,7 @@ access the storage account.
 - `storage_primary_endpoint` (String) Primary blob endpoint of the storage account that holds the custom provider's
 financial data.
 - `tenant_app_id` (String) App registration (client) ID when providing tenant credentials directly.
-- `tenant_client_secret` (String) Client secret for the app registration. When updating an existing billing source,
+- `tenant_client_secret` (String, Sensitive) Client secret for the app registration. When updating an existing billing source,
 leaving blank will leave existing secret as-is.
 - `tenant_cloud_partition_id` (Number) Cloud partition of the tenant when providing tenant credentials directly.
 1 = commercial, 2 = government, 3 = secret, 4 = top secret.

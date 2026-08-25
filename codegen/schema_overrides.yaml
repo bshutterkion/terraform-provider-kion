@@ -866,10 +866,26 @@ resources:
   app_config:
     description: "Manages the Kion App Config (workspace-wide application settings singleton)."
     attributes:
+      # These six descriptions are restated because the spec's own text is worse
+      # than what the resource documented by hand: two entries carry OpenAPI
+      # metadata that tfplugingen copies verbatim into the docs ("oneOf: ...",
+      # "examples: true"), one embeds newlines that break the attribute list, and
+      # two simply lack the closing period. Without them, generating the schema
+      # would have quietly degraded docs/resources/app_config.md.
       id:
         type: string
         computed_optional_required: computed
-        description: Static identifier for the single app-config record.
+        description: Static identifier for the app-config singleton.
+      budget_mode:
+        description: Indicates if budget mode is enabled in the application.
+      cloud_rule_group_ownership_only:
+        description: Indicates if cloud rules are restricted to User Group ownership only. Setting this to true will remove all users from cloud rules. This cannot be undone.
+      default_org_chart_view:
+        description: Defines the default organization chart view.
+      enforce_funding:
+        description: Indicates whether spend plans or budgets must be created on all projects.
+      supported_aws_regions:
+        description: The list of supported AWS regions.
       smtp_password:
         type: string
         computed_optional_required: computed_optional
@@ -993,29 +1009,6 @@ data_sources:
     description: "Use this data source to access information about Kion Azure Roles."
   billing_rule:
     description: "Use this data source to access information about Kion Billing Rules."
-  billing_source:
-    description: "Use this data source to access information about Kion Billing Sources."
-    attributes:
-      data:
-        attributes:
-          items:
-            attributes:
-              custom_billing_source:
-                attributes:
-                  azure_connection:
-                    attributes:
-                      tenant_client_secret:
-                        sensitive: true
-              gcp_payer:
-                attributes:
-                  gcp_service_account:
-                    attributes:
-                      oauth_client_secret:
-                        sensitive: true
-              oci_payer:
-                attributes:
-                  private_key:
-                    sensitive: true
   billing_source_govcloud:
     description: "Use this data source to look up a Kion BillingSourceGovcloud by id."
   budget:
