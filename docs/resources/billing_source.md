@@ -3,12 +3,12 @@
 page_title: "kion_billing_source Resource - kion"
 subcategory: ""
 description: |-
-  Manages a Kion custom billing source. Supply exactly one connection block — aws_connection or azure_connection — as Kion rejects a request carrying both.
+  Manages a Kion custom billing source. Supply exactly one connection block, either aws_connection or azure_connection, as Kion rejects a request carrying both.
 ---
 
 # kion_billing_source (Resource)
 
-Manages a Kion custom billing source. Supply exactly one connection block — aws_connection or azure_connection — as Kion rejects a request carrying both.
+Manages a Kion custom billing source. Supply exactly one connection block, either aws_connection or azure_connection, as Kion rejects a request carrying both.
 
 ## Example Usage
 

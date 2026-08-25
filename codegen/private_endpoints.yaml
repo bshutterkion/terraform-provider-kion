@@ -1,13 +1,13 @@
 # Private / unspecified backend endpoints reference
 # =================================================
 # Some resources' public OpenAPI spec (the v3/v4/beta surface that kion-sdk-go is
-# generated from) is INCOMPLETE — most often it publishes a create + a list but no
+# generated from) is INCOMPLETE. Most often it publishes a create and a list but no
 # by-id read, while the backend actually reads via an internal (v1/v2) route the
 # spec never exposes. This file records the *real* endpoints, sourced from the
 # the backend controllers, so the CRUD work (generator or hand) knows what to call.
 #
 # The provider reaches endpoints the SDK lacks via raw HTTP
-# (internal/conns/kion_client.go — RawDelete today; add RawGet/RawPost/RawPatch as
+# (internal/conns/kion_client.go has RawDelete today; add RawGet/RawPost/RawPatch as
 # needed). The base URL is the Kion host; prefix the path below.
 #
 # Prefix legend (the backend):
@@ -23,7 +23,7 @@
 resources:
 
   # Public create+update+delete at /beta, but the create body is untyped and there
-  # is NO public read — the read is the internal /v1 route returning a fully-typed
+  # is NO public read. The read is the internal /v1 route returning a fully-typed
   # Dashboard. Schema fields come from the model, not the spec.
   dashboard:
     reason: public /beta/dashboard is create-only + untyped body; read is private
@@ -50,7 +50,7 @@ resources:
     update: { method: PATCH,  path: "/v2/project-note/{id}", spec: private }
     delete: { method: DELETE, path: "/v3/project-note/{id}", spec: public }
 
-  # Fully raw (unlike project_note's blend): no public surface at all — every op
+  # Fully raw (unlike project_note's blend): nothing public at all. Every op
   # is internal /v2. Completes the note family alongside project_note + ou_note.
   funding_source_note:
     reason: no public spec surface; all CRUD is internal /v2
@@ -232,7 +232,7 @@ resources:
   # public spec (v3); a private v2 twin also exists. Listed to document the pattern
   # the codebase already uses (e.g. conns RawDelete for SDK-uncovered routes).
   ou_note:
-    reason: fully public (v3); private v2 twin exists — reference only
+    reason: fully public (v3); private v2 twin exists, reference only
     create: { method: POST,   path: "/v3/ou-note",      spec: public }
     read:   { method: GET,    path: "/v3/ou-note/{id}", spec: public }
     update: { method: PATCH,  path: "/v3/ou-note/{id}", spec: public }
@@ -240,7 +240,7 @@ resources:
     private_twin_delete: { method: DELETE, path: "/v2/ou-note/{id}" }
 
 # ---------------------------------------------------------------------------
-# List-read-only: the API has NO by-id read anywhere (public OR private) — only a
+# List-read-only: the API has NO by-id read anywhere (public OR private). Only a
 # collection GET. Not a private-endpoint gap; the resource read has to be
 # "list-then-filter" (or the collection is the read). Recorded so nobody hunts for
 # a by-id endpoint that doesn't exist.
@@ -250,16 +250,16 @@ list_read_only:
   global_permission_mapping: { read: { method: GET, path: "/v3/global/permission-mapping" } }  # global singleton; index IS the read
 
 # ---------------------------------------------------------------------------
-# Verified fully public (checked against the backend; here to close the analysis —
+# Verified fully public (checked against the backend; here to close the analysis,
 # these are NOT gaps, no private endpoint needed):
-#   budget                    — full /v3/budget CRUD (GET/POST/PUT/DELETE /{id})
-#   custom_variable_override  — public /v3/{account,ou,project}/{id}/custom-variable/{cv_id} (GET/PUT/DELETE)
-#   account, aws_account,     — public GET/PATCH/DELETE /v3/account/{id}; create is per-provider
+#   budget                    full /v3/budget CRUD (GET/POST/PUT/DELETE /{id})
+#   custom_variable_override  public /v3/{account,ou,project}/{id}/custom-variable/{cv_id} (GET/PUT/DELETE)
+#   account, aws_account,     public GET/PATCH/DELETE /v3/account/{id}; create is per-provider
 #     azure_account, gcp_account, custom_account
-#   ou_/project_/funding_source_permission_mapping — public /v3 index + PATCH upsert
+#   ou_/project_/funding_source_permission_mapping: public /v3 index + PATCH upsert
 #     (schema handled by reconstruction in schema_overrides, not a private endpoint)
 #
 # Genuinely unsupportable as CRUD resources (no read endpoint at all / not a resource):
-#   forecast          — only POST /v1/spend-forecast (an RPC, not managed state)
-#   forecast_category — no backend routes or model at all
-#   app_config        — singleton settings (GET index + PATCH + per-key PUTs); not CRUD-shaped
+#   forecast          only POST /v1/spend-forecast (an RPC, not managed state)
+#   forecast_category no backend routes or model at all
+#   app_config        singleton settings (GET index + PATCH + per-key PUTs); not CRUD-shaped

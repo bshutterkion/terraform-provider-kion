@@ -17,7 +17,7 @@ type Field struct {
 	JSONName string // "color"        (from the json tag; "" falls back to GoName)
 	Type     string // "string", "OptString", "OptUint64", "int64", ...
 	Optional bool   // true iff Type is an Opt*-wrapper
-	Ptr      bool   // true iff the field is a pointer (*T) — e.g. a *Payload data envelope
+	Ptr      bool   // true iff the field is a pointer (*T), e.g. a *Payload data envelope
 }
 
 // Struct is a parsed SDK struct (a request body, a response, or a params struct).
@@ -74,7 +74,7 @@ type listModel struct {
 	ItemsGo    string       // "Items" (field in DataInner); "Data" for shape B
 	ItemsOpt   bool         // the items field is an Opt-wrapper, not a bare slice
 	ItemsNil   bool         // items wrapper has a .Null field (OptNil*)
-	ElemType   string       // "Label" — the SDK list element type
+	ElemType   string       // "Label", the SDK list element type
 	// ElemIsWrapper reports that ElemType is not the read payload but the read
 	// payload's record-wrapper sub-object (e.g. the read returns
 	// WebhookWithOwners while the index returns []Webhook, and WebhookWithOwners
@@ -155,7 +155,7 @@ type ResourceModel struct {
 	Delete          *OpModel   // nil if resource has no delete
 	List            *listModel // nil if no resolvable list endpoint
 	// ListDowngrade explains why List is nil even though the config declared a
-	// data-source collection read — i.e. why this data source lost its `filter`
+	// data-source collection read, i.e. why this data source lost its `filter`
 	// block and fell back to id-only. Empty when List resolved (or when no
 	// collection read was declared at all).
 	ListDowngrade string
@@ -199,7 +199,7 @@ func (rm ResourceModel) projectedFields() []ModelField {
 	return append(out, rm.RecordSubFields...)
 }
 
-// Source is the AST boundary — mockable, reads only.
+// Source is the AST boundary, mockable, reads only.
 type Source interface {
 	// ClientMethods parses oas_client_gen.go: one entry per (c *Client) method.
 	ClientMethods(clientFile string) ([]ClientMethod, error)

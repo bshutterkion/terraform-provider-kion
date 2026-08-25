@@ -23,7 +23,7 @@ type upgradeTestData struct {
 // GenerateUpgradeTest renders <name>_upgrade_gen_test.go: a decode-clean golden
 // that feeds a synthesized representative old-state through the v0 upgrader and
 // asserts it decodes against the live schema with no diagnostics. This is the
-// per-resource "the generated mapping fits the real schema" guarantee — it
+// per-resource "the generated mapping fits the real schema" guarantee, it
 // catches a wrong/missing/extra key or a type mismatch in the emitted new-state
 // map. Value-level correctness of the transforms is covered by
 // internal/migratehelper unit tests and the two hand-authored deep goldens.
@@ -47,8 +47,8 @@ func GenerateUpgradeTest(root, tfType string, t Transform, oldRes, newRes Resour
 
 // synthOldState builds a representative old (SDKv2) state JSON object for the
 // upgrader to consume. It populates only the attributes whose exact JSON shape is
-// knowable from the transform config — block-sets the upgrader projects, the id
-// it may retype, and renamed sources — leaving every other old attribute absent
+// knowable from the transform config, block-sets the upgrader projects, the id
+// it may retype, and renamed sources, leaving every other old attribute absent
 // so it decodes as null (valid for any type). That keeps the fixture decode-safe
 // without needing per-resource nested-object shapes, while still exercising every
 // transform-bearing key and forcing the emitted key set to match the new schema.
@@ -69,7 +69,7 @@ func synthOldState(t Transform, oldRes, newRes Resource) string {
 	}
 	// Map attributes exploded into object lists. This one MUST be populated: an
 	// absent map decodes as null against any type, so an empty fixture would not
-	// notice the transform missing — which is exactly how cft's tags shipped
+	// notice the transform missing, which is exactly how cft's tags shipped
 	// passing a map straight into a list-of-objects schema.
 	for attr := range t.KVList {
 		fields[attr] = mapSample(oldRes.Attrs[attr].TypeJSON)

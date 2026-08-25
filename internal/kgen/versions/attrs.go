@@ -13,14 +13,14 @@ import (
 // Resource gating asks "does this operation exist here". That misses the other
 // half: an operation can exist on an older Kion while a field on its request
 // body does not. Portal decodes with json.Unmarshal and no DisallowUnknownFields,
-// so an unknown field is not rejected — it is dropped. The value never lands,
+// so an unknown field is not rejected. It is dropped. The value never lands,
 // the read returns without it, and Terraform reports an inconsistent result or
 // diffs forever, neither of which names the real cause.
 //
 // deriveAttrMins answers, per resource, which tfsdk attributes exist only from
 // some Kion version onward: it walks the create body struct in every tracked
 // SDK version and records the earliest one carrying each field. Attributes
-// present in the oldest tracked version are omitted — they need no gate.
+// present in the oldest tracked version are omitted. They need no gate.
 func deriveAttrMins(src crud.Source, sdkDir, serviceRoot string, entries map[string]entry, logw io.Writer) map[string]map[string]string {
 	out := map[string]map[string]string{}
 
@@ -48,7 +48,7 @@ func deriveAttrMins(src crud.Source, sdkDir, serviceRoot string, entries map[str
 				}
 			}
 			if body == "" {
-				continue // op absent in this version — resource gating covers that
+				continue // op absent in this version, resource gating covers that
 			}
 			structs, err := src.Structs(filepath.Join(gen, "oas_schemas_gen.go"))
 			if err != nil {
@@ -135,7 +135,7 @@ func renderAttrMins(mins map[string]string) string {
 
 // pruneRedundant drops attribute minimums at or below the resource's own
 // minimum. The resource gate already refuses those, and emitting both would
-// report one cause twice — every field of a 3.14-only resource is trivially
+// report one cause twice, every field of a 3.14-only resource is trivially
 // "3.14+". What remains is the interesting case: a field newer than the
 // resource carrying it.
 func pruneRedundant(mins map[string]string, resourceMin string) map[string]string {

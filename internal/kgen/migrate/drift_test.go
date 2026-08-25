@@ -54,7 +54,7 @@ func TestDrift_everyStructuralChangeIsCovered(t *testing.T) {
 		var structural []string
 		for name := range oldR.Attrs {
 			if _, in := newR.Attrs[name]; !in {
-				continue // dropped scalar/block — tolerated
+				continue // dropped scalar/block, tolerated
 			}
 			if structuralKind(oldR, name) != structuralKind(newR, name) {
 				structural = append(structural, name)
@@ -69,6 +69,6 @@ func TestDrift_everyStructuralChangeIsCovered(t *testing.T) {
 		if _, covered := ups[rt]; covered || allowed[rt] {
 			continue
 		}
-		t.Errorf("%s has structural changes %v (id-changed=%v) but no codegen/state_upgrades.yaml entry — customer state will fail to decode", rt, structural, idChanged)
+		t.Errorf("%s has structural changes %v (id-changed=%v) but no codegen/state_upgrades.yaml entry; customer state will fail to decode", rt, structural, idChanged)
 	}
 }

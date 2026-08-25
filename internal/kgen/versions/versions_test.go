@@ -54,7 +54,7 @@ func helper() {}
 
 func TestParseClientOps_lowercaseMethodNormalized(t *testing.T) {
 	// opLineRE only matches upper-case methods, so lowercase doc lines are
-	// ignored — confirm they don't register.
+	// ignored, confirm they don't register.
 	src := "// post /v3/thing\nfunc (c *Client) Thing() {}\n"
 	ops := parseClientOps(src)
 	assert.Empty(t, ops)

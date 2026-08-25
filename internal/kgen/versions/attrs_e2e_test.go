@@ -43,7 +43,7 @@ func (s stubSource) ModelFields(string, string) ([]crud.ModelField, error) {
 }
 
 // A resource present in every version still needs a file when one of its
-// attributes is newer — the case the whole change exists for. Without the
+// attributes is newer, the case the whole change exists for. Without the
 // injected source this path was never reached end to end: the real filesystem
 // had no SDK at the test paths, so deriveAttrMins returned empty and the test
 // passed while proving nothing.

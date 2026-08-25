@@ -26,7 +26,7 @@ type KionClient struct {
 	Client *generated.Client
 
 	// APIURL is the API root the raw helpers and DetectVersion build paths
-	// under — the base URL with the provider's resolved `apipath` already
+	// under, the base URL with the provider's resolved `apipath` already
 	// applied (https://host/api by default, or whatever `apipath` set, which
 	// may be nothing). Raw paths are appended to it verbatim, so it must NOT
 	// have its own suffix re-added here; doing so ignored `apipath` and

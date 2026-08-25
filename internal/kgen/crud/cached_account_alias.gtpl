@@ -14,7 +14,7 @@ import (
 // Data source only, unlike the cft and iam_policy aliases which cover both.
 // The old provider exposed kion_cached_account solely in DataSourcesMap
 // (provider.go: "kion_cached_account": dataSourceCachedAccount()) and shipped
-// only data_source_cached_account.go — there was never a kion_cached_account
+// only data_source_cached_account.go. There was never a kion_cached_account
 // resource, so aliasing one here would invent surface that never existed.
 
 type cachedAccountDataSource struct{ account_cacheDataSource }

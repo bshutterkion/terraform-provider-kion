@@ -1,4 +1,4 @@
-# mockery v3 config — generate testify-style mocks for the codegen tools'
+# mockery v3 config: generate testify-style mocks for the codegen tools'
 # interfaces. Regenerate with:  make generate-mocks
 template: testify
 packages:

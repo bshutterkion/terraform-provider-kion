@@ -20,7 +20,7 @@ var dataSourceCompoundTmpl string
 var sweepCompoundTmpl string
 
 // archetype is a compound-key / parent-read declaration from
-// codegen/crud_archetypes.yaml — the shape the op-set and SDK AST cannot
+// codegen/crud_archetypes.yaml, the shape the op-set and SDK AST cannot
 // express on their own (see the file's header comment).
 type archetype struct {
 	Kind          string   `yaml:"kind"`
@@ -39,12 +39,12 @@ type archetype struct {
 	// record by its own id (e.g. idms open-id access-rule / group-association).
 	CreateParentParam string `yaml:"create_parent_param"` // SDK create-params field naming the parent id
 	CreateParentField string `yaml:"create_parent_field"` // model attribute holding the parent id
-	// Association (kind: association) — one list-member row keyed by KeyField,
+	// Association (kind: association), one list-member row keyed by KeyField,
 	// scoped by an optional ParentField, over a bulk read + replace-list API.
 	KeyField     string   `yaml:"key_field"`
 	ParentField  string   `yaml:"parent_field"`
 	MemberFields []string `yaml:"member_fields"`
-	// Parent-list (kind: parent_list) — a parent-scoped resource with no by-id
+	// Parent-list (kind: parent_list), a parent-scoped resource with no by-id
 	// GET; the read lists children under the parent and finds by id.
 	ParentParam  string `yaml:"parent_param"`  // SDK param naming the parent id (all ops)
 	ChildParam   string `yaml:"child_param"`   // SDK param naming the record id (update/delete)
@@ -370,7 +370,7 @@ func bodyBindsCompound(body *Struct, byTF map[string]ModelField, jsonField map[s
 	for _, f := range body.Fields {
 		mf, ok := byTF[f.JSONName]
 		if !ok {
-			continue // body field with no model attribute (e.g. server-set) — skip
+			continue // body field with no model attribute (e.g. server-set), skip
 		}
 		if jsonField[f.JSONName] {
 			binds = append(binds, bind{SDKField: f.GoName, Expr: "jx.Raw(plan." + mf.GoName + ".ValueString())"})

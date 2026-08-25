@@ -1,7 +1,7 @@
 // Command acctestconfig validates the HCL that acceptance tests feed to Terraform.
 //
 // Acceptance tests only run against a live Kion instance, so their config strings
-// are never exercised by CI — nothing checks that they even parse, let alone that
+// are never exercised by CI, nothing checks that they even parse, let alone that
 // they match the provider's schema. That gap let real defects sit in the tree:
 // twelve configs used an `owner_users { id = 1 }` block on resources whose schema
 // declares an `owner_user_ids` list attribute, and two set a read-only `id`. Every
@@ -9,14 +9,14 @@
 //
 // This closes the gap without a Kion instance or any API call. It extracts each
 // test's config string, substitutes the fmt verbs, and runs `terraform validate`
-// against a real build of the provider — which is enough to catch a block that
+// against a real build of the provider, which is enough to catch a block that
 // should be an attribute, a required argument that is missing, a read-only
 // attribute being set, or a type mismatch.
 //
 // dev_overrides is deliberate here: it bypasses `terraform init` entirely, so
 // validating ~85 configs costs one provider build and no network. (Elsewhere in
 // this project a filesystem mirror is preferred precisely because it does NOT
-// skip init — but here skipping it is the point.)
+// skip init. But here skipping it is the point.)
 //
 // Usage:
 //
@@ -292,8 +292,8 @@ provider "kion" {
 }
 `
 
-// validate writes one config into its own directory — resource addresses repeat
-// across packages, so they cannot share one — and returns the diagnostic text if
+// validate writes one config into its own directory, resource addresses repeat
+// across packages, so they cannot share one. And returns the diagnostic text if
 // terraform rejects it.
 func validate(work, tfrc string, c config) string {
 	dir := filepath.Join(work, c.pkg+"_"+c.fn)

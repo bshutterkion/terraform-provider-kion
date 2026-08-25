@@ -6,7 +6,7 @@
 // operation (create if present, else read) and scans the SDK's per-version
 // generated clients (generated/<v>/oas_client_gen.go) to find which versions
 // contain that exact (METHOD, path). The contiguous range of matching versions
-// becomes the [min, max] support range, and — for entries with a bounded range —
+// becomes the [min, max] support range, and, for entries with a bounded range,
 // it writes internal/service/<name>/<name>_version_gen.go declaring:
 //
 //	var (
@@ -18,7 +18,7 @@
 // schema regeneration. See the file header rules in computeRange for the exact
 // min/max/open-ended semantics.
 //
-// The single external boundary — the filesystem (kfs.FS) — is injected so the
+// The single external boundary, the filesystem (kfs.FS). Is injected so the
 // whole pipeline (config + SDK client reads and _version_gen.go writes) is
 // unit-testable against a mock instead of touching disk.
 package versions
@@ -572,7 +572,7 @@ var (
 var _ resource.ResourceWithModifyPlan = &%sResource{}
 
 // ModifyPlan reports an unsupported Kion version during plan. The CRUD methods
-// gate too, but they run at apply — by which point the practitioner has already
+// gate too, but they run at apply, by which point the practitioner has already
 // been told the change is going ahead.
 //
 // A destroy plan is exempt: refusing it would strand the resource in state with

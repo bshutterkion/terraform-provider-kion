@@ -39,7 +39,7 @@ func TestAliasResources_haveGeneratedUpgraders(t *testing.T) {
 	}
 	for aliasType, pkg := range aliasResources {
 		if !oldTypeCovered[aliasType] {
-			t.Errorf("%s: no transform declares old_type: %s — its state won't migrate", aliasType, aliasType)
+			t.Errorf("%s: no transform declares old_type: %s, so its state won't migrate", aliasType, aliasType)
 		}
 		if _, err := os.Stat("../../service/" + pkg + "/" + pkg + "_upgrade_gen.go"); err != nil {
 			t.Errorf("%s: expected generated upgrader internal/service/%s/%s_upgrade_gen.go (inherited by the alias): %v", aliasType, pkg, pkg, err)
@@ -49,7 +49,7 @@ func TestAliasResources_haveGeneratedUpgraders(t *testing.T) {
 
 // ownershipBlocks are the old-provider block names that became id-list
 // attributes in the new schema. Any resource that has one of these as a block
-// MUST project it (state_upgrades.yaml) or be a knownGap — otherwise its owners
+// MUST project it (state_upgrades.yaml) or be a knownGap, otherwise its owners
 // silently fail to migrate. This is the guard that the missing aws_iam_policy
 // projection tripped.
 var ownershipBlocks = []string{"owner_users", "owner_groups", "owner_user_groups", "users", "user_groups"}
@@ -101,7 +101,7 @@ func TestCompleteness_ownershipBlocksAreProjected(t *testing.T) {
 				}
 			}
 			if !covered {
-				t.Errorf("%s has ownership block %q but no projection covers it (and it is not a knownGap) — owners would fail to migrate", rt, blk)
+				t.Errorf("%s has ownership block %q but no projection covers it (and it is not a knownGap); owners would fail to migrate", rt, blk)
 			}
 		}
 	}
@@ -112,7 +112,7 @@ func TestCompleteness_ownershipBlocksAreProjected(t *testing.T) {
 // longer accepts, unless that drop is documented. A dropped settable attribute
 // makes the customer's config invalid until removed, so kmigrate must strip it
 // or the migration guide must call it out. Dropped computed-only attributes are
-// ignored — they never appear in customer config.
+// ignored, they never appear in customer config.
 func TestCompleteness_settableDropsAreDocumented(t *testing.T) {
 	oldS, err := LoadSchema(oldSnap)
 	if err != nil {
@@ -128,7 +128,7 @@ func TestCompleteness_settableDropsAreDocumented(t *testing.T) {
 	// Adding a resource/attr here is the explicit acknowledgement of a config
 	// break; an unexpected new entry fails the test until reviewed.
 	// Exact settable-dropped sets, computed from the schema snapshots. Most are
-	// `last_updated` — an old optional-computed field customers rarely wrote and
+	// `last_updated`, an old optional-computed field customers rarely wrote and
 	// which kmigrate's drop pass strips. `system_managed_policy` (gcp_iam_role)
 	// and the account fields are genuine settable removals. The four *_account
 	// resources migrate via Layer 3 import (see docs/MIGRATION-COVERAGE.md), so
@@ -166,7 +166,7 @@ func TestCompleteness_settableDropsAreDocumented(t *testing.T) {
 		want := expected[rt]
 		sort.Strings(want)
 		if !eqStrs(dropped, want) {
-			t.Errorf("%s settable-dropped attrs = %v, reviewed golden = %v — update the golden (and kmigrate/docs) after reviewing the config break", rt, dropped, want)
+			t.Errorf("%s settable-dropped attrs = %v, reviewed golden = %v; update the golden (and kmigrate/docs) after reviewing the config break", rt, dropped, want)
 		}
 	}
 }
@@ -196,7 +196,7 @@ func TestConfigDropsAreSettableAndRemoved(t *testing.T) {
 				t.Errorf("%s: ConfigDrops %q is not a settable old attribute", rt, a)
 			}
 			if _, still := newR.Attrs[a]; still {
-				t.Errorf("%s: ConfigDrops %q still exists in the new schema — dropping it would corrupt valid config", rt, a)
+				t.Errorf("%s: ConfigDrops %q still exists in the new schema; dropping it would corrupt valid config", rt, a)
 			}
 		}
 	}
@@ -204,7 +204,7 @@ func TestConfigDropsAreSettableAndRemoved(t *testing.T) {
 
 // TestReadOnlyDropsArePresentAndComputed is the guard behind ReadOnlyDrops, both
 // ways round. Forwards: every entry must be an old settable attribute that the
-// new schema still declares but only as computed — if it were absent it belongs
+// new schema still declares but only as computed. If it were absent it belongs
 // in ConfigDrops, and if it were still settable dropping it would corrupt valid
 // config. Backwards: every settable→read-only change in the snapshots must have
 // an entry, or kmigrate leaves config Terraform rejects with "Invalid
@@ -244,11 +244,11 @@ func TestReadOnlyDropsArePresentAndComputed(t *testing.T) {
 			}
 			na, ok := newR.Attrs[a]
 			if !ok {
-				t.Errorf("%s: ReadOnlyDrops %q is absent from the new schema — it belongs in ConfigDrops", rt, a)
+				t.Errorf("%s: ReadOnlyDrops %q is absent from the new schema, so it belongs in ConfigDrops", rt, a)
 				continue
 			}
 			if !readOnly(na) {
-				t.Errorf("%s: ReadOnlyDrops %q is still settable in the new schema — dropping it would corrupt valid config", rt, a)
+				t.Errorf("%s: ReadOnlyDrops %q is still settable in the new schema; dropping it would corrupt valid config", rt, a)
 			}
 		}
 	}
@@ -268,7 +268,7 @@ func TestReadOnlyDropsArePresentAndComputed(t *testing.T) {
 				continue
 			}
 			if !contains(ReadOnlyDrops[rt], name) {
-				t.Errorf("%s.%s: settable in old, read-only in new, but ReadOnlyDrops has no entry — "+
+				t.Errorf("%s.%s: settable in old, read-only in new, but ReadOnlyDrops has no entry; "+
 					"kmigrate would leave config Terraform rejects", rt, name)
 			}
 		}
@@ -370,7 +370,7 @@ func TestMapToObjectList_matchSchemas(t *testing.T) {
 				continue
 			}
 			if _, covered := ruleFor(oldType, attr); !covered {
-				t.Errorf("%s.%s: map became a nested-object attribute %v but no kv_list rule covers it — "+
+				t.Errorf("%s.%s: map became a nested-object attribute %v but no kv_list rule covers it; "+
 					"kmigrate would leave an invalid map and the state upgrader would fail to decode",
 					oldType, attr, na.NestedAttrs)
 			}

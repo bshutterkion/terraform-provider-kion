@@ -2,7 +2,7 @@ package migrate
 
 // ConfigDrops lists, per resource type, the old settable attributes kmigrate
 // removes from a customer's .tf because the new schema no longer accepts them.
-// These are OBSOLETE fields with no new home — timestamps the provider now
+// These are OBSOLETE fields with no new home, timestamps the provider now
 // computes (last_updated), removed toggles (system_managed_policy), and settings
 // the new schema dropped. Removing them is exactly what a customer would do by
 // hand to make `terraform plan` parse; kmigrate reports each removal.
@@ -11,12 +11,12 @@ package migrate
 //   - Renamed attributes (e.g. account name → account_name): the rename pass
 //     rewrites them; they are not obsolete.
 //   - kion_azure_policy's body (name/description/policy/parameters): folded into
-//     the nested azure_policy object — a documented manual config change, not a
+//     the nested azure_policy object, a documented manual config change, not a
 //     drop (auto-dropping would silently discard the policy body).
 //
 // The *_account resources are NOT excluded. Their state migrates via Layer 3
-// import, but their config is still rewritten here — kmigrate already renames
-// name → account_name on all three — so an obsolete settable attribute left in
+// import, but their config is still rewritten here, kmigrate already renames
+// name → account_name on all three, so an obsolete settable attribute left in
 // place fails `terraform validate` just like anywhere else.
 //
 // TestConfigDropsAreSettableAndRemoved keeps this consistent with the schema
@@ -47,7 +47,7 @@ var ConfigDrops = map[string][]string{
 // attribute stops being writable: the new schema still HAS it, but only as a
 // computed (read-only) value the provider fills in. Terraform rejects those in
 // config with "Invalid Configuration for Read-Only Attribute", so they have to
-// come out of the .tf too — but ConfigDrops cannot hold them, because its guard
+// come out of the .tf too. But ConfigDrops cannot hold them, because its guard
 // asserts the attribute is absent from the new schema and these are present.
 //
 // The same rewrite pass applies both tables; the only difference is the guard.
@@ -56,7 +56,7 @@ var ConfigDrops = map[string][]string{
 // `id` into every resource schema whether or not the provider declared one, so
 // all 33 old resources report it as settable. It is an artifact of the SDK, not
 // an attribute a practitioner writes, and the new provider declares it computed
-// as it always was — dropping it would be noise on every single block.
+// as it always was. Dropping it would be noise on every single block.
 //
 // TestReadOnlyDropsArePresentAndComputed keeps this in step with the snapshots,
 // both ways round: every entry must be settable in old and read-only in new, and

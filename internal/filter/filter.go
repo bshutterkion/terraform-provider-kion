@@ -155,7 +155,7 @@ func deepMatch(keys []string, m map[string]any, filterValue string, useRegex boo
 	}
 
 	if len(keys) == 1 {
-		// Leaf key. Refuse to compare against an array — the legacy provider
+		// Leaf key. Refuse to compare against an array, the legacy provider
 		// errored out in this case to surface configuration mistakes.
 		if _, isSlice := val.([]any); isSlice {
 			diags.AddError("invalid filter target",

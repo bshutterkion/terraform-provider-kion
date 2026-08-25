@@ -47,7 +47,7 @@ func parseReceiver(root, name string) (string, error) {
 
 // GenerateUpgrade renders <name>_upgrade_gen.go for one migrated resource. The
 // upgrader transforms the old-state JSON map into a new-schema JSON map and
-// decodes it with tftypes.ValueFromJSON — so every attribute type migrates
+// decodes it with tftypes.ValueFromJSON, so every attribute type migrates
 // uniformly, and mismatches (e.g. an object shape that changed) fail loudly in
 // ValueFromJSON rather than silently.
 func GenerateUpgrade(root, tfType string, t Transform, oldRes, newRes Resource) ([]byte, error) {

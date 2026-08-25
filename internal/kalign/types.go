@@ -2,7 +2,7 @@
 // generated client types by matching a schema model's `tfsdk:` tags to an SDK
 // struct's `json:` tags. It powers two jobs that share one alignment:
 //
-//   - Check (#1): report drift — schema attributes with no matching SDK field,
+//   - Check (#1): report drift, schema attributes with no matching SDK field,
 //     incompatible primitive types, or a needed flex converter that is missing.
 //   - Gen (#2): emit the flatten (SDK -> Framework) flex converters for the
 //     aligned fields, so the conversion layer is generated rather than

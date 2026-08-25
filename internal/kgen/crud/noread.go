@@ -46,7 +46,7 @@ func resolveNoRead(name string, ops resOps, idx sdkIndex, model []ModelField) (R
 		rm.Fields = append(rm.Fields, mf)
 	}
 	if rm.IDField.TFSDK == "" {
-		return rm, fmt.Errorf("%s: generated model %s has no tfsdk:%q field — add one via codegen/schema_overrides.yaml for no-read resources", name, rm.Model, "id")
+		return rm, fmt.Errorf("%s: generated model %s has no tfsdk:%q field; add one via codegen/schema_overrides.yaml for no-read resources", name, rm.Model, "id")
 	}
 	return rm, nil
 }
@@ -72,8 +72,8 @@ func (g *generator) generateNoRead(dir, name string, ops resOps, idx sdkIndex, m
 	// DataSourceCtor must be supplied even when it resolves to "": the template
 	// branches on it, and Go's text/template errors on a field that is absent
 	// from the data struct rather than treating it as empty. Omitting it here
-	// made every no_read resource fail template execution outright — not merely
-	// lose its data source — so `kgen crud` skipped the resource entirely and
+	// made every no_read resource fail template execution outright, not merely
+	// lose its data source, so `kgen crud` skipped the resource entirely and
 	// still exited 0. Keep this in step with the assoc, blended and raw_http
 	// call sites, which pass the same three fields.
 	dsCtor := dataSourceCompanionCtor(name, rm.Pascal)
@@ -92,7 +92,7 @@ func (g *generator) generateNoRead(dir, name string, ops resOps, idx sdkIndex, m
 	// read could not be resolved to a single-item op, so "no read endpoint" was
 	// misleading. A companion template is what supplies a data source here.
 	if dsCtor == "" {
-		fmt.Fprintf(os.Stderr, "kgen crud: %s — no-read archetype; no data source emitted (no companion template registered in bespoke.go)\n", name)
+		fmt.Fprintf(os.Stderr, "kgen crud: %s: no-read archetype; no data source emitted (no companion template registered in bespoke.go)\n", name)
 	}
 	for _, f := range files {
 		if err := g.writeFile(f.path, f.data, force); err != nil {
@@ -107,7 +107,7 @@ func (g *generator) generateNoRead(dir, name string, ops resOps, idx sdkIndex, m
 // data source as a companion file (see companionsByName).
 //
 // Without this the noread service package always emitted `return nil`, so those
-// data sources were generated, compiled, tested — and never registered, leaving
+// data sources were generated, compiled, tested, and never registered, leaving
 // them unreachable from a practitioner's config. Registering them by hand did
 // not survive, since the next `kgen crud` regenerated the file.
 func dataSourceCompanionCtor(name, pascal string) string {

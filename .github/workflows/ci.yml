@@ -15,7 +15,7 @@ name: CI
 # and scripts/check-no-internal-refs.sh fails if internal references reappear.
 #
 # kion-sdk-go resolves from the module proxy via the versioned replace in
-# go.mod. The GitLab jobs cloned it as a sibling checkout with a job token —
+# go.mod. The GitLab jobs cloned it as a sibling checkout with a job token,
 # that is obsolete, so no job here clones anything but this repo.
 
 on:
@@ -34,7 +34,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # quality:fmt — gofmt -s -d, fail if it printed anything.
+  # quality:fmt: gofmt -s -d, fail if it printed anything.
   fmt:
     name: gofmt
     runs-on: ubuntu-latest
@@ -72,7 +72,7 @@ jobs:
 
       - run: go vet ./...
 
-  # quality:lint — config in .golangci.yml (golangci-lint v2).
+  # quality:lint: config in .golangci.yml (golangci-lint v2).
   lint:
     name: golangci-lint
     runs-on: ubuntu-latest
@@ -137,7 +137,7 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # test:modules — generates the per-resource Terraform modules and validates
+  # test:modules generates the per-resource Terraform modules and validates
   # them against the provider built from this commit. Regenerating into a
   # scratch dir means a schema change that breaks generation fails here rather
   # than downstream, and the diff against modules/ catches a hand edit that
@@ -161,7 +161,7 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # terraform_wrapper: false — the loops below capture terraform's output
+      # terraform_wrapper: false so the loops below capture terraform's output
       # and grep it for "Success!"; the wrapper rewrites stdout and would break
       # that matching.
       - uses: hashicorp/setup-terraform@v4
@@ -257,7 +257,7 @@ jobs:
               fail=$((fail+1)); echo "### $name"; echo "$out" | grep -E "^Error|^ *on " | head -5
             fi
           done
-          echo "terraform validate — pass: $pass  fail: $fail"
+          echo "terraform validate: pass=$pass fail=$fail"
           test "$fail" -eq 0
 
       # Plan-only tests: the provider is not contacted, so no credentials needed.
@@ -272,7 +272,7 @@ jobs:
               fail=$((fail+1)); echo "### $name"; echo "$out" | grep -A4 "^Error" | head -6
             fi
           done
-          echo "terraform test — pass: $pass  fail: $fail"
+          echo "terraform test: pass=$pass fail=$fail"
           test "$fail" -eq 0
 
       # Same as the GitLab `when: on_failure` artifact: the generated tree is
@@ -288,7 +288,7 @@ jobs:
   # No GitLab counterpart. This repo is public; the script fails if an internal
   # path, hostname, repo name or planning doc reappears in a tracked file.
   # docs/ and examples/ are generated, and until now were the only generated
-  # surfaces with no drift gate — the README said so outright. That is exactly
+  # trees with no drift gate. That is exactly
   # how v1.0.1 shipped documenting `id` as required on 38 data sources whose
   # schemas had already made it optional: internal/service/ and modules/ were
   # regenerated because CI enforced them, docs/ and examples/ were not because
@@ -318,7 +318,7 @@ jobs:
 
       - run: make docs-check
 
-  # Acceptance tests need a live Kion, so they never run here — which meant
+  # Acceptance tests need a live Kion, so they never run here, which meant
   # nothing checked that the HCL they feed Terraform even matches the provider's
   # schema. It did not: twelve configs used an `owner_users` block on resources
   # whose schema declares an `owner_user_ids` list attribute, and two set a
@@ -326,7 +326,7 @@ jobs:
   # acceptance suite against a real instance.
   #
   # This validates every config against a real provider build via dev_overrides.
-  # No credentials, no API call — `terraform validate` is a schema check.
+  # No credentials, no API call. `terraform validate` is a schema check.
   acctest-config:
     name: Acceptance-test configs
     runs-on: ubuntu-latest

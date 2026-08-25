@@ -51,7 +51,7 @@ func TestRequireAttrKionVersions_errorsOnTooNewAttribute(t *testing.T) {
 }
 
 // The silent-drop only happens for values actually sent, so an unset attribute
-// must not error — otherwise every 3.13 user is blocked from the resource.
+// must not error. Otherwise every 3.13 user is blocked from the resource.
 func TestRequireAttrKionVersions_ignoresUnsetAttribute(t *testing.T) {
 	diags := framework.RequireAttrKionVersions(
 		meta("3.13.0"),

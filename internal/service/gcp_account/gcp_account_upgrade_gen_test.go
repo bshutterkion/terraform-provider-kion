@@ -12,7 +12,7 @@ import (
 )
 
 // TestUpgradeState_decodes feeds a representative old (SDKv2) state through the
-// v0 upgrader and asserts it decodes cleanly against the current schema — the
+// v0 upgrader and asserts it decodes cleanly against the current schema, the
 // per-resource guarantee that the generated old→new mapping fits the real
 // schema (no missing/extra/mistyped key). The fixture is synthesized from the
 // old schema snapshot + codegen/state_upgrades.yaml. Transform value-correctness

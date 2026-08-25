@@ -281,8 +281,8 @@ func TestCreate_SnakeDerivedFromResName(t *testing.T) {
 
 // TestCreate_FullSuccess exercises the whole Create flow. The servicepkg fsw
 // seam is mocked; MkdirAll actually creates the real directory (so the
-// subsequent os.Chdir succeeds), and the resource/datasource generators — which
-// use their own OS-backed fsw — write real files into the temp service dir.
+// subsequent os.Chdir succeeds), and the resource/datasource generators, which
+// use their own OS-backed fsw. Write real files into the temp service dir.
 func TestCreate_FullSuccess(t *testing.T) {
 	dir := t.TempDir()
 	writeGoMod(t, dir)

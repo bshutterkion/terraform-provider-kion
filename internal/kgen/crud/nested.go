@@ -28,8 +28,8 @@ type objBind struct {
 	// Set when a request body carries more than one optional nested object,
 	// which in Kion's API means they are alternatives rather than companions:
 	// a custom billing source takes aws_connection OR azure_connection, and
-	// sending both is a 400. Emitting both unconditionally —
-	// the behavior before this existed — makes every create fail.
+	// sending both is a 400. Emitting both unconditionally,
+	// the behavior before this existed. Makes every create fail.
 	//
 	// Bodies with a single nested object are unaffected, so this changes
 	// nothing for the resources that predate it.
@@ -54,7 +54,7 @@ type nestedResult struct {
 	Objs []objBind
 	Arrs []arrBind
 	// FlatSubs are body scalar fields with no top-level model attribute that map
-	// to a sub-field of a nested model Value type — the inverse of Objs. This
+	// to a sub-field of a nested model Value type, the inverse of Objs. This
 	// covers a flat update body (e.g. AzurePolicyDefinitionUpdate{description,
 	// name, ...}) against a model that nests those fields under one object
 	// attribute (azure_policy).
@@ -101,8 +101,8 @@ func nestedSubIndex(src Source, schemaGen string, byTF map[string]ModelField) ma
 //
 // It is non-empty only for a model that nests the WHOLE record under one object
 // attribute (azure_policy) instead of flattening it. Such a model exposes none
-// of the record's fields at the top level, so the data source and sweeper —
-// which project the model's attributes onto the record — would otherwise see an
+// of the record's fields at the top level, so the data source and sweeper,
+// which project the model's attributes onto the record. Would otherwise see an
 // empty attribute set and produce a `list` carrying nothing but the id. Promoting
 // them mirrors the SDKv2 provider, whose `list` rows were flat.
 //
@@ -181,7 +181,7 @@ func resolveNested(src Source, schemaGen string, body *Struct, byTF map[string]M
 		if !ok {
 			// Not a top-level model attribute. If it names a sub-field of a
 			// nested model object, source it from there (flat body over a nested
-			// model — e.g. a flat update definition against a wrapping create).
+			// model, e.g. a flat update definition against a wrapping create).
 			if s, isSub := subIdx[f.JSONName]; isSub {
 				if conv, okConv := expandConverter(f); okConv {
 					res.FlatSubs = append(res.FlatSubs, objSub{
@@ -197,7 +197,7 @@ func resolveNested(src Source, schemaGen string, body *Struct, byTF map[string]M
 		if elem, _, isSlice := wrapperSliceElem(f.Type, idx); isSlice {
 			es, isStruct := idx.structs[elem]
 			if !isStruct || len(es.Fields) == 0 {
-				continue // scalar slice — handled by sliceConverter
+				continue // scalar slice, handled by sliceConverter
 			}
 			valueType := pascalCase(f.JSONName) + "Value"
 			if !valueTypeExists(src, schemaGen, valueType) {
@@ -243,7 +243,7 @@ func resolveNested(src Source, schemaGen string, body *Struct, byTF map[string]M
 		res.Names[f.JSONName] = true
 	}
 	// Multiple optional nested objects in one body are alternatives, not
-	// companions — send only the configured one. See objBind.Guard.
+	// companions, send only the configured one. See objBind.Guard.
 	if len(res.Objs) > 1 && !noGuard {
 		for i := range res.Objs {
 			if res.Objs[i].OptType != "" {
@@ -302,7 +302,7 @@ type idProjFlat struct {
 type objIDProjFlat struct {
 	ModelGo string // "AwsIamPermissionsBoundary"
 	SrcPath string // "v.Data.Value.AwsIamPermissionsBoundary" (the OptNil<Struct>)
-	IDExpr  string // "int64(<src>.Value.ID.Value)" — the int64 id expression
+	IDExpr  string // "int64(<src>.Value.ID.Value)", the int64 id expression
 	Opt     bool   // the object field is Opt/OptNil (guard on .Set, else Int64Null)
 }
 
@@ -426,7 +426,7 @@ func resolveNestedFlatten(src Source, schemaGen string, fields []Field, byTF map
 		if !valueTypeExists(src, schemaGen, valueType) {
 			// Single object with no Value type: if the model attr is a scalar int
 			// and the struct carries an id, project the object's id (read returns
-			// the object; the model stores its id — e.g. aws_iam_permissions_boundary).
+			// the object; the model stores its id, e.g. aws_iam_permissions_boundary).
 			if mf.Type == "types.Int64" {
 				if idf, hasID := structIDField(bs); hasID {
 					opt := strings.HasPrefix(f.Type, "Opt")
@@ -504,13 +504,13 @@ func nestedSubs(src Source, schemaGen, valueType string, sdkStruct Struct, prefi
 		}
 		conv, ok := expandConverter(sf)
 		if !ok {
-			// A sub-field the generator cannot express — in practice a struct
+			// A sub-field the generator cannot express, in practice a struct
 			// nested inside an already-nested object, which the one-level
 			// expand machinery has no converter for. Skip it rather than
 			// failing the whole resource: the alternative is that the resource
 			// cannot be generated at all, which is strictly worse than one
 			// unsettable attribute. Warned so it is not silent.
-			fmt.Printf("kgen crud: %s.%s — no expand converter for type %q; attribute will not be settable\n",
+			fmt.Printf("kgen crud: %s.%s: no expand converter for type %q; attribute will not be settable\n",
 				valueType, sf.JSONName, sf.Type)
 			continue
 		}

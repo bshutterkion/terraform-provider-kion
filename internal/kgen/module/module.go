@@ -549,7 +549,7 @@ var patternCandidates = []string{
 
 // sampleForField picks a placeholder for a field, preferring one the attribute's
 // validators actually accept over a name-based guess. A value that fails
-// validation surfaces as a failing generated module test — which is how
+// validation surfaces as a failing generated module test, which is how
 // billing_start_date (a YYYY-MM regex, missed by the _datecode name heuristic)
 // broke the terraform test stage.
 func sampleForField(f field) string {
@@ -604,7 +604,7 @@ func sample(tfType string) string {
 // field, so a required nested attribute gets a usable value instead of null.
 // Terraform rejects null for a required attribute ("Missing Configuration for
 // Required Attribute"), which is how the gcp module's generated test failed.
-// optional(...) fields are omitted — the point is a minimal valid object.
+// optional(...) fields are omitted. The point is a minimal valid object.
 func objectSample(tfType string) string {
 	inner := strings.TrimSuffix(strings.TrimPrefix(tfType, "object({"), "})")
 	var parts []string

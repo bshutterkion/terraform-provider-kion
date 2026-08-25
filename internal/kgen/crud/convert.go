@@ -4,7 +4,7 @@ package crud
 // to exactly one internal/flex helper. expandConverter is TF->SDK (request
 // bodies); flattenConverter is SDK->TF (response envelopes). Both return
 // ok=false for a type the entity archetype does not handle (nested objects,
-// slices, sets) — the caller then refuses the resource for a crud_override.
+// slices, sets), the caller then refuses the resource for a crud_override.
 
 // expandConverter returns the flex.*FromFramework helper for a request-body field.
 func expandConverter(f Field) (string, bool) {
@@ -99,12 +99,12 @@ func flattenConverter(f Field) (string, bool) {
 // sliceConverter returns the flex slice helpers (expand, flatten) for a slice
 // body/response field. These take (ctx, …) and return diagnostics, so the
 // templates emit them as a prelude rather than an inline expression. wrap names
-// the ogen nil-aware wrapper (OptNil<T>Array) when the field is wrapped — the
+// the ogen nil-aware wrapper (OptNil<T>Array) when the field is wrapped, the
 // expand result is boxed as generated.<wrap>{Value: v, Set: true} and the
 // flatten source reads its .Value; wrap is "" for a bare slice.
 // tfType is the Terraform model field's Go type ("types.List" or "types.Set").
-// Association id attributes are sets — see applyAssociationSetDefault in
-// internal/kgen/schemas — and a set needs different flex helpers from a list, so
+// Association id attributes are sets, see applyAssociationSetDefault in
+// internal/kgen/schemas. And a set needs different flex helpers from a list, so
 // the converter has to be chosen from the TERRAFORM type, not only the SDK one.
 // Keying on the SDK type alone emitted list helpers for set-typed fields, which
 // does not compile.

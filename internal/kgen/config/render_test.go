@@ -72,7 +72,7 @@ func TestGen(t *testing.T) {
 	// heuristic resources are flagged for review.
 	assert.Contains(t, out, "# heuristic")
 	// create-only resource (noread) is listed as incomplete, missing its read.
-	assert.Contains(t, out, "# noread: INCOMPLETE — missing read")
+	assert.Contains(t, out, "# noread: INCOMPLETE, missing read")
 	// data source section + its narrower ignores.
 	assert.Contains(t, out, "data_sources:")
 	assert.Contains(t, out, "ignores: [status, record_id]")
@@ -90,7 +90,7 @@ func TestGenIncompleteMissingCreate(t *testing.T) {
 
 	var buf bytes.Buffer
 	require.NoError(t, config.Gen(m, config.Options{}, &buf))
-	assert.Contains(t, buf.String(), "# readonly: INCOMPLETE — missing create")
+	assert.Contains(t, buf.String(), "# readonly: INCOMPLETE, missing create")
 }
 
 func TestGenWithOverrides(t *testing.T) {
@@ -130,7 +130,7 @@ data_sources:
 }
 
 // TestGenOverrideExtraIgnores verifies an override's `ignores` list is appended
-// to the resource's baked-in schema ignores — used to drop a polymorphic OAS
+// to the resource's baked-in schema ignores. Used to drop a polymorphic OAS
 // field (e.g. default_value) that would otherwise make tfplugingen skip the
 // whole resource.
 func TestGenOverrideExtraIgnores(t *testing.T) {
@@ -226,7 +226,7 @@ func TestDerivePickVerbAndHeuristic(t *testing.T) {
 	svcs := []config.ServiceOps{
 		// Create candidates: "NoSuchOp" is absent (pickVerb skips it), "GetX" is
 		// present but is a GET (method mismatch for a create), so the code-derived
-		// create resolves to nil and the resource falls back to the heuristic —
+		// create resolves to nil and the resource falls back to the heuristic,
 		// which finds Post/Get/Patch/DeleteX by name.
 		{Name: "x", Create: []string{"NoSuchOp", "GetX"}},
 	}

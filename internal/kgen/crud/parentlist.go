@@ -117,7 +117,7 @@ func (g *generator) resolveParentList(name string, ops resOps, idx sdkIndex, arc
 		return d, fmt.Errorf("%s create body: %w", name, err)
 	}
 
-	// Read (list) — resolve the record type's fields for flatten.
+	// Read (list). Resolve the record type's fields for flatten.
 	read, err := resolveOp("read", ops.Read, idx)
 	if err != nil {
 		return d, err

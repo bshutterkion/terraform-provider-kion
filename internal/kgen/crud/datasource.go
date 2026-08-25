@@ -43,7 +43,7 @@ type dsData struct {
 	IDGo, IDFlatten, IDSDKGo string
 	HasRespID                bool   // response echoes the id (re-flatten it); else keep config id
 	DataPtr                  bool   // envelope Data is a pointer (*Payload) not an Opt-wrapper
-	PayloadPath              string // "" | ".Webhook.Value" — descent from Data to the record
+	PayloadPath              string // "" | ".Webhook.Value", descent from Data to the record
 	RespType                 string
 	Attrs                    []dsField
 	// OuterAttrs are attributes read from the payload above the record (see
@@ -60,7 +60,7 @@ func (d dsData) PayloadExpr() string {
 	return "api.Data.Value"
 }
 
-// needsPayload reports whether the read response is consulted at all — false for
+// needsPayload reports whether the read response is consulted at all, false for
 // a degenerate read (empty payload, no echoed id), where the data source only
 // returns the config-provided id.
 func (d dsData) NeedsPayload() bool {
@@ -113,7 +113,7 @@ type recordView struct {
 	PayloadPath string            // "" | ".Webhook.Value"
 	Fields      map[string]Field  // json name -> SDK field
 	Paths       map[string]string // json name -> access path from the record
-	// Outer holds fields that live on the read payload but NOT on the record —
+	// Outer holds fields that live on the read payload but NOT on the record,
 	// only possible when the record is a sub-object (e.g. UserWithUGroups.mfa
 	// sits beside the User record). They are readable by id but absent from the
 	// collection, so they stay out of the `list` objects and go null under a
@@ -210,7 +210,7 @@ func buildDSData(rm ResourceModel) (dsData, error) {
 		}
 		// The data source can only expose scalar fields it knows how to render;
 		// skip anything else (e.g. list/set/object) rather than refuse the whole
-		// resource — the resource itself is unaffected.
+		// resource. The resource itself is unaffected.
 		sType, ok := schemaAttrType(mf.Type)
 		if !ok {
 			continue
@@ -310,7 +310,7 @@ type listScalarAssign struct {
 type listDSData struct {
 	dsData
 	listAccess
-	ElemType     string // "Label" — the list element type
+	ElemType     string // "Label", the list element type
 	ListMethod   string
 	ListParams   string
 	ListRespType string
@@ -338,7 +338,7 @@ func buildListDSData(rm ResourceModel) (listDSData, error) {
 	// list can't expose it, so degrade to the id-only data source.
 	if !base.HasRespID {
 		// An empty field set means the read payload's OpenAPI schema declares no
-		// properties at all — nothing the generator can do, the spec must be fixed.
+		// properties at all. Nothing the generator can do, the spec must be fixed.
 		if len(view.Fields) == 0 {
 			return listDSData{}, fmt.Errorf("%s dual-mode data source: read payload %s has no fields at all (empty OpenAPI schema)", rm.Name, rm.Read.RespPayload)
 		}
@@ -371,7 +371,7 @@ func buildListDSData(rm ResourceModel) (listDSData, error) {
 	})
 
 	// A field the `list` objects cannot render is dropped from the data source
-	// entirely rather than failing it — losing one attribute beats losing the
+	// entirely rather than failing it, losing one attribute beats losing the
 	// whole filter block.
 	attrs := make([]dsField, 0, len(base.Attrs))
 	for _, a := range base.Attrs {
