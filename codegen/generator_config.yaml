@@ -7,7 +7,21 @@ provider:
   name: kion
 
 resources:
-  # account: INCOMPLETE — missing create (supply via codegen/config_overrides.yaml)
+  account:
+    create:
+      path: /v3/account-cache/create/__qs__/account-type/aws
+      method: POST
+    read:
+      path: /v3/account/{id}
+      method: GET
+    update:
+      path: /v3/account/{id}
+      method: PATCH
+    delete:
+      path: /v3/account/{id}
+      method: DELETE
+    schema:
+      ignores: [status, record_id, data]
   account_cache:
     create:
       path: /v3/account-cache/create/__qs__/account-type/aws
@@ -65,7 +79,18 @@ resources:
       method: DELETE
     schema:
       ignores: [status, record_id, data]
-  # app_config: INCOMPLETE — missing create+read (supply via codegen/config_overrides.yaml)
+  app_config:
+    create:
+      path: /v3/app-config
+      method: PATCH
+    read:
+      path: /v3/app-config
+      method: GET
+    update:
+      path: /v3/app-config
+      method: PATCH
+    schema:
+      ignores: [status, record_id, data, message]
   app_role:
     create:
       path: /v3/app-role

@@ -142,6 +142,7 @@ func BillingSourceAwsResourceSchema(ctx context.Context) schema.Schema {
 			"key_secret": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
+				Sensitive:           true,
 				Description:         "The AWS Secret Access Key used to access the billing s3 bucket",
 				MarkdownDescription: "The AWS Secret Access Key used to access the billing s3 bucket",
 			},

@@ -14,9 +14,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
@@ -50,59 +47,12 @@ func (r *customVariableOverrideResource) Metadata(_ context.Context, req resourc
 	resp.TypeName = req.ProviderTypeName + "_custom_variable_override"
 }
 
-func (r *customVariableOverrideResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = schema.Schema{
-		Description: "Manages a Kion Custom Variable Override.",
-		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				Description: "The ID of the Custom Variable Override.",
-				Computed:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
-			"custom_variable_id": schema.StringAttribute{
-				Description: "The ID of the custom variable.",
-				Required:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"entity_id": schema.StringAttribute{
-				Description: "The ID of the entity.",
-				Required:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"entity_type": schema.StringAttribute{
-				Description: "The type of the entity.",
-				Required:    true,
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
-				},
-			},
-			"last_updated": schema.StringAttribute{
-				Description: "The last time this resource was updated.",
-				Optional:    true,
-				Computed:    true,
-			},
-			"value_list": schema.ListAttribute{
-				Description: "The value of the custom variable override as a list.",
-				Optional:    true,
-				ElementType: types.StringType,
-			},
-			"value_map": schema.MapAttribute{
-				Description: "The value of the custom variable override as a map.",
-				Optional:    true,
-				ElementType: types.StringType,
-			},
-			"value_string": schema.StringAttribute{
-				Description: "The value of the custom variable override as a string.",
-				Optional:    true,
-			},
-		},
-	}
+func (r *customVariableOverrideResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	// Schema comes from custom_variable_override_schema_gen.go, generated from the OpenAPI spec
+	// plus codegen/schema_overrides.yaml. It was previously duplicated here by
+	// hand, so the generated file was dead code and the two could drift without
+	// anything failing.
+	resp.Schema = CustomVariableOverrideResourceSchema(ctx)
 }
 
 func (r *customVariableOverrideResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
