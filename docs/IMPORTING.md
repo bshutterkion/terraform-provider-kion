@@ -23,8 +23,14 @@ kion-import rewrite-refs                       # literals -> references
 terraform apply
 ```
 
-To manage the result through the modules instead of the resources, add
-`kgen import-modules` after `rewrite-refs` -- see *Rewrite into module calls*.
+To manage the result through the modules instead of the resources, add one
+step after `rewrite-refs`:
+
+```sh
+make import-modules-check IMPORT_IN=generated.tf IMPORT_OUT=modules.tf
+```
+
+See *Rewrite into module calls*.
 
 ## Rewrite the literal ids into references
 
@@ -139,8 +145,12 @@ the imported install through the modules under `modules/terraform-kion-*`
 instead:
 
 ```sh
-kgen import-modules --in generated.tf --out modules.tf
+make import-modules-check IMPORT_IN=generated.tf IMPORT_OUT=modules.tf
 ```
+
+That rewrites and then proves Terraform accepts the result; see *Check the
+rewrite* below for why the second half matters. To rewrite without checking,
+`make import-modules` or the underlying `kgen import-modules --in … --out …`.
 
 Each `resource "kion_*" "<label>"` becomes `module "<label>"` with
 `source = "./modules/terraform-kion-<name>"`. A block whose type has no module
@@ -186,6 +196,56 @@ Blocks the rewrite does not convert are retargeted too. A `locals`, an
 otherwise be left naming a resource that no longer exists, and Terraform
 refuses to load the file. That reference is the one edit made to a block this
 rewrite does not otherwise own.
+
+### Check the rewrite
+
+The rewrite can tell you that every attribute mapped to a module variable. It
+cannot tell you the result is a configuration Terraform will accept, because it
+never looks at the module — only at the manifest's names. Two things get past
+it:
+
+- **A Required module variable the source resource never set.** Nothing was
+  dropped and no warning fires; the module simply demands an argument that is
+  not there.
+- **A type the module declares differently** from the provider attribute the
+  value came from.
+
+Both surface only under `terraform validate`, which is why the checked target
+exists:
+
+```sh
+make import-modules-check IMPORT_IN=generated.tf IMPORT_OUT=modules.tf
+```
+
+It rewrites into a scratch directory, serves the working-tree provider from a
+filesystem mirror at the version `modules/` pins, then runs `terraform init`
+and `terraform validate` against the real modules. Only on success is
+`IMPORT_OUT` written:
+
+```
+Wrote .import-check/main.tf: 3 block(s) rewritten, 0 left untouched, 0 attribute(s) dropped
+Validating the rewritten configuration...
+Success! The configuration is valid.
+✓ modules.tf rewritten and accepted by terraform validate
+```
+
+On failure it exits non-zero, prints the errors, and leaves the rewritten file
+at `.import-check/main.tf` so you can see what Terraform objected to:
+
+```
+### terraform validate failed
+Error: Missing required argument
+  on main.tf line 1, in module "kion_ou_11":
+The argument "permission_scheme_id" is required, but no definition was found.
+The rewritten config is at .import-check/main.tf
+```
+
+It is plan-only and needs no credentials — the provider is never contacted.
+The mirror exists because `terraform init` skips `dev_overrides`, and
+validating a module call requires init. It also needs no published provider,
+which matters while `1.0.0` is not on the registry.
+
+`make import-modules` does the rewrite alone, without the check.
 
 ### What is not retargeted
 
