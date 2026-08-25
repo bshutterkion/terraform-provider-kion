@@ -90,7 +90,9 @@ func TestBuildParentListResourceGetsItsParentBlock(t *testing.T) {
 	assert.Equal(t, "/v3/ou/{parent_id}/enforcement", r.Parent.ChildPath)
 	assert.Equal(t, "ou_id", r.Parent.ParentIDField)
 	assert.Equal(t, ShapeParentList, r.ReadShape)
-	assert.Equal(t, FormatID, r.ImportID.Format)
+	// The read finds the child under its parent, so the import id carries both.
+	assert.Equal(t, FormatParentSlashKey, r.ImportID.Format)
+	assert.Equal(t, "id", r.ImportID.KeyField)
 	assert.True(t, r.Readable)
 }
 

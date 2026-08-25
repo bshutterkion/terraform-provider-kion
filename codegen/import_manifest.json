@@ -298,7 +298,8 @@
         "parent_id_field": "compliance_program_id"
       },
       "import_id": {
-        "format": "id"
+        "format": "parent_slash_key",
+        "key_field": "id"
       }
     },
     {
@@ -315,7 +316,8 @@
         "parent_id_field": "compliance_program_id"
       },
       "import_id": {
-        "format": "id"
+        "format": "parent_slash_key",
+        "key_field": "id"
       }
     },
     {
@@ -332,7 +334,8 @@
         "parent_id_field": "compliance_program_id"
       },
       "import_id": {
-        "format": "id"
+        "format": "parent_slash_key",
+        "key_field": "id"
       }
     },
     {
@@ -433,7 +436,8 @@
         "parent_id_field": "funding_source_id"
       },
       "import_id": {
-        "format": "id"
+        "format": "parent_slash_key",
+        "key_field": "id"
       }
     },
     {
@@ -553,7 +557,8 @@
         "parent_id_field": "idms_id"
       },
       "import_id": {
-        "format": "id"
+        "format": "parent_slash_key",
+        "key_field": "id"
       }
     },
     {
@@ -669,7 +674,8 @@
         "parent_id_field": "ou_id"
       },
       "import_id": {
-        "format": "id"
+        "format": "parent_slash_key",
+        "key_field": "id"
       }
     },
     {
@@ -686,7 +692,8 @@
         "parent_id_field": "ou_id"
       },
       "import_id": {
-        "format": "id"
+        "format": "parent_slash_key",
+        "key_field": "id"
       }
     },
     {
@@ -769,7 +776,8 @@
         "parent_id_field": "project_id"
       },
       "import_id": {
-        "format": "id"
+        "format": "parent_slash_key",
+        "key_field": "id"
       }
     },
     {
@@ -828,7 +836,8 @@
         "parent_id_field": "idms_id"
       },
       "import_id": {
-        "format": "id"
+        "format": "parent_slash_key",
+        "key_field": "id"
       }
     },
     {
@@ -852,7 +861,7 @@
       "list_path": "/beta/scope",
       "name_field": "name",
       "import_id": {
-        "format": "id"
+        "format": "parent_slash_key"
       }
     },
     {

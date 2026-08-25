@@ -189,6 +189,14 @@ func Build(readPaths, dataSourcePaths map[string]string, archetypes map[string]a
 				}
 			} else {
 				r.ReadShape = ShapeParentList
+				// Read finds the child under its parent, so the import id must
+				// carry both. The child is keyed by its own "id" here; the
+				// compound archetype names a different child field and sets
+				// KeyField itself.
+				r.ImportID.Format = FormatParentSlashKey
+				if r.ImportID.KeyField == "" {
+					r.ImportID.KeyField = "id"
+				}
 			}
 
 		default:
@@ -374,15 +382,23 @@ func loadArchetypeKinds(fsw kfs.FS, path string) (map[string]archetypeInfo, erro
 		Kind        string `yaml:"kind"`
 		KeyField    string `yaml:"key_field"`
 		ParentField string `yaml:"parent_field"`
+		// compound_key_parent_read names the child's field child_id_field rather
+		// than key_field. Without it the import id would be "<parent>/" with an
+		// empty child and every record would be skipped for a missing key.
+		ChildIDField string `yaml:"child_id_field"`
 	}
 	if err := yaml.Unmarshal(raw, &doc); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 	out := make(map[string]archetypeInfo, len(doc))
 	for kind, entry := range doc {
+		keyField := entry.KeyField
+		if keyField == "" {
+			keyField = entry.ChildIDField
+		}
 		out[kind] = archetypeInfo{
 			Kind:        entry.Kind,
-			KeyField:    entry.KeyField,
+			KeyField:    keyField,
 			ParentField: entry.ParentField,
 		}
 	}

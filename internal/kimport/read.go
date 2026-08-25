@@ -258,6 +258,12 @@ func toRecords(raw []map[string]any, r importmanifest.Resource, parentID string)
 			id = parentID + "/" + key
 		default:
 			id = stringify(fields["id"])
+			// Kion ids are positive. A literal 0 is an absent id rendered as a
+			// number, and emitting it produced an import block for a record that
+			// does not exist ("Cannot import non-existent remote object").
+			if id == "0" {
+				id = ""
+			}
 			if id == "" && r.ImportID.KeyField != "" {
 				// association.gtpl's ImportState {{else}} branch (no parent)
 				// parses req.ID as a plain integer and assigns it straight to
