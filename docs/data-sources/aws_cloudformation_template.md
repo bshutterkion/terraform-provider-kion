@@ -68,5 +68,6 @@ Read-Only:
 - `policy` (String)
 - `region` (String)
 - `sns_arns` (String)
+- `system_managed` (Boolean)
 - `template_parameters` (String)
 - `termination_protection` (Boolean)

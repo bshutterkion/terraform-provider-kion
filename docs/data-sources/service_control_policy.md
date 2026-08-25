@@ -58,7 +58,9 @@ Optional:
 
 Read-Only:
 
+- `aws_managed_policy` (Boolean)
 - `description` (String)
 - `id` (Number)
 - `name` (String)
 - `policy` (String)
+- `system_managed_policy` (Boolean)

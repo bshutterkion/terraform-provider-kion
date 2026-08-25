@@ -30,9 +30,11 @@ var (
 
 // listObjectAttrTypes is the schema of an entry inside the `list` attribute.
 var listObjectAttrTypes = map[string]attr.Type{
-	"id":          types.Int64Type,
-	"description": types.StringType,
-	"name":        types.StringType,
+	"id":                    types.Int64Type,
+	"description":           types.StringType,
+	"name":                  types.StringType,
+	"gcp_managed_policy":    types.BoolType,
+	"system_managed_policy": types.BoolType,
 }
 
 // NewGcpIamRoleDataSource returns a new instance of the data source.
@@ -78,6 +80,12 @@ func (d *gcp_iam_roleDataSource) Schema(_ context.Context, _ datasource.SchemaRe
 							Computed: true,
 						},
 						"name": schema.StringAttribute{
+							Computed: true,
+						},
+						"gcp_managed_policy": schema.BoolAttribute{
+							Computed: true,
+						},
+						"system_managed_policy": schema.BoolAttribute{
 							Computed: true,
 						},
 					},
@@ -209,8 +217,10 @@ func fetchAllGcpIamRole(ctx context.Context, conn *generated.Client) ([]generate
 // gcp_iam_roleToRow converts an element into the map filter.Match expects.
 func gcp_iam_roleToRow(lbl generated.GCPRoleWithOwners) map[string]any {
 	row := map[string]any{
-		"description": lbl.GcpRole.Value.Description.Or(""),
-		"name":        lbl.GcpRole.Value.Name.Or(""),
+		"description":           lbl.GcpRole.Value.Description.Or(""),
+		"name":                  lbl.GcpRole.Value.Name.Or(""),
+		"gcp_managed_policy":    lbl.GcpRole.Value.GcpManagedPolicy.Or(false),
+		"system_managed_policy": lbl.GcpRole.Value.SystemManagedPolicy.Or(false),
 	}
 	if lbl.GcpRole.Value.ID.Set {
 		row["id"] = int64(lbl.GcpRole.Value.ID.Value)
@@ -227,9 +237,11 @@ func buildGcpIamRoleList(ctx context.Context, items []generated.GCPRoleWithOwner
 			idVal = types.Int64Value(int64(lbl.GcpRole.Value.ID.Value))
 		}
 		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
-			"id":          idVal,
-			"description": types.StringValue(lbl.GcpRole.Value.Description.Or("")),
-			"name":        types.StringValue(lbl.GcpRole.Value.Name.Or("")),
+			"id":                    idVal,
+			"description":           types.StringValue(lbl.GcpRole.Value.Description.Or("")),
+			"name":                  types.StringValue(lbl.GcpRole.Value.Name.Or("")),
+			"gcp_managed_policy":    types.BoolValue(lbl.GcpRole.Value.GcpManagedPolicy.Or(false)),
+			"system_managed_policy": types.BoolValue(lbl.GcpRole.Value.SystemManagedPolicy.Or(false)),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags

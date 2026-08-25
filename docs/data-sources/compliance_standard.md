@@ -66,3 +66,4 @@ Read-Only:
 - `description` (String)
 - `id` (Number)
 - `name` (String)
+- `system_managed` (Boolean)

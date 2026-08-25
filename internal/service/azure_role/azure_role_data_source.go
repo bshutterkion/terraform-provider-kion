@@ -30,10 +30,13 @@ var (
 
 // listObjectAttrTypes is the schema of an entry inside the `list` attribute.
 var listObjectAttrTypes = map[string]attr.Type{
-	"id":               types.Int64Type,
-	"description":      types.StringType,
-	"name":             types.StringType,
-	"role_permissions": types.StringType,
+	"id":                    types.Int64Type,
+	"description":           types.StringType,
+	"name":                  types.StringType,
+	"role_permissions":      types.StringType,
+	"azure_managed_policy":  types.BoolType,
+	"enabled":               types.BoolType,
+	"system_managed_policy": types.BoolType,
 }
 
 // NewAzureRoleDataSource returns a new instance of the data source.
@@ -85,6 +88,15 @@ func (d *azure_roleDataSource) Schema(_ context.Context, _ datasource.SchemaRequ
 							Computed: true,
 						},
 						"role_permissions": schema.StringAttribute{
+							Computed: true,
+						},
+						"azure_managed_policy": schema.BoolAttribute{
+							Computed: true,
+						},
+						"enabled": schema.BoolAttribute{
+							Computed: true,
+						},
+						"system_managed_policy": schema.BoolAttribute{
 							Computed: true,
 						},
 					},
@@ -218,9 +230,12 @@ func fetchAllAzureRole(ctx context.Context, conn *generated.Client) ([]generated
 // azure_roleToRow converts an element into the map filter.Match expects.
 func azure_roleToRow(lbl generated.AzureRoleWithOwners) map[string]any {
 	row := map[string]any{
-		"description":      lbl.AzureRole.Value.Description.Or(""),
-		"name":             lbl.AzureRole.Value.Name.Or(""),
-		"role_permissions": lbl.AzureRole.Value.RolePermissions.Or(""),
+		"description":           lbl.AzureRole.Value.Description.Or(""),
+		"name":                  lbl.AzureRole.Value.Name.Or(""),
+		"role_permissions":      lbl.AzureRole.Value.RolePermissions.Or(""),
+		"azure_managed_policy":  lbl.AzureRole.Value.AzureManagedPolicy.Or(false),
+		"enabled":               lbl.AzureRole.Value.Enabled.Or(false),
+		"system_managed_policy": lbl.AzureRole.Value.SystemManagedPolicy.Or(false),
 	}
 	if lbl.AzureRole.Value.ID.Set {
 		row["id"] = int64(lbl.AzureRole.Value.ID.Value)
@@ -237,10 +252,13 @@ func buildAzureRoleList(ctx context.Context, items []generated.AzureRoleWithOwne
 			idVal = types.Int64Value(int64(lbl.AzureRole.Value.ID.Value))
 		}
 		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
-			"id":               idVal,
-			"description":      types.StringValue(lbl.AzureRole.Value.Description.Or("")),
-			"name":             types.StringValue(lbl.AzureRole.Value.Name.Or("")),
-			"role_permissions": types.StringValue(lbl.AzureRole.Value.RolePermissions.Or("")),
+			"id":                    idVal,
+			"description":           types.StringValue(lbl.AzureRole.Value.Description.Or("")),
+			"name":                  types.StringValue(lbl.AzureRole.Value.Name.Or("")),
+			"role_permissions":      types.StringValue(lbl.AzureRole.Value.RolePermissions.Or("")),
+			"azure_managed_policy":  types.BoolValue(lbl.AzureRole.Value.AzureManagedPolicy.Or(false)),
+			"enabled":               types.BoolValue(lbl.AzureRole.Value.Enabled.Or(false)),
+			"system_managed_policy": types.BoolValue(lbl.AzureRole.Value.SystemManagedPolicy.Or(false)),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags

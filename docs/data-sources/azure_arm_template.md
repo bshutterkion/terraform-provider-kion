@@ -62,9 +62,11 @@ Optional:
 
 Read-Only:
 
+- `ct_managed` (Boolean)
 - `deployment_mode` (Number)
 - `description` (String)
 - `id` (Number)
+- `is_enabled` (Boolean)
 - `name` (String)
 - `resource_group_name` (String)
 - `resource_group_region_id` (Number)

@@ -36,6 +36,7 @@ var listObjectAttrTypes = map[string]attr.Type{
 	"ct_managed":         types.BoolType,
 	"description":        types.StringType,
 	"name":               types.StringType,
+	"system_managed":     types.BoolType,
 }
 
 // NewComplianceStandardDataSource returns a new instance of the data source.
@@ -99,6 +100,9 @@ func (d *compliance_standardDataSource) Schema(_ context.Context, _ datasource.S
 							Computed: true,
 						},
 						"name": schema.StringAttribute{
+							Computed: true,
+						},
+						"system_managed": schema.BoolAttribute{
 							Computed: true,
 						},
 					},
@@ -241,6 +245,7 @@ func compliance_standardToRow(lbl generated.ComplianceStandard) map[string]any {
 		"ct_managed":         lbl.CtManaged.Or(false),
 		"description":        lbl.Description.Or(""),
 		"name":               lbl.Name.Or(""),
+		"system_managed":     lbl.SystemManaged.Or(false),
 	}
 	if lbl.ID.Set {
 		row["id"] = int64(lbl.ID.Value)
@@ -263,6 +268,7 @@ func buildComplianceStandardList(ctx context.Context, items []generated.Complian
 			"ct_managed":         types.BoolValue(lbl.CtManaged.Or(false)),
 			"description":        types.StringValue(lbl.Description.Or("")),
 			"name":               types.StringValue(lbl.Name.Or("")),
+			"system_managed":     types.BoolValue(lbl.SystemManaged.Or(false)),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags

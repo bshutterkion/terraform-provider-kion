@@ -63,6 +63,7 @@ Optional:
 Read-Only:
 
 - `email` (String)
+- `enabled` (Boolean)
 - `first_name` (String)
 - `id` (Number)
 - `idms_id` (Number)
