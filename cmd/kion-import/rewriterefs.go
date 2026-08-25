@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -46,7 +47,12 @@ import blocks, where "to" and "id" sit together.
 
 Ids whose referent is not managed in this configuration are LEFT AS LITERALS and
 reported. Those are the boundary: users, IDMS, stock permission schemes. Resolve
-them with a data source, a variable, or by importing them too.`,
+them with a data source, a variable, or by importing them too.
+
+Ids whose referent IS managed here but whose reference would close a dependency
+cycle are also left as literals and reported separately. A user names its groups
+and a group names its users, so only one direction can carry the reference;
+Terraform refuses to plan a configuration containing the loop.`,
 		RunE: runRewriteRefs,
 	}
 	cmd.Flags().StringVar(&flagRefImports, "imports", "imports.tf",
@@ -100,12 +106,14 @@ func runRewriteRefs(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-// report prints what was rewritten and, more importantly, what was not. An
-// unresolved reference is not an error -- it is the edge of what this
-// configuration manages -- but it must never be silent, or the operator ends up
-// with literals they believe are references.
+// report prints what was rewritten and, more importantly, what was not. A
+// literal left in place is not an error -- it is either the edge of what this
+// configuration manages, or one side of a relation that can only be expressed
+// once -- but it must never be silent, or the operator ends up with literals
+// they believe are references.
 func report(w io.Writer, res rewriteref.Result) {
 	fmt.Fprintf(w, "%d reference(s) rewritten across %d resource block(s)\n", res.Rewritten, res.Blocks)
+	reportCycles(w, res)
 	if len(res.Unresolved) == 0 {
 		return
 	}
@@ -135,5 +143,43 @@ func report(w io.Writer, res rewriteref.Result) {
 			break
 		}
 		fmt.Fprintf(w, "  %s.%s = %s\n", u.Resource, u.Attr, u.Value)
+	}
+}
+
+// reportCycles prints the literals kept because a reference would have closed a
+// dependency cycle. These read differently from the boundary: the referent IS
+// managed here, so nothing is missing and there is nothing to import. The
+// relation is simply settable from both sides, and Terraform can only be told
+// about one of them.
+func reportCycles(w io.Writer, res rewriteref.Result) {
+	if len(res.Cycles) == 0 {
+		return
+	}
+
+	counts := res.CycleCounts()
+	attrs := make([]string, 0, len(counts))
+	for a := range counts {
+		attrs = append(attrs, a)
+	}
+	sort.Strings(attrs)
+
+	fmt.Fprintf(w, "\n%d reference(s) left as literals -- a reference would be a dependency cycle:\n", len(res.Cycles))
+	for _, a := range attrs {
+		fmt.Fprintf(w, "  %-40s %d\n", a, counts[a])
+	}
+	fmt.Fprintln(w, "\nThese relations are settable from both sides (a user names its groups AND")
+	fmt.Fprintln(w, "a group names its users). The other side already carries the reference, so")
+	fmt.Fprintln(w, "the configuration is complete -- Terraform just refuses to plan a loop.")
+
+	const show = 10
+	fmt.Fprintln(w, "\nFirst few:")
+	for i, c := range res.Cycles {
+		if i == show {
+			fmt.Fprintf(w, "  ... and %d more\n", len(res.Cycles)-show)
+			break
+		}
+		// Path runs Ref -> ... -> Resource; the refused edge closes it back to Ref.
+		fmt.Fprintf(w, "  %s.%s = %s (would close %s -> %s)\n",
+			c.Resource, c.Attr, c.Value, strings.Join(c.Path, " -> "), c.Ref)
 	}
 }

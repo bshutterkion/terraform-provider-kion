@@ -96,6 +96,24 @@ Users, IDMS and stock permission schemes are the common cases — they come from
 an identity provider or ship with the install, so they are rarely yours to
 manage.
 
+**One side of a relation that is settable from both.** A user names its groups
+(`user_group_ids`) and a group names its users (`user_ids`). Both are genuine
+foreign keys, but rewriting both directions closes a loop, and Terraform refuses
+to plan a configuration containing one. Only the first direction offered becomes
+a reference; the other keeps its literal, and is reported separately:
+
+```
+103 reference(s) left as literals -- a reference would be a dependency cycle:
+  kion_user.user_group_ids                 45
+  kion_user_group.user_ids                 57
+  kion_user_group.viewer_user_ids          1
+```
+
+Nothing is missing here and there is nothing to import: the relation is already
+expressed, from the other end. The refusal is per id, so a list keeps every
+reference that was not part of a loop, and which direction wins is fixed by
+block order in the file — the same edge loses on every run.
+
 ### Attributes the read cannot recover
 
 Import can only give a resource what its read returns. A couple of resources
