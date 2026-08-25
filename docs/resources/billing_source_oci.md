@@ -48,7 +48,7 @@ resource "kion_billing_source_oci" "example" {
 - `fingerprint` (String) The api access fingerprint
 - `is_parent_tenancy` (Boolean) Indicates whether the billing source is a parent OCI tenancy.
 - `name` (String) Name of the billing source.
-- `private_key` (String) The private key used for API Access
+- `private_key` (String, Sensitive) The private key used for API Access
 - `region` (String) The OCI default api region
 - `skip_validation` (Boolean) When true, will skip validating the connection to the billing source
 - `tenancy_ocid` (String) The OCID of the tenancy

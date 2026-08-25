@@ -49,14 +49,14 @@ func FundingSourceResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "ID of the top level OU that will receive the funding from this funding source.",
 				MarkdownDescription: "ID of the top level OU that will receive the funding from this funding source.",
 			},
-			"owner_user_group_ids": schema.ListAttribute{
+			"owner_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of groups IDs who will own the funding source. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the funding source. Is required if no owner user IDs are listed.",
 			},
-			"owner_user_ids": schema.ListAttribute{
+			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -85,8 +85,8 @@ type FundingSourceModel struct {
 	Id                 types.String  `tfsdk:"id"`
 	Name               types.String  `tfsdk:"name"`
 	OuId               types.Int64   `tfsdk:"ou_id"`
-	OwnerUserGroupIds  types.List    `tfsdk:"owner_user_group_ids"`
-	OwnerUserIds       types.List    `tfsdk:"owner_user_ids"`
+	OwnerUserGroupIds  types.Set     `tfsdk:"owner_user_group_ids"`
+	OwnerUserIds       types.Set     `tfsdk:"owner_user_ids"`
 	PermissionSchemeId types.Int64   `tfsdk:"permission_scheme_id"`
 	StartDatecode      types.String  `tfsdk:"start_datecode"`
 }

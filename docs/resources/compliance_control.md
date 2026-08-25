@@ -42,13 +42,13 @@ resource "kion_compliance_control" "example" {
 
 ### Optional
 
-- `arm_template_definition_ids` (List of Number) ARMTemplateDefinitionIDs is a set of ARM template ids applied to the control.
-- `aws_cloudformation_policy_ids` (List of Number) AWSCloudformationPolicyIDs is a set of AWS cloudformation policy ids applied to the control.
-- `azure_policy_definition_ids` (List of Number) AzurePolicyDefinitionIDs is a set of Azure policy ids applied to the control.
-- `cloud_provider_policy_ids` (List of Number) CloudProviderPolicyIDs is a set of cloud provider policy ids applied to the control.
-- `compliance_check_ids` (List of Number) ComplianceCheckIDs is a set of compliance check ids applied to the control.
+- `arm_template_definition_ids` (Set of Number) ARMTemplateDefinitionIDs is a set of ARM template ids applied to the control.
+- `aws_cloudformation_policy_ids` (Set of Number) AWSCloudformationPolicyIDs is a set of AWS cloudformation policy ids applied to the control.
+- `azure_policy_definition_ids` (Set of Number) AzurePolicyDefinitionIDs is a set of Azure policy ids applied to the control.
+- `cloud_provider_policy_ids` (Set of Number) CloudProviderPolicyIDs is a set of cloud provider policy ids applied to the control.
+- `compliance_check_ids` (Set of Number) ComplianceCheckIDs is a set of compliance check ids applied to the control.
 - `compliance_family_id` (Number) Description for the compliance control in the application.
-- `compliance_levels` (List of Number) ComplianceLevels is a set of levels to which the control belongs.
+- `compliance_levels` (Set of Number) ComplianceLevels is a set of levels to which the control belongs.
 - `control_number` (Number) ControlNumber of the compliance control in the application.
 - `description` (String) Description for the compliance control in the application.
 - `name` (String) Name of the compliance control in the application.

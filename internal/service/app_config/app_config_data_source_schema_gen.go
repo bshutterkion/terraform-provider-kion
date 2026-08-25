@@ -127,6 +127,7 @@ func AppConfigDataSourceSchema(ctx context.Context) schema.Schema {
 					},
 					"smtp_password": schema.StringAttribute{
 						Computed:            true,
+						Sensitive:           true,
 						Description:         "The SMTP password.",
 						MarkdownDescription: "The SMTP password.",
 					},

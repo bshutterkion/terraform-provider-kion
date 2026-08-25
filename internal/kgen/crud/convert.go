@@ -102,16 +102,29 @@ func flattenConverter(f Field) (string, bool) {
 // the ogen nil-aware wrapper (OptNil<T>Array) when the field is wrapped — the
 // expand result is boxed as generated.<wrap>{Value: v, Set: true} and the
 // flatten source reads its .Value; wrap is "" for a bare slice.
-func sliceConverter(sdkType string) (expand, flatten, wrap string, ok bool) {
+// tfType is the Terraform model field's Go type ("types.List" or "types.Set").
+// Association id attributes are sets — see applyAssociationSetDefault in
+// internal/kgen/schemas — and a set needs different flex helpers from a list, so
+// the converter has to be chosen from the TERRAFORM type, not only the SDK one.
+// Keying on the SDK type alone emitted list helpers for set-typed fields, which
+// does not compile.
+func sliceConverter(sdkType, tfType string) (expand, flatten, wrap string, ok bool) {
+	set := tfType == "types.Set"
+	pick := func(base, wrap string) (string, string, string, bool) {
+		if set {
+			return "flex." + base + "SliceFromFrameworkSet", "flex." + base + "SliceToFrameworkSet", wrap, true
+		}
+		return "flex." + base + "SliceFromFramework", "flex." + base + "SliceToFramework", wrap, true
+	}
 	switch sdkType {
 	case "[]uint64":
-		return "flex.Uint64SliceFromFramework", "flex.Uint64SliceToFramework", "", true
+		return pick("Uint64", "")
 	case "[]string":
-		return "flex.StringSliceFromFramework", "flex.StringSliceToFramework", "", true
+		return pick("String", "")
 	case "OptNilUint64Array":
-		return "flex.Uint64SliceFromFramework", "flex.Uint64SliceToFramework", "OptNilUint64Array", true
+		return pick("Uint64", "OptNilUint64Array")
 	case "OptNilStringArray":
-		return "flex.StringSliceFromFramework", "flex.StringSliceToFramework", "OptNilStringArray", true
+		return pick("String", "OptNilStringArray")
 	}
 	return "", "", "", false
 }

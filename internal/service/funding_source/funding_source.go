@@ -56,9 +56,9 @@ func (r *funding_sourceResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserGroupIds)
+	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserGroupIds)
 	resp.Diagnostics.Append(ownerUserGroupIdsDiags...)
-	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserIds)
+	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserIds)
 	resp.Diagnostics.Append(ownerUserIdsDiags...)
 	if resp.Diagnostics.HasError() {
 		return

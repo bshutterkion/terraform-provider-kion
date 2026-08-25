@@ -14,28 +14,28 @@ import (
 func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"automation_policy_ids": schema.ListAttribute{
+			"automation_policy_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of Automation Policies attached to the Cloud Rule",
 				MarkdownDescription: "List of Automation Policies attached to the Cloud Rule",
 			},
-			"azure_arm_template_definition_ids": schema.ListAttribute{
+			"azure_arm_template_definition_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of Azure ARM template definition IDs to attach to the Cloud Rule.",
 				MarkdownDescription: "List of Azure ARM template definition IDs to attach to the Cloud Rule.",
 			},
-			"azure_policy_definition_ids": schema.ListAttribute{
+			"azure_policy_definition_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of Azure Policy IDs to attach to the Cloud Rule.",
 				MarkdownDescription: "List of Azure Policy IDs to attach to the Cloud Rule.",
 			},
-			"azure_role_definition_ids": schema.ListAttribute{
+			"azure_role_definition_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -47,14 +47,14 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Whether the cloud rule is built in.",
 				MarkdownDescription: "Whether the cloud rule is built in.",
 			},
-			"cft_ids": schema.ListAttribute{
+			"cft_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of CloudFormation template IDs to attach to the Cloud Rule.",
 				MarkdownDescription: "List of CloudFormation template IDs to attach to the Cloud Rule.",
 			},
-			"compliance_standard_ids": schema.ListAttribute{
+			"compliance_standard_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -73,14 +73,14 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Description of the Cloud Rule in more detail.",
 				MarkdownDescription: "Description of the Cloud Rule in more detail.",
 			},
-			"gcp_iam_role_ids": schema.ListAttribute{
+			"gcp_iam_role_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of Google Cloud IAM role IDs to attach to the Cloud Rule.",
 				MarkdownDescription: "List of Google Cloud IAM role IDs to attach to the Cloud Rule.",
 			},
-			"iam_policy_ids": schema.ListAttribute{
+			"iam_policy_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -95,14 +95,14 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"internal_ami_ids": schema.ListAttribute{
+			"internal_ami_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of AMIs to attach to the Cloud Rule.",
 				MarkdownDescription: "List of AMIs to attach to the Cloud Rule.",
 			},
-			"internal_portfolio_ids": schema.ListAttribute{
+			"internal_portfolio_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -127,21 +127,21 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Name of the Cloud Rule in the application.",
 				MarkdownDescription: "Name of the Cloud Rule in the application.",
 			},
-			"ou_ids": schema.ListAttribute{
+			"ou_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of OUs where the Cloud Rule will be applied.",
 				MarkdownDescription: "List of OUs where the Cloud Rule will be applied.",
 			},
-			"owner_user_group_ids": schema.ListAttribute{
+			"owner_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of groups that own the Cloud Rule.",
 				MarkdownDescription: "List of groups that own the Cloud Rule.",
 			},
-			"owner_user_ids": schema.ListAttribute{
+			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -160,14 +160,14 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "ID of a pre-rule webhook to attach to the Cloud Rule.",
 				MarkdownDescription: "ID of a pre-rule webhook to attach to the Cloud Rule.",
 			},
-			"project_ids": schema.ListAttribute{
+			"project_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of projects where the Cloud Rule will be applied.",
 				MarkdownDescription: "List of projects where the Cloud Rule will be applied.",
 			},
-			"service_control_policy_ids": schema.ListAttribute{
+			"service_control_policy_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -186,29 +186,29 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 }
 
 type CloudRuleModel struct {
-	AutomationPolicyIds           types.List   `tfsdk:"automation_policy_ids"`
-	AzureArmTemplateDefinitionIds types.List   `tfsdk:"azure_arm_template_definition_ids"`
-	AzurePolicyDefinitionIds      types.List   `tfsdk:"azure_policy_definition_ids"`
-	AzureRoleDefinitionIds        types.List   `tfsdk:"azure_role_definition_ids"`
+	AutomationPolicyIds           types.Set    `tfsdk:"automation_policy_ids"`
+	AzureArmTemplateDefinitionIds types.Set    `tfsdk:"azure_arm_template_definition_ids"`
+	AzurePolicyDefinitionIds      types.Set    `tfsdk:"azure_policy_definition_ids"`
+	AzureRoleDefinitionIds        types.Set    `tfsdk:"azure_role_definition_ids"`
 	BuiltIn                       types.Bool   `tfsdk:"built_in"`
-	CftIds                        types.List   `tfsdk:"cft_ids"`
-	ComplianceStandardIds         types.List   `tfsdk:"compliance_standard_ids"`
+	CftIds                        types.Set    `tfsdk:"cft_ids"`
+	ComplianceStandardIds         types.Set    `tfsdk:"compliance_standard_ids"`
 	ConcurrentCftSync             types.Bool   `tfsdk:"concurrent_cft_sync"`
 	Description                   types.String `tfsdk:"description"`
-	GcpIamRoleIds                 types.List   `tfsdk:"gcp_iam_role_ids"`
-	IamPolicyIds                  types.List   `tfsdk:"iam_policy_ids"`
+	GcpIamRoleIds                 types.Set    `tfsdk:"gcp_iam_role_ids"`
+	IamPolicyIds                  types.Set    `tfsdk:"iam_policy_ids"`
 	Id                            types.String `tfsdk:"id"`
-	InternalAmiIds                types.List   `tfsdk:"internal_ami_ids"`
-	InternalPortfolioIds          types.List   `tfsdk:"internal_portfolio_ids"`
+	InternalAmiIds                types.Set    `tfsdk:"internal_ami_ids"`
+	InternalPortfolioIds          types.Set    `tfsdk:"internal_portfolio_ids"`
 	Labels                        types.Map    `tfsdk:"labels"`
 	LastUpdated                   types.String `tfsdk:"last_updated"`
 	Name                          types.String `tfsdk:"name"`
-	OuIds                         types.List   `tfsdk:"ou_ids"`
-	OwnerUserGroupIds             types.List   `tfsdk:"owner_user_group_ids"`
-	OwnerUserIds                  types.List   `tfsdk:"owner_user_ids"`
+	OuIds                         types.Set    `tfsdk:"ou_ids"`
+	OwnerUserGroupIds             types.Set    `tfsdk:"owner_user_group_ids"`
+	OwnerUserIds                  types.Set    `tfsdk:"owner_user_ids"`
 	PostWebhookId                 types.Int64  `tfsdk:"post_webhook_id"`
 	PreWebhookId                  types.Int64  `tfsdk:"pre_webhook_id"`
-	ProjectIds                    types.List   `tfsdk:"project_ids"`
-	ServiceControlPolicyIds       types.List   `tfsdk:"service_control_policy_ids"`
+	ProjectIds                    types.Set    `tfsdk:"project_ids"`
+	ServiceControlPolicyIds       types.Set    `tfsdk:"service_control_policy_ids"`
 	Source                        types.String `tfsdk:"source"`
 }

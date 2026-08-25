@@ -51,14 +51,14 @@ func OuResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Name of the OU in the application.",
 				MarkdownDescription: "Name of the OU in the application.",
 			},
-			"owner_user_group_ids": schema.ListAttribute{
+			"owner_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of groups IDs who will own the ou. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the ou. Is required if no owner user IDs are listed.",
 			},
-			"owner_user_ids": schema.ListAttribute{
+			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -87,8 +87,8 @@ type OuModel struct {
 	Labels             types.Map    `tfsdk:"labels"`
 	LastUpdated        types.String `tfsdk:"last_updated"`
 	Name               types.String `tfsdk:"name"`
-	OwnerUserGroupIds  types.List   `tfsdk:"owner_user_group_ids"`
-	OwnerUserIds       types.List   `tfsdk:"owner_user_ids"`
+	OwnerUserGroupIds  types.Set    `tfsdk:"owner_user_group_ids"`
+	OwnerUserIds       types.Set    `tfsdk:"owner_user_ids"`
 	ParentOuId         types.Int64  `tfsdk:"parent_ou_id"`
 	PermissionSchemeId types.Int64  `tfsdk:"permission_scheme_id"`
 }

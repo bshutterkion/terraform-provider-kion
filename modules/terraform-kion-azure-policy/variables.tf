@@ -8,12 +8,12 @@ variable "azure_policy" {
 
 variable "owner_user_groups" {
   description = "List of user group IDs that will be owners of the azure policy."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "owner_users" {
   description = "List of user IDs that will be owners of the azure policy."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }

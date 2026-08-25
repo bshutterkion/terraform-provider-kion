@@ -172,14 +172,14 @@ func ProjectResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "ID of the OU containing the project.",
 				MarkdownDescription: "ID of the OU containing the project.",
 			},
-			"owner_user_group_ids": schema.ListAttribute{
+			"owner_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of groups IDs who will own the project. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the project. Is required if no owner user IDs are listed.",
 			},
-			"owner_user_ids": schema.ListAttribute{
+			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -251,8 +251,8 @@ type ProjectModel struct {
 	MoveOuSettings     types.Set    `tfsdk:"move_ou_settings"`
 	Name               types.String `tfsdk:"name"`
 	OuId               types.Int64  `tfsdk:"ou_id"`
-	OwnerUserGroupIds  types.List   `tfsdk:"owner_user_group_ids"`
-	OwnerUserIds       types.List   `tfsdk:"owner_user_ids"`
+	OwnerUserGroupIds  types.Set    `tfsdk:"owner_user_group_ids"`
+	OwnerUserIds       types.Set    `tfsdk:"owner_user_ids"`
 	PermissionSchemeId types.Int64  `tfsdk:"permission_scheme_id"`
 	ProjectFunding     types.List   `tfsdk:"project_funding"`
 }

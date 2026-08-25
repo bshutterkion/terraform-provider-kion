@@ -39,11 +39,11 @@ resource "kion_compliance_standard" "example" {
 ### Optional
 
 - `cloud_rule_id` (Number) Cloud Rule ID the Compliance Standard should be added to
-- `compliance_check_ids` (List of Number) List of compliance checks associated with the compliance standard
+- `compliance_check_ids` (Set of Number) List of compliance checks associated with the compliance standard
 - `description` (String) Description for the Compliance Standard in the application.
 - `last_updated` (String) The last time this resource was updated.
-- `owner_user_group_ids` (List of Number) List of groups IDs who will own the Compliance Standard. Is required if no owner user IDs are listed.
-- `owner_user_ids` (List of Number) List of user IDs who will own the Compliance Standard. Is required if no owner group IDs are listed.
+- `owner_user_group_ids` (Set of Number) List of groups IDs who will own the Compliance Standard. Is required if no owner user IDs are listed.
+- `owner_user_ids` (Set of Number) List of user IDs who will own the Compliance Standard. Is required if no owner group IDs are listed.
 
 ### Read-Only
 

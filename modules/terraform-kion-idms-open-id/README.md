@@ -50,7 +50,7 @@ No modules.
 | last\_name\_claim | LastNameClaim defines an optional mapping of an OpenID claim value to a user's last name attribute in Kion | `string` | `null` | no |
 | name | Name of the OpenID in the application. | `string` | `null` | no |
 | phone\_claim | PhoneClaim defines an optional mapping of an OpenID claim value to a user's phone attribute in Kion | `string` | `null` | no |
-| scopes | Scopes define the claim variables that an OpenID provider will include in an auth request. Specifics depend on the OpenID provider. | `list(string)` | `null` | no |
+| scopes | Scopes define the claim variables that an OpenID provider will include in an auth request. Specifics depend on the OpenID provider. | `set(string)` | `null` | no |
 | username\_claim | UsernameClaim defines an optional mapping of an OpenID claim value to a user's username attribute in Kion. Required to uniquely identify users | `string` | `null` | no |
 
 ## Outputs

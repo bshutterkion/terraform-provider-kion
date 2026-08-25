@@ -44,8 +44,8 @@ resource "kion_webhook" "example" {
 ### Optional
 
 - `description` (String) Description for the webhook in the application.
-- `owner_user_group_ids` (List of Number) List of groups IDs who will own the webhook. Is required if no owner user IDs are listed.
-- `owner_user_ids` (List of Number) List of user IDs who will own the webhook. Is required if no owner group IDs are listed.
+- `owner_user_group_ids` (Set of Number) List of groups IDs who will own the webhook. Is required if no owner user IDs are listed.
+- `owner_user_ids` (Set of Number) List of user IDs who will own the webhook. Is required if no owner group IDs are listed.
 - `request_body` (String) HTTP request payload body to use when the webhook is triggered.
 - `request_headers` (String) HTTP headers to use when the webhook is triggered.
 - `request_method` (String) HTTP request method to use when the webhook is triggered.

@@ -53,8 +53,8 @@ No modules.
 | description | Description for the project in the application. | `string` | `null` | no |
 | labels | The labels applied to the project. | `map(string)` | `null` | no |
 | move\_ou\_settings | Settings applied when moving the project between OUs. | `set(object({ cloud_rule_setting = optional(string), financial_setting = optional(string) }))` | `null` | no |
-| owner\_user\_group\_ids | List of groups IDs who will own the project. Is required if no owner user IDs are listed. | `list(number)` | `null` | no |
-| owner\_user\_ids | List of user IDs who will own the project. Is required if no owner group IDs are listed. | `list(number)` | `null` | no |
+| owner\_user\_group\_ids | List of groups IDs who will own the project. Is required if no owner user IDs are listed. | `set(number)` | `null` | no |
+| owner\_user\_ids | List of user IDs who will own the project. Is required if no owner group IDs are listed. | `set(number)` | `null` | no |
 | project\_funding | n/a | `list(object({ amount = optional(number), end_datecode = optional(string), funding_order = optional(number), funding_source_id = optional(number), start_datecode = optional(string) }))` | `null` | no |
 
 ## Outputs

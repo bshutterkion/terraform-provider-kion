@@ -47,7 +47,7 @@ resource "kion_gcp_service_account" "example" {
 - `disabled` (Boolean) Disabled is true if the service account is disabled with GCP
 - `display_name` (String) DisplayName is a human-friendly name for the service account
 - `oauth_client_id` (String) OAuthClientID is the client id for an oauth client in the service account's project
-- `oauth_client_secret` (String) OAuthClientSecret is the client secret for an oauth client in the service account's project
+- `oauth_client_secret` (String, Sensitive) OAuthClientSecret is the client secret for an oauth client in the service account's project
 
 ### Read-Only
 

@@ -49,8 +49,8 @@ Use endpoint /v3/cloud-rule to get a list of valid cloud rules and IDs.
 - `overburn` (Boolean) Flag that specifies if enforcement will place project in a overburn state when triggered. Options are: true, false.
 - `spend_option` (String) Type of spend option.
 Valid values are "spend", "remaining".
-- `ugroup_ids` (List of Number) List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed.
-- `user_ids` (List of Number) List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed.
+- `ugroup_ids` (Set of Number) List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed.
+- `user_ids` (Set of Number) List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed.
 
 ### Read-Only
 

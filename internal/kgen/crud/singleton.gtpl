@@ -10,7 +10,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
@@ -45,65 +44,12 @@ func (r *appConfigResource) Metadata(_ context.Context, req resource.MetadataReq
 	resp.TypeName = req.ProviderTypeName + "_app_config"
 }
 
-func (r *appConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	// App config is a workspace-wide singleton: there is a single record patched
-	// in place (no create/delete). Every attribute is Optional+Computed so a
-	// configuration may manage only the settings it cares about while the server
-	// value is retained (without perpetual diff) for the rest.
-	boolAttr := func(desc string) schema.Attribute {
-		return schema.BoolAttribute{Description: desc, Optional: true, Computed: true}
-	}
-	int64Attr := func(desc string) schema.Attribute {
-		return schema.Int64Attribute{Description: desc, Optional: true, Computed: true}
-	}
-	stringAttr := func(desc string) schema.Attribute {
-		return schema.StringAttribute{Description: desc, Optional: true, Computed: true}
-	}
-	resp.Schema = schema.Schema{
-		Description: "Manages the Kion App Config (workspace-wide application settings singleton).",
-		Attributes: map[string]schema.Attribute{
-			"id": schema.StringAttribute{
-				Description: "Static identifier for the app-config singleton.",
-				Computed:    true,
-			},
-			"all_users_see_ou_names":             boolAttr("Indicates whether all users can see the names of OU's in the organization chart."),
-			"allocation_mode":                    boolAttr("Indicates if allocation mode is enabled in the application."),
-			"allow_custom_permission_schemes":    boolAttr("Indicates whether custom permission schemes are allowed or not."),
-			"app_api_key_creation_enabled":       boolAttr("Indicates if App API Key creation is enabled."),
-			"app_api_key_lifespan":               int64Attr("Indicates the lifespan of App API Keys in days."),
-			"app_api_key_limit":                  int64Attr("Indicates the max amount of App API Keys per user."),
-			"aws_access_key_creation_enabled":    boolAttr("Indicates whether AWS access keys creation is enabled."),
-			"budget_mode":                        boolAttr("Indicates if budget mode is enabled in the application."),
-			"cloud_rule_group_ownership_only":    boolAttr("Indicates if cloud rules are restricted to User Group ownership only. Setting this to true will remove all users from cloud rules. This cannot be undone."),
-			"cost_savings_allow_terminate":       boolAttr("Indicates whether resource termination is allowed in-app."),
-			"cost_savings_enabled":               boolAttr("Indicates whether Cost Savings is enabled or not."),
-			"cost_savings_post_token_life_hours": int64Attr("Post token life (hours) for Cloud Custodian webhook actions to execute."),
-			"default_org_chart_view":             stringAttr("Defines the default organization chart view."),
-			"enforce_funding":                    boolAttr("Indicates whether spend plans or budgets must be created on all projects."),
-			"enforce_funding_sources":            boolAttr("Indicates whether every project should have a funding source."),
-			"event_driven_enabled":               boolAttr("Indicates whether event driven is enabled or not."),
-			"reserved_instances_enabled":         boolAttr("Indicates whether reserved instances are enabled or not."),
-			"resource_inventory_enabled":         boolAttr("Indicates whether resource inventory is enabled or not."),
-			"smtp_enabled":                       boolAttr("Indicates whether SMTP is enabled or not."),
-			"smtp_from":                          stringAttr("The SMTP from address."),
-			"smtp_host":                          stringAttr("The SMTP host."),
-			"smtp_password": schema.StringAttribute{
-				Description: "The SMTP password.",
-				Optional:    true,
-				Computed:    true,
-				Sensitive:   true,
-			},
-			"smtp_port":        int64Attr("The SMTP port."),
-			"smtp_skip_verify": boolAttr("Indicates if the app should skip SMTP verification."),
-			"smtp_username":    stringAttr("The SMTP username."),
-			"supported_aws_regions": schema.ListAttribute{
-				Description: "The list of supported AWS regions.",
-				Optional:    true,
-				Computed:    true,
-				ElementType: types.StringType,
-			},
-		},
-	}
+func (r *appConfigResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	// Schema comes from app_config_schema_gen.go, generated from the OpenAPI spec
+	// plus codegen/schema_overrides.yaml. It was previously duplicated here by
+	// hand, so the generated file was dead code and the two could drift without
+	// anything failing.
+	resp.Schema = AppConfigResourceSchema(ctx)
 }
 
 func (r *appConfigResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -196,7 +142,7 @@ func (r *appConfigResource) apply(ctx context.Context, model *appConfigResourceM
 		SMTPUsername:                  flex.OptStringFromFramework(model.SMTPUsername),
 	}
 	if !model.SupportedAWSRegions.IsNull() && !model.SupportedAWSRegions.IsUnknown() {
-		regions, rd := flex.StringSliceFromFramework(ctx, model.SupportedAWSRegions)
+		regions, rd := flex.StringSliceFromFrameworkSet(ctx, model.SupportedAWSRegions)
 		diags.Append(rd...)
 		if diags.HasError() {
 			return diags
@@ -259,7 +205,7 @@ func flattenAppConfig(apiObject any, model *appConfigResourceModel) diag.Diagnos
 	model.SMTPSkipVerify = flex.OptNilBoolToFramework(ac.SMTPSkipVerify)
 	model.SMTPUsername = flex.OptStringToFramework(ac.SMTPUsername)
 
-	regions, rd := flex.StringSliceToFramework(context.Background(), ac.SupportedAWSRegions.Value)
+	regions, rd := flex.StringSliceToFrameworkSet(context.Background(), ac.SupportedAWSRegions.Value)
 	diags.Append(rd...)
 	model.SupportedAWSRegions = regions
 
@@ -293,5 +239,5 @@ type appConfigResourceModel struct {
 	SMTPPort                     types.Int64  `tfsdk:"smtp_port"`
 	SMTPSkipVerify               types.Bool   `tfsdk:"smtp_skip_verify"`
 	SMTPUsername                 types.String `tfsdk:"smtp_username"`
-	SupportedAWSRegions          types.List   `tfsdk:"supported_aws_regions"`
+	SupportedAWSRegions          types.Set    `tfsdk:"supported_aws_regions"`
 }

@@ -49,7 +49,7 @@ func ProjectEnforcementResourceSchema(ctx context.Context) schema.Schema {
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"notification_emails": schema.ListAttribute{
+			"notification_emails": schema.SetAttribute{
 				ElementType:         types.StringType,
 				Optional:            true,
 				Computed:            true,
@@ -110,14 +110,14 @@ func ProjectEnforcementResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Whether the enforcement has been triggered.",
 				MarkdownDescription: "Whether the enforcement has been triggered.",
 			},
-			"user_group_ids": schema.ListAttribute{
+			"user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed.",
 				MarkdownDescription: "List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed.",
 			},
-			"user_ids": schema.ListAttribute{
+			"user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -135,7 +135,7 @@ type ProjectEnforcementModel struct {
 	Description           types.String `tfsdk:"description"`
 	Enabled               types.Bool   `tfsdk:"enabled"`
 	Id                    types.String `tfsdk:"id"`
-	NotificationEmails    types.List   `tfsdk:"notification_emails"`
+	NotificationEmails    types.Set    `tfsdk:"notification_emails"`
 	NotificationFrequency types.String `tfsdk:"notification_frequency"`
 	Overburn              types.Bool   `tfsdk:"overburn"`
 	ProjectId             types.Int64  `tfsdk:"project_id"`
@@ -145,6 +145,6 @@ type ProjectEnforcementModel struct {
 	ThresholdType         types.String `tfsdk:"threshold_type"`
 	Timeframe             types.String `tfsdk:"timeframe"`
 	Triggered             types.Bool   `tfsdk:"triggered"`
-	UserGroupIds          types.List   `tfsdk:"user_group_ids"`
-	UserIds               types.List   `tfsdk:"user_ids"`
+	UserGroupIds          types.Set    `tfsdk:"user_group_ids"`
+	UserIds               types.Set    `tfsdk:"user_ids"`
 }

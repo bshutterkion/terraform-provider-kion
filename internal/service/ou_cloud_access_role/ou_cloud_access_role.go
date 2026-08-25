@@ -69,15 +69,15 @@ func (r *ou_cloud_access_roleResource) Create(ctx context.Context, req resource.
 			TagValue:            flex.OptStringFromFramework(elem.TagValue),
 		})
 	}
-	aWSIamPolicies, aWSIamPoliciesDiags := flex.Uint64SliceFromFramework(ctx, plan.AwsIamPolicies)
+	aWSIamPolicies, aWSIamPoliciesDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.AwsIamPolicies)
 	resp.Diagnostics.Append(aWSIamPoliciesDiags...)
-	azureRoleDefinitions, azureRoleDefinitionsDiags := flex.Uint64SliceFromFramework(ctx, plan.AzureRoleDefinitions)
+	azureRoleDefinitions, azureRoleDefinitionsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.AzureRoleDefinitions)
 	resp.Diagnostics.Append(azureRoleDefinitionsDiags...)
-	gcpIamRoles, gcpIamRolesDiags := flex.Uint64SliceFromFramework(ctx, plan.GcpIamRoles)
+	gcpIamRoles, gcpIamRolesDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.GcpIamRoles)
 	resp.Diagnostics.Append(gcpIamRolesDiags...)
-	userGroupIds, userGroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.UserGroupIds)
+	userGroupIds, userGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserGroupIds)
 	resp.Diagnostics.Append(userGroupIdsDiags...)
-	userIds, userIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.UserIds)
+	userIds, userIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserIds)
 	resp.Diagnostics.Append(userIdsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -223,8 +223,8 @@ func (r *ou_cloud_access_roleResource) Update(ctx context.Context, req resource.
 
 	// Sync associations: the update body carries none, so diff prior state vs
 	// plan per id-list and add/remove via the bulk associations endpoints.
-	assocAddUserGroupIds, assocRemoveUserGroupIds := flex.Uint64ListDiff(ctx, state.UserGroupIds, plan.UserGroupIds, &resp.Diagnostics)
-	assocAddUserIds, assocRemoveUserIds := flex.Uint64ListDiff(ctx, state.UserIds, plan.UserIds, &resp.Diagnostics)
+	assocAddUserGroupIds, assocRemoveUserGroupIds := flex.Uint64SetDiff(ctx, state.UserGroupIds, plan.UserGroupIds, &resp.Diagnostics)
+	assocAddUserIds, assocRemoveUserIds := flex.Uint64SetDiff(ctx, state.UserIds, plan.UserIds, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -331,7 +331,7 @@ func flattenOuCloudAccessRole(ctx context.Context, apiObject any, model *OuCloud
 					aWSIamPoliciesIDs = append(aWSIamPoliciesIDs, int64(elem.ID.Value))
 				}
 			}
-			aWSIamPoliciesIDsColl, aWSIamPoliciesIDsCD := types.ListValueFrom(ctx, types.Int64Type, aWSIamPoliciesIDs)
+			aWSIamPoliciesIDsColl, aWSIamPoliciesIDsCD := types.SetValueFrom(ctx, types.Int64Type, aWSIamPoliciesIDs)
 			diags.Append(aWSIamPoliciesIDsCD...)
 			model.AwsIamPolicies = aWSIamPoliciesIDsColl
 			var azureRoleDefinitionsIDs []int64
@@ -340,7 +340,7 @@ func flattenOuCloudAccessRole(ctx context.Context, apiObject any, model *OuCloud
 					azureRoleDefinitionsIDs = append(azureRoleDefinitionsIDs, int64(elem.ID.Value))
 				}
 			}
-			azureRoleDefinitionsIDsColl, azureRoleDefinitionsIDsCD := types.ListValueFrom(ctx, types.Int64Type, azureRoleDefinitionsIDs)
+			azureRoleDefinitionsIDsColl, azureRoleDefinitionsIDsCD := types.SetValueFrom(ctx, types.Int64Type, azureRoleDefinitionsIDs)
 			diags.Append(azureRoleDefinitionsIDsCD...)
 			model.AzureRoleDefinitions = azureRoleDefinitionsIDsColl
 			var gcpIamRolesIDs []int64
@@ -349,7 +349,7 @@ func flattenOuCloudAccessRole(ctx context.Context, apiObject any, model *OuCloud
 					gcpIamRolesIDs = append(gcpIamRolesIDs, int64(elem.ID.Value))
 				}
 			}
-			gcpIamRolesIDsColl, gcpIamRolesIDsCD := types.ListValueFrom(ctx, types.Int64Type, gcpIamRolesIDs)
+			gcpIamRolesIDsColl, gcpIamRolesIDsCD := types.SetValueFrom(ctx, types.Int64Type, gcpIamRolesIDs)
 			diags.Append(gcpIamRolesIDsCD...)
 			model.GcpIamRoles = gcpIamRolesIDsColl
 			var userGroupsIDs []int64
@@ -358,7 +358,7 @@ func flattenOuCloudAccessRole(ctx context.Context, apiObject any, model *OuCloud
 					userGroupsIDs = append(userGroupsIDs, int64(elem.ID.Value))
 				}
 			}
-			userGroupsIDsColl, userGroupsIDsCD := types.ListValueFrom(ctx, types.Int64Type, userGroupsIDs)
+			userGroupsIDsColl, userGroupsIDsCD := types.SetValueFrom(ctx, types.Int64Type, userGroupsIDs)
 			diags.Append(userGroupsIDsCD...)
 			model.UserGroupIds = userGroupsIDsColl
 			var usersIDs []int64
@@ -367,7 +367,7 @@ func flattenOuCloudAccessRole(ctx context.Context, apiObject any, model *OuCloud
 					usersIDs = append(usersIDs, int64(elem.ID.Value))
 				}
 			}
-			usersIDsColl, usersIDsCD := types.ListValueFrom(ctx, types.Int64Type, usersIDs)
+			usersIDsColl, usersIDsCD := types.SetValueFrom(ctx, types.Int64Type, usersIDs)
 			diags.Append(usersIDsCD...)
 			model.UserIds = usersIDsColl
 			if v.Data.Value.AWSIamPermissionsBoundary.Set {

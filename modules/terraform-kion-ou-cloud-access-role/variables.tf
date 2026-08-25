@@ -14,7 +14,7 @@ variable "aws_iam_permissions_boundary" {
 
 variable "aws_iam_policies" {
   description = "IDs of the AWS IAM policies attached to this role."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
@@ -32,13 +32,13 @@ variable "aws_session_tags" {
 
 variable "azure_role_definitions" {
   description = "IDs of the Azure Role Definitions attached to this role."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "gcp_iam_roles" {
   description = "IDs of the GCP IAM roles attached to this role."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
@@ -66,13 +66,13 @@ variable "short_term_access_keys" {
 
 variable "user_group_ids" {
   description = "IDs of the user groups allowed to use this role to access the AWS console."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "user_ids" {
   description = "IDs of the users allowed to use this role to access the AWS console."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 

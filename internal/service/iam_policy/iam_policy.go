@@ -56,13 +56,13 @@ func (r *iam_policyResource) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
-	carRestrictedUserGroupIds, carRestrictedUserGroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.CarRestrictedUserGroupIds)
+	carRestrictedUserGroupIds, carRestrictedUserGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.CarRestrictedUserGroupIds)
 	resp.Diagnostics.Append(carRestrictedUserGroupIdsDiags...)
-	carRestrictedUserIds, carRestrictedUserIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.CarRestrictedUserIds)
+	carRestrictedUserIds, carRestrictedUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.CarRestrictedUserIds)
 	resp.Diagnostics.Append(carRestrictedUserIdsDiags...)
-	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserGroupIds)
+	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserGroupIds)
 	resp.Diagnostics.Append(ownerUserGroupIdsDiags...)
-	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserIds)
+	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserIds)
 	resp.Diagnostics.Append(ownerUserIdsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -247,7 +247,7 @@ func flattenIamPolicy(ctx context.Context, apiObject any, model *IamPolicyModel)
 					ownerUserGroupsIDs = append(ownerUserGroupsIDs, int64(elem.ID.Value))
 				}
 			}
-			ownerUserGroupsIDsColl, ownerUserGroupsIDsCD := types.ListValueFrom(ctx, types.Int64Type, ownerUserGroupsIDs)
+			ownerUserGroupsIDsColl, ownerUserGroupsIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUserGroupsIDs)
 			diags.Append(ownerUserGroupsIDsCD...)
 			model.OwnerUserGroupIds = ownerUserGroupsIDsColl
 			var ownerUsersIDs []int64
@@ -256,7 +256,7 @@ func flattenIamPolicy(ctx context.Context, apiObject any, model *IamPolicyModel)
 					ownerUsersIDs = append(ownerUsersIDs, int64(elem.ID.Value))
 				}
 			}
-			ownerUsersIDsColl, ownerUsersIDsCD := types.ListValueFrom(ctx, types.Int64Type, ownerUsersIDs)
+			ownerUsersIDsColl, ownerUsersIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUsersIDs)
 			diags.Append(ownerUsersIDsCD...)
 			model.OwnerUserIds = ownerUsersIDsColl
 		}

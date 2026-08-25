@@ -30,6 +30,13 @@ resources:
   billing_source:
     description: "Manages a Kion custom billing source. Supply exactly one connection block \u2014 aws_connection or azure_connection \u2014 as Kion rejects a request carrying both."
     attributes:
+      # The credential lives inside the azure_connection block, not at top level.
+      # Overrides are add-if-missing, so naming it at the wrong depth silently
+      # invents a second, unpopulated attribute instead of marking the real one.
+      azure_connection:
+        attributes:
+          tenant_client_secret:
+            sensitive: true
       sort_method:
         remove: true
       sort_order:
@@ -40,6 +47,11 @@ resources:
     # read, which leaks its sort query params and carries no per-record id.
     description: Manages a Kion AWS Billing Source.
     attributes:
+      key_secret:
+        type: string
+        computed_optional_required: computed_optional
+        sensitive: true
+        description: "The AWS Secret Access Key used to access the billing s3 bucket"
       sort_method:
         remove: true
       sort_order:
@@ -72,6 +84,11 @@ resources:
     # carry per-record.
     description: Manages a Kion OCI Billing Source.
     attributes:
+      private_key:
+        type: string
+        computed_optional_required: computed_optional
+        sensitive: true
+        description: "The private key used for API Access"
       sort_method:
         remove: true
       sort_order:
@@ -472,7 +489,14 @@ resources:
     description: "Creates or imports an AWS Account and adds it to a Kion project or the Kion account cache. If account_number is provided, an existing account will be imported into Kion, otherwise a new AWS account will be created.  If project_id is provided the account will be added to the corresponding project, otherwise the account will be added to the account cache. Once added, an account can be moved between projects or in and out of the account cache by changing the project_id.  When moving accounts between projects, use move_project_settings to control how financials will be treated between the old and new project. NOTE: This resource requires Kion v3.8.4 or greater."
     # email/name/aws_organizational_unit come via renames.yaml. Add the computed
     # read-only fields and the move_project_settings nested block.
-    attributes:
+    #
+    # Anchored because kion_account renders the *same* template as kion_aws_account
+    # (crud/cloud_account.gtpl, parameterized only by package/receiver name), so the
+    # two resources must expose the same schema. Aliasing rather than copying keeps
+    # that a single source of truth: without it, account derived only the 14
+    # attributes the spec yields and silently disagreed with the schema its own
+    # template declares.
+    attributes: &cloud_account_attributes
       account_number:
         type: string
         computed_optional_required: computed_optional
@@ -829,17 +853,52 @@ resources:
         computed_optional_required: optional
         description: End month for the criteria period (YYYYMM format).
 
+  # kion_account shares cloud_account.gtpl with kion_aws_account, so it shares the
+  # schema too — see the anchor on aws_account.attributes above.
+  account:
+    description: "Manages a Kion Account."
+    attributes: *cloud_account_attributes
+
+  # app_config is a settings singleton: one row that always exists, addressed by a
+  # static id rather than a path parameter. Because /v3/app-config takes no {id},
+  # the string-id default has nothing to key off and the derived schema carries no
+  # `id` at all — but the resource still needs one for ImportStatePassthroughID.
+  app_config:
+    description: "Manages the Kion App Config (workspace-wide application settings singleton)."
+    attributes:
+      # These six descriptions are restated because the spec's own text is worse
+      # than what the resource documented by hand: two entries carry OpenAPI
+      # metadata that tfplugingen copies verbatim into the docs ("oneOf: ...",
+      # "examples: true"), one embeds newlines that break the attribute list, and
+      # two simply lack the closing period. Without them, generating the schema
+      # would have quietly degraded docs/resources/app_config.md.
+      id:
+        type: string
+        computed_optional_required: computed
+        description: Static identifier for the app-config singleton.
+      budget_mode:
+        description: Indicates if budget mode is enabled in the application.
+      cloud_rule_group_ownership_only:
+        description: Indicates if cloud rules are restricted to User Group ownership only. Setting this to true will remove all users from cloud rules. This cannot be undone.
+      default_org_chart_view:
+        description: Defines the default organization chart view.
+      enforce_funding:
+        description: Indicates whether spend plans or budgets must be created on all projects.
+      supported_aws_regions:
+        description: The list of supported AWS regions.
+      smtp_password:
+        type: string
+        computed_optional_required: computed_optional
+        sensitive: true
+        description: The SMTP password.
+
 
   # Resource-level descriptions for types that need no other override. These
   # cannot come from the spec — OpenAPI has no notion of a Terraform resource
   # description — so without them tfplugindocs emits an empty summary and the
   # generated docs/ page has no title line.
-  account:
-    description: "Manages a Kion Account."
   app_api_key:
     description: "Manages a Kion App Api Key."
-  app_config:
-    description: "Manages a Kion App Config."
   azure_account:
     description: "Manages a Kion Azure Account."
   azure_arm_template:
@@ -876,6 +935,12 @@ resources:
     description: "Manages a Kion Gcp Iam Role."
   gcp_service_account:
     description: "Manages a Kion Gcp Service Account."
+    attributes:
+      oauth_client_secret:
+        type: string
+        computed_optional_required: computed_optional
+        sensitive: true
+        description: "OAuthClientSecret is the client secret for an oauth client in the service account's project"
   idms:
     description: "Manages a Kion Idms."
   idms_group_association:
@@ -916,12 +981,22 @@ data_sources:
     description: "Use this data source to access information about Kion Accounts."
   account_cache:
     description: "Use this data source to access information about Kion Account Caches."
+    attributes:
+      data:
+        attributes:
+          key_secret:
+            sensitive: true
   ami:
     description: "Use this data source to access information about Kion AMIs."
   app_api_key:
     description: "Use this data source to access information about Kion App API Keys."
   app_config:
     description: "Use this data source to access information about Kion App Configs."
+    attributes:
+      data:
+        attributes:
+          smtp_password:
+            sensitive: true
   aws_account:
     description: "Use this data source to access information about Kion Aws Accounts."
   azure_account:
@@ -974,6 +1049,11 @@ data_sources:
     description: "Use this data source to access information about Kion Gcp Iam Roles."
   gcp_service_account:
     description: "Use this data source to access information about Kion GCP Service Accounts."
+    attributes:
+      data:
+        attributes:
+          oauth_client_secret:
+            sensitive: true
   global_permission_mapping:
     description: "Use this data source to access information about Kion Global Permission Mappings."
   iam_policy:

@@ -66,7 +66,7 @@ func (r *idms_open_idResource) Create(ctx context.Context, req resource.CreateRe
 			CloudtamerAccessLevelID: flex.OptNilUint64FromFramework(elem.CloudtamerAccessLevelId),
 		})
 	}
-	scopes, scopesDiags := flex.StringSliceFromFramework(ctx, plan.Scopes)
+	scopes, scopesDiags := flex.StringSliceFromFrameworkSet(ctx, plan.Scopes)
 	resp.Diagnostics.Append(scopesDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -162,7 +162,7 @@ func (r *idms_open_idResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	scopes, scopesDiags := flex.StringSliceFromFramework(ctx, plan.Scopes)
+	scopes, scopesDiags := flex.StringSliceFromFrameworkSet(ctx, plan.Scopes)
 	resp.Diagnostics.Append(scopesDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -249,7 +249,7 @@ func flattenIdmsOpenId(ctx context.Context, apiObject any, model *IdmsOpenIdMode
 			model.Name = flex.OptStringToFramework(v.Data.Value.Name)
 			model.PhoneClaim = flex.OptStringToFramework(v.Data.Value.PhoneClaim)
 			model.UsernameClaim = flex.OptStringToFramework(v.Data.Value.UsernameClaim)
-			scopes, scopesDiags := flex.StringSliceToFramework(ctx, v.Data.Value.Scopes.Value)
+			scopes, scopesDiags := flex.StringSliceToFrameworkSet(ctx, v.Data.Value.Scopes.Value)
 			diags.Append(scopesDiags...)
 			model.Scopes = scopes
 			var accessRulesValsElems []AccessRulesValue

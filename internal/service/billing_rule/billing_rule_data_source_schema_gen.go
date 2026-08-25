@@ -18,7 +18,7 @@ import (
 func BillingRuleDataSourceSchema(ctx context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"billing_source_ids": schema.ListAttribute{
+			"billing_source_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -31,7 +31,7 @@ func BillingRuleDataSourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Number of results to return. Required if page is specified.",
 				MarkdownDescription: "Number of results to return. Required if page is specified.",
 			},
-			"creator_ids": schema.ListAttribute{
+			"creator_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -111,7 +111,7 @@ func BillingRuleDataSourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Page number of results.",
 				MarkdownDescription: "Page number of results.",
 			},
-			"rule_type_ids": schema.ListAttribute{
+			"rule_type_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -142,13 +142,13 @@ func BillingRuleDataSourceSchema(ctx context.Context) schema.Schema {
 }
 
 type BillingRuleDataSourceModel struct {
-	BillingSourceIds types.List   `tfsdk:"billing_source_ids"`
+	BillingSourceIds types.Set    `tfsdk:"billing_source_ids"`
 	Count            types.Int64  `tfsdk:"count"`
-	CreatorIds       types.List   `tfsdk:"creator_ids"`
+	CreatorIds       types.Set    `tfsdk:"creator_ids"`
 	Data             DataValue    `tfsdk:"data"`
 	EndMonth         types.Int64  `tfsdk:"end_month"`
 	Page             types.Int64  `tfsdk:"page"`
-	RuleTypeIds      types.List   `tfsdk:"rule_type_ids"`
+	RuleTypeIds      types.Set    `tfsdk:"rule_type_ids"`
 	SortMethod       types.String `tfsdk:"sort_method"`
 	SortOrder        types.String `tfsdk:"sort_order"`
 	StartMonth       types.Int64  `tfsdk:"start_month"`

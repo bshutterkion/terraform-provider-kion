@@ -9,6 +9,8 @@
 package config
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -192,7 +194,7 @@ func render(configs []ServiceConfig) string {
 		writeOp(&b, "read", c.Resource.Read)
 		writeOp(&b, "update", c.Resource.Update)
 		writeOp(&b, "delete", c.Resource.Delete)
-		ignores := append([]string{"status", "record_id", "data"}, c.ExtraIgnores...)
+		ignores := dedupe(append([]string{"status", "record_id", "data"}, c.ExtraIgnores...))
 		fmt.Fprintf(&b, "    schema:\n      ignores: [%s]\n", strings.Join(ignores, ", "))
 	}
 
@@ -203,7 +205,7 @@ func render(configs []ServiceConfig) string {
 		}
 		fmt.Fprintf(&b, "  %s:\n", c.Name)
 		writeOp(&b, "read", c.DataSourceRead)
-		dsIgnores := append([]string{"status", "record_id"}, c.DataSourceExtraIgnores...)
+		dsIgnores := dedupe(append([]string{"status", "record_id"}, c.DataSourceExtraIgnores...))
 		fmt.Fprintf(&b, "    schema:\n      ignores: [%s]\n", strings.Join(dsIgnores, ", "))
 	}
 
@@ -226,6 +228,22 @@ func render(configs []ServiceConfig) string {
 	fmt.Fprintf(&b, "\n# summary: %d generatable (%d implemented, %d stub), %d incomplete; %d data sources\n",
 		impl+stub, impl, stub, incomplete, ds)
 	return b.String()
+}
+
+// dedupe removes repeats while preserving first-seen order. Overrides commonly
+// restate the baked-in status/record_id/data alongside their own additions, and
+// emitting each twice makes the rendered config noisy and its diffs misleading.
+func dedupe(in []string) []string {
+	seen := make(map[string]bool, len(in))
+	out := in[:0:0]
+	for _, v := range in {
+		if seen[v] {
+			continue
+		}
+		seen[v] = true
+		out = append(out, v)
+	}
+	return out
 }
 
 func writeOp(b *strings.Builder, verb string, op *Op) {
@@ -330,6 +348,27 @@ type ovEntry struct {
 	Update  *yOp     `yaml:"update"`
 	Delete  *yOp     `yaml:"delete"`
 	Ignores []string `yaml:"ignores"` // extra OAS attributes to drop (appended to the baked-in ignores)
+
+	// Schema accepts the same `schema: { ignores: [...] }` shape that the rendered
+	// generator_config.yaml uses. Authors reasonably mirror the output format when
+	// writing an override, and before this field existed those entries parsed
+	// cleanly and were then discarded — the ignores never reached the generator and
+	// the dropped attributes silently reappeared in the schema. Both spellings are
+	// honored and merged; see allIgnores.
+	Schema *ovSchema `yaml:"schema"`
+}
+
+type ovSchema struct {
+	Ignores []string `yaml:"ignores"`
+}
+
+// allIgnores returns the entry's extra ignores from either spelling.
+func (e ovEntry) allIgnores() []string {
+	out := append([]string(nil), e.Ignores...)
+	if e.Schema != nil {
+		out = append(out, e.Schema.Ignores...)
+	}
+	return out
 }
 
 type overridesFile struct {
@@ -356,7 +395,12 @@ func withOverrides(configs []ServiceConfig, opts Options) ([]ServiceConfig, erro
 		return nil, fmt.Errorf("reading overrides %s: %w", path, err)
 	}
 	var ov overridesFile
-	if err := yaml.Unmarshal(raw, &ov); err != nil {
+	// KnownFields: a misspelled or misplaced key in this file used to be dropped
+	// in silence, which is how `schema: { ignores: ... }` entries went unapplied
+	// for four resources without any signal. Fail the generate instead.
+	dec := yaml.NewDecoder(bytes.NewReader(raw))
+	dec.KnownFields(true)
+	if err := dec.Decode(&ov); err != nil && !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("parsing overrides %s: %w", path, err)
 	}
 	return applyOverrides(configs, ov), nil
@@ -390,7 +434,7 @@ func applyOverrides(configs []ServiceConfig, ov overridesFile) []ServiceConfig {
 		}
 		sc.ResourceHeuristic = false // human-verified via override (no "# heuristic" annotation)
 		sc.Overridden = true         // but its CRUD is not code-implemented
-		sc.ExtraIgnores = append(sc.ExtraIgnores, e.Ignores...)
+		sc.ExtraIgnores = append(sc.ExtraIgnores, e.allIgnores()...)
 		m[name] = sc
 	}
 	for name, e := range ov.DataSources {
@@ -399,7 +443,7 @@ func applyOverrides(configs []ServiceConfig, ov overridesFile) []ServiceConfig {
 		if op := e.Read.toOp(); op != nil {
 			sc.DataSourceRead = op
 		}
-		sc.DataSourceExtraIgnores = append(sc.DataSourceExtraIgnores, e.Ignores...)
+		sc.DataSourceExtraIgnores = append(sc.DataSourceExtraIgnores, e.allIgnores()...)
 		m[name] = sc
 	}
 	out := make([]ServiceConfig, 0, len(m))

@@ -2,11 +2,12 @@ package user_group
 
 import (
 	"context"
+	"slices"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
-	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 )
 
@@ -63,9 +64,9 @@ func TestUpgradeState_v0(t *testing.T) {
 	}
 
 	// Block-sets projected to id lists.
-	assertIntList(t, ctx, m.OwnerUserIds, []int64{5, 6}, "owner_user_ids")
-	assertIntList(t, ctx, m.OwnerUserGroupIds, []int64{7}, "owner_user_group_ids")
-	assertIntList(t, ctx, m.UserIds, []int64{9}, "user_ids")
+	assertIntMembers(t, ctx, m.OwnerUserIds, []int64{5, 6}, "owner_user_ids")
+	assertIntMembers(t, ctx, m.OwnerUserGroupIds, []int64{7}, "owner_user_group_ids")
+	assertIntMembers(t, ctx, m.UserIds, []int64{9}, "user_ids")
 
 	// Added attrs are null (provider Read repopulates).
 	if !m.ViewerUserIds.IsNull() {
@@ -79,7 +80,12 @@ func TestUpgradeState_v0(t *testing.T) {
 	}
 }
 
-func assertIntList(t *testing.T, ctx context.Context, l types.List, want []int64, name string) {
+// assertIntMembers compares membership, not order. These attributes are sets
+// now (see applyAssociationSetDefault): an id collection from the API has no
+// meaningful order, and asserting one would make the test depend on it.
+func assertIntMembers(t *testing.T, ctx context.Context, l interface {
+	ElementsAs(context.Context, any, bool) diag.Diagnostics
+}, want []int64, name string) {
 	t.Helper()
 	var got []int64
 	l.ElementsAs(ctx, &got, false)
@@ -87,6 +93,10 @@ func assertIntList(t *testing.T, ctx context.Context, l types.List, want []int64
 		t.Errorf("%s = %v, want %v", name, got, want)
 		return
 	}
+	slices.Sort(got)
+	sortedWant := append([]int64(nil), want...)
+	slices.Sort(sortedWant)
+	want = sortedWant
 	for i := range want {
 		if got[i] != want[i] {
 			t.Errorf("%s[%d] = %d, want %d", name, i, got[i], want[i])

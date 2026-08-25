@@ -62,7 +62,7 @@ variable "phone_claim" {
 
 variable "scopes" {
   description = "Scopes define the claim variables that an OpenID provider will include in an auth request. Specifics depend on the OpenID provider."
-  type        = list(string)
+  type        = set(string)
   default     = null
 }
 

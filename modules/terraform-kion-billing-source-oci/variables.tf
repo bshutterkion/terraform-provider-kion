@@ -32,6 +32,7 @@ variable "name" {
 variable "private_key" {
   description = "The private key used for API Access"
   type        = string
+  sensitive   = true
   default     = null
 }
 

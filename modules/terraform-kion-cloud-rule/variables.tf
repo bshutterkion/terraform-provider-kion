@@ -2,37 +2,37 @@
 
 variable "automation_policy_ids" {
   description = "List of Automation Policies attached to the Cloud Rule"
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "azure_arm_template_definition_ids" {
   description = "List of Azure ARM template definition IDs to attach to the Cloud Rule."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "azure_policy_definition_ids" {
   description = "List of Azure Policy IDs to attach to the Cloud Rule."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "azure_role_definition_ids" {
   description = "List of Azure Role Definition IDs to attach to the Cloud Rule."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "cft_ids" {
   description = "List of CloudFormation template IDs to attach to the Cloud Rule."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "compliance_standard_ids" {
   description = "List of Compliance Standards attached to the Cloud Rule"
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
@@ -50,25 +50,25 @@ variable "description" {
 
 variable "gcp_iam_role_ids" {
   description = "List of Google Cloud IAM role IDs to attach to the Cloud Rule."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "iam_policy_ids" {
   description = "List of IAM Policy IDs to attach to the Cloud Rule."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "internal_ami_ids" {
   description = "List of AMIs to attach to the Cloud Rule."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "internal_portfolio_ids" {
   description = "List of Service Catalog Portfolio IDs attached to the Cloud Rule."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
@@ -85,19 +85,19 @@ variable "name" {
 
 variable "ou_ids" {
   description = "List of OUs where the Cloud Rule will be applied."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "owner_user_group_ids" {
   description = "List of groups that own the Cloud Rule."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "owner_user_ids" {
   description = "List of users that own the Cloud Rule."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
@@ -115,13 +115,13 @@ variable "pre_webhook_id" {
 
 variable "project_ids" {
   description = "List of projects where the Cloud Rule will be applied."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "service_control_policy_ids" {
   description = "List of Service Control Policies attached to the Cloud Rule"
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 

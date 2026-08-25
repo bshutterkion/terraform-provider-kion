@@ -43,14 +43,14 @@ No modules.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | name | Name of the GCP Role in the application. | `string` | n/a | yes |
-| role\_permissions | List of GCP Permissions to assign the role | `list(string)` | n/a | yes |
-| car\_restricted\_user\_group\_ids | List of groups IDs who have been allowed to use the GCP Role on Cloud Access Roles in the system. | `list(number)` | `null` | no |
-| car\_restricted\_user\_ids | List of user IDs who have been allowed to use the GCP Role on Cloud Access Roles in the system. | `list(number)` | `null` | no |
+| role\_permissions | List of GCP Permissions to assign the role | `set(string)` | n/a | yes |
+| car\_restricted\_user\_group\_ids | List of groups IDs who have been allowed to use the GCP Role on Cloud Access Roles in the system. | `set(number)` | `null` | no |
+| car\_restricted\_user\_ids | List of user IDs who have been allowed to use the GCP Role on Cloud Access Roles in the system. | `set(number)` | `null` | no |
 | description | Description for the GCP Role in the application. | `string` | `null` | no |
 | gcp\_role\_launch\_stage | GCPRoleLaunchStage is the launch stage for a gcp role | `number` | `null` | no |
-| owner\_user\_group\_ids | List of group IDs who will own the GCP Role. Is required if no owner user IDs are listed. | `list(number)` | `null` | no |
-| owner\_user\_ids | List of user IDs who will own the GCP Role. Is required if no owner group IDs are listed. | `list(number)` | `null` | no |
-| role\_denials | List of GCP Permissions to deny when applying this role. Wildcards are supported. | `list(string)` | `null` | no |
+| owner\_user\_group\_ids | List of group IDs who will own the GCP Role. Is required if no owner user IDs are listed. | `set(number)` | `null` | no |
+| owner\_user\_ids | List of user IDs who will own the GCP Role. Is required if no owner group IDs are listed. | `set(number)` | `null` | no |
+| role\_denials | List of GCP Permissions to deny when applying this role. Wildcards are supported. | `set(string)` | `null` | no |
 
 ## Outputs
 

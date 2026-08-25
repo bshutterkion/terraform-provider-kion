@@ -73,6 +73,7 @@ func GcpServiceAccountDataSourceSchema(ctx context.Context) schema.Schema {
 						},
 						"oauth_client_secret": schema.StringAttribute{
 							Computed:            true,
+							Sensitive:           true,
 							Description:         "OAuthClientSecret is the client secret for an oauth client in the service account's project",
 							MarkdownDescription: "OAuthClientSecret is the client secret for an oauth client in the service account's project",
 						},

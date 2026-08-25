@@ -99,6 +99,7 @@ func BillingSourceResourceSchema(ctx context.Context) schema.Schema {
 					"tenant_client_secret": schema.StringAttribute{
 						Optional:            true,
 						Computed:            true,
+						Sensitive:           true,
 						Description:         "Client secret for the app registration. When updating an existing billing source,\nleaving blank will leave existing secret as-is.",
 						MarkdownDescription: "Client secret for the app registration. When updating an existing billing source,\nleaving blank will leave existing secret as-is.",
 					},

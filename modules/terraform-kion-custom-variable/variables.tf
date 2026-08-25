@@ -44,13 +44,13 @@ variable "name" {
 
 variable "owner_user_group_ids" {
   description = "OwnerUGroupIDs is the list of user group IDs who will own the custom variable."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "owner_user_ids" {
   description = "OwnerUserIDs is the list of user IDs who will own the custom variable."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 

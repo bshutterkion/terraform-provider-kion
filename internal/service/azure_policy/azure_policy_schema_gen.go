@@ -63,14 +63,14 @@ func AzurePolicyResourceSchema(ctx context.Context) schema.Schema {
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"owner_user_groups": schema.ListAttribute{
+			"owner_user_groups": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of user group IDs that will be owners of the azure policy.",
 				MarkdownDescription: "List of user group IDs that will be owners of the azure policy.",
 			},
-			"owner_users": schema.ListAttribute{
+			"owner_users": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -85,8 +85,8 @@ func AzurePolicyResourceSchema(ctx context.Context) schema.Schema {
 type AzurePolicyModel struct {
 	AzurePolicy     AzurePolicyValue `tfsdk:"azure_policy"`
 	Id              types.String     `tfsdk:"id"`
-	OwnerUserGroups types.List       `tfsdk:"owner_user_groups"`
-	OwnerUsers      types.List       `tfsdk:"owner_users"`
+	OwnerUserGroups types.Set        `tfsdk:"owner_user_groups"`
+	OwnerUsers      types.Set        `tfsdk:"owner_users"`
 }
 
 var _ basetypes.ObjectTypable = AzurePolicyType{}

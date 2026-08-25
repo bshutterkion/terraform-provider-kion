@@ -60,6 +60,7 @@ func BillingSourceOciResourceSchema(ctx context.Context) schema.Schema {
 			"private_key": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
+				Sensitive:           true,
 				Description:         "The private key used for API Access",
 				MarkdownDescription: "The private key used for API Access",
 			},

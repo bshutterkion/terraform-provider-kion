@@ -76,14 +76,14 @@ func FundingSourceEnforcementResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Whether the enforcement has been triggered.",
 				MarkdownDescription: "Whether the enforcement has been triggered.",
 			},
-			"ugroup_ids": schema.ListAttribute{
+			"ugroup_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed.",
 				MarkdownDescription: "List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed.",
 			},
-			"user_ids": schema.ListAttribute{
+			"user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -106,6 +106,6 @@ type FundingSourceEnforcementModel struct {
 	Threshold       types.Int64  `tfsdk:"threshold"`
 	Timeframe       types.String `tfsdk:"timeframe"`
 	Triggered       types.Bool   `tfsdk:"triggered"`
-	UgroupIds       types.List   `tfsdk:"ugroup_ids"`
-	UserIds         types.List   `tfsdk:"user_ids"`
+	UgroupIds       types.Set    `tfsdk:"ugroup_ids"`
+	UserIds         types.Set    `tfsdk:"user_ids"`
 }

@@ -46,11 +46,11 @@ No modules.
 | name | Name of the user group in the application. | `string` | n/a | yes |
 | add\_self\_as\_viewer | This option will add the user group as a viewer of itself after it is created. | `bool` | `null` | no |
 | description | Description of the user group in the application. | `string` | `null` | no |
-| owner\_user\_group\_ids | List of groups IDs who will own the group. Is required if no owner user IDs are listed. | `list(number)` | `null` | no |
-| owner\_user\_ids | List of user IDs who will own the group. Is required if no owner group IDs are listed. | `list(number)` | `null` | no |
-| user\_ids | IDs of the users in the user group. | `list(number)` | `null` | no |
-| viewer\_user\_group\_ids | List of groups IDs who will own the group. Is required if no owner user IDs are listed. | `list(number)` | `null` | no |
-| viewer\_user\_ids | List of user IDs who will own the group. Is required if no owner group IDs are listed. | `list(number)` | `null` | no |
+| owner\_user\_group\_ids | List of groups IDs who will own the group. Is required if no owner user IDs are listed. | `set(number)` | `null` | no |
+| owner\_user\_ids | List of user IDs who will own the group. Is required if no owner group IDs are listed. | `set(number)` | `null` | no |
+| user\_ids | IDs of the users in the user group. | `set(number)` | `null` | no |
+| viewer\_user\_group\_ids | List of groups IDs who will own the group. Is required if no owner user IDs are listed. | `set(number)` | `null` | no |
+| viewer\_user\_ids | List of user IDs who will own the group. Is required if no owner group IDs are listed. | `set(number)` | `null` | no |
 
 ## Outputs
 

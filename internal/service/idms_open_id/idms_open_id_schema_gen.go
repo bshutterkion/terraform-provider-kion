@@ -115,7 +115,7 @@ func IdmsOpenIdResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "PhoneClaim defines an optional mapping of an OpenID claim value to a user's phone attribute in Kion",
 				MarkdownDescription: "PhoneClaim defines an optional mapping of an OpenID claim value to a user's phone attribute in Kion",
 			},
-			"scopes": schema.ListAttribute{
+			"scopes": schema.SetAttribute{
 				ElementType:         types.StringType,
 				Optional:            true,
 				Computed:            true,
@@ -145,7 +145,7 @@ type IdmsOpenIdModel struct {
 	LastNameClaim         types.String `tfsdk:"last_name_claim"`
 	Name                  types.String `tfsdk:"name"`
 	PhoneClaim            types.String `tfsdk:"phone_claim"`
-	Scopes                types.List   `tfsdk:"scopes"`
+	Scopes                types.Set    `tfsdk:"scopes"`
 	UsernameClaim         types.String `tfsdk:"username_claim"`
 }
 

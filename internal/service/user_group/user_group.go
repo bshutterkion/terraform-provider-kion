@@ -56,15 +56,15 @@ func (r *user_groupResource) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
-	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserGroupIds)
+	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserGroupIds)
 	resp.Diagnostics.Append(ownerUserGroupIdsDiags...)
-	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserIds)
+	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserIds)
 	resp.Diagnostics.Append(ownerUserIdsDiags...)
-	userIds, userIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.UserIds)
+	userIds, userIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserIds)
 	resp.Diagnostics.Append(userIdsDiags...)
-	viewerUserGroupIds, viewerUserGroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.ViewerUserGroupIds)
+	viewerUserGroupIds, viewerUserGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.ViewerUserGroupIds)
 	resp.Diagnostics.Append(viewerUserGroupIdsDiags...)
-	viewerUserIds, viewerUserIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.ViewerUserIds)
+	viewerUserIds, viewerUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.ViewerUserIds)
 	resp.Diagnostics.Append(viewerUserIdsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -192,8 +192,8 @@ func (r *user_groupResource) Update(ctx context.Context, req resource.UpdateRequ
 
 	// Sync owners: the update body does not carry them, so diff prior state vs
 	// plan and add/remove via the dedicated owner endpoints.
-	addOwnerUsers, removeOwnerUsers := flex.Uint64ListDiff(ctx, state.OwnerUserIds, plan.OwnerUserIds, &resp.Diagnostics)
-	addOwnerGroups, removeOwnerGroups := flex.Uint64ListDiff(ctx, state.OwnerUserGroupIds, plan.OwnerUserGroupIds, &resp.Diagnostics)
+	addOwnerUsers, removeOwnerUsers := flex.Uint64SetDiff(ctx, state.OwnerUserIds, plan.OwnerUserIds, &resp.Diagnostics)
+	addOwnerGroups, removeOwnerGroups := flex.Uint64SetDiff(ctx, state.OwnerUserGroupIds, plan.OwnerUserGroupIds, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -218,8 +218,8 @@ func (r *user_groupResource) Update(ctx context.Context, req resource.UpdateRequ
 
 	// Sync associations: the update body carries none, so diff prior state vs
 	// plan per id-list and add/remove via the bulk associations endpoints.
-	assocAddViewerUserIds, assocRemoveViewerUserIds := flex.Uint64ListDiff(ctx, state.ViewerUserIds, plan.ViewerUserIds, &resp.Diagnostics)
-	assocAddViewerUserGroupIds, assocRemoveViewerUserGroupIds := flex.Uint64ListDiff(ctx, state.ViewerUserGroupIds, plan.ViewerUserGroupIds, &resp.Diagnostics)
+	assocAddViewerUserIds, assocRemoveViewerUserIds := flex.Uint64SetDiff(ctx, state.ViewerUserIds, plan.ViewerUserIds, &resp.Diagnostics)
+	assocAddViewerUserGroupIds, assocRemoveViewerUserGroupIds := flex.Uint64SetDiff(ctx, state.ViewerUserGroupIds, plan.ViewerUserGroupIds, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -244,7 +244,7 @@ func (r *user_groupResource) Update(ctx context.Context, req resource.UpdateRequ
 
 	// Sync UserIds: the update body carries none, so diff prior state vs plan
 	// and add/remove via the dedicated []int64 endpoints.
-	addUserIds, removeUserIds := flex.Int64ListDiff(ctx, state.UserIds, plan.UserIds, &resp.Diagnostics)
+	addUserIds, removeUserIds := flex.Int64SetDiff(ctx, state.UserIds, plan.UserIds, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -328,7 +328,7 @@ func flattenUserGroup(ctx context.Context, apiObject any, model *UserGroupModel)
 					ownerUsersIDs = append(ownerUsersIDs, int64(elem.ID.Value))
 				}
 			}
-			ownerUsersIDsColl, ownerUsersIDsCD := types.ListValueFrom(ctx, types.Int64Type, ownerUsersIDs)
+			ownerUsersIDsColl, ownerUsersIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUsersIDs)
 			diags.Append(ownerUsersIDsCD...)
 			model.OwnerUserIds = ownerUsersIDsColl
 			var usersIDs []int64
@@ -337,7 +337,7 @@ func flattenUserGroup(ctx context.Context, apiObject any, model *UserGroupModel)
 					usersIDs = append(usersIDs, int64(elem.ID.Value))
 				}
 			}
-			usersIDsColl, usersIDsCD := types.ListValueFrom(ctx, types.Int64Type, usersIDs)
+			usersIDsColl, usersIDsCD := types.SetValueFrom(ctx, types.Int64Type, usersIDs)
 			diags.Append(usersIDsCD...)
 			model.UserIds = usersIDsColl
 			var viewerUsersIDs []int64
@@ -346,7 +346,7 @@ func flattenUserGroup(ctx context.Context, apiObject any, model *UserGroupModel)
 					viewerUsersIDs = append(viewerUsersIDs, int64(elem.ID.Value))
 				}
 			}
-			viewerUsersIDsColl, viewerUsersIDsCD := types.ListValueFrom(ctx, types.Int64Type, viewerUsersIDs)
+			viewerUsersIDsColl, viewerUsersIDsCD := types.SetValueFrom(ctx, types.Int64Type, viewerUsersIDs)
 			diags.Append(viewerUsersIDsCD...)
 			model.ViewerUserIds = viewerUsersIDsColl
 		}

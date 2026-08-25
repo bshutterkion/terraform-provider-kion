@@ -51,8 +51,8 @@ No modules.
 | resource\_group\_region\_id | Database ID of the Azure region where the ARM template should be deployed | `number` | n/a | yes |
 | template | Contents of the ARM template to be deployed. | `string` | n/a | yes |
 | description | A short description of the ARM template | `string` | `null` | no |
-| owner\_user\_group\_ids | List of groups IDs who will own the Azure ARM template. Is required if no user IDs are listed. | `list(number)` | `null` | no |
-| owner\_user\_ids | List of user IDs who will own the Azure ARM template. Is required if no group IDs are listed. | `list(number)` | `null` | no |
+| owner\_user\_group\_ids | List of groups IDs who will own the Azure ARM template. Is required if no user IDs are listed. | `set(number)` | `null` | no |
+| owner\_user\_ids | List of user IDs who will own the Azure ARM template. Is required if no group IDs are listed. | `set(number)` | `null` | no |
 | template\_parameters | Parameters to fill for the template. Should be the contents of the "properties" attribute on the traditional payload. | `string` | `null` | no |
 
 ## Outputs

@@ -56,13 +56,13 @@ func (r *compliance_checkResource) Create(ctx context.Context, req resource.Crea
 		return
 	}
 
-	complianceControlIds, complianceControlIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.ComplianceControlIds)
+	complianceControlIds, complianceControlIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.ComplianceControlIds)
 	resp.Diagnostics.Append(complianceControlIdsDiags...)
-	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserGroupIds)
+	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserGroupIds)
 	resp.Diagnostics.Append(ownerUserGroupIdsDiags...)
-	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserIds)
+	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserIds)
 	resp.Diagnostics.Append(ownerUserIdsDiags...)
-	regions, regionsDiags := flex.StringSliceFromFramework(ctx, plan.Regions)
+	regions, regionsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.Regions)
 	resp.Diagnostics.Append(regionsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -160,7 +160,7 @@ func (r *compliance_checkResource) Update(ctx context.Context, req resource.Upda
 		return
 	}
 
-	regions, regionsDiags := flex.StringSliceFromFramework(ctx, plan.Regions)
+	regions, regionsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.Regions)
 	resp.Diagnostics.Append(regionsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -270,7 +270,7 @@ func flattenComplianceCheck(ctx context.Context, apiObject any, model *Complianc
 			model.LastScanId = flex.OptNilUint64ToFramework(v.Data.Value.ComplianceCheck.Value.LastScanID)
 			model.Name = flex.OptStringToFramework(v.Data.Value.ComplianceCheck.Value.Name)
 			model.SeverityTypeId = flex.OptNilUint64ToFramework(v.Data.Value.ComplianceCheck.Value.SeverityTypeID)
-			regions, regionsDiags := flex.StringSliceToFramework(ctx, v.Data.Value.ComplianceCheck.Value.Regions)
+			regions, regionsDiags := flex.StringSliceToFrameworkSet(ctx, v.Data.Value.ComplianceCheck.Value.Regions)
 			diags.Append(regionsDiags...)
 			model.Regions = regions
 			var ownerUserGroupsIDs []int64
@@ -279,7 +279,7 @@ func flattenComplianceCheck(ctx context.Context, apiObject any, model *Complianc
 					ownerUserGroupsIDs = append(ownerUserGroupsIDs, int64(elem.ID.Value))
 				}
 			}
-			ownerUserGroupsIDsColl, ownerUserGroupsIDsCD := types.ListValueFrom(ctx, types.Int64Type, ownerUserGroupsIDs)
+			ownerUserGroupsIDsColl, ownerUserGroupsIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUserGroupsIDs)
 			diags.Append(ownerUserGroupsIDsCD...)
 			model.OwnerUserGroupIds = ownerUserGroupsIDsColl
 			var ownerUsersIDs []int64
@@ -288,7 +288,7 @@ func flattenComplianceCheck(ctx context.Context, apiObject any, model *Complianc
 					ownerUsersIDs = append(ownerUsersIDs, int64(elem.ID.Value))
 				}
 			}
-			ownerUsersIDsColl, ownerUsersIDsCD := types.ListValueFrom(ctx, types.Int64Type, ownerUsersIDs)
+			ownerUsersIDsColl, ownerUsersIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUsersIDs)
 			diags.Append(ownerUsersIDsCD...)
 			model.OwnerUserIds = ownerUsersIDsColl
 		}

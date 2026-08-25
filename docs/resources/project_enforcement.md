@@ -53,7 +53,7 @@ Valid values are "custom", "last_month".
 Use endpoint /v3/cloud-rule to get a list of valid cloud rules and IDs.
 - `description` (String) Optional, user-provided description of the enforcement.
 - `enabled` (Boolean) Whether the enforcement is enabled.
-- `notification_emails` (List of String) List of external email addresses that will receive notifications from the enforcement.
+- `notification_emails` (Set of String) List of external email addresses that will receive notifications from the enforcement.
 - `notification_frequency` (String) Frequency of notifications for this enforcement.
 Valid values are "daily".
 - `overburn` (Boolean) Flag that specifies if enforcement will place project in a overburn state when triggered. Options are: true, false.
@@ -63,8 +63,8 @@ Use endpoint /v3/cloud-provider/service to get a list of valid services and IDs.
 Valid values are "spend", "remaining", "spend_rate".
 - `threshold_type` (String) Type of the threshold value.
 Valid values are "dollar", "percent".
-- `user_group_ids` (List of Number) List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed.
-- `user_ids` (List of Number) List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed.
+- `user_group_ids` (Set of Number) List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed.
+- `user_ids` (Set of Number) List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed.
 
 ### Read-Only
 

@@ -53,8 +53,8 @@ No modules.
 | service\_id | Option ID of service to set enforcement against. Use endpoint /v3/cloud-provider/service to get a list of valid services and IDs. | `number` | `null` | no |
 | threshold\_type | Type of the threshold value. Valid values are "dollar", "percent". | `string` | `null` | no |
 | trigger\_planned\_amount\_type | For OU percent enforcements, controls whether percentage is calculated against an aggregate budget or active threshold when applicable. | `string` | `null` | no |
-| ugroup\_ids | List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed. | `list(number)` | `null` | no |
-| user\_ids | List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed. | `list(number)` | `null` | no |
+| ugroup\_ids | List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed. | `set(number)` | `null` | no |
+| user\_ids | List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed. | `set(number)` | `null` | no |
 
 ## Outputs
 

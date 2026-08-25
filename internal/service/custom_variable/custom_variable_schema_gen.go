@@ -69,14 +69,14 @@ func CustomVariableResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Name is the name of the custom variable. The name can be up to 255 characters.",
 				MarkdownDescription: "Name is the name of the custom variable. The name can be up to 255 characters.",
 			},
-			"owner_user_group_ids": schema.ListAttribute{
+			"owner_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "OwnerUGroupIDs is the list of user group IDs who will own the custom variable.",
 				MarkdownDescription: "OwnerUGroupIDs is the list of user group IDs who will own the custom variable.",
 			},
-			"owner_user_ids": schema.ListAttribute{
+			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -116,8 +116,8 @@ type CustomVariableModel struct {
 	KeyValidationRegex     types.String `tfsdk:"key_validation_regex"`
 	LastUpdated            types.String `tfsdk:"last_updated"`
 	Name                   types.String `tfsdk:"name"`
-	OwnerUserGroupIds      types.List   `tfsdk:"owner_user_group_ids"`
-	OwnerUserIds           types.List   `tfsdk:"owner_user_ids"`
+	OwnerUserGroupIds      types.Set    `tfsdk:"owner_user_group_ids"`
+	OwnerUserIds           types.Set    `tfsdk:"owner_user_ids"`
 	Type                   types.String `tfsdk:"type"`
 	ValueValidationMessage types.String `tfsdk:"value_validation_message"`
 	ValueValidationRegex   types.String `tfsdk:"value_validation_regex"`

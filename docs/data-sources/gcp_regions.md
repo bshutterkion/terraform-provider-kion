@@ -22,4 +22,4 @@ data "kion_gcp_regions" "example" {
 
 ### Read-Only
 
-- `regions` (List of String) List of google cloud region names.
+- `regions` (Set of String) List of google cloud region names.

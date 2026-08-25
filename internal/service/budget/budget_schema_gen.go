@@ -25,7 +25,7 @@ func BudgetResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Year and month the budget ends. This is an exclusive date.",
 				MarkdownDescription: "Year and month the budget ends. This is an exclusive date.",
 			},
-			"funding_source_ids": schema.ListAttribute{
+			"funding_source_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -65,7 +65,7 @@ func BudgetResourceSchema(ctx context.Context) schema.Schema {
 type BudgetModel struct {
 	Amount           types.Int64  `tfsdk:"amount"`
 	EndDatecode      types.String `tfsdk:"end_datecode"`
-	FundingSourceIds types.List   `tfsdk:"funding_source_ids"`
+	FundingSourceIds types.Set    `tfsdk:"funding_source_ids"`
 	Id               types.String `tfsdk:"id"`
 	OuId             types.Int64  `tfsdk:"ou_id"`
 	ProjectId        types.Int64  `tfsdk:"project_id"`

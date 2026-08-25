@@ -79,14 +79,14 @@ func AmiResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Name of the AMI in the application.",
 				MarkdownDescription: "Name of the AMI in the application.",
 			},
-			"owner_user_group_ids": schema.ListAttribute{
+			"owner_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "List of groups IDs who will own the ami. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the ami. Is required if no owner user IDs are listed.",
 			},
-			"owner_user_ids": schema.ListAttribute{
+			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -127,8 +127,8 @@ type AmiModel struct {
 	ExpiresAt               types.String `tfsdk:"expires_at"`
 	Id                      types.String `tfsdk:"id"`
 	Name                    types.String `tfsdk:"name"`
-	OwnerUserGroupIds       types.List   `tfsdk:"owner_user_group_ids"`
-	OwnerUserIds            types.List   `tfsdk:"owner_user_ids"`
+	OwnerUserGroupIds       types.Set    `tfsdk:"owner_user_group_ids"`
+	OwnerUserIds            types.Set    `tfsdk:"owner_user_ids"`
 	Region                  types.String `tfsdk:"region"`
 	SyncDeprecation         types.Bool   `tfsdk:"sync_deprecation"`
 	SyncTags                types.Bool   `tfsdk:"sync_tags"`

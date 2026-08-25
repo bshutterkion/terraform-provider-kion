@@ -15,35 +15,35 @@ import (
 func ComplianceControlResourceSchema(ctx context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"arm_template_definition_ids": schema.ListAttribute{
+			"arm_template_definition_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "ARMTemplateDefinitionIDs is a set of ARM template ids applied to the control.",
 				MarkdownDescription: "ARMTemplateDefinitionIDs is a set of ARM template ids applied to the control.",
 			},
-			"aws_cloudformation_policy_ids": schema.ListAttribute{
+			"aws_cloudformation_policy_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "AWSCloudformationPolicyIDs is a set of AWS cloudformation policy ids applied to the control.",
 				MarkdownDescription: "AWSCloudformationPolicyIDs is a set of AWS cloudformation policy ids applied to the control.",
 			},
-			"azure_policy_definition_ids": schema.ListAttribute{
+			"azure_policy_definition_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "AzurePolicyDefinitionIDs is a set of Azure policy ids applied to the control.",
 				MarkdownDescription: "AzurePolicyDefinitionIDs is a set of Azure policy ids applied to the control.",
 			},
-			"cloud_provider_policy_ids": schema.ListAttribute{
+			"cloud_provider_policy_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "CloudProviderPolicyIDs is a set of cloud provider policy ids applied to the control.",
 				MarkdownDescription: "CloudProviderPolicyIDs is a set of cloud provider policy ids applied to the control.",
 			},
-			"compliance_check_ids": schema.ListAttribute{
+			"compliance_check_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -56,7 +56,7 @@ func ComplianceControlResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Description for the compliance control in the application.",
 				MarkdownDescription: "Description for the compliance control in the application.",
 			},
-			"compliance_levels": schema.ListAttribute{
+			"compliance_levels": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -115,13 +115,13 @@ func ComplianceControlResourceSchema(ctx context.Context) schema.Schema {
 }
 
 type ComplianceControlModel struct {
-	ArmTemplateDefinitionIds   types.List   `tfsdk:"arm_template_definition_ids"`
-	AwsCloudformationPolicyIds types.List   `tfsdk:"aws_cloudformation_policy_ids"`
-	AzurePolicyDefinitionIds   types.List   `tfsdk:"azure_policy_definition_ids"`
-	CloudProviderPolicyIds     types.List   `tfsdk:"cloud_provider_policy_ids"`
-	ComplianceCheckIds         types.List   `tfsdk:"compliance_check_ids"`
+	ArmTemplateDefinitionIds   types.Set    `tfsdk:"arm_template_definition_ids"`
+	AwsCloudformationPolicyIds types.Set    `tfsdk:"aws_cloudformation_policy_ids"`
+	AzurePolicyDefinitionIds   types.Set    `tfsdk:"azure_policy_definition_ids"`
+	CloudProviderPolicyIds     types.Set    `tfsdk:"cloud_provider_policy_ids"`
+	ComplianceCheckIds         types.Set    `tfsdk:"compliance_check_ids"`
 	ComplianceFamilyId         types.Int64  `tfsdk:"compliance_family_id"`
-	ComplianceLevels           types.List   `tfsdk:"compliance_levels"`
+	ComplianceLevels           types.Set    `tfsdk:"compliance_levels"`
 	ControlNumber              types.Int64  `tfsdk:"control_number"`
 	Description                types.String `tfsdk:"description"`
 	Id                         types.String `tfsdk:"id"`

@@ -2,31 +2,31 @@
 
 variable "arm_template_definition_ids" {
   description = "ARMTemplateDefinitionIDs is a set of ARM template ids applied to the control."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "aws_cloudformation_policy_ids" {
   description = "AWSCloudformationPolicyIDs is a set of AWS cloudformation policy ids applied to the control."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "azure_policy_definition_ids" {
   description = "AzurePolicyDefinitionIDs is a set of Azure policy ids applied to the control."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "cloud_provider_policy_ids" {
   description = "CloudProviderPolicyIDs is a set of cloud provider policy ids applied to the control."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "compliance_check_ids" {
   description = "ComplianceCheckIDs is a set of compliance check ids applied to the control."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
@@ -38,7 +38,7 @@ variable "compliance_family_id" {
 
 variable "compliance_levels" {
   description = "ComplianceLevels is a set of levels to which the control belongs."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 

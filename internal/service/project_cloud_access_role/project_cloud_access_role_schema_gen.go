@@ -20,7 +20,7 @@ import (
 func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"account_ids": schema.ListAttribute{
+			"account_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -45,7 +45,7 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "ID of the AWS IAM policy to be used as a permissions boundary for this role. Will be filtered if AWS Cloud Provider ID is not given.",
 				MarkdownDescription: "ID of the AWS IAM policy to be used as a permissions boundary for this role. Will be filtered if AWS Cloud Provider ID is not given.",
 			},
-			"aws_iam_policies": schema.ListAttribute{
+			"aws_iam_policies": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -103,14 +103,14 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "AWS Session Tags used in this role when accessing the AWS console.",
 				MarkdownDescription: "AWS Session Tags used in this role when accessing the AWS console.",
 			},
-			"azure_role_definitions": schema.ListAttribute{
+			"azure_role_definitions": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "IDs of the Azure Role Definitions attached to this role. Will be filtered if Azure Cloud Provider ID is not given.",
 				MarkdownDescription: "IDs of the Azure Role Definitions attached to this role. Will be filtered if Azure Cloud Provider ID is not given.",
 			},
-			"cloud_provider_ids": schema.ListAttribute{
+			"cloud_provider_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -123,7 +123,7 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "If future accounts is true, this cloud access role will be added to any account that is added to this project.\nThis will only be for new accounts that match the given CSP type. Will default to false if not set.",
 				MarkdownDescription: "If future accounts is true, this cloud access role will be added to any account that is added to this project.\nThis will only be for new accounts that match the given CSP type. Will default to false if not set.",
 			},
-			"gcp_iam_roles": schema.ListAttribute{
+			"gcp_iam_roles": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -172,14 +172,14 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "If short term access is true, users of this cloud access role can generate short-term access keys.\nWill default to false if not set.",
 				MarkdownDescription: "If short term access is true, users of this cloud access role can generate short-term access keys.\nWill default to false if not set.",
 			},
-			"user_group_ids": schema.ListAttribute{
+			"user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "IDs of the user groups allowed to use this role to access the AWS console.",
 				MarkdownDescription: "IDs of the user groups allowed to use this role to access the AWS console.",
 			},
-			"user_ids": schema.ListAttribute{
+			"user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -198,17 +198,17 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 }
 
 type ProjectCloudAccessRoleModel struct {
-	AccountIds                types.List   `tfsdk:"account_ids"`
+	AccountIds                types.Set    `tfsdk:"account_ids"`
 	ApplyToAllAccounts        types.Bool   `tfsdk:"apply_to_all_accounts"`
 	AwsIamPath                types.String `tfsdk:"aws_iam_path"`
 	AwsIamPermissionsBoundary types.Int64  `tfsdk:"aws_iam_permissions_boundary"`
-	AwsIamPolicies            types.List   `tfsdk:"aws_iam_policies"`
+	AwsIamPolicies            types.Set    `tfsdk:"aws_iam_policies"`
 	AwsIamRoleName            types.String `tfsdk:"aws_iam_role_name"`
 	AwsSessionTags            types.List   `tfsdk:"aws_session_tags"`
-	AzureRoleDefinitions      types.List   `tfsdk:"azure_role_definitions"`
-	CloudProviderIds          types.List   `tfsdk:"cloud_provider_ids"`
+	AzureRoleDefinitions      types.Set    `tfsdk:"azure_role_definitions"`
+	CloudProviderIds          types.Set    `tfsdk:"cloud_provider_ids"`
 	FutureAccounts            types.Bool   `tfsdk:"future_accounts"`
-	GcpIamRoles               types.List   `tfsdk:"gcp_iam_roles"`
+	GcpIamRoles               types.Set    `tfsdk:"gcp_iam_roles"`
 	Id                        types.String `tfsdk:"id"`
 	LastUpdated               types.String `tfsdk:"last_updated"`
 	LongTermAccessKeys        types.Bool   `tfsdk:"long_term_access_keys"`
@@ -216,8 +216,8 @@ type ProjectCloudAccessRoleModel struct {
 	Policytype                types.String `tfsdk:"policytype"`
 	ProjectId                 types.Int64  `tfsdk:"project_id"`
 	ShortTermAccessKeys       types.Bool   `tfsdk:"short_term_access_keys"`
-	UserGroupIds              types.List   `tfsdk:"user_group_ids"`
-	UserIds                   types.List   `tfsdk:"user_ids"`
+	UserGroupIds              types.Set    `tfsdk:"user_group_ids"`
+	UserIds                   types.Set    `tfsdk:"user_ids"`
 	WebAccess                 types.Bool   `tfsdk:"web_access"`
 }
 

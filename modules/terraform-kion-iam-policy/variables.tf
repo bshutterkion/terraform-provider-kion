@@ -14,13 +14,13 @@ variable "car_restricted" {
 
 variable "car_restricted_user_group_ids" {
   description = "List of groups IDs who have been allowed to use the iam policy on Cloud Access Roles in the system."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "car_restricted_user_ids" {
   description = "List of user IDs who have been allowed to use the iam policy on Cloud Access Roles in the system."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
@@ -37,13 +37,13 @@ variable "name" {
 
 variable "owner_user_group_ids" {
   description = "List of groups IDs who will own the iam policy. Is required if no owner user IDs are listed."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 
 variable "owner_user_ids" {
   description = "List of user IDs who will own the iam policy. Is required if no owner group IDs are listed."
-  type        = list(number)
+  type        = set(number)
   default     = null
 }
 

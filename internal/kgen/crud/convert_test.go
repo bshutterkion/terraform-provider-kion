@@ -62,15 +62,15 @@ func TestFloatConverters(t *testing.T) {
 }
 
 func TestSliceConverter(t *testing.T) {
-	e, f, w, ok := sliceConverter("[]uint64")
+	e, f, w, ok := sliceConverter("[]uint64", "types.List")
 	if !ok || e != "flex.Uint64SliceFromFramework" || f != "flex.Uint64SliceToFramework" || w != "" {
 		t.Errorf("[]uint64 = %q,%q,%q,%v", e, f, w, ok)
 	}
-	e, f, w, ok = sliceConverter("OptNilUint64Array")
+	e, f, w, ok = sliceConverter("OptNilUint64Array", "types.List")
 	if !ok || e != "flex.Uint64SliceFromFramework" || w != "OptNilUint64Array" {
 		t.Errorf("OptNilUint64Array = %q,%q,%q,%v", e, f, w, ok)
 	}
-	if _, _, _, ok := sliceConverter("[]Foo"); ok {
+	if _, _, _, ok := sliceConverter("[]Foo", "types.List"); ok {
 		t.Error("unknown slice elem must return ok=false")
 	}
 }

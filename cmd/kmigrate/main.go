@@ -79,16 +79,24 @@ func main() {
 
 	total := 0
 	var manual []string
+	// Files kmigrate could not read or parse. Collected rather than fatal: this
+	// runs over a practitioner's whole configuration, and exiting on the first
+	// bad file left the tree HALF migrated — everything before it rewritten,
+	// everything after it untouched, with no record of which was which. A single
+	// unparseable file (Terraform itself rejects them too) should not put a
+	// configuration in a state neither provider can read. Skipped files are left
+	// exactly as they were and listed at the end.
+	var skipped []string
 	for _, f := range files {
 		src, err := os.ReadFile(f)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "kmigrate: %v\n", err)
-			os.Exit(1)
+			skipped = append(skipped, fmt.Sprintf("%s: %v", f, err))
+			continue
 		}
-		out, changes, actions, err := migrate.RewriteFile(src, ups)
+		out, changes, actions, err := migrate.RewriteNamedFile(f, src, ups)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "kmigrate: %s: %v\n", f, err)
-			os.Exit(1)
+			skipped = append(skipped, fmt.Sprintf("%s: %v", f, err))
+			continue
 		}
 		for _, a := range actions {
 			manual = append(manual, fmt.Sprintf("%s: %s", f, a))
@@ -102,8 +110,8 @@ func main() {
 		}
 		if !*check {
 			if err := os.WriteFile(f, out, 0o644); err != nil {
-				fmt.Fprintf(os.Stderr, "kmigrate: %v\n", err)
-				os.Exit(1)
+				skipped = append(skipped, fmt.Sprintf("%s: %v", f, err))
+				continue
 			}
 		}
 	}
@@ -122,5 +130,19 @@ func main() {
 		for _, m := range manual {
 			fmt.Printf("  %s\n", m)
 		}
+	}
+
+	// Last, and on stderr, because this is the one outcome that leaves work
+	// undone: these files were NOT rewritten and still hold old-provider syntax.
+	if len(skipped) > 0 {
+		fmt.Fprintf(os.Stderr,
+			"\n%d file(s) could not be read or parsed and were left UNCHANGED:\n", len(skipped))
+		for _, s := range skipped {
+			fmt.Fprintf(os.Stderr, "  %s\n", s)
+		}
+		fmt.Fprintf(os.Stderr,
+			"\nTerraform cannot parse these either — fix them, then re-run kmigrate.\n"+
+				"Re-running is safe: rewrites are idempotent, so files already migrated are left alone.\n")
+		os.Exit(1)
 	}
 }

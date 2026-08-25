@@ -55,7 +55,7 @@ func (r *budgetResource) Create(ctx context.Context, req resource.CreateRequest,
 		return
 	}
 
-	fundingSourceIds, fundingSourceIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.FundingSourceIds)
+	fundingSourceIds, fundingSourceIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.FundingSourceIds)
 	resp.Diagnostics.Append(fundingSourceIdsDiags...)
 	if resp.Diagnostics.HasError() {
 		return

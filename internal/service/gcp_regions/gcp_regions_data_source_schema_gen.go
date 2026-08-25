@@ -12,7 +12,7 @@ import (
 func GcpRegionsDataSourceSchema(ctx context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"regions": schema.ListAttribute{
+			"regions": schema.SetAttribute{
 				ElementType:         types.StringType,
 				Computed:            true,
 				Description:         "List of google cloud region names.",
@@ -24,5 +24,5 @@ func GcpRegionsDataSourceSchema(ctx context.Context) schema.Schema {
 }
 
 type GcpRegionsDataSourceModel struct {
-	Regions types.List `tfsdk:"regions"`
+	Regions types.Set `tfsdk:"regions"`
 }

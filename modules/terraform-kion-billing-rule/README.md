@@ -46,7 +46,7 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
-| billing\_source\_ids | List of Billing Source IDs attached to the billing rule. | `list(number)` | n/a | yes |
+| billing\_source\_ids | List of Billing Source IDs attached to the billing rule. | `set(number)` | n/a | yes |
 | description | Description of the billing rule. The description can be up to 1024 characters long. | `string` | n/a | yes |
 | name | Name of the billing rule. The name can be up to 255 characters long. | `string` | n/a | yes |
 | rule\_type | Type of the billing rule. The allowed values are: 1 - Rate Conversion 2 - Markup 3 - Discount | `number` | n/a | yes |

@@ -56,17 +56,17 @@ func (r *gcp_iam_roleResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	carRestrictedUserGroupIds, carRestrictedUserGroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.CarRestrictedUserGroupIds)
+	carRestrictedUserGroupIds, carRestrictedUserGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.CarRestrictedUserGroupIds)
 	resp.Diagnostics.Append(carRestrictedUserGroupIdsDiags...)
-	carRestrictedUserIds, carRestrictedUserIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.CarRestrictedUserIds)
+	carRestrictedUserIds, carRestrictedUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.CarRestrictedUserIds)
 	resp.Diagnostics.Append(carRestrictedUserIdsDiags...)
-	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserGroupIds)
+	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserGroupIds)
 	resp.Diagnostics.Append(ownerUserGroupIdsDiags...)
-	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserIds)
+	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserIds)
 	resp.Diagnostics.Append(ownerUserIdsDiags...)
-	roleDenials, roleDenialsDiags := flex.StringSliceFromFramework(ctx, plan.RoleDenials)
+	roleDenials, roleDenialsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.RoleDenials)
 	resp.Diagnostics.Append(roleDenialsDiags...)
-	rolePermissions, rolePermissionsDiags := flex.StringSliceFromFramework(ctx, plan.RolePermissions)
+	rolePermissions, rolePermissionsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.RolePermissions)
 	resp.Diagnostics.Append(rolePermissionsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -156,13 +156,13 @@ func (r *gcp_iam_roleResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserGroupIds)
+	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserGroupIds)
 	resp.Diagnostics.Append(ownerUserGroupIdsDiags...)
-	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFramework(ctx, plan.OwnerUserIds)
+	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserIds)
 	resp.Diagnostics.Append(ownerUserIdsDiags...)
-	roleDenials, roleDenialsDiags := flex.StringSliceFromFramework(ctx, plan.RoleDenials)
+	roleDenials, roleDenialsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.RoleDenials)
 	resp.Diagnostics.Append(roleDenialsDiags...)
-	rolePermissions, rolePermissionsDiags := flex.StringSliceFromFramework(ctx, plan.RolePermissions)
+	rolePermissions, rolePermissionsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.RolePermissions)
 	resp.Diagnostics.Append(rolePermissionsDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -255,10 +255,10 @@ func flattenGcpIamRole(ctx context.Context, apiObject any, model *GcpIamRoleMode
 				model.Id = types.StringValue(strconv.FormatUint(v.Data.Value.GcpRole.Value.ID.Value, 10))
 			}
 			model.Name = flex.OptStringToFramework(v.Data.Value.GcpRole.Value.Name)
-			roleDenials, roleDenialsDiags := flex.StringSliceToFramework(ctx, v.Data.Value.GcpRole.Value.RoleDenials.Value)
+			roleDenials, roleDenialsDiags := flex.StringSliceToFrameworkSet(ctx, v.Data.Value.GcpRole.Value.RoleDenials.Value)
 			diags.Append(roleDenialsDiags...)
 			model.RoleDenials = roleDenials
-			rolePermissions, rolePermissionsDiags := flex.StringSliceToFramework(ctx, v.Data.Value.GcpRole.Value.RolePermissions.Value)
+			rolePermissions, rolePermissionsDiags := flex.StringSliceToFrameworkSet(ctx, v.Data.Value.GcpRole.Value.RolePermissions.Value)
 			diags.Append(rolePermissionsDiags...)
 			model.RolePermissions = rolePermissions
 			var carRestrictedUsersIDs []int64
@@ -267,7 +267,7 @@ func flattenGcpIamRole(ctx context.Context, apiObject any, model *GcpIamRoleMode
 					carRestrictedUsersIDs = append(carRestrictedUsersIDs, int64(elem.ID.Value))
 				}
 			}
-			carRestrictedUsersIDsColl, carRestrictedUsersIDsCD := types.ListValueFrom(ctx, types.Int64Type, carRestrictedUsersIDs)
+			carRestrictedUsersIDsColl, carRestrictedUsersIDsCD := types.SetValueFrom(ctx, types.Int64Type, carRestrictedUsersIDs)
 			diags.Append(carRestrictedUsersIDsCD...)
 			model.CarRestrictedUserIds = carRestrictedUsersIDsColl
 			var ownerUserGroupsIDs []int64
@@ -276,7 +276,7 @@ func flattenGcpIamRole(ctx context.Context, apiObject any, model *GcpIamRoleMode
 					ownerUserGroupsIDs = append(ownerUserGroupsIDs, int64(elem.ID.Value))
 				}
 			}
-			ownerUserGroupsIDsColl, ownerUserGroupsIDsCD := types.ListValueFrom(ctx, types.Int64Type, ownerUserGroupsIDs)
+			ownerUserGroupsIDsColl, ownerUserGroupsIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUserGroupsIDs)
 			diags.Append(ownerUserGroupsIDsCD...)
 			model.OwnerUserGroupIds = ownerUserGroupsIDsColl
 			var ownerUsersIDs []int64
@@ -285,7 +285,7 @@ func flattenGcpIamRole(ctx context.Context, apiObject any, model *GcpIamRoleMode
 					ownerUsersIDs = append(ownerUsersIDs, int64(elem.ID.Value))
 				}
 			}
-			ownerUsersIDsColl, ownerUsersIDsCD := types.ListValueFrom(ctx, types.Int64Type, ownerUsersIDs)
+			ownerUsersIDsColl, ownerUsersIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUsersIDs)
 			diags.Append(ownerUsersIDsCD...)
 			model.OwnerUserIds = ownerUsersIDsColl
 		}

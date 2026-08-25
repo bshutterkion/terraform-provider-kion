@@ -5,6 +5,35 @@
 # only. Overridden verbs win; an overridden resource is no longer flagged heuristic.
 
 resources:
+  # Singleton: one row, no create and no delete. kconfig cannot derive this
+  # because the resource has no create call to introspect, so the paths are
+  # given here and the schema comes from the PATCH body plus the GET response.
+  app_config:
+    # A singleton: one row that always exists, so there is no create call.
+    # tfplugingen requires create+read to emit a schema, and the PATCH body is
+    # exactly the set of settable attributes a create body would describe, so
+    # create points at it too.
+    create:
+      path: /v3/app-config
+      method: PATCH
+    read:
+      path: /v3/app-config
+      method: GET
+    schema:
+      # `message` is the PATCH response envelope's "User-friendly message.", not
+      # a setting — same family as status/record_id/data elsewhere in this file.
+      ignores: [status, record_id, data, message]
+    update:
+      path: /v3/app-config
+      method: PATCH
+
+  # account converts and moves an existing account rather than creating one, so
+  # kconfig finds no read to pair with its create. It reads a single account by
+  # id like every other account-shaped resource.
+  account:
+    read:
+      path: /v3/account/{id}
+      method: GET
   billing_source_gcp:
     # GCP billing source. Like AWS: create + shared delete, no update endpoint,
     # and no public by-id read (private /v1/payer/{id}).

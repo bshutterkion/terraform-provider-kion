@@ -41,8 +41,8 @@ resource "kion_service_catalog" "example" {
 ### Optional
 
 - `description` (String) Description for the service catalog portfolio in the application.
-- `owner_user_group_ids` (List of Number) List of groups IDs who will own the portfolio. Is required if no owner user IDs are listed.
-- `owner_user_ids` (List of Number) List of user IDs who will own the portfolio. Is required if no owner group IDs are listed.
+- `owner_user_group_ids` (Set of Number) List of groups IDs who will own the portfolio. Is required if no owner user IDs are listed.
+- `owner_user_ids` (Set of Number) List of user IDs who will own the portfolio. Is required if no owner group IDs are listed.
 - `tag_option` (Boolean) Boolean that enables or disables tag option sharing on service catalog portfolios.
 
 ### Read-Only

@@ -52,29 +52,29 @@ resource "kion_cloud_rule" "example" {
 
 ### Optional
 
-- `automation_policy_ids` (List of Number) List of Automation Policies attached to the Cloud Rule
-- `azure_arm_template_definition_ids` (List of Number) List of Azure ARM template definition IDs to attach to the Cloud Rule.
-- `azure_policy_definition_ids` (List of Number) List of Azure Policy IDs to attach to the Cloud Rule.
-- `azure_role_definition_ids` (List of Number) List of Azure Role Definition IDs to attach to the Cloud Rule.
-- `cft_ids` (List of Number) List of CloudFormation template IDs to attach to the Cloud Rule.
-- `compliance_standard_ids` (List of Number) List of Compliance Standards attached to the Cloud Rule
+- `automation_policy_ids` (Set of Number) List of Automation Policies attached to the Cloud Rule
+- `azure_arm_template_definition_ids` (Set of Number) List of Azure ARM template definition IDs to attach to the Cloud Rule.
+- `azure_policy_definition_ids` (Set of Number) List of Azure Policy IDs to attach to the Cloud Rule.
+- `azure_role_definition_ids` (Set of Number) List of Azure Role Definition IDs to attach to the Cloud Rule.
+- `cft_ids` (Set of Number) List of CloudFormation template IDs to attach to the Cloud Rule.
+- `compliance_standard_ids` (Set of Number) List of Compliance Standards attached to the Cloud Rule
 - `concurrent_cft_sync` (Boolean) Whether to run CFTs concurrently or not.
 If true, the application will deploy all templates at once in any order. (Faster)
 If false, the application will deploy each template in order and wait for completion before advancing to the next. (Slower)
 - `description` (String) Description of the Cloud Rule in more detail.
-- `gcp_iam_role_ids` (List of Number) List of Google Cloud IAM role IDs to attach to the Cloud Rule.
-- `iam_policy_ids` (List of Number) List of IAM Policy IDs to attach to the Cloud Rule.
-- `internal_ami_ids` (List of Number) List of AMIs to attach to the Cloud Rule.
-- `internal_portfolio_ids` (List of Number) List of Service Catalog Portfolio IDs attached to the Cloud Rule.
+- `gcp_iam_role_ids` (Set of Number) List of Google Cloud IAM role IDs to attach to the Cloud Rule.
+- `iam_policy_ids` (Set of Number) List of IAM Policy IDs to attach to the Cloud Rule.
+- `internal_ami_ids` (Set of Number) List of AMIs to attach to the Cloud Rule.
+- `internal_portfolio_ids` (Set of Number) List of Service Catalog Portfolio IDs attached to the Cloud Rule.
 - `labels` (Map of String) The labels applied to the cloud rule.
 - `last_updated` (String) The last time this resource was updated.
-- `ou_ids` (List of Number) List of OUs where the Cloud Rule will be applied.
-- `owner_user_group_ids` (List of Number) List of groups that own the Cloud Rule.
-- `owner_user_ids` (List of Number) List of users that own the Cloud Rule.
+- `ou_ids` (Set of Number) List of OUs where the Cloud Rule will be applied.
+- `owner_user_group_ids` (Set of Number) List of groups that own the Cloud Rule.
+- `owner_user_ids` (Set of Number) List of users that own the Cloud Rule.
 - `post_webhook_id` (Number) ID of a post-rule webhook to attach to the Cloud Rule.
 - `pre_webhook_id` (Number) ID of a pre-rule webhook to attach to the Cloud Rule.
-- `project_ids` (List of Number) List of projects where the Cloud Rule will be applied.
-- `service_control_policy_ids` (List of Number) List of Service Control Policies attached to the Cloud Rule
+- `project_ids` (Set of Number) List of projects where the Cloud Rule will be applied.
+- `service_control_policy_ids` (Set of Number) List of Service Control Policies attached to the Cloud Rule
 - `source` (String) Filters results to only return Cloud Rules from a given source
 
 Example\: user, action_plan, enforcement, funding_source

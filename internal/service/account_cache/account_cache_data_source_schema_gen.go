@@ -73,6 +73,7 @@ func AccountCacheDataSourceSchema(ctx context.Context) schema.Schema {
 						},
 						"key_secret": schema.StringAttribute{
 							Computed:            true,
+							Sensitive:           true,
 							Description:         "AWS Key Secret (will be redacted for security purposes).",
 							MarkdownDescription: "AWS Key Secret (will be redacted for security purposes).",
 						},

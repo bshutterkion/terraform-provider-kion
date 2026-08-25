@@ -52,7 +52,7 @@ No modules.
 | username | Username of the user. | `string` | n/a | yes |
 | mfa | The ID of the MFA type. Options: 1 is Webauthn (Yubikey), 2 is TOTP (Google Auth). | `number` | `null` | no |
 | phone | Phone number of the user. | `string` | `null` | no |
-| user\_group\_ids | List of IDs of groups the user is in. | `list(number)` | `null` | no |
+| user\_group\_ids | List of IDs of groups the user is in. | `set(number)` | `null` | no |
 
 ## Outputs
 

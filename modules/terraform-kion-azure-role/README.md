@@ -44,11 +44,11 @@ No modules.
 | ---- | ----------- | ---- | ------- | :------: |
 | name | Name of the Azure Role in the application. | `string` | n/a | yes |
 | role\_permissions | Text of the permissions section of the created Azure Role Definition. | `string` | n/a | yes |
-| car\_restricted\_user\_group\_ids | List of groups IDs who have been allowed to use the Azure Role on Cloud Access Roles in the system. | `list(number)` | `null` | no |
-| car\_restricted\_user\_ids | List of user IDs who have been allowed to use the Azure Role on Cloud Access Roles in the system. | `list(number)` | `null` | no |
+| car\_restricted\_user\_group\_ids | List of groups IDs who have been allowed to use the Azure Role on Cloud Access Roles in the system. | `set(number)` | `null` | no |
+| car\_restricted\_user\_ids | List of user IDs who have been allowed to use the Azure Role on Cloud Access Roles in the system. | `set(number)` | `null` | no |
 | description | Description for the Azure Role in the application. | `string` | `null` | no |
-| owner\_user\_group\_ids | List of group IDs who will own the Azure Role. Is required if no owner user IDs are listed. | `list(number)` | `null` | no |
-| owner\_user\_ids | List of user IDs who will own the Azure Role. Is required if no owner group IDs are listed. | `list(number)` | `null` | no |
+| owner\_user\_group\_ids | List of group IDs who will own the Azure Role. Is required if no owner user IDs are listed. | `set(number)` | `null` | no |
+| owner\_user\_ids | List of user IDs who will own the Azure Role. Is required if no owner group IDs are listed. | `set(number)` | `null` | no |
 
 ## Outputs
 
