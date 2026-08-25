@@ -269,10 +269,15 @@
       "tf_type": "kion_compliance_control",
       "kind": "compliance_control",
       "archetype": "entity",
-      "read_shape": "generic",
+      "read_shape": "parent_list",
       "readable": true,
-      "list_path": "/v4/compliance/control",
       "name_field": "name",
+      "parent": {
+        "kind": "compliance_program",
+        "list_path": "/v4/compliance/program",
+        "child_path": "/v4/compliance/program/{parent_id}/control",
+        "parent_id_field": "compliance_program_id"
+      },
       "import_id": {
         "format": "id"
       }
@@ -281,9 +286,8 @@
       "tf_type": "kion_compliance_family",
       "kind": "compliance_family",
       "archetype": "entity",
-      "read_shape": "generic",
+      "read_shape": "parent_list",
       "readable": true,
-      "list_path": "/v4/compliance/family",
       "name_field": "name",
       "parent": {
         "kind": "compliance_program",
@@ -299,9 +303,8 @@
       "tf_type": "kion_compliance_level",
       "kind": "compliance_level",
       "archetype": "entity",
-      "read_shape": "generic",
+      "read_shape": "parent_list",
       "readable": true,
-      "list_path": "/v4/compliance/level",
       "name_field": "name",
       "parent": {
         "kind": "compliance_program",
@@ -365,13 +368,13 @@
       "tf_type": "kion_custom_variable_override",
       "kind": "custom_variable_override",
       "archetype": "cv_override",
-      "read_shape": "special",
-      "readable": true,
-      "list_path": "/v3/custom-variable-override",
+      "read_shape": "none",
+      "readable": false,
       "name_field": "name",
       "import_id": {
         "format": "id"
-      }
+      },
+      "reason": "/v3/account/{account_id}/custom-variable/{custom_variable_id} takes more than one id to reach -- not enumerable"
     },
     {
       "tf_type": "kion_dashboard",
@@ -420,7 +423,7 @@
       "archetype": "raw_http",
       "read_shape": "special",
       "readable": true,
-      "list_path": "/v3/funding-source-note",
+      "list_path": "/v2/funding-source-note",
       "name_field": "name",
       "import_id": {
         "format": "id"
@@ -486,7 +489,7 @@
       "archetype": "association",
       "read_shape": "association",
       "readable": true,
-      "list_path": "/v3/global-permission-mapping",
+      "list_path": "/v3/global/permission-mapping",
       "name_field": "name",
       "import_id": {
         "format": "id"
@@ -520,10 +523,15 @@
       "tf_type": "kion_idms_group_association",
       "kind": "idms_group_association",
       "archetype": "entity",
-      "read_shape": "generic",
+      "read_shape": "parent_list",
       "readable": true,
-      "list_path": "/v3/idms/group-association",
       "name_field": "name",
+      "parent": {
+        "kind": "idms",
+        "list_path": "/v3/idms",
+        "child_path": "/v3/idms/{parent_id}/group-association",
+        "parent_id_field": "idms_id"
+      },
       "import_id": {
         "format": "id"
       }
@@ -594,7 +602,7 @@
       "archetype": "entity",
       "read_shape": "generic",
       "readable": true,
-      "list_path": "/v3/ou-cloud-access-role",
+      "list_path": "/v4/ou-cloud-access-role",
       "name_field": "name",
       "import_id": {
         "format": "id"
@@ -633,10 +641,15 @@
       "tf_type": "kion_ou_note",
       "kind": "ou_note",
       "archetype": "entity",
-      "read_shape": "generic",
+      "read_shape": "parent_list",
       "readable": true,
-      "list_path": "/v3/ou-note",
       "name_field": "name",
+      "parent": {
+        "kind": "ou",
+        "list_path": "/v3/ou",
+        "child_path": "/v3/ou/{parent_id}/ou-note",
+        "parent_id_field": "ou_id"
+      },
       "import_id": {
         "format": "id"
       }
@@ -689,7 +702,7 @@
       "archetype": "entity",
       "read_shape": "generic",
       "readable": true,
-      "list_path": "/v3/project-cloud-access-role",
+      "list_path": "/v4/project-cloud-access-role",
       "name_field": "name",
       "import_id": {
         "format": "id"
@@ -770,10 +783,15 @@
       "tf_type": "kion_saml_group_association",
       "kind": "saml_group_association",
       "archetype": "entity",
-      "read_shape": "generic",
+      "read_shape": "parent_list",
       "readable": true,
-      "list_path": "/v3/idms/group-association",
       "name_field": "name",
+      "parent": {
+        "kind": "idms",
+        "list_path": "/v3/idms",
+        "child_path": "/v3/idms/{parent_id}/group-association",
+        "parent_id_field": "idms_id"
+      },
       "import_id": {
         "format": "id"
       }
@@ -796,13 +814,8 @@
       "archetype": "compound_key_parent_read",
       "read_shape": "parent_list",
       "readable": true,
+      "list_path": "/beta/scope",
       "name_field": "name",
-      "parent": {
-        "kind": "scope",
-        "list_path": "/beta/scope",
-        "child_path": "/beta/scope/{parent_id}/criteria",
-        "parent_id_field": "scope_id"
-      },
       "import_id": {
         "format": "id"
       }
