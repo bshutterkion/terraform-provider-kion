@@ -39,6 +39,22 @@ func TestListDataEnvelope(t *testing.T) {
 	assert.Len(t, got, 1)
 }
 
+// TestListNamedCollectionEnvelope is List's end-to-end counterpart to
+// TestUnwrapNamedCollectionEnvelope: a real /v1/dashboards response,
+// {"status":200,"data":{"dashboards":[...]}}, must come back as records
+// through the full HTTP round trip, not just the pure unwrap helper.
+func TestListNamedCollectionEnvelope(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"status":200,"data":{"dashboards":[{"id":1},{"id":2}]}}`)
+	}))
+	defer srv.Close()
+
+	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v1/dashboards")
+	require.NoError(t, err)
+	assert.Len(t, got, 2)
+}
+
 func TestListPaginatesItemsEnvelope(t *testing.T) {
 	t.Parallel()
 	var pages int
@@ -290,6 +306,61 @@ func TestUnwrapGenuineSingleObjectDataStillOneRecord(t *testing.T) {
 	require.Len(t, records, 1)
 	assert.Equal(t, float64(1), records[0]["id"])
 	assert.Equal(t, "x", records[0]["name"])
+	assert.Equal(t, -1, total)
+}
+
+// TestUnwrapNamedCollectionEnvelope covers /v1/dashboards' shape:
+// {"status":200,"data":{"dashboards":[{...}]}}. unwrap must recognize data as
+// a single-key object whose value is an array and use that array as the
+// records, the same way it already recurses into an {"items":[...]} nested
+// envelope.
+func TestUnwrapNamedCollectionEnvelope(t *testing.T) {
+	t.Parallel()
+	records, total, err := unwrap(json.RawMessage(`{"status":200,"data":{"dashboards":[{"id":1,"name":"a"},{"id":2,"name":"b"}]}}`))
+	require.NoError(t, err)
+	require.Len(t, records, 2)
+	assert.Equal(t, float64(1), records[0]["id"])
+	assert.Equal(t, "a", records[0]["name"])
+	assert.Equal(t, float64(2), records[1]["id"])
+	assert.Equal(t, -1, total)
+}
+
+// TestUnwrapNamedCollectionEnvelopeEmptyArray covers the empty-list case of
+// the same shape: {"data":{"dashboards":[]}} must yield zero records, not an
+// error and not one bogus record.
+func TestUnwrapNamedCollectionEnvelopeEmptyArray(t *testing.T) {
+	t.Parallel()
+	records, _, err := unwrap(json.RawMessage(`{"status":200,"data":{"dashboards":[]}}`))
+	require.NoError(t, err)
+	assert.Len(t, records, 0)
+}
+
+// TestUnwrapTwoKeyDataObjectFallsThroughUnchanged is a regression guard: two
+// or more keys under data must NOT trigger the named-collection shortcut --
+// it isn't unambiguous which key (if any) is the record list, so this must
+// fall through to the existing singleton-object behavior instead of picking
+// one arbitrarily.
+func TestUnwrapTwoKeyDataObjectFallsThroughUnchanged(t *testing.T) {
+	t.Parallel()
+	records, total, err := unwrap(json.RawMessage(`{"status":200,"data":{"dashboards":[{"id":1}],"total_dashboards":1}}`))
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	// Falls through to the whole data object as one record, not the inner array.
+	assert.Contains(t, records[0], "dashboards")
+	assert.Contains(t, records[0], "total_dashboards")
+	assert.Equal(t, -1, total)
+}
+
+// TestUnwrapSingleKeyNonArrayValueFallsThroughUnchanged is a regression
+// guard: a single-key data object whose value is NOT an array (e.g.
+// {"data":{"id":1}}) must not be treated as a named-collection envelope --
+// it must still come back as one record via the existing singleton branch.
+func TestUnwrapSingleKeyNonArrayValueFallsThroughUnchanged(t *testing.T) {
+	t.Parallel()
+	records, total, err := unwrap(json.RawMessage(`{"status":200,"data":{"id":1}}`))
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	assert.Equal(t, float64(1), records[0]["id"])
 	assert.Equal(t, -1, total)
 }
 

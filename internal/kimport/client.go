@@ -228,6 +228,20 @@ func unwrap(body json.RawMessage) ([]map[string]any, int, error) {
 		if isNestedEnvelope(env.Data) {
 			return unwrap(env.Data)
 		}
+		// A named-collection envelope: {"status":200,"data":{"dashboards":[{...}]}}.
+		// /v1/dashboards wraps its list under a descriptive key instead of
+		// "items" or a bare array. Detect that shape structurally -- data is a
+		// JSON object with exactly one key whose value is itself a JSON array
+		// -- and use that array as the records. Two or more keys, or a
+		// non-array single value, fall through unchanged to the singleton
+		// branch below, so a genuine single-object record (e.g.
+		// {"data":{"id":1,"name":"x"}}) is still returned as one record.
+		if arr, ok := singleArrayValue(env.Data); ok {
+			var records []map[string]any
+			if err := json.Unmarshal(arr, &records); err == nil {
+				return records, total, nil
+			}
+		}
 		// A singleton endpoint returns one object rather than a list.
 		var single map[string]any
 		if err := json.Unmarshal(env.Data, &single); err == nil {
@@ -262,6 +276,27 @@ func isNestedEnvelope(raw json.RawMessage) bool {
 	}
 	_, ok := obj["items"]
 	return ok
+}
+
+// singleArrayValue reports whether raw is a JSON object with exactly one key
+// whose value is a JSON array, returning that array's raw bytes when so. Used
+// to detect a named-collection envelope like {"dashboards":[...]} that wraps
+// a list under a descriptive key rather than "items" or a bare array.
+func singleArrayValue(raw json.RawMessage) (json.RawMessage, bool) {
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return nil, false
+	}
+	if len(obj) != 1 {
+		return nil, false
+	}
+	for _, v := range obj {
+		trimmed := bytes.TrimLeft(v, " \t\r\n")
+		if len(trimmed) > 0 && trimmed[0] == '[' {
+			return v, true
+		}
+	}
+	return nil, false
 }
 
 // List GETs path, unwrapping and paging as needed.
