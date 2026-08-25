@@ -360,6 +360,13 @@ type ovEntry struct {
 	Delete  *yOp     `yaml:"delete"`
 	Ignores []string `yaml:"ignores"` // extra OAS attributes to drop (appended to the baked-in ignores)
 
+	// Skip drops an entry derivation produced but that should not exist. Needed
+	// because derivation picks the first GET a package's code touches, which for
+	// a polymorphic data source is whichever entity it happened to reach first.
+	// codegen/import_manifest.json takes its list paths from data_sources, so a
+	// wrong entry there is not cosmetic.
+	Skip bool `yaml:"skip"`
+
 	// Schema accepts the same `schema: { ignores: [...] }` shape that the rendered
 	// generator_config.yaml uses. Authors reasonably mirror the output format when
 	// writing an override, and before this field existed those entries parsed
@@ -451,6 +458,11 @@ func applyOverrides(configs []ServiceConfig, ov overridesFile) []ServiceConfig {
 	for name, e := range ov.DataSources {
 		sc := m[name]
 		sc.Name = name
+		if e.Skip {
+			sc.DataSourceRead = nil
+			m[name] = sc
+			continue
+		}
 		if op := e.Read.toOp(); op != nil {
 			sc.DataSourceRead = op
 		}

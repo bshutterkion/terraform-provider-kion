@@ -66,6 +66,27 @@ written: five entries existed only by hand, and regenerating dropped `count` and
 `page` from `billing_source`'s ignores, which fails schema validation because
 `count` is a reserved Terraform root attribute name.
 
+## Derivation guesses, and sometimes guesses wrong
+
+`codegen/import_manifest.json` takes its list paths from the `data_sources`
+section, so a wrong entry there is not cosmetic: it sends `kion-import` at a path
+that cannot be listed. Two were caught this way when the config was first made
+reproducible.
+
+- `saml_group_association` derived `/v3/idms/group-association/{id}`, whose
+  collection is POST only. The records hang off the parent, so the read is pinned
+  to `/v3/idms/{id}/group-association`.
+- `custom_variable_override` is polymorphic across account, OU and project, so
+  derivation resolved whichever GET the data source reached first, `/v3/ou`, and
+  called it the collection. There is no single list, so the entry is suppressed
+  with `skip: true`.
+- `ou_permission_mapping` and `project_permission_mapping` create and update
+  through the same PATCH upsert, and derivation attributes that one PATCH to
+  create alone. Without a pinned `update` they become create-and-replace only.
+
+Check a derived path before trusting it: it must exist in the spec with a GET,
+and it must be the collection rather than the by-id route.
+
 ## What derivation cannot see
 
 `kconfig` derives a resource's ops from the SDK calls its CRUD methods make. Five
