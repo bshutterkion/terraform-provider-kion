@@ -1,9 +1,11 @@
 # kion-import: live validation
 
-Record of running `kion-import` against a real Kion installation. The authored
-endpoint tables in `internal/kgen/importmanifest/paths.go` cannot be derived from
-codegen, so they are unverified until a run like this exercises them. Re-run this
-after changing an archetype, a read path, or one of those tables.
+Record of running `kion-import` against a real Kion installation. The collection
+paths a parent-scoped or association resource reads through are authored in
+`codegen/config_overrides.yaml` rather than derived -- codegen records by-id
+reads, which those shapes have none of -- so they are unverified until a run like
+this exercises them. Re-run this after changing an archetype, a read path, or one
+of those entries.
 
 ## Environment
 
@@ -26,6 +28,12 @@ Coverage: 68 resource types, 51966 records
 51,880 `import` blocks generated, **zero errors**, and — as of the page-padding
 fix below — zero records skipped for a missing id. Every one of the 68 manifest
 rows produced a result.
+
+These totals are that run's, and they are now ten low: the padding fix in
+*Pages padded to `total`* recovers ten `compliance_family` records that this run
+never fetched. The per-resource sections below reflect the fixed behavior; the
+headline counts are left as recorded rather than adjusted by arithmetic, and a
+full re-run supersedes them.
 
 The three `unsupported` rows are refusals by design, not gaps: two alias types
 (`kion_aws_cloudformation_template`, `kion_aws_iam_policy`) that would put two
@@ -141,61 +149,58 @@ accounted for in the report but never enumerated. `--list-types` shows the legac
 name against the current one, which is what an operator migrating a configuration
 needs to see.
 
-### 5. Pages padded to `total`, which stopped paging after page one
+### 5. Pages padded to `total`, hiding real records
 
-The compliance parent-scoped collections answer **every** page with an `items`
-array whose length is the collection's `total`, populating only the requested
-page's window and zero-filling the rest:
+Found after this run, by investigating the `record(s) skipped: no id` caveats
+below rather than accepting them as a documented quirk.
 
-```
-GET /v4/compliance/program/12/control?page=1&count=100
-  -> total 1189, items 1189, of which 100 carry an id (records 1-100)
-GET /v4/compliance/program/12/control?page=2&count=100
-  -> total 1189, items 1189, of which 100 carry an id (records 101-200)
-```
+Some collections pad every page out to `total` instead of to the page size.
+`/v4/compliance/program/5/family` holds 110 families:
 
-Each filler slot is a fully zero-valued struct:
+| request | items | real | zero-valued padding |
+|---|---:|---:|---:|
+| `count=100&page=1` | 110 | 100 (Access…Temporary) | 10 |
+| `count=100&page=2` | 110 | 10 (Transaction…Wireless) | 100 |
+| `count=500&page=1` | 110 | 110 | 0 |
 
-```json
-{"id":0,"compliance_family_id":0,"control_number":0,"name":"","description":"",
- "severity":"","title":"","compliance_levels":null,"cloud_provider_policy_ids":null}
-```
+`Client.List` unwrapped 110 records and `total: 110` from page 1, evaluated
+`len(records) < total` as `110 < 110`, and stopped. The ten real records that
+exist only on page 2 were never requested. `toRecords` then dropped the ten
+fillers for having no id and reported `10 record(s) skipped: no id`.
 
-`List` pages while `len(records) < total`. Page one already returned `total`
-records, so it never asked for page two — and the 1,089 padding slots flowed
-into `toRecords`, which correctly refused to import a record whose id is `0`
-(that guard exists because emitting `id = "0"` produced `Cannot import
-non-existent remote object`). The result read as a partial success with a
-reported skip count rather than an error: `kion_compliance_control ok 2414,
-3592 record(s) skipped: no id`, and `kion_compliance_family ok 587, 10
-record(s) skipped: no id`. The skip count is not a coincidence — it is exactly
-the records past page one, `total` minus 100 per program.
+The count was right and the wording was wrong in the way that matters: it
+describes records being *ignored* when the event was records never being
+*fetched*. It also happened to equal the number missing, which made it look
+self-consistent. What gave it away was the alphabet -- every missing family
+sorted between Transaction and Wireless, which is a lost final page, not
+scattered bad data.
 
-This is the same class as defects 2 and 3 — a response shape the client
-mis-modelled — but the failure mode is the inverse: the earlier two lost the id
-*within* a record, this one loses whole records to a **`total` the client
-trusted as a length**.
+Fixed: zero-valued records are dropped before the page count is compared against
+`total`. Such a record carries no id and could never have produced an `import`
+block, so nothing is lost, and the count now reflects what was retrieved.
+`compliance_family` returns the full 597, matching a direct count over the API.
 
-Fixed: a paginated response whose page overshoots the requested page size has
-its all-zero records dropped, and paging continues until `total` real records
-are collected. The filter cannot cost anything real — an all-zero record has no
-id and is unimportable either way — and it does not touch a well-behaved
-endpoint, whose pages never exceed the page size. An endpoint that ignores
-`count` and returns every (real) record on page one still yields all of them in
-one request, since nothing gets dropped and the loop is already satisfied.
-
-After the fix, on the same install: `kion_compliance_control ok 6006`,
-`kion_compliance_family ok 597`, no skips.
-
-**`total` is a count, not a length.** Nothing in a list response guarantees the
-array is only as long as the page.
+The padding itself is a server-side defect and is worth reporting separately:
+any client paging that endpoint hits it.
 
 ## Still failing on this install
 
-Nothing errors. Three rows are refused by design, five are legitimately empty,
-and five read with a caveat. **All are recorded, not silently omitted** -- they
-appear in both the report and the generated file. No row skips a record for a
-missing id.
+Nothing errors. Three rows are refused by design, six are legitimately empty, and
+five read with a caveat. **All are recorded, not silently omitted** -- they
+appear in both the report and the generated file.
+
+The same padding hides far more `compliance_control`. That collection is
+parent-scoped under 28 programs, each capped at its first 100 controls:
+
+```
+GET /v4/compliance/program/12/control?count=100&page=1
+  -> total 1189, items 1189, of which 100 carry an id
+```
+
+`compliance_family` lost 10 records to this; `compliance_control` lost **3,592**.
+Re-probed on the fixed build: 2,414 -> 6,006 and 587 -> 597, a total of +3,602,
+which is exactly the two skip counts.
+
 
 ### Refused by design (3)
 
@@ -223,6 +228,18 @@ reported rather than swallowed, and one bad parent does not sink the resource.
 
 The two exemption caveats are the kind-mixing filter working; see below.
 
+This table used to carry three more rows -- `compliance_control` (3592),
+`compliance_family` (10) and `scope_criteria` (9), each reported as
+`record(s) skipped: no id`. None of them were what that wording implied; see
+*Pages padded to `total`* below for the first two, and the `nested_collection`
+read shape for `scope_criteria`. All three now read clean:
+
+| resource | then | now |
+|---|---|---|
+| `compliance_control` | 6006, 3592 skipped | 6006, no caveat |
+| `compliance_family` | 587, 10 skipped | **597**, no caveat |
+| `scope_criteria` | 9 skipped, 0 read | 9, no caveat |
+
 ### Empty (5)
 
 Five collections are genuinely empty on this install, including
@@ -241,6 +258,12 @@ only by unit tests. Verify it against an install that has records.
   dropped silently; the count is what surfaced it. It earned its keep a second
   time on the page-padding defect: a resource returning 2,414 records looks
   healthy, and only `3592 record(s) skipped` said otherwise.
+- **A skip count is a symptom, not a diagnosis.** The same mechanism that
+  surfaced the wrapper bug later described missing `compliance_family` and
+  `compliance_control` records as *skipped* ones, and the numbers were accurate
+  enough that the caveats sat in this document as settled. A skip count says
+  something was not emitted; it does not say the records were reachable and
+  ignored. Reconcile against the API before recording one as understood.
 - **The one-result-per-row contract holds** against the real manifest: 68 rows in,
   68 results out, every failure attributed.
 

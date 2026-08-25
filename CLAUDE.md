@@ -99,9 +99,11 @@ and `terraform apply` do both through the provider's own `Read`/`ImportState`.
 `import_manifest.json` is generated — run `make import-manifest` after changing
 an archetype or a read path. `TestManifestIsCurrent` fails if you forget.
 
-The collection paths in `internal/kgen/importmanifest/paths.go` are **authored,
-not derived** (codegen records by-id reads, which parent-scoped and association
-resources lack). Verify them with `kion-import --probe` against a live install.
+The collection paths a parent-scoped or association resource reads through are
+**authored, not derived** (codegen records by-id reads, which those shapes lack).
+They live in `codegen/config_overrides.yaml`, merged over the derivation into
+`generator_config.yaml`. Verify them with `kion-import --probe` against a live
+install.
 
 `codegen/references.yaml` is the other **authored, not derived** input: which
 attributes are foreign keys and what each points at. `kion-import rewrite-refs`
