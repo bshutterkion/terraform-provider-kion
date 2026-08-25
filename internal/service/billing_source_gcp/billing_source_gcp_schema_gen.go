@@ -170,6 +170,12 @@ func (t GcpBillingAccountCreateType) String() string {
 
 func (t GcpBillingAccountCreateType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewGcpBillingAccountCreateValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewGcpBillingAccountCreateValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 
@@ -961,6 +967,12 @@ func (t BigQueryExportType) String() string {
 
 func (t BigQueryExportType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewBigQueryExportValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewBigQueryExportValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 

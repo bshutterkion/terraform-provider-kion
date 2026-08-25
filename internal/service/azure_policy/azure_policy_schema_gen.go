@@ -122,6 +122,12 @@ func (t AzurePolicyType) String() string {
 
 func (t AzurePolicyType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewAzurePolicyValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewAzurePolicyValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 

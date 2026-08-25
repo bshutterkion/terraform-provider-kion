@@ -26,7 +26,7 @@ make lint                     # golangci-lint run (config: .golangci.yml)
 
 # CI
 make ci-quick                 # Fast inner loop: fmt, vet, lint, test (same four checks as the pre-push hook)
-make ci                       # Every ci.yml job that can run locally, including the docs/modules drift gates (slow)
+make ci                       # Every ci.yml job that can run locally: the docs drift gate, and modules drift + terraform init/validate/test over all 72 (slow)
 
 # Code generation (see codegen/README.md first)
 make generate                 # Regenerate the full generatable surface: version gates + schemas + CRUD + import manifest

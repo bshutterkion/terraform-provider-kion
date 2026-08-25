@@ -208,6 +208,12 @@ func (t AwsConnectionType) String() string {
 
 func (t AwsConnectionType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewAwsConnectionValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewAwsConnectionValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 
@@ -752,6 +758,12 @@ func (t AzureConnectionType) String() string {
 
 func (t AzureConnectionType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewAzureConnectionValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewAzureConnectionValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 

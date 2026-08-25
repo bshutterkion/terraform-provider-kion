@@ -209,6 +209,12 @@ func (t AccessRulesType) String() string {
 
 func (t AccessRulesType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewAccessRulesValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewAccessRulesValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 

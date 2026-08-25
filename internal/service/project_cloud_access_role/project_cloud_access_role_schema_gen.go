@@ -301,6 +301,12 @@ func (t AwsSessionTagsType) String() string {
 
 func (t AwsSessionTagsType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewAwsSessionTagsValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewAwsSessionTagsValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 

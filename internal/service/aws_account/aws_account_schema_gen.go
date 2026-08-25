@@ -335,6 +335,12 @@ func (t AwsOrganizationalUnitType) String() string {
 
 func (t AwsOrganizationalUnitType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewAwsOrganizationalUnitValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewAwsOrganizationalUnitValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 
@@ -714,6 +720,12 @@ func (t MoveProjectSettingsType) String() string {
 
 func (t MoveProjectSettingsType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewMoveProjectSettingsValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewMoveProjectSettingsValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 

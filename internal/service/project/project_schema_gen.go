@@ -321,6 +321,12 @@ func (t BudgetType) String() string {
 
 func (t BudgetType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewBudgetValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewBudgetValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 
@@ -932,6 +938,12 @@ func (t DataType) String() string {
 
 func (t DataType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewDataValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewDataValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 
@@ -1421,6 +1433,12 @@ func (t MoveOuSettingsType) String() string {
 
 func (t MoveOuSettingsType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewMoveOuSettingsValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewMoveOuSettingsValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 
@@ -1800,6 +1818,12 @@ func (t ProjectFundingType) String() string {
 
 func (t ProjectFundingType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewProjectFundingValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewProjectFundingValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 

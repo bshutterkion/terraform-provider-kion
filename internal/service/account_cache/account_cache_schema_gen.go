@@ -254,6 +254,12 @@ func (t OrganizationalUnitType) String() string {
 
 func (t OrganizationalUnitType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewOrganizationalUnitValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewOrganizationalUnitValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 

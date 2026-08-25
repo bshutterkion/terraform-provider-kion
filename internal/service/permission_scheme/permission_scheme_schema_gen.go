@@ -99,6 +99,12 @@ func (t RolesType) String() string {
 
 func (t RolesType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewRolesValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewRolesValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 

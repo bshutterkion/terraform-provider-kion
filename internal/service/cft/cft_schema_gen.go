@@ -184,6 +184,12 @@ func (t TagsType) String() string {
 
 func (t TagsType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewTagsValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewTagsValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 
