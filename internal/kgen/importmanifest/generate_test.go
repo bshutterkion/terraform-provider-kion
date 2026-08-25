@@ -383,7 +383,42 @@ func TestBuildOverridesOpenIDFamilyParent(t *testing.T) {
 		assert.Equal(t, ShapeParentList, r.ReadShape, c.tfType)
 		assert.True(t, r.Readable, c.tfType)
 		assert.Empty(t, r.ListPath, c.tfType)
+		assert.Nil(t, r.Parents, c.tfType)
 	}
+}
+
+// TestBuildOverridesBudgetWithTwoParents guards Fix 4: /v3/budget 405s live
+// (there is no flat list), and budgets hang off two parents, both verified
+// live -- /v3/ou/{id}/budget and /v3/project/{id}/budget. multiParentOverrides
+// must populate Parents with both, and Parent must still mirror Parents[0]
+// so a reader that only knows about the single-Parent field still works.
+func TestBuildOverridesBudgetWithTwoParents(t *testing.T) {
+	t.Parallel()
+	m := Build(
+		map[string]string{"budget": "/v3/budget/{id}"},
+		map[string]string{},
+		map[string]archetypeInfo{},
+		[]string{"kion_budget"},
+	)
+	r := byType(m, "kion_budget")
+
+	require.Len(t, r.Parents, 2)
+	require.NotNil(t, r.Parent)
+	assert.Equal(t, *r.Parent, r.Parents[0], "Parent must mirror Parents[0]")
+
+	assert.Equal(t, "ou", r.Parents[0].Kind)
+	assert.Equal(t, "/v3/ou", r.Parents[0].ListPath)
+	assert.Equal(t, "/v3/ou/{parent_id}/budget", r.Parents[0].ChildPath)
+	assert.Equal(t, "ou_id", r.Parents[0].ParentIDField)
+
+	assert.Equal(t, "project", r.Parents[1].Kind)
+	assert.Equal(t, "/v3/project", r.Parents[1].ListPath)
+	assert.Equal(t, "/v3/project/{parent_id}/budget", r.Parents[1].ChildPath)
+	assert.Equal(t, "project_id", r.Parents[1].ParentIDField)
+
+	assert.Equal(t, ShapeParentList, r.ReadShape)
+	assert.True(t, r.Readable)
+	assert.Empty(t, r.ListPath)
 }
 
 func TestManifestMarshalsDeterministically(t *testing.T) {

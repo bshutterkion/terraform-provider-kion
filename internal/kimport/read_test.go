@@ -711,3 +711,88 @@ func TestSkipReasonEmptyWhenNothingSkipped(t *testing.T) {
 	t.Parallel()
 	assert.Empty(t, skipReason(0, 0))
 }
+
+// --- Fix 4: budgets are enumerable under two parents, not one. ---
+
+func TestEnumerateMultiParentConcatenatesBothSets(t *testing.T) {
+	t.Parallel()
+	l := &routeLister{routes: map[string]any{
+		"/v3/ou":               []map[string]any{rec("id", float64(1))},
+		"/v3/ou/1/budget":      []map[string]any{rec("id", float64(100))},
+		"/v3/project":          []map[string]any{rec("id", float64(2))},
+		"/v3/project/2/budget": []map[string]any{rec("id", float64(200))},
+	}}
+	res := Enumerate(context.Background(), l, importmanifest.Resource{
+		TFType: "kion_budget", ReadShape: importmanifest.ShapeParentList, Readable: true,
+		Parents: []importmanifest.Parent{
+			{Kind: "ou", ListPath: "/v3/ou", ChildPath: "/v3/ou/{parent_id}/budget", ParentIDField: "ou_id"},
+			{Kind: "project", ListPath: "/v3/project", ChildPath: "/v3/project/{parent_id}/budget", ParentIDField: "project_id"},
+		},
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	})
+	require.Equal(t, "ok", res.Status)
+	require.Len(t, res.Records, 2)
+	ids := []string{res.Records[0].ID, res.Records[1].ID}
+	assert.ElementsMatch(t, []string{"100", "200"}, ids)
+}
+
+func TestEnumerateMultiParentOneSetFailingStillReturnsOther(t *testing.T) {
+	t.Parallel()
+	l := &routeLister{routes: map[string]any{
+		"/v3/ou":               errors.New("405 Method Not Allowed"),
+		"/v3/project":          []map[string]any{rec("id", float64(2))},
+		"/v3/project/2/budget": []map[string]any{rec("id", float64(200))},
+	}}
+	res := Enumerate(context.Background(), l, importmanifest.Resource{
+		TFType: "kion_budget", ReadShape: importmanifest.ShapeParentList, Readable: true,
+		Parents: []importmanifest.Parent{
+			{Kind: "ou", ListPath: "/v3/ou", ChildPath: "/v3/ou/{parent_id}/budget", ParentIDField: "ou_id"},
+			{Kind: "project", ListPath: "/v3/project", ChildPath: "/v3/project/{parent_id}/budget", ParentIDField: "project_id"},
+		},
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	})
+	require.Equal(t, "ok", res.Status)
+	require.Len(t, res.Records, 1)
+	assert.Equal(t, "200", res.Records[0].ID)
+	assert.Contains(t, res.Reason, "405")
+	assert.Contains(t, res.Reason, "ou")
+}
+
+func TestEnumerateMultiParentBothSetsFailingIsAnError(t *testing.T) {
+	t.Parallel()
+	l := &routeLister{routes: map[string]any{
+		"/v3/ou":      errors.New("405 Method Not Allowed"),
+		"/v3/project": errors.New("500 boom"),
+	}}
+	res := Enumerate(context.Background(), l, importmanifest.Resource{
+		TFType: "kion_budget", ReadShape: importmanifest.ShapeParentList, Readable: true,
+		Parents: []importmanifest.Parent{
+			{Kind: "ou", ListPath: "/v3/ou", ChildPath: "/v3/ou/{parent_id}/budget", ParentIDField: "ou_id"},
+			{Kind: "project", ListPath: "/v3/project", ChildPath: "/v3/project/{parent_id}/budget", ParentIDField: "project_id"},
+		},
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	})
+	assert.Equal(t, "error", res.Status)
+	assert.Empty(t, res.Records)
+	assert.Contains(t, res.Reason, "405")
+	assert.Contains(t, res.Reason, "500")
+}
+
+func TestEnumerateSingleParentUnchangedWhenParentsEmpty(t *testing.T) {
+	t.Parallel()
+	l := &routeLister{routes: map[string]any{
+		"/v3/ou":               []map[string]any{rec("id", float64(1)), rec("id", float64(2))},
+		"/v3/ou/1/enforcement": []map[string]any{rec("id", float64(10))},
+		"/v3/ou/2/enforcement": []map[string]any{rec("id", float64(20))},
+	}}
+	res := Enumerate(context.Background(), l, importmanifest.Resource{
+		TFType: "kion_ou_enforcement", ReadShape: importmanifest.ShapeParentList, Readable: true,
+		Parent: &importmanifest.Parent{
+			Kind: "ou", ListPath: "/v3/ou",
+			ChildPath: "/v3/ou/{parent_id}/enforcement", ParentIDField: "ou_id",
+		},
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	})
+	require.Equal(t, "ok", res.Status)
+	assert.Len(t, res.Records, 2)
+}

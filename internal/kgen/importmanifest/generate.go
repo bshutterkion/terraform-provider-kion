@@ -66,6 +66,18 @@ var parentOverrides = map[string]Parent{
 	},
 }
 
+// multiParentOverrides corrects resources enumerable under more than one
+// parent collection -- Build's per-resource derivation models exactly one
+// Parent, but /v3/budget 405s (there is no flat list) and budgets hang off
+// two parents, both verified live: /v3/ou/{id}/budget and
+// /v3/project/{id}/budget.
+var multiParentOverrides = map[string][]Parent{
+	"kion_budget": {
+		{Kind: "ou", ListPath: "/v3/ou", ChildPath: "/v3/ou/{parent_id}/budget", ParentIDField: "ou_id"},
+		{Kind: "project", ListPath: "/v3/project", ChildPath: "/v3/project/{parent_id}/budget", ParentIDField: "project_id"},
+	},
+}
+
 // Build assembles the manifest from already-loaded inputs. Pure: no I/O, so the
 // table-driven tests do not need a filesystem.
 //
@@ -196,6 +208,17 @@ func Build(readPaths, dataSourcePaths map[string]string, archetypes map[string]a
 		if ov, ok := parentOverrides[tfType]; ok {
 			p := ov
 			r.Parent = &p
+			r.ListPath = ""
+			r.ReadShape = ShapeParentList
+			r.Readable = true
+			r.Reason = ""
+		}
+
+		if parents, ok := multiParentOverrides[tfType]; ok {
+			ps := make([]Parent, len(parents))
+			copy(ps, parents)
+			r.Parents = ps
+			r.Parent = &ps[0]
 			r.ListPath = ""
 			r.ReadShape = ShapeParentList
 			r.Readable = true
