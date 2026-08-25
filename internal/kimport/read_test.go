@@ -372,7 +372,7 @@ func TestToRecordsUnwrapsPerTypeWrapper(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			records, skipped := toRecords([]map[string]any{tt.raw}, importmanifest.Resource{
+			records, skipped, _ := toRecords([]map[string]any{tt.raw}, importmanifest.Resource{
 				TFType: "kion_x", ReadShape: importmanifest.ShapeGeneric,
 				ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
 			}, "")
@@ -388,7 +388,7 @@ func TestToRecordsUnwrapsPerTypeWrapper(t *testing.T) {
 func TestToRecordsExtractsNameFromWrapper(t *testing.T) {
 	t.Parallel()
 	raw := rec("cft", rec("id", float64(296), "name", "MyCFT"), "owner_users", []any{})
-	records, skipped := toRecords([]map[string]any{raw}, importmanifest.Resource{
+	records, skipped, _ := toRecords([]map[string]any{raw}, importmanifest.Resource{
 		TFType: "kion_cft", ReadShape: importmanifest.ShapeGeneric, NameField: "name",
 		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
 	}, "")
@@ -403,7 +403,7 @@ func TestToRecordsExtractsNameFromWrapper(t *testing.T) {
 func TestToRecordsPlainRecordUnchanged(t *testing.T) {
 	t.Parallel()
 	raw := rec("id", float64(1), "name", "x")
-	records, skipped := toRecords([]map[string]any{raw}, importmanifest.Resource{
+	records, skipped, _ := toRecords([]map[string]any{raw}, importmanifest.Resource{
 		TFType: "kion_x", ReadShape: importmanifest.ShapeGeneric, NameField: "name",
 		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
 	}, "")
@@ -419,7 +419,7 @@ func TestToRecordsPlainRecordUnchanged(t *testing.T) {
 func TestToRecordsAmbiguousTwoNonOwnerKeysNotUnwrapped(t *testing.T) {
 	t.Parallel()
 	raw := rec("cft", rec("id", float64(1)), "other_key", rec("id", float64(2)))
-	records, skipped := toRecords([]map[string]any{raw}, importmanifest.Resource{
+	records, skipped, _ := toRecords([]map[string]any{raw}, importmanifest.Resource{
 		TFType: "kion_x", ReadShape: importmanifest.ShapeGeneric,
 		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
 	}, "")
@@ -437,7 +437,7 @@ func TestToRecordsSiblingWithoutIDDoesNotBlockDetection(t *testing.T) {
 		"thing", rec("id", float64(1), "name", "T"),
 		"meta", rec("note", "x"),
 	)
-	records, skipped := toRecords([]map[string]any{raw}, importmanifest.Resource{
+	records, skipped, _ := toRecords([]map[string]any{raw}, importmanifest.Resource{
 		TFType: "kion_x", ReadShape: importmanifest.ShapeGeneric, NameField: "name",
 		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
 	}, "")
@@ -518,5 +518,25 @@ func TestEnumerateAssociationSkipsRecordsMissingKeyField(t *testing.T) {
 	require.Equal(t, "ok", res.Status)
 	require.Len(t, res.Records, 1)
 	assert.Equal(t, "3/2", res.Records[0].ID)
-	assert.Contains(t, res.Reason, "1 record(s) skipped: no id")
+	// Small item #1: a FormatParentSlashKey record missing its key field is a
+	// different, more actionable cause than a record missing an id outright
+	// (the former points at a wrong KeyField in the manifest) -- the message
+	// must say so instead of collapsing both into "no id".
+	assert.Contains(t, res.Reason, "1 record(s) skipped: missing key field")
+	assert.NotContains(t, res.Reason, "skipped: no id")
+}
+
+// TestSkipReasonDistinguishesNoIDFromMissingKeyField is a focused unit test
+// on skipReason itself: both causes must produce distinguishable, coexisting
+// messages when both occur in the same read.
+func TestSkipReasonDistinguishesNoIDFromMissingKeyField(t *testing.T) {
+	t.Parallel()
+	reason := skipReason(2, 3)
+	assert.Contains(t, reason, "2 record(s) skipped: no id")
+	assert.Contains(t, reason, "3 record(s) skipped: missing key field")
+}
+
+func TestSkipReasonEmptyWhenNothingSkipped(t *testing.T) {
+	t.Parallel()
+	assert.Empty(t, skipReason(0, 0))
 }

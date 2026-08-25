@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -242,6 +244,33 @@ func TestListErrorIncludesBody(t *testing.T) {
 	_, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v3/ou")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid request parameter")
+}
+
+// TestSnippetOfDoesNotSplitAMultiByteRuneAtTheLimit: small item #2. Byte-
+// slicing buf[:bodyLimit] can land in the middle of a multi-byte UTF-8 rune,
+// emitting invalid UTF-8 into a customer-facing error message. 511 ASCII
+// bytes plus one 3-byte rune ("世", E4 B8 96) is 514 bytes total, so
+// truncating to bodyLimit (512) keeps the rune's leading byte but drops its
+// two continuation bytes -- exactly the split this guards against.
+//
+// A bare utf8.ValidString(got) check does NOT discriminate here: the
+// strings.Map call further down snippetOf decodes any invalid byte sequence
+// as the U+FFFD replacement rune and re-emits it verbatim, which is itself
+// valid UTF-8 -- so the output is always valid UTF-8 whether or not
+// strings.ToValidUTF8 ran first. The actual difference the fix makes is in
+// the *content*: ToValidUTF8(..., "") drops the truncated partial rune
+// entirely, while the unfixed path leaves a U+FFFD in its place. Assert the
+// exact expected snippet (and the absence of U+FFFD) so the test fails
+// against the unfixed code.
+func TestSnippetOfDoesNotSplitAMultiByteRuneAtTheLimit(t *testing.T) {
+	t.Parallel()
+	buf := append([]byte(strings.Repeat("a", bodyLimit-1)), "世"...)
+	require.Greater(t, len(buf), bodyLimit, "test setup: buf must exceed bodyLimit to exercise truncation")
+
+	got := snippetOf(buf)
+	assert.True(t, utf8.ValidString(got), "snippetOf must never return invalid UTF-8: %q", got)
+	assert.NotContains(t, got, string(utf8.RuneError), "snippetOf must not leave a replacement character from a split rune: %q", got)
+	assert.Equal(t, strings.Repeat("a", bodyLimit-1)+"…", got)
 }
 
 // TestJoinAPIPrefix covers the pure URL-normalization helper: default prefix

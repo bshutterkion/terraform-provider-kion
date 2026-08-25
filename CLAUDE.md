@@ -105,6 +105,20 @@ The collection paths in `internal/kgen/importmanifest/paths.go` are **authored,
 not derived** (codegen records by-id reads, which parent-scoped and association
 resources lack). Verify them with `kion-import --probe` against a live install.
 
+`kion-import` appends `/api` to `--url` by default (hosted installs serve their
+API under that prefix). Pass `--api-prefix ""` for an install whose API is hit
+directly at the root — e.g. an app reached straight on localhost rather than
+through the usual hosted path. See `internal/kimport/client.go`'s
+`joinAPIPrefix`/`NewClient` for the exact normalization rules (no doubling when
+`--url` already ends in the prefix, tolerant of a prefix given with or without
+its slashes).
+
+`docs/import-tooling-validation.md` records a full run against a real install:
+as of that run, 15 resources fail (plus 3 unsupported), each with its cause
+(structurally unreadable, flat list 405 with no parent fallback, authored path
+wrong, missing parent id, etc.) — read it before assuming a resource that fails
+locally is a new bug rather than a known, already-diagnosed gap.
+
 ## Key Conventions
 
 - Resource names use `kion_` prefix (e.g., `kion_cloud_rule`, `kion_project`)

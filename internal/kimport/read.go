@@ -57,11 +57,9 @@ func Enumerate(ctx context.Context, l Lister, r importmanifest.Resource) Result 
 			res.Status, res.Reason = "error", err.Error()
 			return res
 		}
-		records, skipped := toRecords(raw, r, "")
+		records, skippedNoID, skippedNoKey := toRecords(raw, r, "")
 		res.Records = records
-		if skipped > 0 {
-			res.Reason = fmt.Sprintf("%d record(s) skipped: no id", skipped)
-		}
+		res.Reason = skipReason(skippedNoID, skippedNoKey)
 	case importmanifest.ShapeParentList, importmanifest.ShapeAssociation:
 		if r.Parent == nil {
 			raw, err := l.List(ctx, r.ListPath)
@@ -69,15 +67,20 @@ func Enumerate(ctx context.Context, l Lister, r importmanifest.Resource) Result 
 				res.Status, res.Reason = "error", err.Error()
 				return res
 			}
-			records, skipped := toRecords(raw, r, "")
+			records, skippedNoID, skippedNoKey := toRecords(raw, r, "")
 			res.Records = records
-			if skipped > 0 {
-				res.Reason = fmt.Sprintf("%d record(s) skipped: no id", skipped)
-			}
+			res.Reason = skipReason(skippedNoID, skippedNoKey)
 			break
 		}
 		return parentScopedResult(ctx, l, r)
 	default:
+		// A manifest row with a ReadShape this switch doesn't recognize is a
+		// codegen/manifest bug, not an expected gap -- name it rather than
+		// falling through with whatever (possibly empty) Reason the manifest
+		// happened to carry, which would report as an unexplained blank line.
+		if res.Reason == "" {
+			res.Reason = fmt.Sprintf("unrecognized read shape %q", r.ReadShape)
+		}
 		return res
 	}
 
@@ -104,7 +107,8 @@ func parentScopedResult(ctx context.Context, l Lister, r importmanifest.Resource
 	}
 
 	var failures []string
-	skipped := 0
+	skippedNoID := 0
+	skippedNoKey := 0
 	parentsSkipped := 0
 	for _, parent := range parents {
 		// A parent list can use the per-type wrapper shape too (the exact
@@ -127,9 +131,10 @@ func parentScopedResult(ctx context.Context, l Lister, r importmanifest.Resource
 				child[r.Parent.ParentIDField] = fields["id"]
 			}
 		}
-		recs, sk := toRecords(children, r, pid)
+		recs, noID, noKey := toRecords(children, r, pid)
 		res.Records = append(res.Records, recs...)
-		skipped += sk
+		skippedNoID += noID
+		skippedNoKey += noKey
 	}
 
 	var reasonParts []string
@@ -139,11 +144,17 @@ func parentScopedResult(ctx context.Context, l Lister, r importmanifest.Resource
 	if parentsSkipped > 0 {
 		reasonParts = append(reasonParts, fmt.Sprintf("%d parent(s) skipped: no id", parentsSkipped))
 	}
-	if skipped > 0 {
-		reasonParts = append(reasonParts, fmt.Sprintf("%d record(s) skipped: no id", skipped))
+	if sr := skipReason(skippedNoID, skippedNoKey); sr != "" {
+		reasonParts = append(reasonParts, sr)
 	}
 	res.Reason = strings.Join(reasonParts, "; ")
 
+	// This also fires when failures are only partial and the surviving
+	// parents legitimately had zero children -- there is no way from here to
+	// tell "every parent that responded had nothing" from "the responses
+	// that mattered all failed," so this errs loud on purpose rather than
+	// risk reporting a resource as cleanly empty when part of its read
+	// actually failed.
 	if len(res.Records) == 0 && len(failures) > 0 {
 		res.Status = "error"
 		return res
@@ -172,18 +183,26 @@ func joinReasons(lead, rest string) string {
 // genuine ShapeSpecial singletons such as kion_app_config, which have
 // exactly one record and no id at all. Applying it to any other shape would
 // give every id-less record in a list the same import id.
-func toRecords(raw []map[string]any, r importmanifest.Resource, parentID string) ([]Record, int) {
-	out := make([]Record, 0, len(raw))
-	skipped := 0
+//
+// Two skip counts come back rather than one: a FormatParentSlashKey record
+// missing its key field is a different, more actionable cause (the
+// manifest's KeyField is probably wrong for this endpoint) than a record
+// missing an id outright, and collapsing both into "no id" would mislabel it.
+func toRecords(raw []map[string]any, r importmanifest.Resource, parentID string) (out []Record, skippedNoID, skippedNoKey int) {
+	out = make([]Record, 0, len(raw))
 	for _, obj := range raw {
 		fields := unwrapTypedRecord(obj)
 
 		var id string
 		switch r.ImportID.Format {
 		case importmanifest.FormatParentSlashKey:
+			if parentID == "" {
+				skippedNoID++
+				continue
+			}
 			key := stringify(fields[r.ImportID.KeyField])
-			if parentID == "" || key == "" {
-				skipped++
+			if key == "" {
+				skippedNoKey++
 				continue
 			}
 			id = parentID + "/" + key
@@ -191,7 +210,7 @@ func toRecords(raw []map[string]any, r importmanifest.Resource, parentID string)
 			id = stringify(fields["id"])
 			if id == "" {
 				if r.ReadShape != importmanifest.ShapeSpecial {
-					skipped++
+					skippedNoID++
 					continue
 				}
 				// A singleton has no id; its type is its identity.
@@ -208,7 +227,21 @@ func toRecords(raw []map[string]any, r importmanifest.Resource, parentID string)
 		// record was wrapped.
 		out = append(out, Record{ID: id, Name: name, Raw: obj})
 	}
-	return out, skipped
+	return out, skippedNoID, skippedNoKey
+}
+
+// skipReason renders toRecords' two skip counts as a Reason fragment,
+// distinguishing a record with no id from a FormatParentSlashKey record
+// missing its key field -- see toRecords' doc comment.
+func skipReason(skippedNoID, skippedNoKey int) string {
+	var parts []string
+	if skippedNoID > 0 {
+		parts = append(parts, fmt.Sprintf("%d record(s) skipped: no id", skippedNoID))
+	}
+	if skippedNoKey > 0 {
+		parts = append(parts, fmt.Sprintf("%d record(s) skipped: missing key field", skippedNoKey))
+	}
+	return strings.Join(parts, "; ")
 }
 
 // unwrapTypedRecord detects the per-type wrapper shape some /v3/* list

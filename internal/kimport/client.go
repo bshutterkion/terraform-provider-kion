@@ -144,7 +144,10 @@ func snippetOf(buf []byte) string {
 	if truncated {
 		buf = buf[:bodyLimit]
 	}
-	snippet := string(buf)
+	// A byte-count truncation can land mid-rune, splitting a multi-byte UTF-8
+	// character and turning the tail into invalid UTF-8 that would otherwise
+	// flow straight into a customer-facing error message.
+	snippet := strings.ToValidUTF8(string(buf), "")
 	// Remove newlines and tabs for single-line output
 	snippet = strings.Map(func(r rune) rune {
 		if r == '\n' || r == '\t' || r == '\r' {
