@@ -4,7 +4,9 @@ package ou
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -18,12 +20,18 @@ func OuResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "When the OU was created.",
 				MarkdownDescription: "When the OU was created.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"description": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Description for the OU in the application.",
 				MarkdownDescription: "Description for the OU in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -39,12 +47,18 @@ func OuResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The labels applied to the OU.",
 				MarkdownDescription: "The labels applied to the OU.",
+				PlanModifiers: []planmodifier.Map{
+					mapplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"last_updated": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The last time this resource was updated.",
 				MarkdownDescription: "The last time this resource was updated.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Required:            true,
@@ -57,6 +71,9 @@ func OuResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of groups IDs who will own the ou. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the ou. Is required if no owner user IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -64,6 +81,9 @@ func OuResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user IDs who will own the ou. Is required if no owner group IDs are listed.",
 				MarkdownDescription: "List of user IDs who will own the ou. Is required if no owner group IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"parent_ou_id": schema.Int64Attribute{
 				Required:            true,

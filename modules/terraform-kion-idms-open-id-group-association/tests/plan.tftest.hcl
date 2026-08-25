@@ -8,8 +8,4 @@ provider "kion" {
 
 run "plan" {
   command = plan
-
-  variables {
-    open_id_id = 1
-  }
 }

@@ -53,6 +53,14 @@ type Parent struct {
 	ListPath      string `json:"list_path"`
 	ChildPath     string `json:"child_path"` // contains "{parent_id}"
 	ParentIDField string `json:"parent_id_field"`
+
+	// ParentIDJSON is the record's own key for its owning parent. Some child
+	// collections are INHERITED rather than owned: /v1/ou/{id}/cloud-access-role-exemption
+	// returns every exemption visible to that OU's subtree, so one record comes
+	// back under many OUs (329 rows, 22 records on a live install) and the id in
+	// the path is not its owner. When set, the enumerator takes the parent from
+	// this key instead, which is what makes a "<parent>/<id>" import id resolve.
+	ParentIDJSON string `json:"parent_id_json,omitempty"`
 }
 
 // ImportID describes how to build the id for an `import` block.
@@ -78,6 +86,14 @@ type Resource struct {
 	ListPath  string    `json:"list_path,omitempty"`
 	NameField string    `json:"name_field,omitempty"`
 	Parent    *Parent   `json:"parent,omitempty"`
+
+	// RequireValidField names a SQL-null-wrapper key that must be Valid for a
+	// listed record to belong to this resource. Some collections mix kinds: the
+	// cloud-access-role exemption endpoints return cloud RULE exemptions
+	// alongside them, and only 6 of 22 records on a live install were actually
+	// this type. Without the filter the other 16 imported as this type while
+	// being something else.
+	RequireValidField string `json:"require_valid_field,omitempty"`
 	// Parents holds every parent set for a resource enumerable under more than
 	// one parent collection (e.g. kion_budget under both /v3/ou and
 	// /v3/project). Parent always mirrors Parents[0] when Parents is set, so a

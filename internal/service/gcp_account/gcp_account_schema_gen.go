@@ -5,7 +5,9 @@ package gcp_account
 import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -23,6 +25,9 @@ func GcpAccountResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Alias of the account in the application.",
 				MarkdownDescription: "Alias of the account in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"account_name": schema.StringAttribute{
 				Required:            true,
@@ -34,13 +39,19 @@ func GcpAccountResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The AccountTypeID is the corresponding account's type.\nWill default to 15 for GCP if not given.",
 				MarkdownDescription: "The AccountTypeID is the corresponding account's type.\nWill default to 15 for GCP if not given.",
-				Default:             int64default.StaticInt64(15),
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
+				Default: int64default.StaticInt64(15),
 			},
 			"google_cloud_project_id": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Google Cloud Project ID.\nCan be found in the project id field here: https://console.cloud.google.com/iam-admin/settings",
 				MarkdownDescription: "Google Cloud Project ID.\nCan be found in the project id field here: https://console.cloud.google.com/iam-admin/settings",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -65,6 +76,9 @@ func GcpAccountResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "When true, the application does not perform periodic access validation. Default is false.",
 				MarkdownDescription: "When true, the application does not perform periodic access validation. Default is false.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"start_datecode": schema.StringAttribute{
 				Required:            true,

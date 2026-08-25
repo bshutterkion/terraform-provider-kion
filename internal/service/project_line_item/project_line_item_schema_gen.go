@@ -4,6 +4,8 @@ package project_line_item
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/float64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,30 +21,45 @@ func ProjectLineItemResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Amount for the project line item in the application.",
 				MarkdownDescription: "Amount for the project line item in the application.",
+				PlanModifiers: []planmodifier.Float64{
+					float64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"category_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Category ID of related Category of the Project Line Item in the application.",
 				MarkdownDescription: "Category ID of related Category of the Project Line Item in the application.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"datecode": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Datecode for the project line item in the application.",
 				MarkdownDescription: "Datecode for the project line item in the application.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"description": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Description for the project line item in the application.",
 				MarkdownDescription: "Description for the project line item in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"funding_source_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Funding Source ID of related Funding Source of the Project Line Item in the application.",
 				MarkdownDescription: "Funding Source ID of related Funding Source of the Project Line Item in the application.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -57,12 +74,18 @@ func ProjectLineItemResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Payer ID of related Payer of the Project Line Item in the application.",
 				MarkdownDescription: "Payer ID of related Payer of the Project Line Item in the application.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"project_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Project ID of the Project Line Item in the application.",
 				MarkdownDescription: "Project ID of the Project Line Item in the application.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Project Line Item.",

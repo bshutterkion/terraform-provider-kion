@@ -102,6 +102,7 @@ type entityData struct {
 	UpdateBinds        []fieldBind
 	UpdateSliceBinds   []sliceBind
 	HasDelete          bool
+	ParentRead         *parentReadData // no_read resources given a real read (see parentread.go)
 	DeleteMethod       string
 	DeleteParams       string
 	DeleteIDParam      string
@@ -198,6 +199,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		ResName:       rm.Pascal,
 		TypeName:      "kion_" + rm.Name,
 		IDGo:          rm.IDField.GoName,
+		ParentRead:    rm.ParentRead,
 		SDKAlias:      "generated",
 		CreateMethod:  rm.Create.Method.Name,
 		CreateBodyOpt: rm.Create.Method.BodyType,
@@ -393,6 +395,10 @@ func bodyBinds(body *Struct, byTF map[string]ModelField, idTF string, skip map[s
 		if !ok || mf.TFSDK == idTF || skip[f.JSONName] {
 			continue
 		}
+		if conv, ok := normalizedConverter(f.Type, mf.Type, true); ok {
+			scalars = append(scalars, fieldBind{SDKField: f.GoName, ModelGo: mf.GoName, Converter: conv})
+			continue
+		}
 		if conv, ok := expandConverter(f); ok {
 			scalars = append(scalars, fieldBind{SDKField: f.GoName, ModelGo: mf.GoName, Converter: conv})
 			continue
@@ -483,6 +489,10 @@ func respBinds(fields []Field, byTF map[string]ModelField, idTF, prefix string, 
 				return nil, nil, fmt.Errorf("id response field %q has type %q; expected Opt(U)Int64", f.JSONName, f.Type)
 			}
 			out = append(out, respBind{ModelGo: mf.GoName, IsID: true, IDFormat: format, IDSDKPath: prefix + f.GoName})
+			continue
+		}
+		if conv, ok := normalizedConverter(f.Type, mf.Type, false); ok {
+			out = append(out, respBind{ModelGo: mf.GoName, SDKPath: prefix + f.GoName, Converter: conv})
 			continue
 		}
 		if conv, ok := flattenConverter(f); ok {

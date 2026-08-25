@@ -8,6 +8,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -63,6 +65,9 @@ func BillingSourceResourceSchema(ctx context.Context) schema.Schema {
 				},
 				Optional: true,
 				Computed: true,
+				PlanModifiers: []planmodifier.Object{
+					objectplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"azure_connection": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
@@ -125,12 +130,18 @@ func BillingSourceResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "CustomBillingSourceAzureConnection defines the Azure storage connection for a custom\nbilling source. Provide either credentialed_billing_source_id (reuse an existing Azure\nbilling source's tenant credentials) or the tenant credential fields, not both.",
 				MarkdownDescription: "CustomBillingSourceAzureConnection defines the Azure storage connection for a custom\nbilling source. Provide either credentialed_billing_source_id (reuse an existing Azure\nbilling source's tenant credentials) or the tenant credential fields, not both.",
+				PlanModifiers: []planmodifier.Object{
+					objectplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"billing_start_date": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Start date of billing source (YYYY-MM).",
 				MarkdownDescription: "Start date of billing source (YYYY-MM).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 				Validators: []validator.String{
 					stringvalidator.RegexMatches(regexp.MustCompile("^\\d{4}-(?:0[1-9]|1[0-2])$"), ""),
 				},
@@ -148,12 +159,18 @@ func BillingSourceResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Name of the billing source.",
 				MarkdownDescription: "Name of the billing source.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"skip_validation": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "When true, will skip validating the connection to defined bucket.",
 				MarkdownDescription: "When true, will skip validating the connection to defined bucket.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion custom billing source. Supply exactly one connection block, either aws_connection or azure_connection, as Kion rejects a request carrying both.",
@@ -191,6 +208,12 @@ func (t AwsConnectionType) String() string {
 
 func (t AwsConnectionType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewAwsConnectionValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewAwsConnectionValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 
@@ -735,6 +758,12 @@ func (t AzureConnectionType) String() string {
 
 func (t AzureConnectionType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewAzureConnectionValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewAzureConnectionValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 

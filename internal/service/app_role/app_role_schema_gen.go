@@ -4,6 +4,9 @@ package app_role
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -17,22 +20,34 @@ func AppRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Whether the app role is disabled.",
 				MarkdownDescription: "Whether the app role is disabled.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
 				Description:         "The ID of the app role.",
 				MarkdownDescription: "The ID of the app role.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Name of the app role.",
 				MarkdownDescription: "Name of the app role.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"system_managed": schema.BoolAttribute{
 				Computed:            true,
 				Description:         "Whether the app role is system-managed.",
 				MarkdownDescription: "Whether the app role is system-managed.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion App Role.",

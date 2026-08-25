@@ -22,6 +22,9 @@ coverage.html
 
 # Scratch dir for `make modules-check`
 /.modules-check
+# Scratch tree + provider mirror for `make modules-test`
+/.modules-test
+/.tfdev
 
 # The OpenAPI spec is a local codegen input, never committed: this repo is
 # published for customers and ships the provider, not Kion's interface files.

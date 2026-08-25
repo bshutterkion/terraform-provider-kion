@@ -18,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
@@ -93,10 +94,16 @@ func (r *awsAccountResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Description: "An ID representing the account type within Kion.",
 				Optional:    true,
 				Computed:    true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"car_external_id": schema.StringAttribute{
 				Description: "The external ID used when assuming cloud access roles.",
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"commercial_account_name": schema.StringAttribute{
 				Description: "The name used when creating new commercial account.",
@@ -108,11 +115,17 @@ func (r *awsAccountResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			},
 			"created_at": schema.StringAttribute{
 				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"email": schema.StringAttribute{
 				Description: "The root email address to associate with a new account.  Required when creating a new account unless an account placeholder email has been set.",
 				Optional:    true,
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"gov_account_name": schema.StringAttribute{
 				Description: "The name used when creating new GovCloud account.",
@@ -128,6 +141,9 @@ func (r *awsAccountResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Description: "True to associate spend from a linked GovCloud account with this account.",
 				Optional:    true,
 				Computed:    true,
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"labels": schema.MapAttribute{
 				Description: "A map of labels to assign to the account. The labels must already exist in Kion.",
@@ -137,10 +153,16 @@ func (r *awsAccountResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			"last_updated": schema.StringAttribute{
 				Optional: true,
 				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"linked_account_number": schema.StringAttribute{
 				Description: "For AWS GovCloud accounts, this is the linked commercial account.  Otherwise this is empty.",
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"linked_role": schema.StringAttribute{
 				Description: "The AWS organization service role.",
@@ -149,6 +171,9 @@ func (r *awsAccountResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			"location": schema.StringAttribute{
 				Description: "Where the account is attached. Either \"project\" or \"cache\".",
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Description: "The name of the AWS account within Kion.",
@@ -165,21 +190,33 @@ func (r *awsAccountResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			"service_external_id": schema.StringAttribute{
 				Description: "The external ID used for automated internal actions using the service role for this account.",
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"skip_access_checking": schema.BoolAttribute{
 				Description: "True to skip periodic access checking on the account.",
 				Optional:    true,
 				Computed:    true,
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"start_datecode": schema.StringAttribute{
 				Description: "Date when the AWS account will starting submitting payments against a funding source (YYYY-MM). Required if placing an account within a project.",
 				Optional:    true,
 				Computed:    true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"use_org_account_info": schema.BoolAttribute{
 				Description: "True to keep the account name and email address in Kion in sync with the account name and email address as set in AWS Organization.",
 				Optional:    true,
 				Computed:    true,
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Blocks: map[string]schema.Block{
@@ -567,21 +604,21 @@ func flattenAwsAccount(apiObject any, model *awsAccountResourceModel) diag.Diagn
 		if v.Data.Set {
 			a := v.Data.Value
 			model.ID = flex.OptUint64ToFramework(a.ID)
-			model.AccountAlias = flex.OptStringToFramework(a.AccountAlias)
-			model.AccountNumber = flex.OptStringToFramework(a.AccountNumber)
+			model.AccountAlias = flex.OptStringToFrameworkNullIfEmpty(a.AccountAlias)
+			model.AccountNumber = flex.OptStringToFrameworkNullIfEmpty(a.AccountNumber)
 			model.AccountTypeID = flex.OptNilUint64ToFramework(a.AccountTypeID)
-			model.CarExternalID = flex.OptStringToFramework(a.CarExternalID)
-			model.CreatedAt = flex.OptStringToFramework(a.CreatedAt)
-			model.Email = flex.OptStringToFramework(a.AccountEmail)
+			model.CarExternalID = flex.OptStringToFrameworkNullIfEmpty(a.CarExternalID)
+			model.CreatedAt = flex.OptStringToFrameworkNullIfEmpty(a.CreatedAt)
+			model.Email = flex.OptStringToFrameworkNullIfEmpty(a.AccountEmail)
 			model.IncludeLinkedAccountSpend = flex.OptNilBoolToFramework(a.IncludeLinkedAccountSpend)
-			model.LinkedAccountNumber = flex.OptStringToFramework(a.LinkedAccountNumber)
-			model.LinkedRole = flex.OptStringToFramework(a.LinkedRole)
-			model.Name = flex.OptStringToFramework(a.AccountName)
+			model.LinkedAccountNumber = flex.OptStringToFrameworkNullIfEmpty(a.LinkedAccountNumber)
+			model.LinkedRole = flex.OptStringToFrameworkNullIfEmpty(a.LinkedRole)
+			model.Name = flex.OptStringToFrameworkNullIfEmpty(a.AccountName)
 			model.PayerID = flex.OptNilUint64ToFramework(a.PayerID)
 			model.ProjectID = flex.OptNilUint64ToFramework(a.ProjectID)
-			model.ServiceExternalID = flex.OptStringToFramework(a.ServiceExternalID)
+			model.ServiceExternalID = flex.OptStringToFrameworkNullIfEmpty(a.ServiceExternalID)
 			model.SkipAccessChecking = flex.OptNilBoolToFramework(a.SkipAccessChecking)
-			model.StartDatecode = flex.OptStringToFramework(a.StartDatecode)
+			model.StartDatecode = flex.OptStringToFrameworkNullIfEmpty(a.StartDatecode)
 			model.UseOrgAccountInfo = flex.OptNilBoolToFramework(a.UseOrgAccountInfo)
 			model.Location = types.StringValue(accounthelper.LocationProject)
 		}
@@ -591,18 +628,18 @@ func flattenAwsAccount(apiObject any, model *awsAccountResourceModel) diag.Diagn
 		if v.Data.Set {
 			a := v.Data.Value
 			model.ID = flex.OptUint64ToFramework(a.ID)
-			model.AccountAlias = flex.OptStringToFramework(a.AccountAlias)
-			model.AccountNumber = flex.OptStringToFramework(a.AccountNumber)
+			model.AccountAlias = flex.OptStringToFrameworkNullIfEmpty(a.AccountAlias)
+			model.AccountNumber = flex.OptStringToFrameworkNullIfEmpty(a.AccountNumber)
 			model.AccountTypeID = flex.OptNilUint64ToFramework(a.AccountTypeID)
-			model.CarExternalID = flex.OptStringToFramework(a.CarExternalID)
-			model.CreatedAt = flex.OptStringToFramework(a.CreatedAt)
-			model.Email = flex.OptStringToFramework(a.AccountEmail)
+			model.CarExternalID = flex.OptStringToFrameworkNullIfEmpty(a.CarExternalID)
+			model.CreatedAt = flex.OptStringToFrameworkNullIfEmpty(a.CreatedAt)
+			model.Email = flex.OptStringToFrameworkNullIfEmpty(a.AccountEmail)
 			model.IncludeLinkedAccountSpend = flex.OptNilBoolToFramework(a.IncludeLinkedAccountSpend)
-			model.LinkedAccountNumber = flex.OptStringToFramework(a.LinkedAccountNumber)
-			model.LinkedRole = flex.OptStringToFramework(a.LinkedRole)
-			model.Name = flex.OptStringToFramework(a.AccountName)
+			model.LinkedAccountNumber = flex.OptStringToFrameworkNullIfEmpty(a.LinkedAccountNumber)
+			model.LinkedRole = flex.OptStringToFrameworkNullIfEmpty(a.LinkedRole)
+			model.Name = flex.OptStringToFrameworkNullIfEmpty(a.AccountName)
 			model.PayerID = flex.OptNilUint64ToFramework(a.PayerID)
-			model.ServiceExternalID = flex.OptStringToFramework(a.ServiceExternalID)
+			model.ServiceExternalID = flex.OptStringToFrameworkNullIfEmpty(a.ServiceExternalID)
 			model.SkipAccessChecking = flex.OptNilBoolToFramework(a.SkipAccessChecking)
 			model.Location = types.StringValue(accounthelper.LocationCache)
 		}

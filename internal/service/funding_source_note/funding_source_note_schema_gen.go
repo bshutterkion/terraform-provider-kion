@@ -4,6 +4,7 @@ package funding_source_note
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,6 +20,9 @@ func FundingSourceNoteResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "ID of the funding source the note belongs to.",
 				MarkdownDescription: "ID of the funding source the note belongs to.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed: true,
@@ -31,12 +35,18 @@ func FundingSourceNoteResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Name of the note.",
 				MarkdownDescription: "Name of the note.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"text": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Body text of the note.",
 				MarkdownDescription: "Body text of the note.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Funding Source Note.",

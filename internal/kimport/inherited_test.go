@@ -1,0 +1,124 @@
+package kimport
+
+import (
+	"context"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"terraform-provider-kion/internal/kgen/importmanifest"
+)
+
+// exemptionResource mirrors the manifest row for
+// kion_ou_cloud_access_role_exemption: an inherited, kind-mixing collection.
+func exemptionResource() importmanifest.Resource {
+	return importmanifest.Resource{
+		TFType:            "kion_ou_cloud_access_role_exemption",
+		Kind:              "ou_cloud_access_role_exemption",
+		Archetype:         "no_read",
+		ReadShape:         importmanifest.ShapeParentList,
+		Readable:          true,
+		RequireValidField: "ou_cloud_access_role_id",
+		Parent: &importmanifest.Parent{
+			Kind:          "ou",
+			ListPath:      "/v3/ou",
+			ChildPath:     "/v1/ou/{parent_id}/cloud-access-role-exemption",
+			ParentIDField: "ou_id",
+			ParentIDJSON:  "OUID",
+		},
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatParentSlashKey, KeyField: "id"},
+	}
+}
+
+func validWrap(n int) map[string]any { return map[string]any{"Int": float64(n), "Valid": true} }
+func absentWrap() map[string]any     { return map[string]any{"Int": float64(0), "Valid": false} }
+
+// TestInheritedCollectionUsesRecordOwner covers the two traps in the exemption
+// collections at once. The same record is returned under every OU in its
+// subtree, so the id in the path is not its owner -- taking the owner from the
+// record's own OUID is what makes one import block per record, addressed to the
+// OU that actually owns it. A live install returned 329 rows for 22 records.
+func TestInheritedCollectionUsesRecordOwner(t *testing.T) {
+	// Record 5 is owned by OU 1 but shows up under OUs 1, 2 and 3.
+	shared := []map[string]any{
+		{"id": float64(5), "OUID": float64(1), "ou_cloud_access_role_id": validWrap(3)},
+	}
+	l := &routeLister{routes: map[string]any{
+		"/v3/ou": []map[string]any{
+			{"id": float64(1)}, {"id": float64(2)}, {"id": float64(3)},
+		},
+		"/v1/ou/1/cloud-access-role-exemption": shared,
+		"/v1/ou/2/cloud-access-role-exemption": shared,
+		"/v1/ou/3/cloud-access-role-exemption": shared,
+	}}
+
+	res := Enumerate(context.Background(), l, exemptionResource())
+	require.Equal(t, "ok", res.Status, res.Reason)
+
+	ids := make([]string, 0, len(res.Records))
+	for _, r := range res.Records {
+		ids = append(ids, r.ID)
+	}
+	// Every copy addresses the owning OU, never the OU it was fetched through.
+	for _, id := range ids {
+		assert.Equal(t, "1/5", id, "owner comes from OUID, not the path")
+	}
+}
+
+// TestWrongKindRecordsAreFiltered covers the other trap: the collection returns
+// cloud RULE exemptions alongside cloud ACCESS ROLE exemptions. Only 6 of 22
+// records on a live install were the latter; without the filter the other 16
+// imported as this resource type while being something else.
+func TestWrongKindRecordsAreFiltered(t *testing.T) {
+	l := &routeLister{routes: map[string]any{
+		"/v3/ou": []map[string]any{{"id": float64(1)}},
+		"/v1/ou/1/cloud-access-role-exemption": []map[string]any{
+			{"id": float64(5), "OUID": float64(1), "ou_cloud_access_role_id": validWrap(3)},
+			// A cloud RULE exemption: same collection, different resource.
+			{"id": float64(8), "OUID": float64(1), "ou_cloud_access_role_id": absentWrap(), "ou_cloud_rule_id": validWrap(46)},
+			// No discriminator key at all.
+			{"id": float64(9), "OUID": float64(1)},
+		},
+	}}
+
+	res := Enumerate(context.Background(), l, exemptionResource())
+	require.Equal(t, "ok", res.Status, res.Reason)
+	require.Len(t, res.Records, 1, "only the cloud access role exemption survives")
+	assert.Equal(t, "1/5", res.Records[0].ID)
+	assert.Contains(t, res.Reason, "another kind sharing the collection",
+		"the drop is reported, never silent")
+}
+
+// TestEveryRecordFilteredOutIsEmptyNotOk is the project case: on a live install
+// all 12 records its collection returns are cloud rule exemptions, so the
+// resource has none rather than twelve.
+func TestEveryRecordFilteredOutIsEmptyNotOk(t *testing.T) {
+	l := &routeLister{routes: map[string]any{
+		"/v3/ou": []map[string]any{{"id": float64(1)}},
+		"/v1/ou/1/cloud-access-role-exemption": []map[string]any{
+			{"id": float64(8), "OUID": float64(1), "ou_cloud_access_role_id": absentWrap()},
+		},
+	}}
+
+	res := Enumerate(context.Background(), l, exemptionResource())
+	assert.Equal(t, "empty", res.Status)
+	assert.Contains(t, res.Reason, "another kind sharing the collection")
+}
+
+// TestOwnerKeyAcceptsBothRenderings: OUID is a bare number on the wire while
+// project_id is a SQL null wrapper, and the enumerator has to read either.
+func TestOwnerKeyAcceptsBothRenderings(t *testing.T) {
+	assert.Equal(t, "11", stringifyWrapper(float64(11)), "bare number")
+	assert.Equal(t, "9", stringifyWrapper(validWrap(9)), "sql null wrapper")
+	assert.Equal(t, "", stringifyWrapper(absentWrap()), "not valid has no owner")
+	assert.Equal(t, "", stringifyWrapper(nil))
+}
+
+func TestIsValidWrapper(t *testing.T) {
+	assert.True(t, isValidWrapper(validWrap(3)))
+	assert.False(t, isValidWrapper(absentWrap()))
+	assert.False(t, isValidWrapper(nil))
+	assert.True(t, isValidWrapper(float64(3)), "a bare id counts as present")
+	assert.False(t, isValidWrapper(float64(0)), "a literal 0 is an absent id")
+}

@@ -15,10 +15,12 @@ Manages a Kion Ou Permission Mapping.
 ```terraform
 resource "kion_ou_permission_mapping" "example" {
   # Required
-  app_role_id     = 1
-  ou_id           = 1
-  user_groups_ids = []
-  user_ids        = []
+  app_role_id = 1
+  ou_id       = 1
+
+  # Optional
+  # user_groups_ids = []
+  # user_ids        = []
 }
 ```
 
@@ -29,6 +31,9 @@ resource "kion_ou_permission_mapping" "example" {
 
 - `app_role_id` (Number) The ID of the app role.
 - `ou_id` (Number) The ID of the OU.
+
+### Optional
+
 - `user_groups_ids` (Set of Number) The IDs of the user groups in the mapping.
 - `user_ids` (Set of Number) The IDs of the users in the mapping.
 

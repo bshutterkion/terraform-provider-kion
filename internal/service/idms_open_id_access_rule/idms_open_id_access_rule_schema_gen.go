@@ -4,6 +4,7 @@ package idms_open_id_access_rule
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,18 +20,27 @@ func IdmsOpenIdAccessRuleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "AssertionName name of the assertion in OpenID.",
 				MarkdownDescription: "AssertionName name of the assertion in OpenID.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"assertion_regex": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "AssertionRegex is the regular expression used to determine a match.",
 				MarkdownDescription: "AssertionRegex is the regular expression used to determine a match.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"cloudtamer_access_level_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "CloudtamerAccessLevelID is the ID that represents access level. 1 represents full access, 2 represents no cloud account access and 3 represents no access.",
 				MarkdownDescription: "CloudtamerAccessLevelID is the ID that represents access level. 1 represents full access, 2 represents no cloud account access and 3 represents no access.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,

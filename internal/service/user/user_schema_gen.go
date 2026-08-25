@@ -4,7 +4,9 @@ package user
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -47,12 +49,18 @@ func UserResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The ID of the MFA type. Options: 1 is Webauthn (Yubikey), 2 is TOTP (Google Auth).",
 				MarkdownDescription: "The ID of the MFA type. Options: 1 is Webauthn (Yubikey), 2 is TOTP (Google Auth).",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"phone": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Phone number of the user.",
 				MarkdownDescription: "Phone number of the user.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -60,6 +68,9 @@ func UserResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of IDs of groups the user is in.",
 				MarkdownDescription: "List of IDs of groups the user is in.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"username": schema.StringAttribute{
 				Required:            true,

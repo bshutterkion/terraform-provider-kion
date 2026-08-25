@@ -1,0 +1,3 @@
+kind: BUG FIXES
+body: "`kion-import` no longer gives a compound import id to resources that cannot parse one. Reaching a record through a parent is not the same as having an ImportState that splits on \"/\": `kion_compliance_family` and `kion_compliance_level` declare no archetype, so they use the plain id-only ImportState and merely fall back to a parent-scoped read when their flat list is not served. Handing them `<parent>/<id>` made their read parse the whole string as an integer. Only the archetypes whose generated ImportState actually splits, parent_list and compound_key_parent_read, take a compound id."
+time: 2026-08-25T07:00:00Z

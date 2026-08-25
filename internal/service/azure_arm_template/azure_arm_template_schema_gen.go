@@ -5,6 +5,7 @@ package azure_arm_template
 import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -24,6 +25,9 @@ func AzureArmTemplateResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "A short description of the ARM template",
 				MarkdownDescription: "A short description of the ARM template",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -44,6 +48,9 @@ func AzureArmTemplateResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of groups IDs who will own the Azure ARM template. Is required if no user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the Azure ARM template. Is required if no user IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -51,6 +58,9 @@ func AzureArmTemplateResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user IDs who will own the Azure ARM template. Is required if no group IDs are listed.",
 				MarkdownDescription: "List of user IDs who will own the Azure ARM template. Is required if no group IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"resource_group_name": schema.StringAttribute{
 				Required:            true,
@@ -72,6 +82,9 @@ func AzureArmTemplateResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Parameters to fill for the template. Should be the contents of the \"properties\" attribute on the traditional payload.",
 				MarkdownDescription: "Parameters to fill for the template. Should be the contents of the \"properties\" attribute on the traditional payload.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Azure Arm Template.",

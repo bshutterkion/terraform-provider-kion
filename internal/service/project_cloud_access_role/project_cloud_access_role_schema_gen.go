@@ -7,7 +7,11 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -26,24 +30,36 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Account IDs contains a list of accounts in this project that will be accessible via this cloud access role.\nAccounts that do not match the cloud provider ID (if given) will be filtered",
 				MarkdownDescription: "Account IDs contains a list of accounts in this project that will be accessible via this cloud access role.\nAccounts that do not match the cloud provider ID (if given) will be filtered",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"apply_to_all_accounts": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "If apply all accounts is true, this cloud access role will be applied to all accounts currently under the project.\nThis will only be for accounts that match the given CSP type. Will default to false if not set.",
 				MarkdownDescription: "If apply all accounts is true, this cloud access role will be applied to all accounts currently under the project.\nThis will only be for accounts that match the given CSP type. Will default to false if not set.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"aws_iam_path": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Text of the IAM Path in AWS to be stored in AWS.",
 				MarkdownDescription: "Text of the IAM Path in AWS to be stored in AWS.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"aws_iam_permissions_boundary": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "ID of the AWS IAM policy to be used as a permissions boundary for this role. Will be filtered if AWS Cloud Provider ID is not given.",
 				MarkdownDescription: "ID of the AWS IAM policy to be used as a permissions boundary for this role. Will be filtered if AWS Cloud Provider ID is not given.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"aws_iam_policies": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -51,12 +67,18 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "IDs of the AWS IAM policies attached to this role. Will be filtered if AWS Cloud Provider ID is not given.",
 				MarkdownDescription: "IDs of the AWS IAM policies attached to this role. Will be filtered if AWS Cloud Provider ID is not given.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"aws_iam_role_name": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "AWS IAM role name corresponding to the cloud access role.",
 				MarkdownDescription: "AWS IAM role name corresponding to the cloud access role.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"aws_session_tags": schema.ListNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
@@ -102,6 +124,9 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "AWS Session Tags used in this role when accessing the AWS console.",
 				MarkdownDescription: "AWS Session Tags used in this role when accessing the AWS console.",
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"azure_role_definitions": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -109,6 +134,9 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "IDs of the Azure Role Definitions attached to this role. Will be filtered if Azure Cloud Provider ID is not given.",
 				MarkdownDescription: "IDs of the Azure Role Definitions attached to this role. Will be filtered if Azure Cloud Provider ID is not given.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"cloud_provider_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -116,12 +144,18 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Cloud provider IDs that specify which CSPs this role will be used for. If none provided, assume all cloud providers.\n1 for AWS, 2 for Azure, 3 for GCP",
 				MarkdownDescription: "Cloud provider IDs that specify which CSPs this role will be used for. If none provided, assume all cloud providers.\n1 for AWS, 2 for Azure, 3 for GCP",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"future_accounts": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "If future accounts is true, this cloud access role will be added to any account that is added to this project.\nThis will only be for new accounts that match the given CSP type. Will default to false if not set.",
 				MarkdownDescription: "If future accounts is true, this cloud access role will be added to any account that is added to this project.\nThis will only be for new accounts that match the given CSP type. Will default to false if not set.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"gcp_iam_roles": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -129,6 +163,9 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "IDs of the Google Cloud IAM roles attached to this role. Will be filtered if GCP Cloud Provider ID is not given.",
 				MarkdownDescription: "IDs of the Google Cloud IAM roles attached to this role. Will be filtered if GCP Cloud Provider ID is not given.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -143,12 +180,18 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "The last time this resource was updated.",
 				MarkdownDescription: "The last time this resource was updated.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"long_term_access_keys": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "If long term access is true, users of this cloud access role can generate aws long-term access keys.\nWill default to false if not set.",
 				MarkdownDescription: "If long term access is true, users of this cloud access role can generate aws long-term access keys.\nWill default to false if not set.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Required:            true,
@@ -160,6 +203,9 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Enclosed policy type filter. Valid values are \"awsiam\" or \"azurerole\"",
 				MarkdownDescription: "Enclosed policy type filter. Valid values are \"awsiam\" or \"azurerole\"",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"project_id": schema.Int64Attribute{
 				Required:            true,
@@ -171,6 +217,9 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "If short term access is true, users of this cloud access role can generate short-term access keys.\nWill default to false if not set.",
 				MarkdownDescription: "If short term access is true, users of this cloud access role can generate short-term access keys.\nWill default to false if not set.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -178,6 +227,9 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "IDs of the user groups allowed to use this role to access the AWS console.",
 				MarkdownDescription: "IDs of the user groups allowed to use this role to access the AWS console.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -185,12 +237,18 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "IDs of the users allowed to use this role to access the AWS console.",
 				MarkdownDescription: "IDs of the users allowed to use this role to access the AWS console.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"web_access": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "If web access is true, users of this cloud access role can log into the console\nWill default to false if not set.",
 				MarkdownDescription: "If web access is true, users of this cloud access role can log into the console\nWill default to false if not set.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Project Cloud Access Role.",
@@ -243,6 +301,12 @@ func (t AwsSessionTagsType) String() string {
 
 func (t AwsSessionTagsType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
 	var diags diag.Diagnostics
+	if in.IsNull() {
+		return NewAwsSessionTagsValueNull(), diags
+	}
+	if in.IsUnknown() {
+		return NewAwsSessionTagsValueUnknown(), diags
+	}
 
 	attributes := in.Attributes()
 

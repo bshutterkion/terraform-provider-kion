@@ -282,6 +282,10 @@ func (g *generator) distribute(root string, k kind) ([]string, error) {
 			content = dedupTopLevelDecls(content)
 		}
 
+		// tfplugingen emits ValueFromObject without null/unknown guards; supply
+		// them, or any object attribute carrying a plan modifier fails the plan.
+		content = guardValueFromObject(content)
+
 		dst := filepath.Join(pkgDir, name+k.dstSuffix)
 		if err := g.fs.WriteFile(dst, []byte(content), 0o600); err != nil {
 			return nil, fmt.Errorf("writing %s: %w", dst, err)
@@ -351,6 +355,114 @@ func dedupTopLevelDecls(src string) string {
 		return src
 	}
 	return buf.String()
+}
+
+// guardValueFromObject inserts null and unknown guards at the top of every
+// generated `func (t <X>Type) ValueFromObject(...)`, so it returns the typed
+// null/unknown value rather than walking an object that has no attributes.
+//
+// tfplugingen omits them, which is a latent bug in every nested-object
+// CustomType it emits: the inverse ToObjectValue and the sibling
+// ValueFromTerraform both handle the three value states, ValueFromObject only
+// handles "known". Giving a Computed single-nested attribute
+// objectplanmodifier.UseStateForUnknown turns the bug on, because the framework
+// round-trips the plan value through ToObjectValue -> plan modifiers ->
+// ValueFromObject after every object plan modifier (fwserver
+// AttributePlanModifyObject). An Optional+Computed object absent from the
+// config is unknown at plan time, ObjectValue.Attributes() on it is empty, and
+// the generated code then reports `Attribute Missing`, failing the plan
+// outright: kion_account_cache, kion_azure_policy and kion_billing_source all
+// did.
+//
+// Idempotent, so regenerating over guarded output does not stack guards. Source
+// that does not parse is returned unchanged, matching dedupTopLevelDecls.
+func guardValueFromObject(src string) string {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, "x.go", src, parser.ParseComments)
+	if err != nil {
+		return src
+	}
+
+	changed := false
+	for _, d := range f.Decls {
+		fn, ok := d.(*ast.FuncDecl)
+		if !ok || fn.Name.Name != "ValueFromObject" || fn.Body == nil {
+			continue
+		}
+		if fn.Recv == nil || len(fn.Recv.List) == 0 {
+			continue
+		}
+		// Receiver `<X>Type` names the value constructors `New<X>Value…`.
+		recv := recvTypeName(fn.Recv.List[0].Type)
+		base, found := strings.CutSuffix(recv, "Type")
+		if !found || base == "" {
+			continue
+		}
+		if hasNullGuard(fn.Body) {
+			continue
+		}
+		guards := []ast.Stmt{
+			valueStateGuard("IsNull", "New"+base+"ValueNull"),
+			valueStateGuard("IsUnknown", "New"+base+"ValueUnknown"),
+		}
+		// After `var diags diag.Diagnostics` so the guards can return it, and
+		// before the `in.Attributes()` read they exist to protect.
+		at := 0
+		if len(fn.Body.List) > 0 {
+			if decl, ok := fn.Body.List[0].(*ast.DeclStmt); ok {
+				if gd, ok := decl.Decl.(*ast.GenDecl); ok && gd.Tok == token.VAR {
+					at = 1
+				}
+			}
+		}
+		fn.Body.List = append(fn.Body.List[:at:at], append(guards, fn.Body.List[at:]...)...)
+		changed = true
+	}
+	if !changed {
+		return src
+	}
+
+	var buf bytes.Buffer
+	if err := format.Node(&buf, fset, f); err != nil {
+		return src
+	}
+	return buf.String()
+}
+
+// valueStateGuard builds `if in.<method>() { return <ctor>(), diags }`.
+func valueStateGuard(method, ctor string) ast.Stmt {
+	return &ast.IfStmt{
+		Cond: &ast.CallExpr{Fun: &ast.SelectorExpr{
+			X:   ast.NewIdent("in"),
+			Sel: ast.NewIdent(method),
+		}},
+		Body: &ast.BlockStmt{List: []ast.Stmt{&ast.ReturnStmt{Results: []ast.Expr{
+			&ast.CallExpr{Fun: ast.NewIdent(ctor)},
+			ast.NewIdent("diags"),
+		}}}},
+	}
+}
+
+// hasNullGuard reports whether a body already opens with an `in.IsNull()` check,
+// which is what makes guardValueFromObject idempotent.
+func hasNullGuard(body *ast.BlockStmt) bool {
+	found := false
+	ast.Inspect(body, func(n ast.Node) bool {
+		call, ok := n.(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		sel, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok || sel.Sel.Name != "IsNull" {
+			return true
+		}
+		if ident, ok := sel.X.(*ast.Ident); ok && ident.Name == "in" {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
 }
 
 // declNames returns dedup keys for a top-level declaration: methods keyed by
@@ -781,6 +893,12 @@ func (g *generator) applySchemaOverrides(specPath, overridesPath string) error {
 		if err := applyOverrideSection(spec[section.key], section.set); err != nil {
 			return err
 		}
+	}
+
+	// After overrides, so an attribute a sidecar retyped gets the plan-modifier
+	// package matching its final type rather than its spec-derived one.
+	if err := applyUseStateForUnknownDefault(spec["resources"]); err != nil {
+		return err
 	}
 
 	out, err := json.MarshalIndent(spec, "", "  ")
@@ -1368,6 +1486,80 @@ func applyAssociationSetDefault(node any) error {
 			// setting travel with it untouched.
 			am["set"] = l
 			delete(am, "list")
+		}
+	}
+	return nil
+}
+
+// planModifierPkg maps a provider-code-spec attribute type to the framework's
+// typed plan-modifier package. Types absent here have no UseStateForUnknown.
+var planModifierPkg = map[string]string{
+	"string": "stringplanmodifier", "int64": "int64planmodifier",
+	"bool": "boolplanmodifier", "float64": "float64planmodifier",
+	"number": "numberplanmodifier", "list": "listplanmodifier",
+	"set": "setplanmodifier", "map": "mapplanmodifier",
+	// Nested collections carry their own IR key, and missing them left
+	// kion_cft.tags reporting "(known after apply)" on every plan.
+	"list_nested": "listplanmodifier", "set_nested": "setplanmodifier",
+	"map_nested": "mapplanmodifier", "single_nested": "objectplanmodifier",
+}
+
+// applyUseStateForUnknownDefault gives every Computed attribute the
+// UseStateForUnknown plan modifier.
+//
+// Without it a Computed attribute is unknown on every plan, so Terraform renders
+// it "(known after apply)" and counts the resource as changing even when nothing
+// did. Importing a real install planned 2,561 in-place updates on that alone:
+// kion_iam_policy proposed a change to aws_iam_path, last_updated, path_suffix
+// and both owner id sets for all 1,348 records, none of which had moved.
+//
+// An attribute the server genuinely recomputes should opt out by declaring its
+// own plan_modifiers in schema_overrides.yaml, which wins because this runs
+// first and only fills an empty list.
+func applyUseStateForUnknownDefault(node any) error {
+	list, ok := node.([]any)
+	if !ok {
+		return nil
+	}
+	for _, item := range list {
+		obj, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		schemaObj, ok := obj["schema"].(map[string]any)
+		if !ok {
+			continue
+		}
+		attrs, ok := schemaObj["attributes"].([]any)
+		if !ok {
+			continue
+		}
+		for _, a := range attrs {
+			am, ok := a.(map[string]any)
+			if !ok {
+				continue
+			}
+			for typeName, pkg := range planModifierPkg {
+				typeObj, ok := am[typeName].(map[string]any)
+				if !ok {
+					continue
+				}
+				cor, ok := typeObj["computed_optional_required"].(string)
+				if !ok || (cor != "computed" && cor != "computed_optional") {
+					continue
+				}
+				if _, exists := typeObj["plan_modifiers"]; exists {
+					continue
+				}
+				typeObj["plan_modifiers"] = []any{map[string]any{
+					"custom": map[string]any{
+						"imports": []any{map[string]any{
+							"path": planModifierBase + pkg,
+						}},
+						"schema_definition": pkg + ".UseStateForUnknown()",
+					},
+				}}
+			}
 		}
 	}
 	return nil

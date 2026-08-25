@@ -5,6 +5,7 @@ package custom_variable
 import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -36,6 +37,9 @@ func CustomVariableResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Description is the description of the custom variable. The description can be up to 1024 characters.",
 				MarkdownDescription: "Description is the description of the custom variable. The description can be up to 1024 characters.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -50,24 +54,36 @@ func CustomVariableResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "KeyValidationMessage is the message displayed when the custom variable key(s) do not match the regular expression.\nThe key validation message can be up to 255 characters.",
 				MarkdownDescription: "KeyValidationMessage is the message displayed when the custom variable key(s) do not match the regular expression.\nThe key validation message can be up to 255 characters.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"key_validation_regex": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "KeyValidationRegex is the regular expression used to validate the custom variable key(s) within the map custom\nvariable type. The key validation regex can be up to 255 characters.",
 				MarkdownDescription: "KeyValidationRegex is the regular expression used to validate the custom variable key(s) within the map custom\nvariable type. The key validation regex can be up to 255 characters.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"last_updated": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The last time this resource was updated.",
 				MarkdownDescription: "The last time this resource was updated.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Name is the name of the custom variable. The name can be up to 255 characters.",
 				MarkdownDescription: "Name is the name of the custom variable. The name can be up to 255 characters.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -75,6 +91,9 @@ func CustomVariableResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "OwnerUGroupIDs is the list of user group IDs who will own the custom variable.",
 				MarkdownDescription: "OwnerUGroupIDs is the list of user group IDs who will own the custom variable.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -82,24 +101,36 @@ func CustomVariableResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "OwnerUserIDs is the list of user IDs who will own the custom variable.",
 				MarkdownDescription: "OwnerUserIDs is the list of user IDs who will own the custom variable.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"type": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Type is the type of the custom variable. The supported types are string, list, and map.",
 				MarkdownDescription: "Type is the type of the custom variable. The supported types are string, list, and map.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"value_validation_message": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "ValueValidationMessage is the message displayed when the custom variable value(s) do not match the regular expression.\nThe validation message can be up to 255 characters.",
 				MarkdownDescription: "ValueValidationMessage is the message displayed when the custom variable value(s) do not match the regular expression.\nThe validation message can be up to 255 characters.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"value_validation_regex": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "ValueValidationRegex is the regular expression used to validate the custom variable value(s).\nThe validation regex can be up to 255 characters.",
 				MarkdownDescription: "ValueValidationRegex is the regular expression used to validate the custom variable value(s).\nThe validation regex can be up to 255 characters.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Custom Variable.",

@@ -4,7 +4,9 @@ package service_catalog
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
@@ -24,6 +26,9 @@ func ServiceCatalogResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Description for the service catalog portfolio in the application.",
 				MarkdownDescription: "Description for the service catalog portfolio in the application.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -44,6 +49,9 @@ func ServiceCatalogResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of groups IDs who will own the portfolio. Is required if no owner user IDs are listed.",
 				MarkdownDescription: "List of groups IDs who will own the portfolio. Is required if no owner user IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"owner_user_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
@@ -51,6 +59,9 @@ func ServiceCatalogResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "List of user IDs who will own the portfolio. Is required if no owner group IDs are listed.",
 				MarkdownDescription: "List of user IDs who will own the portfolio. Is required if no owner group IDs are listed.",
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"portfolio_id": schema.StringAttribute{
 				Required:            true,
@@ -67,6 +78,9 @@ func ServiceCatalogResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "Boolean that enables or disables tag option sharing on service catalog portfolios.",
 				MarkdownDescription: "Boolean that enables or disables tag option sharing on service catalog portfolios.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Service Catalog portfolio.",

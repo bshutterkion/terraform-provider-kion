@@ -106,12 +106,13 @@ func Enumerate(ctx context.Context, l Lister, r importmanifest.Resource) Result 
 // worth mentioning depends on the record count across ALL parent sets, not
 // just this one (see readParentSet's doc comment).
 type parentSetOutcome struct {
-	records        []Record
-	failures       []string // real (non-404) child-read failures, as text
-	absentParents  int      // parents whose child read 404'd: this parent has none
-	parentsSkipped int      // parents with no usable id
-	skippedNoID    int      // toRecords: records with no id
-	skippedNoKey   int      // toRecords: FormatParentSlashKey records missing their key field
+	records          []Record
+	failures         []string // real (non-404) child-read failures, as text
+	absentParents    int      // parents whose child read 404'd: this parent has none
+	skippedWrongKind int      // records of a neighboring kind sharing the collection
+	parentsSkipped   int      // parents with no usable id
+	skippedNoID      int      // toRecords: records with no id
+	skippedNoKey     int      // toRecords: FormatParentSlashKey records missing their key field
 }
 
 // readParentSet lists p.ListPath for the parent ids, then reads p.ChildPath
@@ -161,17 +162,79 @@ func readParentSet(ctx context.Context, l Lister, p importmanifest.Parent, r imp
 			out.failures = append(out.failures, err.Error())
 			continue
 		}
+		kept := children[:0]
 		for _, child := range children {
+			// Drop records of a neighboring kind that share the collection;
+			// see Resource.RequireValidField.
+			if r.RequireValidField != "" && !isValidWrapper(child[r.RequireValidField]) {
+				out.skippedWrongKind++
+				continue
+			}
 			if _, ok := child[p.ParentIDField]; !ok {
 				child[p.ParentIDField] = fields["id"]
 			}
+			kept = append(kept, child)
 		}
-		recs, noID, noKey := toRecords(children, r, pid)
+
+		// An inherited collection returns records the path parent does not own,
+		// so the parent has to come from the record; see Parent.ParentIDJSON.
+		// Done per record because each may name a different owner.
+		if p.ParentIDJSON != "" {
+			for _, child := range kept {
+				owner := stringifyWrapper(child[p.ParentIDJSON])
+				if owner == "" || owner == "0" {
+					out.skippedNoID++
+					continue
+				}
+				child[p.ParentIDField] = owner
+				recs, noID, noKey := toRecords([]map[string]any{child}, r, owner)
+				out.records = append(out.records, recs...)
+				out.skippedNoID += noID
+				out.skippedNoKey += noKey
+			}
+			continue
+		}
+
+		recs, noID, noKey := toRecords(kept, r, pid)
 		out.records = append(out.records, recs...)
 		out.skippedNoID += noID
 		out.skippedNoKey += noKey
 	}
 	return out, nil
+}
+
+// isValidWrapper reports whether v is a present value: a bare non-zero number,
+// or Kion's SQL null wrapper with Valid true. Used as the discriminator for a
+// collection that mixes resource kinds (see Resource.RequireValidField).
+func isValidWrapper(v any) bool {
+	switch t := v.(type) {
+	case nil:
+		return false
+	case map[string]any:
+		valid, ok := t["Valid"].(bool)
+		return ok && valid
+	default:
+		s := stringify(v)
+		return s != "" && s != "0"
+	}
+}
+
+// stringifyWrapper renders v as an id string, unwrapping the SQL null wrapper
+// when that is what the key holds. Owner keys are a bare number on some
+// collections (OUID) and a wrapper on others (project_id).
+func stringifyWrapper(v any) string {
+	if m, ok := v.(map[string]any); ok {
+		if valid, ok := m["Valid"].(bool); !ok || !valid {
+			return ""
+		}
+		for _, k := range []string{"Int", "Int64"} {
+			if inner, ok := m[k]; ok {
+				return stringify(inner)
+			}
+		}
+		return ""
+	}
+	return stringify(v)
 }
 
 // parentSetReasonParts renders o's failure/skip counts as Reason fragments.
@@ -183,6 +246,9 @@ func parentSetReasonParts(o parentSetOutcome) []string {
 	var parts []string
 	if len(o.failures) > 0 {
 		parts = append(parts, fmt.Sprintf("%d parent(s) failed; first: %s", len(o.failures), o.failures[0]))
+	}
+	if o.skippedWrongKind > 0 {
+		parts = append(parts, fmt.Sprintf("%d record(s) of another kind sharing the collection", o.skippedWrongKind))
 	}
 	if o.parentsSkipped > 0 {
 		parts = append(parts, fmt.Sprintf("%d parent(s) skipped: no id", o.parentsSkipped))

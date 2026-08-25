@@ -211,3 +211,24 @@ func toInt64(v []uint64) []int64 {
 	}
 	return out
 }
+
+// DedupeInt64 removes repeats while preserving first-seen order.
+//
+// A types.Set refuses duplicate elements, and Kion returns the same owner id
+// twice on a few records, which failed the import outright rather than merely
+// looking odd.
+func DedupeInt64(v []int64) []int64 {
+	if len(v) < 2 {
+		return v
+	}
+	seen := make(map[int64]bool, len(v))
+	out := v[:0:0]
+	for _, x := range v {
+		if seen[x] {
+			continue
+		}
+		seen[x] = true
+		out = append(out, x)
+	}
+	return out
+}

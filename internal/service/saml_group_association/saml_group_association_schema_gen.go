@@ -4,6 +4,8 @@ package saml_group_association
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -19,12 +21,18 @@ func SamlGroupAssociationResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "AssertionName of the assertion in saml.",
 				MarkdownDescription: "AssertionName of the assertion in saml.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"assertion_regex": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "Regular expression used to determine a match.",
 				MarkdownDescription: "Regular expression used to determine a match.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -39,34 +47,52 @@ func SamlGroupAssociationResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "ID of the idms the group association will apply to.",
 				MarkdownDescription: "ID of the idms the group association will apply to.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"idms_saml_id": schema.Int64Attribute{
 				Computed:            true,
 				Description:         "The ID of the SAML IDMS.",
 				MarkdownDescription: "The ID of the SAML IDMS.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"last_updated": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "The last time this resource was updated.",
 				MarkdownDescription: "The last time this resource was updated.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"should_update_on_login": schema.BoolAttribute{
 				Computed:            true,
 				Description:         "Whether the association updates on login.",
 				MarkdownDescription: "Whether the association updates on login.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"update_on_login": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "If the group associations should be updated every time a user logs in.",
 				MarkdownDescription: "If the group associations should be updated every time a user logs in.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"user_group_id": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
 				Description:         "ID of the user group this assertion will map to.",
 				MarkdownDescription: "ID of the user group this assertion will map to.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 		Description: "Manages a Kion Saml Group Association.",
