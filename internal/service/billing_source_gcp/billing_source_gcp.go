@@ -54,9 +54,9 @@ func (r *billing_source_gcpResource) Schema(ctx context.Context, _ resource.Sche
 // wraps the payload in {"data": …}.
 type billing_source_gcpWire struct {
 	Data struct {
+		Id                uint64 `json:"id"`
 		GcpBillingAccount struct {
 			BillingAccount struct {
-				Id               uint64 `json:"id"`
 				Name             string `json:"name"`
 				GcpId            string `json:"gcp_id"`
 				BillingStartDate int64  `json:"billing_start_date"`
@@ -85,7 +85,7 @@ func (r *billing_source_gcpResource) read(ctx context.Context, id int64) (billin
 
 func (r *billing_source_gcpResource) flatten(ctx context.Context, w billing_source_gcpWire, m *BillingSourceGcpModel) diag.Diagnostics {
 	var diags diag.Diagnostics
-	m.Id = types.StringValue(strconv.FormatUint(w.Data.GcpBillingAccount.BillingAccount.Id, 10))
+	m.Id = types.StringValue(strconv.FormatUint(w.Data.Id, 10))
 	GcpBillingAccountCreateVal, GcpBillingAccountCreateValDiags := NewGcpBillingAccountCreateValue(GcpBillingAccountCreateValue{}.AttributeTypes(ctx), map[string]attr.Value{
 		"name":                                   types.StringValue(w.Data.GcpBillingAccount.BillingAccount.Name),
 		"gcp_id":                                 types.StringValue(w.Data.GcpBillingAccount.BillingAccount.GcpId),

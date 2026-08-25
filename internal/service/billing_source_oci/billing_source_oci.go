@@ -53,8 +53,8 @@ func (r *billing_source_ociResource) Schema(ctx context.Context, _ resource.Sche
 // wraps the payload in {"data": …}.
 type billing_source_ociWire struct {
 	Data struct {
+		Id               uint64 `json:"id"`
 		OciBillingSource struct {
-			Id               uint64 `json:"id"`
 			Name             string `json:"name"`
 			BillingStartDate int64  `json:"billing_start_date"`
 			TenancyOcid      string `json:"tenancy_ocid"`
@@ -84,7 +84,7 @@ func (r *billing_source_ociResource) read(ctx context.Context, id int64) (billin
 
 func (r *billing_source_ociResource) flatten(ctx context.Context, w billing_source_ociWire, m *BillingSourceOciModel) diag.Diagnostics {
 	var diags diag.Diagnostics
-	m.Id = types.StringValue(strconv.FormatUint(w.Data.OciBillingSource.Id, 10))
+	m.Id = types.StringValue(strconv.FormatUint(w.Data.Id, 10))
 	m.Name = types.StringValue(w.Data.OciBillingSource.Name)
 	m.BillingStartDate = flex.DatecodeToFramework(w.Data.OciBillingSource.BillingStartDate)
 	m.TenancyOcid = types.StringValue(w.Data.OciBillingSource.TenancyOcid)

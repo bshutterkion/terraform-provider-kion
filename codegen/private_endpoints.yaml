@@ -116,7 +116,15 @@ resources:
     delete: { method: DELETE, path: "/v3/billing-source/{id}",        spec: public }
     read_shape:
       scalars:
-        - { tf: id,                 from: "custom_billing_source.id",                 kind: id }
+        # The payer id, not custom_billing_source.id. The two are different id
+        # spaces: /v1/payer/{id} answers on the payer id and nests the custom
+        # record, which carries its own. Everything addresses the payer -- the
+        # import block, DELETE /v3/billing-source/{id}, PATCH
+        # /v3/billing-source/custom/{id} (which resolves the payer, then checks
+        # it has a custom record), and account.payer_id. Reporting the inner id
+        # made every reference resolve wrong, and would have pointed
+        # `terraform destroy` at whatever billing source held that number.
+        - { tf: id,                 from: "id",                                      kind: id }
         - { tf: name,               from: "custom_billing_source.name",               kind: string }
         - { tf: billing_start_date, from: "custom_billing_source.billing_start_date", kind: datecode }
       objects:
@@ -160,7 +168,11 @@ resources:
     delete: { method: DELETE, path: "/v3/billing-source/{id}",     spec: public }
     read_shape:
       scalars:
-        - { tf: id,                 from: "oci_billing_source.id",                 kind: id }
+        # The payer id, not the nested record's own. /v1/payer/{id} answers on
+        # the payer id and DELETE /v3/billing-source/{id} takes it; the nested
+        # record carries a different one (payer 2 -> aws_payer.id 1). Reporting
+        # the inner id would point destroy at another billing source.
+        - { tf: id,                 from: "id",                                    kind: id }
         - { tf: name,               from: "oci_billing_source.name",               kind: string }
         - { tf: billing_start_date, from: "oci_billing_source.billing_start_date", kind: datecode }
         - { tf: tenancy_ocid,       from: "oci_billing_source.tenancy_ocid",       kind: string }
@@ -182,7 +194,11 @@ resources:
     delete: { method: DELETE, path: "/v3/billing-source/{id}", spec: public }
     read_shape:
       scalars:
-        - { tf: id,                 from: "aws_payer.id",                           kind: id }
+        # The payer id, not the nested record's own. /v1/payer/{id} answers on
+        # the payer id and DELETE /v3/billing-source/{id} takes it; the nested
+        # record carries a different one (payer 2 -> aws_payer.id 1). Reporting
+        # the inner id would point destroy at another billing source.
+        - { tf: id,                 from: "id",                                     kind: id }
         - { tf: name,               from: "aws_payer.name",                         kind: string }
         - { tf: aws_account_number, from: "aws_payer.account_number",               kind: string }
         - { tf: billing_start_date, from: "aws_payer.billing_start_date",           kind: datecode }
@@ -211,7 +227,11 @@ resources:
     delete: { method: DELETE, path: "/v3/billing-source/{id}", spec: public }
     read_shape:
       scalars:
-        - { tf: id, from: "gcp_billing_account.billing_account.id", kind: id }
+        # The payer id, not the nested record's own. /v1/payer/{id} answers on
+        # the payer id and DELETE /v3/billing-source/{id} takes it; the nested
+        # record carries a different one (payer 2 -> aws_payer.id 1). Reporting
+        # the inner id would point destroy at another billing source.
+        - { tf: id, from: "id", kind: id }
       # Everything else lives inside the nested create object in the model, so it
       # is flattened as one object rather than as top-level scalars.
       objects:

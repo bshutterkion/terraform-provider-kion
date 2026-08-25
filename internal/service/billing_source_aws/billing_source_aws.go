@@ -53,8 +53,8 @@ func (r *billing_source_awsResource) Schema(ctx context.Context, _ resource.Sche
 // wraps the payload in {"data": …}.
 type billing_source_awsWire struct {
 	Data struct {
+		Id       uint64 `json:"id"`
 		AwsPayer struct {
-			Id                         uint64 `json:"id"`
 			Name                       string `json:"name"`
 			AccountNumber              string `json:"account_number"`
 			BillingStartDate           int64  `json:"billing_start_date"`
@@ -87,7 +87,7 @@ func (r *billing_source_awsResource) read(ctx context.Context, id int64) (billin
 
 func (r *billing_source_awsResource) flatten(ctx context.Context, w billing_source_awsWire, m *BillingSourceAwsModel) diag.Diagnostics {
 	var diags diag.Diagnostics
-	m.Id = types.StringValue(strconv.FormatUint(w.Data.AwsPayer.Id, 10))
+	m.Id = types.StringValue(strconv.FormatUint(w.Data.Id, 10))
 	m.Name = types.StringValue(w.Data.AwsPayer.Name)
 	m.AwsAccountNumber = types.StringValue(w.Data.AwsPayer.AccountNumber)
 	m.BillingStartDate = flex.DatecodeToFramework(w.Data.AwsPayer.BillingStartDate)
