@@ -11,7 +11,7 @@ of those entries.
 
 | | |
 |---|---|
-| Install | a demo Kion installation (3.16.3); cost figures also sampled against three others |
+| Install | a demo Kion installation (3.16.3); cost figures also sampled against two others |
 | Date | 2026-08-25, on `feat/import-custom-variable-override` @ f4ec800 |
 | Manifest | `codegen/import_manifest.json`, 68 resource types |
 | Command | `kion-import --url https://kion.example.com --out imports.tf` |
@@ -355,30 +355,30 @@ Three things had to be true, each verified live:
 One install does not characterise the product, and the cost here is
 `accounts + OUs + projects` requests -- which scales with install size, unlike
 most parent-scoped resources, whose parents are only OUs and projects. Measured
-across four installs (portal is production and was read with entity-list GETs
-only, four requests, no child walk):
+across three installs (the production-scale one was read with entity-list GETs
+only -- four requests, no child walk):
 
 | install | accounts | OUs | projects | entities | variables | overrides |
 |---|---:|---:|---:|---:|---:|---:|
-| demo1 | 92 | 22 | 37 | **151** | 12 | **21** |
-| demo3 | 96 | 129 | 175 | **400** | 0 | **0** |
-| portal (prod) | 1,311 | 52 | 126 | **1,489** | 2 | not walked |
+| demo, the one above | 92 | 22 | 37 | **151** | 12 | **21** |
+| a second demo | 96 | 129 | 175 | **400** | 0 | **0** |
+| production-scale | 1,311 | 52 | 126 | **1,489** | 2 | not walked |
 
 Two things this changes:
 
-- **Accounts dominate on a large install.** 1,311 of portal's 1,489 entities are
-  accounts, and no other resource walks a per-account parent set. The walk is
-  still bounded, one-shot, and cheaper than the pair probe (2,978 there), but it
-  is the most expensive parent set the tool has. `--exclude
-  kion_custom_variable_override` skips it, the same way the docs already
-  recommend excluding the shipped policy and compliance catalogs.
-- **An install with no custom variables spends the whole walk for nothing.**
-  demo3 made 400 child calls and found 0 overrides, because it defines 0 custom
-  variables. A cheap short-circuit exists -- `/v3/custom-variable` is one request
-  and an empty result makes overrides impossible -- but the enumerator has no
-  notion of a precondition on another resource's collection, and inventing one
-  for a single resource is not obviously worth it. Recorded here rather than
-  built.
+- **Accounts dominate on a large install.** 1,311 of the production-scale
+  install's 1,489 entities are accounts, and no other resource walks a
+  per-account parent set. The walk is still bounded, one-shot, and cheaper than
+  the pair probe (2,978 there), but it is the most expensive parent set the tool
+  has. `--exclude kion_custom_variable_override` skips it, the same way the docs
+  already recommend excluding the shipped policy and compliance catalogs.
+- **An install with no custom variables spends the whole walk for nothing.** The
+  second demo made 400 child calls and found 0 overrides, because it defines 0
+  custom variables. A cheap short-circuit exists -- `/v3/custom-variable` is one
+  request and an empty result makes overrides impossible -- but the enumerator
+  has no notion of a precondition on another resource's collection, and
+  inventing one for a single resource is not obviously worth it. Recorded here
+  rather than built.
 
 ### The read was never the problem; `ImportState` was
 
