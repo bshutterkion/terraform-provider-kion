@@ -26,6 +26,12 @@ Coverage: 68 resource types, 48355 records
 48,269 `import` blocks generated, **zero errors**, and zero records skipped for a
 missing id. Every one of the 68 manifest rows produced a result.
 
+These totals are that run's, and they are now ten low: the padding fix in
+*Pages padded to `total`* recovers ten `compliance_family` records that this run
+never fetched. The per-resource sections below reflect the fixed behavior; the
+headline counts are left as recorded rather than adjusted by arithmetic, and a
+full re-run supersedes them.
+
 The three `unsupported` rows are refusals by design, not gaps: two alias types
 (`kion_aws_cloudformation_template`, `kion_aws_iam_policy`) that would put two
 Terraform resources in charge of one record, and `kion_custom_variable_override`,
@@ -132,10 +138,44 @@ accounted for in the report but never enumerated. `--list-types` shows the legac
 name against the current one, which is what an operator migrating a configuration
 needs to see.
 
+### 5. Pages padded to `total`, hiding real records
+
+Found after this run, by investigating the `record(s) skipped: no id` caveats
+below rather than accepting them as a documented quirk.
+
+Some collections pad every page out to `total` instead of to the page size.
+`/v4/compliance/program/5/family` holds 110 families:
+
+| request | items | real | zero-valued padding |
+|---|---:|---:|---:|
+| `count=100&page=1` | 110 | 100 (Access…Temporary) | 10 |
+| `count=100&page=2` | 110 | 10 (Transaction…Wireless) | 100 |
+| `count=500&page=1` | 110 | 110 | 0 |
+
+`Client.List` unwrapped 110 records and `total: 110` from page 1, evaluated
+`len(records) < total` as `110 < 110`, and stopped. The ten real records that
+exist only on page 2 were never requested. `toRecords` then dropped the ten
+fillers for having no id and reported `10 record(s) skipped: no id`.
+
+The count was right and the wording was wrong in the way that matters: it
+describes records being *ignored* when the event was records never being
+*fetched*. It also happened to equal the number missing, which made it look
+self-consistent. What gave it away was the alphabet -- every missing family
+sorted between Transaction and Wireless, which is a lost final page, not
+scattered bad data.
+
+Fixed: zero-valued records are dropped before the page count is compared against
+`total`. Such a record carries no id and could never have produced an `import`
+block, so nothing is lost, and the count now reflects what was retrieved.
+`compliance_family` returns the full 597, matching a direct count over the API.
+
+The padding itself is a server-side defect and is worth reporting separately:
+any client paging that endpoint hits it.
+
 ## Still failing on this install
 
 Nothing errors. Three rows are refused by design, six are legitimately empty, and
-eight read with a caveat. **All are recorded, not silently omitted** -- they
+five read with a caveat. **All are recorded, not silently omitted** -- they
 appear in both the report and the generated file.
 
 ### Refused by design (3)
@@ -148,13 +188,10 @@ This list used to include `aws_resource_tag`, `ou_cloud_access_role_exemption`
 and `project_cloud_access_role_exemption` as "structurally unreadable". That was
 wrong -- see *`no_read` did not mean unreadable*.
 
-### Read with caveats (8)
+### Read with caveats (5)
 
 | resource | caveat |
 |---|---|
-| `compliance_control` | 3592 record(s) skipped: no id |
-| `compliance_family` | 10 record(s) skipped: no id |
-| `scope_criteria` | 9 record(s) skipped: no id |
 | `idms_group_association` | 2 parents failed; `GET /v3/idms/1/group-association` 502 |
 | `saml_group_association` | same 502, same parent |
 | `idms_open_id_access_rule` | 10 parents had none |
@@ -166,6 +203,18 @@ answer 200/404 normally, and three consecutive retries all returned 502. It is
 reported rather than swallowed, and one bad parent does not sink the resource.
 
 The two exemption caveats are the kind-mixing filter working; see below.
+
+This table used to carry three more rows -- `compliance_control` (3592),
+`compliance_family` (10) and `scope_criteria` (9), each reported as
+`record(s) skipped: no id`. None of them were what that wording implied; see
+*Pages padded to `total`* below for the first two, and the `nested_collection`
+read shape for `scope_criteria`. All three now read clean:
+
+| resource | then | now |
+|---|---|---|
+| `compliance_control` | 6006, 3592 skipped | 6006, no caveat |
+| `compliance_family` | 587, 10 skipped | **597**, no caveat |
+| `scope_criteria` | 9 skipped, 0 read | 9, no caveat |
 
 ### Empty (6)
 
@@ -183,6 +232,12 @@ only by unit tests. Verify it against an install that has records.
   `kion_azure_policy: empty, 0 records` as a clean result. With skip counts it
   reported `19425 record(s) skipped: no id`. Roughly 23,000 records were being
   dropped silently; the count is what surfaced it.
+- **A skip count is a symptom, not a diagnosis.** The same mechanism that
+  surfaced the wrapper bug later described ten *missing* `compliance_family`
+  records as ten *skipped* ones, and the number was accurate enough that the
+  caveat sat in this document as settled. A skip count says something was not
+  emitted; it does not say the records were reachable and ignored. Reconcile
+  against the API before recording one as understood.
 - **The one-result-per-row contract holds** against the real manifest: 68 rows in,
   68 results out, every failure attributed.
 
