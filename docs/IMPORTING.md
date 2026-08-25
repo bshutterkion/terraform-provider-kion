@@ -23,6 +23,10 @@ kion-import rewrite-refs                       # literals -> references
 terraform apply
 ```
 
+To manage the result through the modules instead of the resources, see
+*Rewrite into module calls* below. It does not compose with `rewrite-refs`;
+pick one.
+
 ## Rewrite the literal ids into references
 
 `terraform plan -generate-config-out` writes every foreign key as a bare
@@ -128,6 +132,58 @@ imports as `null` even though it was set:
 Both attributes are Optional+Computed, so nothing errors and `terraform plan`
 is clean — the value is just gone. If the reason recorded against an exemption
 matters to you, re-enter it by hand after import.
+
+## Rewrite into module calls
+
+`terraform plan -generate-config-out` writes bare `resource` blocks. To manage
+the imported install through the modules under `modules/terraform-kion-*`
+instead:
+
+```sh
+kgen import-modules --in generated.tf --out modules.tf
+```
+
+Each `resource "kion_*" "<label>"` becomes `module "<label>"` with
+`source = "./modules/terraform-kion-<name>"`. A block whose type has no module
+is left byte-for-byte alone, as is every non-resource block.
+
+The attribute-to-variable mapping comes from `modules/module_manifest.json`,
+written by `make modules`, not from `variables.tf`. That matters because a
+module variable is not always named after the provider attribute: `kgen module`
+renames anything that collides with a `module` block meta-argument, so
+`kion_cloud_rule`'s `source` becomes `cloud_rule_source` and
+`kion_compliance_program`'s `version` becomes `compliance_program_version`.
+Getting those wrong does not fail cleanly — Terraform reads a stray
+`source = "aws"` as the module's own source address and goes looking for a
+module there.
+
+An attribute with no module variable (`last_updated` is the common case) is
+dropped and reported rather than guessed at:
+
+```
+  dropped: kion_ou.example: dropped "last_updated" -- no module variable for this attribute
+Wrote modules.tf: 3 block(s) rewritten, 1 left untouched, 1 attribute(s) dropped
+```
+
+### It does not compose with `rewrite-refs`
+
+Run one or the other, not both. `rewrite-refs` turns literal ids into
+references like `kion_ou.parent.id`; this rewrite turns `kion_ou.parent` into
+`module.parent`, and the reference is then pointing at a resource that no
+longer exists. Terraform rejects that with *Reference to undeclared resource*.
+
+The rewrite detects this rather than emitting a file that will not load. It
+still writes the output — you need it to hand-edit — but exits non-zero:
+
+```
+  dangling: module "child": parent_ou_id references kion_ou.parent, which this rewrite turns into a module
+Error: 1 reference(s) point at resources this rewrite converted to modules; …
+```
+
+Repairing them automatically would mean rewriting `kion_ou.parent.id` to
+`module.parent.<output>`, which depends on the module exposing a matching
+output. The manifest records variables, not outputs, so the tool has no way to
+know the right name and says so instead of guessing.
 
 ## Choose what to import
 
