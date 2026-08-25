@@ -649,7 +649,8 @@
         "parent_id_field": "ou_id"
       },
       "import_id": {
-        "format": "id"
+        "format": "parent_slash_key",
+        "key_field": "id"
       }
     },
     {
@@ -753,7 +754,8 @@
         "parent_id_field": "project_id"
       },
       "import_id": {
-        "format": "id"
+        "format": "parent_slash_key",
+        "key_field": "id"
       }
     },
     {
@@ -846,9 +848,12 @@
       "tf_type": "kion_scope_criteria",
       "kind": "scope_criteria",
       "archetype": "compound_key_parent_read",
-      "read_shape": "parent_list",
+      "read_shape": "nested_collection",
       "readable": true,
       "list_path": "/beta/scope",
+      "collection": "criteria_records",
+      "parent_id_field": "scope_id",
+      "child_id_field": "criteria_id",
       "import_id": {
         "format": "parent_slash_key"
       }
