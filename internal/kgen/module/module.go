@@ -111,6 +111,13 @@ func Generate(outDir, providerVersion, filterResource string, force bool) error 
 		return fmt.Errorf("no resource found matching %q", filterResource)
 	}
 
+	// Always written in full, regardless of --resource or --force: the
+	// manifest describes every module, not just the ones this run happened to
+	// (re)write, and it is cheap enough to recompute every time.
+	if err := WriteManifest(outDir); err != nil {
+		return fmt.Errorf("writing module manifest: %w", err)
+	}
+
 	fmt.Printf("Generated %d module(s), skipped %d\n", generated, skipped)
 	if len(unknowns) > 0 {
 		// Surfaced loudly: a mistyped variable fails later and less clearly.
