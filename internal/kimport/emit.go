@@ -54,7 +54,7 @@ func RenderImports(results []Result, providerVersion string) string {
 			}
 			emitted[key] = true
 			label := labeler.Allocate(res.TFType, rec.Name, rec.ID)
-			fmt.Fprintf(&blocks, "import {\n  to = %s.%s\n  id = %q\n}\n", res.TFType, label, rec.ID)
+			fmt.Fprintf(&blocks, "import {\n  to = %s.%s\n  id = %q\n}\n", res.TFType, label, escapeHCLTemplate(rec.ID))
 		}
 		if blocks.Len() == 0 {
 			continue // every record for this type was a duplicate
@@ -64,44 +64,33 @@ func RenderImports(results []Result, providerVersion string) string {
 		b.WriteString("\n")
 	}
 
-	var gaps []Result
-	for _, res := range sorted {
-		if res.Status == "unsupported" || res.Status == "error" {
-			gaps = append(gaps, res)
+	// A render-time duplicate drop (above) is only knowable here, not from
+	// Enumerate's Reason -- fold it into a copy of sorted before handing off
+	// to the shared gaps/caveats split, so it surfaces as a caveat the same
+	// way any other partial-read gap does.
+	effective := sorted
+	if len(dupCounts) > 0 {
+		effective = append([]Result(nil), sorted...)
+		for i, res := range effective {
+			d := dupCounts[res.TFType]
+			if d == 0 {
+				continue
+			}
+			note := fmt.Sprintf("%d duplicate record(s) skipped", d)
+			if res.Reason == "" {
+				effective[i].Reason = note
+			} else {
+				effective[i].Reason = res.Reason + "; " + note
+			}
 		}
 	}
+
+	gaps, caveats := partition(effective)
 	if len(gaps) > 0 {
 		b.WriteString("# Not imported:\n")
 		for _, res := range gaps {
 			fmt.Fprintf(&b, "# %-45s %-12s %s\n", res.TFType, res.Status, res.Reason)
 		}
-	}
-
-	// A successful read can still carry a real gap in Reason: records
-	// skipped for having no usable id, association records skipped for a
-	// missing key field, or a flat list that 405'd and fell back to a
-	// parent-scoped read. Those results are status "ok" (or "empty"), so
-	// they never land in the "Not imported:" block above -- but dropping
-	// the fact silently would tell the customer nothing was skipped when
-	// something was. Report them separately.
-	var caveats []Result
-	for _, res := range sorted {
-		reason := res.Reason
-		if d := dupCounts[res.TFType]; d > 0 {
-			note := fmt.Sprintf("%d duplicate record(s) skipped", d)
-			if reason == "" {
-				reason = note
-			} else {
-				reason = reason + "; " + note
-			}
-		}
-		if reason == "" {
-			continue
-		}
-		if res.Status == "unsupported" || res.Status == "error" {
-			continue // already reported above
-		}
-		caveats = append(caveats, Result{TFType: res.TFType, Status: res.Status, Reason: reason})
 	}
 	if len(caveats) > 0 {
 		if len(gaps) > 0 {
@@ -114,4 +103,37 @@ func RenderImports(results []Result, providerVersion string) string {
 	}
 
 	return b.String()
+}
+
+// partition splits results into gaps -- unsupported/error results, reported
+// under "Not imported" -- and caveats: a successful read (status "ok" or
+// "empty") that still carries a real gap in Reason, such as records skipped
+// for having no usable id, association records skipped for a missing key
+// field, or a flat list that 405'd and fell back to a parent-scoped read.
+// Those never land in gaps, but dropping the fact silently would tell the
+// customer nothing was skipped when something was, so they are reported
+// separately. This is the tool's central "no record disappears without a
+// count, a reason, and a line in the output" contract; RenderImports and
+// FormatReport both call this instead of each re-implementing the split.
+func partition(results []Result) (gaps, caveats []Result) {
+	for _, r := range results {
+		if r.Status == "unsupported" || r.Status == "error" {
+			gaps = append(gaps, r)
+			continue
+		}
+		if r.Reason != "" {
+			caveats = append(caveats, r)
+		}
+	}
+	return gaps, caveats
+}
+
+// escapeHCLTemplate escapes HCL template interpolation ("${") and directive
+// ("%{") markers in id so %q-quoting it does not produce a string HCL
+// reinterprets. Go's %q leaves both sequences literal; HCL treats them as
+// syntax unless doubled.
+func escapeHCLTemplate(id string) string {
+	id = strings.ReplaceAll(id, "${", "$${")
+	id = strings.ReplaceAll(id, "%{", "%%{")
+	return id
 }

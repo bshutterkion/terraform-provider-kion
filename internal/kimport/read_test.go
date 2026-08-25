@@ -447,6 +447,57 @@ func TestToRecordsSiblingWithoutIDDoesNotBlockDetection(t *testing.T) {
 	assert.Equal(t, "T", records[0].Name)
 }
 
+// --- I1: parentScopedResult must run each parent through unwrapTypedRecord
+// before reading its id. If a parent list ever uses the per-type wrapper
+// shape (the exact shape unwrapTypedRecord exists for), extracting
+// parent["id"] directly finds nothing, every parent is silently `continue`d,
+// and the resource reports "empty, 0 records, reason \"\"" -- no count, no
+// reason, nowhere. ---
+
+func TestEnumerateParentScopedUnwrapsWrappedParentList(t *testing.T) {
+	t.Parallel()
+	l := &routeLister{routes: map[string]any{
+		// The parent list itself uses the per-type wrapper shape, e.g. what
+		// /v3/ou would look like if it ever wrapped under "ou" the way
+		// /v3/cft wraps under "cft".
+		"/v3/ou":               []map[string]any{rec("ou", rec("id", float64(1)))},
+		"/v3/ou/1/enforcement": []map[string]any{rec("id", float64(10))},
+	}}
+	res := Enumerate(context.Background(), l, importmanifest.Resource{
+		TFType: "kion_ou_enforcement", ReadShape: importmanifest.ShapeParentList, Readable: true,
+		Parent: &importmanifest.Parent{
+			Kind: "ou", ListPath: "/v3/ou",
+			ChildPath: "/v3/ou/{parent_id}/enforcement", ParentIDField: "ou_id",
+		},
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	})
+	require.Equal(t, "ok", res.Status)
+	require.Len(t, res.Records, 1)
+	assert.Equal(t, "10", res.Records[0].ID)
+	assert.Empty(t, res.Reason)
+}
+
+func TestEnumerateParentScopedCountsParentsMissingID(t *testing.T) {
+	t.Parallel()
+	l := &routeLister{routes: map[string]any{
+		// One parent has a usable id, one genuinely lacks one (no top-level
+		// id and no single unwrappable candidate).
+		"/v3/ou":               []map[string]any{rec("id", float64(1)), rec("name", "no id here")},
+		"/v3/ou/1/enforcement": []map[string]any{rec("id", float64(10))},
+	}}
+	res := Enumerate(context.Background(), l, importmanifest.Resource{
+		TFType: "kion_ou_enforcement", ReadShape: importmanifest.ShapeParentList, Readable: true,
+		Parent: &importmanifest.Parent{
+			Kind: "ou", ListPath: "/v3/ou",
+			ChildPath: "/v3/ou/{parent_id}/enforcement", ParentIDField: "ou_id",
+		},
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	})
+	require.Equal(t, "ok", res.Status)
+	require.Len(t, res.Records, 1)
+	assert.Contains(t, res.Reason, "1 parent(s) skipped: no id")
+}
+
 func TestEnumerateAssociationSkipsRecordsMissingKeyField(t *testing.T) {
 	t.Parallel()
 	l := &routeLister{routes: map[string]any{

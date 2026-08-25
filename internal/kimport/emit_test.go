@@ -133,6 +133,23 @@ func TestRenderImportsDedupsRecordsSharingAnID(t *testing.T) {
 	assert.Contains(t, out, "1 duplicate record(s) skipped")
 }
 
+// --- I2: Go's %q leaves "${" and "%{" literal, but HCL reads those as
+// interpolation/directive markers -- an id containing either would make the
+// generated id = "..." string get reinterpreted by HCL instead of read as a
+// literal value.
+
+func TestRenderImportsEscapesHCLTemplateMarkersInID(t *testing.T) {
+	t.Parallel()
+	rs := []Result{
+		{TFType: "kion_iam_policy", Status: "ok", Records: []Record{
+			{ID: `arn:aws:iam::123:policy/${bad}`, Name: "p"},
+		}},
+	}
+	out := RenderImports(rs, "1.0.0")
+	assert.Contains(t, out, `id = "arn:aws:iam::123:policy/$${bad}"`)
+	assert.NotContains(t, out, `id = "arn:aws:iam::123:policy/${bad}"`)
+}
+
 func TestRenderImportsKeepsBothBlocksForDistinctIDs(t *testing.T) {
 	t.Parallel()
 	rs := []Result{

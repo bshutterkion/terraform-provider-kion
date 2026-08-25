@@ -105,9 +105,15 @@ func parentScopedResult(ctx context.Context, l Lister, r importmanifest.Resource
 
 	var failures []string
 	skipped := 0
+	parentsSkipped := 0
 	for _, parent := range parents {
-		pid := stringify(parent["id"])
+		// A parent list can use the per-type wrapper shape too (the exact
+		// shape unwrapTypedRecord exists for) -- unwrap before reading id,
+		// or every parent silently drops with no count and no reason.
+		fields := unwrapTypedRecord(parent)
+		pid := stringify(fields["id"])
 		if pid == "" {
+			parentsSkipped++
 			continue
 		}
 		path := strings.ReplaceAll(r.Parent.ChildPath, "{parent_id}", pid)
@@ -118,7 +124,7 @@ func parentScopedResult(ctx context.Context, l Lister, r importmanifest.Resource
 		}
 		for _, child := range children {
 			if _, ok := child[r.Parent.ParentIDField]; !ok {
-				child[r.Parent.ParentIDField] = parent["id"]
+				child[r.Parent.ParentIDField] = fields["id"]
 			}
 		}
 		recs, sk := toRecords(children, r, pid)
@@ -129,6 +135,9 @@ func parentScopedResult(ctx context.Context, l Lister, r importmanifest.Resource
 	var reasonParts []string
 	if len(failures) > 0 {
 		reasonParts = append(reasonParts, fmt.Sprintf("%d parent(s) failed; first: %s", len(failures), failures[0]))
+	}
+	if parentsSkipped > 0 {
+		reasonParts = append(reasonParts, fmt.Sprintf("%d parent(s) skipped: no id", parentsSkipped))
 	}
 	if skipped > 0 {
 		reasonParts = append(reasonParts, fmt.Sprintf("%d record(s) skipped: no id", skipped))
