@@ -65,6 +65,7 @@ func ScopeResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "Start datecode for the scope (YYYYMM format).",
 			},
 		},
+		Description: "Manages a Kion Scope.",
 	}
 }
 

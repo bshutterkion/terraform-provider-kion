@@ -57,7 +57,7 @@ func ScopeCriteriaResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "Start month for the criteria period (YYYYMM format).",
 			},
 		},
-		Description: "Manages a Kion Scope Criteria — a versioned criteria record on a scope.",
+		Description: "Manages a Kion Scope Criteria, a versioned criteria record on a scope.",
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"go/token"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -55,7 +56,7 @@ func TestApplyRenames_noSidecar(t *testing.T) {
 }
 
 // TestApplySchemaOverrides verifies the sidecar retypes an attribute, injects a
-// plan modifier with its import, and sets the schema description — the things
+// plan modifier with its import, and sets the schema description, the things
 // tfplugingen can't derive from the OpenAPI spec.
 func TestApplySchemaOverrides(t *testing.T) {
 	m := fsmocks.NewMockFS(t)
@@ -93,11 +94,11 @@ func TestApplySchemaOverrides(t *testing.T) {
 }
 
 // TestApplySchemaOverrides_noSidecar: with no sidecar there are no per-type
-// overrides, but the global string-id default still runs — so the spec is read,
+// overrides, but the global string-id default still runs. So the spec is read,
 // (potentially) mutated, and written back.
 // TestApplySchemaOverrides_retypeNestedToCustomScalar covers retyping a
 // single_nested attribute (with its generated custom_type + empty attributes)
-// into a scalar carrying a framework custom type — the scope_criteria `criteria`
+// into a scalar carrying a framework custom type, the scope_criteria `criteria`
 // case (object → jsontypes.Normalized string). The stale nested keys must be
 // dropped and the new custom_type emitted.
 func TestApplySchemaOverrides_retypeNestedToCustomScalar(t *testing.T) {
@@ -149,8 +150,8 @@ func TestApplySchemaOverrides_noSidecar(t *testing.T) {
 }
 
 // TestApplySchemaOverrides_addsMissingAttribute verifies an override naming an
-// attribute absent from the spec — because tfplugingen dropped it (e.g. a
-// polymorphic value split into typed sub-attributes) — is *inserted* as a new
+// attribute absent from the spec, because tfplugingen dropped it (e.g. a
+// polymorphic value split into typed sub-attributes). Is *inserted* as a new
 // attribute node rather than silently ignored.
 func TestApplySchemaOverrides_addsMissingAttribute(t *testing.T) {
 	m := fsmocks.NewMockFS(t)
@@ -186,7 +187,7 @@ func TestApplySchemaOverrides_addsMissingAttribute(t *testing.T) {
 
 // TestApplySchemaOverrides_addsCollectionElementType verifies an inserted list
 // (or map) attribute carries the element_type node tfplugingen-framework
-// requires — e.g. a list of strings becomes {"list": {"element_type": {"string": {}}}}.
+// requires, e.g. a list of strings becomes {"list": {"element_type": {"string": {}}}}.
 func TestApplySchemaOverrides_addsCollectionElementType(t *testing.T) {
 	m := fsmocks.NewMockFS(t)
 
@@ -243,7 +244,7 @@ func TestApplySchemaOverrides_addsCollectionElementType(t *testing.T) {
 }
 
 // TestApplySchemaOverrides_addsToEmptySchema verifies overrides can add
-// attributes to a resource whose schema has no attributes array at all — e.g. an
+// attributes to a resource whose schema has no attributes array at all, e.g. an
 // association whose entire body was dropped (tfplugingen emits an empty schema,
 // which it then rejects). Reconstruction must repopulate it.
 func TestApplySchemaOverrides_addsToEmptySchema(t *testing.T) {
@@ -442,7 +443,7 @@ func TestDedupTopLevelDecls(t *testing.T) {
 }
 
 // TestMergeSpecAdditions verifies OpenAPI fragments (paths + component schemas)
-// from the additions sidecar are merged into the spec — used to supply endpoints
+// from the additions sidecar are merged into the spec, used to supply endpoints
 // the public spec omits (e.g. dashboard's private read) so tfplugingen can
 // generate them.
 func TestMergeSpecAdditions(t *testing.T) {
@@ -624,4 +625,29 @@ func TestApplyStringIDDefault(t *testing.T) {
 	if got := idKey(t, resources[1]); got != "int64" {
 		t.Errorf("explicit-override resource id type = %q, want int64 (skipped)", got)
 	}
+}
+
+// TestCheckNothingSkipped covers the case tfplugingen-openapi reports by logging
+// and then exiting 0: a configured type it could not map is absent from the code
+// spec, and without this check the run looks successful while the stale generated
+// file stays on disk.
+func TestCheckNothingSkipped(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "generator_config.yaml")
+	require.NoError(t, os.WriteFile(cfg, []byte(
+		"resources:\n  kept:\n  dropped:\ndata_sources:\n  kept_ds:\n"), 0o600))
+
+	spec := filepath.Join(dir, "spec.json")
+	write := func(body string) { require.NoError(t, os.WriteFile(spec, []byte(body), 0o600)) }
+	g := &generator{}
+
+	write(`{"resources":[{"name":"kept"},{"name":"dropped"}],"datasources":[{"name":"kept_ds"}]}`)
+	require.NoError(t, g.checkNothingSkipped(spec, cfg), "nothing missing should pass")
+
+	write(`{"resources":[{"name":"kept"}],"datasources":[]}`)
+	err := g.checkNothingSkipped(spec, cfg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "resource dropped")
+	assert.Contains(t, err.Error(), "data source kept_ds")
+	assert.Contains(t, err.Error(), "property_types")
 }
