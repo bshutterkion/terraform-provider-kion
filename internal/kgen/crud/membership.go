@@ -148,7 +148,7 @@ type sliceMemberBind struct {
 	RemoveMethod string // "RemoveUGroupUsers"
 	AddParams    string
 	RemoveParams string
-	Var          string // "userIds" — local diff var base
+	Var          string // "userIds", local diff var base
 }
 
 // resolveSliceMember maps a membershipSlice onto the model.

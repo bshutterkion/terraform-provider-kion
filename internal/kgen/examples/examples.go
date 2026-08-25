@@ -203,8 +203,8 @@ func dataSourceSchemaToTF(typeName string, s dsschema.Schema) string {
 // renderNestedResourceAttr renders a nested attribute as a multi-line HCL object
 // rather than a scalar placeholder. Without this the example generator emitted
 // nothing at all for nested attributes (they fell through the required/optional
-// predicates), so a resource whose whole shape is a nested block — a billing
-// source's aws_connection / azure_connection — got an example showing only its
+// predicates), so a resource whose whole shape is a nested block, a billing
+// source's aws_connection / azure_connection, got an example showing only its
 // scalars and none of the part a practitioner actually needs.
 //
 // commented renders the whole block behind "# " for an optional attribute,

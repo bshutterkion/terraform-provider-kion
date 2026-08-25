@@ -2,8 +2,9 @@
 # Fail if anything internal has crept into the tree.
 #
 # This repository is public and accepts outside contributions. Internal
-# references — backend source paths, internal hostnames, internal repo/group
-# names, AI planning notes — are not secrets, but they leak implementation
+# references, such as backend source paths, internal hostnames, internal
+# repo/group names, and AI planning notes, are not secrets, but they leak
+# implementation
 # detail nobody outside can act on, and once published they live in every fork.
 # A reviewer cannot reliably catch them by eye, so this runs in CI.
 #
@@ -11,7 +12,7 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-# Patterns are extended regex, matched against TRACKED files only — untracked
+# Patterns are extended regex, matched against TRACKED files only. Untracked
 # working files (local notes, scratch dirs) are the contributor's business.
 patterns=(
   'kion/portal'                 # backend source tree
@@ -30,7 +31,7 @@ fail=0
 for p in "${patterns[@]}"; do
   # `git grep -I` skips binaries. Exclude this script, which necessarily
   # contains every pattern it looks for.
-  # .gitignore legitimately names docs/superpowers — that rule is what keeps the
+  # .gitignore legitimately names docs/superpowers; that rule is what keeps the
   # notes out. Exclude it for that pattern only, not for every pattern.
   extra=()
   if [ "$p" = 'docs/superpowers' ]; then extra=(':!.gitignore'); fi
@@ -42,7 +43,7 @@ for p in "${patterns[@]}"; do
 done
 
 # The greps above match file CONTENTS. A planning doc re-added under
-# docs/superpowers/ contains no such text, so it would sail through — check the
+# docs/superpowers/ contains no such text, so it would sail through. Check the
 # tracked path list separately.
 forbidden_paths='^docs/superpowers/|(^|/)PHASE2-SDK-EXPOSURE\.md$|^\.gitlab-ci\.yml$'
 if paths=$(git ls-files | grep -E "$forbidden_paths"); then
@@ -55,7 +56,7 @@ if [ "$fail" -ne 0 ]; then
   cat >&2 <<'EOF'
 
 This repo is public. Remove the reference, or describe the behaviour without
-citing internal sources — "the API returns X" rather than a backend file path.
+citing internal sources: "the API returns X" rather than a backend file path.
 If a term above is now legitimately public, drop it from `patterns` in
 scripts/check-no-internal-refs.sh in the same change, so the reason is reviewable.
 EOF

@@ -45,7 +45,7 @@ func billingLikeModel() map[string]ModelField {
 	}
 }
 
-// A second object must reach the wire struct — before Objects was a slice only
+// A second object must reach the wire struct. Before Objects was a slice only
 // the first could, which is what blocked azure_connection.
 func TestBuildWireStruct_multipleObjects(t *testing.T) {
 	got, err := buildWireStruct("billing_source", billingLikeShape())
@@ -76,8 +76,8 @@ func TestBuildWireStruct_omitsWriteOnly(t *testing.T) {
 	}
 }
 
-// Flatten must still supply every sub-attribute — the Value constructor requires
-// the full set — but a write-only one carries the prior model value rather than
+// Flatten must still supply every sub-attribute. The Value constructor requires
+// the full set. But a write-only one carries the prior model value rather than
 // a wire value, so state keeps what was configured.
 func TestBuildNestedFlatten_writeOnlyCarriesPriorState(t *testing.T) {
 	got, err := buildNestedFlatten(billingLikeShape(), billingLikeModel())

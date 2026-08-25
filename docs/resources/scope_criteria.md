@@ -3,12 +3,12 @@
 page_title: "kion_scope_criteria Resource - kion"
 subcategory: ""
 description: |-
-  Manages a Kion Scope Criteria — a versioned criteria record on a scope.
+  Manages a Kion Scope Criteria, a versioned criteria record on a scope.
 ---
 
 # kion_scope_criteria (Resource)
 
-Manages a Kion Scope Criteria — a versioned criteria record on a scope.
+Manages a Kion Scope Criteria, a versioned criteria record on a scope.
 
 ## Example Usage
 

@@ -2,7 +2,7 @@
 # and tfplugingen-framework (see `kgen schemas` / internal/kgen/schemas).
 #
 # tfplugingen's own `aliases` only rename operation PARAMETERS, not response or
-# request BODY properties, so this handles body-attribute renames — e.g. Kion's
+# request BODY properties, so this handles body-attribute renames, e.g. Kion's
 # generic envelope field `data`. Renaming a generated attribute to match an
 # existing (old-provider) name is also how you migrate a resource onto a
 # generated schema without breaking state.

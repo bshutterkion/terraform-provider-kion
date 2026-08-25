@@ -1,8 +1,8 @@
 // Command kmigrate rewrites Terraform .tf configuration from the old (SDKv2) Kion
 // provider's attribute names to the new (Plugin Framework) provider's, driven by
 // codegen/state_upgrades.yaml (the same mapping the provider's state upgraders
-// use). It handles the input-attribute half of migration — attribute renames and
-// block-set → id-list restructures — so a customer's config keeps working after
+// use). It handles the input-attribute half of migration, attribute renames and
+// block-set → id-list restructures. So a customer's config keeps working after
 // the provider version bump. State migrates automatically in-provider; see
 // docs/MIGRATION.md.
 //
@@ -36,7 +36,7 @@ func main() {
 
 	// Default to the embedded ruleset. The previous default was the
 	// repo-relative codegen/state_upgrades.yaml, which does not exist in a
-	// customer's Terraform directory — so the first documented command failed
+	// customer's Terraform directory, so the first documented command failed
 	// for everyone outside a clone.
 	var (
 		ups map[string]migrate.Transform
@@ -81,7 +81,7 @@ func main() {
 	var manual []string
 	// Files kmigrate could not read or parse. Collected rather than fatal: this
 	// runs over a practitioner's whole configuration, and exiting on the first
-	// bad file left the tree HALF migrated — everything before it rewritten,
+	// bad file left the tree HALF migrated, everything before it rewritten,
 	// everything after it untouched, with no record of which was which. A single
 	// unparseable file (Terraform itself rejects them too) should not put a
 	// configuration in a state neither provider can read. Skipped files are left
@@ -141,7 +141,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "  %s\n", s)
 		}
 		fmt.Fprintf(os.Stderr,
-			"\nTerraform cannot parse these either — fix them, then re-run kmigrate.\n"+
+			"\nTerraform cannot parse these either. Fix them, then re-run kmigrate.\n"+
 				"Re-running is safe: rewrites are idempotent, so files already migrated are left alone.\n")
 		os.Exit(1)
 	}

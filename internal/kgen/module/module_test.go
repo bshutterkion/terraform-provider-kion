@@ -50,7 +50,7 @@ func TestObjectSample_fillsRequiredFieldsOnly(t *testing.T) {
 	got := sample(typ)
 
 	if got == "null" {
-		t.Fatal("a required object attribute must not sample to null — Terraform rejects it")
+		t.Fatal("a required object attribute must not sample to null; Terraform rejects it")
 	}
 	for _, want := range []string{
 		"big_query_export = {}",          // nested object, all fields optional

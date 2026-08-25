@@ -13,7 +13,7 @@ import (
 
 // TestUpgradeState_v0 is the golden fixture: a representative old (SDKv2) state
 // upgraded to the new schema. Proves the projected id-lists, null added attrs,
-// and scalar passthrough are correct — the "just works" guarantee.
+// and scalar passthrough are correct, the "just works" guarantee.
 func TestUpgradeState_v0(t *testing.T) {
 	ctx := context.Background()
 	r := &user_groupResource{}

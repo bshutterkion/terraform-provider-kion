@@ -57,7 +57,7 @@ func (d *billingSourceAwsDataSource) Read(_ context.Context, _ datasource.ReadRe
 }
 
 func flattenBillingSourceAwsDataSource(apiObject any, _ *billingSourceAwsDataSourceModel) diag.Diagnostics {
-	// TODO: implement — type-switch the response and map SDK fields to model fields
+	// TODO: implement, type-switch the response and map SDK fields to model fields
 	_ = apiObject
 	return nil
 }

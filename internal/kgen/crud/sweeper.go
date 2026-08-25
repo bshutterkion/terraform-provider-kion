@@ -64,7 +64,7 @@ type realSweepData struct {
 	PageParam, CountParam      string
 	DeleteMethod, DeleteParams string
 	DeleteIDParam              string
-	DeleteIDType               string   // "int64" | "uint64" — delete param id Go type
+	DeleteIDType               string   // "int64" | "uint64", delete param id Go type
 	IDSDKGo                    string   // element id access path, e.g. "ID" or "Cft.Value.ID"
 	MatchExprs                 []string // string field accessors, e.g. "item.Key"
 	Prefix                     string

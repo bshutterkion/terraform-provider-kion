@@ -21,7 +21,7 @@ type AccountReadResult struct {
 }
 
 // ReadAccount reads an account from the location stored in Terraform state.
-// No fallback guessing — if the account isn't where state says it should be,
+// No fallback guessing, if the account isn't where state says it should be,
 // an error is returned.
 func ReadAccount(
 	ctx context.Context,

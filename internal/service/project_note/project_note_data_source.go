@@ -43,7 +43,7 @@ func (d *projectNoteDataSource) Metadata(_ context.Context, req datasource.Metad
 
 // Schema mirrors the retired SDKv2 data source exactly: `id` is a Required
 // String (not the usual Computed identifier) and `project_id` a Required
-// Int64, because /v3/project-note has no by-id read — the note is located by
+// Int64, because /v3/project-note has no by-id read. The note is located by
 // listing the project's notes and matching the id client-side. Changing either
 // type would break existing configurations.
 func (d *projectNoteDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {

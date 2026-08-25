@@ -91,7 +91,7 @@ type versionResponse struct {
 //
 // It is best-effort: on any failure the client's version is left undetected
 // and the error is returned for the caller to log. Detection failure is not
-// fatal — RequireMinKionVersion degrades to a warning so the API can enforce
+// fatal, RequireMinKionVersion degrades to a warning so the API can enforce
 // support on its own.
 func (c *KionClient) DetectVersion(ctx context.Context) (err error) {
 	url := strings.TrimRight(c.APIURL, "/") + "/version"

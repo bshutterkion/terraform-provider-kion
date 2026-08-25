@@ -151,7 +151,7 @@ func (p *kionProvider) Configure(ctx context.Context, req provider.ConfigureRequ
 	}
 
 	// Best-effort: detect the Kion version (GET /api/version) so resources can
-	// gate on a minimum version. Failure is non-fatal — gating degrades to a
+	// gate on a minimum version. Failure is non-fatal, gating degrades to a
 	// warning and the API enforces support on its own.
 	if err := kionClient.DetectVersion(ctx); err != nil {
 		tflog.Warn(ctx, "could not detect Kion version", map[string]any{"error": err.Error()})
@@ -174,14 +174,14 @@ type resolvedConfig struct {
 }
 
 // resolveProviderConfig resolves the effective provider configuration from the
-// schema model — preferring new attribute names over deprecated aliases over
-// environment variables — and validates that the required values are present.
+// schema model, preferring new attribute names over deprecated aliases over
+// environment variables, and validates that the required values are present.
 // getenv is injected (os.Getenv in production) so the resolution is testable
 // without touching the real environment.
 func resolveProviderConfig(config kionProviderModel, getenv func(string) string) (resolvedConfig, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
-	// Resolve configuration — prefer new names, fall back to old aliases.
+	// Resolve configuration, prefer new names, fall back to old aliases.
 	apiURL := config.APIURL.ValueString()
 	if apiURL == "" {
 		apiURL = config.URL.ValueString()

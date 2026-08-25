@@ -25,7 +25,7 @@ func sweep{{.Pascal}}(_ string) error {
 	_ = conn
 
 	// {{.TypeName}} is a compound-key sub-resource with no independent list
-	// endpoint — records are enumerated per parent. A real sweeper must list
+	// endpoint. Records are enumerated per parent. A real sweeper must list
 	// every parent and delete each test-acc child, which needs the FK-fixture
 	// sweeper follow-up. No-op for now.
 	return nil

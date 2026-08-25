@@ -7,7 +7,7 @@ import "testing"
 // must WRITE an attribute the new schema actually has, and READ an attribute the
 // old schema actually had. A projection into a non-existent new attribute (or
 // from a non-existent old block) silently no-ops in the generator and ships
-// broken migration state — exactly the azure_policy bug this guards against.
+// broken migration state, exactly the azure_policy bug this guards against.
 func TestUpgrades_targetsAndSourcesExist(t *testing.T) {
 	oldS, err := LoadSchema(oldSnap)
 	if err != nil {

@@ -33,7 +33,7 @@ func assertScaffoldFlags(t *testing.T, cmd *cobra.Command) {
 
 // TestScaffoldCommands_Metadata covers resource, datasource, and service,
 // which share the addScaffoldFlags helper. It asserts Use, non-empty Short,
-// a wired RunE, and the full flag set — without ever invoking RunE (which
+// a wired RunE, and the full flag set, without ever invoking RunE (which
 // would write files).
 func TestScaffoldCommands_Metadata(t *testing.T) {
 	scaffolds := []struct {

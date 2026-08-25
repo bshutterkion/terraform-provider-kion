@@ -58,7 +58,7 @@ func buildSharedClient() (*KionClient, error) {
 	}
 
 	// APIURL must be the API root, matching what the provider's Configure
-	// stores — generated.New normalizes the same way for the SDK client, so the
+	// stores, generated.New normalizes the same way for the SDK client, so the
 	// raw helpers and the SDK agree on where the API lives.
 	return &KionClient{Client: sdkClient, APIURL: kion.NormalizeServerURL(apiURL)}, nil
 }

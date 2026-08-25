@@ -4,7 +4,7 @@
 version: 2
 
 # Explicit: goreleaser otherwise infers this from the directory name, which is
-# "new-terraform-provider" — the Registry requires terraform-provider-kion_*.
+# "new-terraform-provider". The Registry requires terraform-provider-kion_*.
 project_name: terraform-provider-kion
 
 builds:
@@ -34,7 +34,7 @@ builds:
   # kmigrate ships in the release so consumers can migrate a configuration
   # without a source checkout. It cannot be `go install`ed: go.mod declares a
   # bare module path (`module terraform-provider-kion`, no domain), so there is
-  # no remote path to install from. Fewer platforms than the provider — this is
+  # no remote path to install from. Fewer platforms than the provider, since this is
   # a one-shot tool a person runs on a workstation or in CI, not something
   # Terraform downloads per platform.
   - id: kmigrate
@@ -71,7 +71,7 @@ archives:
 
 # SHA256SUMS covers every artifact, so signing it (below) transitively covers
 # kmigrate and the state-upgrade config too. The Registry ignores lines that do
-# not match a provider archive name — it already tolerates the manifest entry
+# not match a provider archive name. It already tolerates the manifest entry
 # here, which is the precedent for adding more.
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_SHA256SUMS"

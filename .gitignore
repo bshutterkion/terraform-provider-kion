@@ -1,5 +1,5 @@
 # Compiled output.
-# The provider binary is built at the repo root — Terraform's local-install
+# The provider binary is built at the repo root. Terraform's local-install
 # path (`make install`) expects it there. All other tool/release binaries
 # build into ./bin/ (see `make build-tools`, `make release`).
 /terraform-provider-kion
@@ -31,7 +31,7 @@ coverage.html
 # goreleaser output
 /dist/
 
-# AI planning/design notes — working material, not part of the provider.
+# AI planning/design notes: working material, not part of the provider.
 docs/superpowers/
 
 # Agent scratch worktrees (Claude Code's EnterWorktree). Each entry is a full

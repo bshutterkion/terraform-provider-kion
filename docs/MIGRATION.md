@@ -2,7 +2,7 @@
 
 The new `kion` provider (Plugin Framework) ships at the **same registry address**
 (`kionsoftware/kion`) as a new **major version**. Your existing Terraform state
-migrates **automatically** — the provider carries state upgraders that transform
+migrates **automatically**. The provider carries state upgraders that transform
 old-schema state to the new schema the first time you plan, the same mechanism the
 AWS provider uses across major versions. There is no separate state-rewriting
 tool to run, and nothing is changed until you review and apply.
@@ -27,10 +27,10 @@ tool to run, and nothing is changed until you review and apply.
 
    Download it from the release matching the provider version you are moving to.
    It is a single binary with no runtime or dependencies, and it carries the
-   rewrite rules inside it — there is nothing else to fetch:
+   rewrite rules inside it, so there is nothing else to fetch:
 
    ```sh
-   # macOS on Apple silicon — substitute your platform
+   # macOS on Apple silicon; substitute your platform
    # (darwin/linux/windows x amd64/arm64)
    V=1.0.1
    curl -fsSLO "https://github.com/kionsoftware/terraform-provider-kion/releases/download/v${V}/kmigrate_${V}_darwin_arm64.zip"
@@ -46,7 +46,7 @@ tool to run, and nothing is changed until you review and apply.
 
    `kmigrate` rewrites `.tf` files in place, leaving comments, formatting and
    everything it does not recognise untouched. It reports any block it cannot
-   finish — `kion_user` gains five required attributes that have no old-provider
+   finish. `kion_user` gains five required attributes that have no old-provider
    equivalent, so it names those and leaves them for you.
 
    Commit or diff the result before moving on.
@@ -113,11 +113,11 @@ A resource that mixes literal and dynamic blocks of the same name gets a
 `concat(…)` of the two.
 
 `kmigrate` reports every change it makes, and prints anything it could not
-convert — a dynamic block missing the field the projection reads, for instance —
+convert, a dynamic block missing the field the projection reads for instance,
 as a follow-up rather than guessing. Run `terraform fmt` afterward.
 
 The back-compat aliases `kion_aws_iam_policy` and `kion_aws_cloudformation_template`
-keep working under the new provider — both their state and config migrate
+keep working under the new provider. Both their state and config migrate
 automatically (the alias inherits the primary resource's upgrader), so you need
 not rename them.
 
@@ -134,8 +134,8 @@ on the next refresh from the Kion API):
   ordering shifts, it is cosmetic. Its `tags` attribute changed shape from a map
   to a list of objects (see the config changes above); `kmigrate` rewrites the
   config for you and the state upgrader explodes the stored map into the same
-  object list. Tags arrive in sorted key order — the order the old state itself
-  recorded — and the next refresh replaces it with the API's order, so any
+  object list. Tags arrive in sorted key order, the order the old state itself
+  recorded, and the next refresh replaces it with the API's order, so any
   reordering you see on the first plan is cosmetic.
 
 ## What migrates automatically
@@ -149,5 +149,5 @@ change without a corresponding upgrader, so this coverage cannot silently
 regress.
 
 Resources whose only change is an added or removed **scalar** attribute need no
-upgrader — Terraform reconciles those automatically (missing → null → Read
+upgrader. Terraform reconciles those automatically (missing → null → Read
 fills; extra → dropped).

@@ -18,21 +18,21 @@ import (
 func ScopeCriteriaDataSourceSchema(ctx context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
-			"account_ids": schema.ListAttribute{
+			"account_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "AccountIDs is a comma separated list of of account IDs to filter by.",
 				MarkdownDescription: "AccountIDs is a comma separated list of of account IDs to filter by.",
 			},
-			"billing_source_ids": schema.ListAttribute{
+			"billing_source_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
 				Description:         "BillingSourceIDs is a comma separated list of of billing source IDs to filter by.",
 				MarkdownDescription: "BillingSourceIDs is a comma separated list of of billing source IDs to filter by.",
 			},
-			"cloud_provider_ids": schema.ListAttribute{
+			"cloud_provider_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -57,13 +57,7 @@ func ScopeCriteriaDataSourceSchema(ctx context.Context) schema.Schema {
 											Description:         "When the criteria record was created.",
 											MarkdownDescription: "When the criteria record was created.",
 										},
-										"criteria": schema.SingleNestedAttribute{
-											Attributes: map[string]schema.Attribute{},
-											CustomType: CriteriaType{
-												ObjectType: types.ObjectType{
-													AttrTypes: CriteriaValue{}.AttributeTypes(ctx),
-												},
-											},
+										"criteria": schema.StringAttribute{
 											Computed:            true,
 											Description:         "Criteria for this period, stored as raw JSON.",
 											MarkdownDescription: "Criteria for this period, stored as raw JSON.",
@@ -99,7 +93,9 @@ func ScopeCriteriaDataSourceSchema(ctx context.Context) schema.Schema {
 											AttrTypes: ActiveCriteriaRecordValue{}.AttributeTypes(ctx),
 										},
 									},
-									Computed: true,
+									Computed:            true,
+									Description:         "ScopeCriteriaRecord represents a versioned criteria entry for a scope.",
+									MarkdownDescription: "ScopeCriteriaRecord represents a versioned criteria entry for a scope.",
 								},
 								"alias": schema.StringAttribute{
 									Computed:            true,
@@ -119,13 +115,7 @@ func ScopeCriteriaDataSourceSchema(ctx context.Context) schema.Schema {
 												Description:         "When the criteria record was created.",
 												MarkdownDescription: "When the criteria record was created.",
 											},
-											"criteria": schema.SingleNestedAttribute{
-												Attributes: map[string]schema.Attribute{},
-												CustomType: CriteriaType{
-													ObjectType: types.ObjectType{
-														AttrTypes: CriteriaValue{}.AttributeTypes(ctx),
-													},
-												},
+											"criteria": schema.StringAttribute{
 												Computed:            true,
 												Description:         "Criteria for this period, stored as raw JSON.",
 												MarkdownDescription: "Criteria for this period, stored as raw JSON.",
@@ -186,6 +176,53 @@ func ScopeCriteriaDataSourceSchema(ctx context.Context) schema.Schema {
 									Description:         "Unique identifier for the scope.",
 									MarkdownDescription: "Unique identifier for the scope.",
 								},
+								"latest_criteria_record": schema.SingleNestedAttribute{
+									Attributes: map[string]schema.Attribute{
+										"created_at": schema.StringAttribute{
+											Computed:            true,
+											Description:         "When the criteria record was created.",
+											MarkdownDescription: "When the criteria record was created.",
+										},
+										"criteria": schema.StringAttribute{
+											Computed:            true,
+											Description:         "Criteria for this period, stored as raw JSON.",
+											MarkdownDescription: "Criteria for this period, stored as raw JSON.",
+										},
+										"criteria_error": schema.StringAttribute{
+											Computed:            true,
+											Description:         "Criteria error message, if the criteria could not be parsed properly.",
+											MarkdownDescription: "Criteria error message, if the criteria could not be parsed properly.",
+										},
+										"end_month": schema.Int64Attribute{
+											Computed:            true,
+											Description:         "End month for this criteria period (YYYYMM format), if applicable.",
+											MarkdownDescription: "End month for this criteria period (YYYYMM format), if applicable.",
+										},
+										"id": schema.Int64Attribute{
+											Computed:            true,
+											Description:         "ID of the criteria record.",
+											MarkdownDescription: "ID of the criteria record.",
+										},
+										"scope_id": schema.Int64Attribute{
+											Computed:            true,
+											Description:         "Scope ID this criteria belongs to.",
+											MarkdownDescription: "Scope ID this criteria belongs to.",
+										},
+										"start_month": schema.Int64Attribute{
+											Computed:            true,
+											Description:         "Start month for this criteria period (YYYYMM format).",
+											MarkdownDescription: "Start month for this criteria period (YYYYMM format).",
+										},
+									},
+									CustomType: LatestCriteriaRecordType{
+										ObjectType: types.ObjectType{
+											AttrTypes: LatestCriteriaRecordValue{}.AttributeTypes(ctx),
+										},
+									},
+									Computed:            true,
+									Description:         "ScopeCriteriaRecord represents a versioned criteria entry for a scope.",
+									MarkdownDescription: "ScopeCriteriaRecord represents a versioned criteria entry for a scope.",
+								},
 								"name": schema.StringAttribute{
 									Computed:            true,
 									Description:         "Name of the scope in the application.",
@@ -241,7 +278,9 @@ func ScopeCriteriaDataSourceSchema(ctx context.Context) schema.Schema {
 								AttrTypes: PaginationValue{}.AttributeTypes(ctx),
 							},
 						},
-						Computed: true,
+						Computed:            true,
+						Description:         "PaginationQuery represents an account in the system.",
+						MarkdownDescription: "PaginationQuery represents an account in the system.",
 					},
 					"total": schema.Int64Attribute{
 						Computed: true,
@@ -252,7 +291,9 @@ func ScopeCriteriaDataSourceSchema(ctx context.Context) schema.Schema {
 						AttrTypes: DataValue{}.AttributeTypes(ctx),
 					},
 				},
-				Computed: true,
+				Computed:            true,
+				Description:         "ScopePaginated defines a paginated list of scopes.",
+				MarkdownDescription: "ScopePaginated defines a paginated list of scopes.",
 			},
 			"page": schema.Int64Attribute{
 				Optional:            true,
@@ -260,7 +301,7 @@ func ScopeCriteriaDataSourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Page number of results. Optional",
 				MarkdownDescription: "Page number of results. Optional",
 			},
-			"project_ids": schema.ListAttribute{
+			"project_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -278,13 +319,13 @@ func ScopeCriteriaDataSourceSchema(ctx context.Context) schema.Schema {
 }
 
 type ScopeCriteriaDataSourceModel struct {
-	AccountIds       types.List   `tfsdk:"account_ids"`
-	BillingSourceIds types.List   `tfsdk:"billing_source_ids"`
-	CloudProviderIds types.List   `tfsdk:"cloud_provider_ids"`
+	AccountIds       types.Set    `tfsdk:"account_ids"`
+	BillingSourceIds types.Set    `tfsdk:"billing_source_ids"`
+	CloudProviderIds types.Set    `tfsdk:"cloud_provider_ids"`
 	Count            types.Int64  `tfsdk:"count"`
 	Data             DataValue    `tfsdk:"data"`
 	Page             types.Int64  `tfsdk:"page"`
-	ProjectIds       types.List   `tfsdk:"project_ids"`
+	ProjectIds       types.Set    `tfsdk:"project_ids"`
 	Search           types.String `tfsdk:"search"`
 }
 
@@ -949,6 +990,24 @@ func (t ItemsType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue
 			fmt.Sprintf(`identifier expected to be basetypes.StringValue, was: %T`, identifierAttribute))
 	}
 
+	latestCriteriaRecordAttribute, ok := attributes["latest_criteria_record"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`latest_criteria_record is missing from object`)
+
+		return nil, diags
+	}
+
+	latestCriteriaRecordVal, ok := latestCriteriaRecordAttribute.(basetypes.ObjectValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`latest_criteria_record expected to be basetypes.ObjectValue, was: %T`, latestCriteriaRecordAttribute))
+	}
+
 	nameAttribute, ok := attributes["name"]
 
 	if !ok {
@@ -1016,6 +1075,7 @@ func (t ItemsType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue
 		EndDatecode:          endDatecodeVal,
 		Id:                   idVal,
 		Identifier:           identifierVal,
+		LatestCriteriaRecord: latestCriteriaRecordVal,
 		Name:                 nameVal,
 		ProjectId:            projectIdVal,
 		StartDatecode:        startDatecodeVal,
@@ -1230,6 +1290,24 @@ func NewItemsValue(attributeTypes map[string]attr.Type, attributes map[string]at
 			fmt.Sprintf(`identifier expected to be basetypes.StringValue, was: %T`, identifierAttribute))
 	}
 
+	latestCriteriaRecordAttribute, ok := attributes["latest_criteria_record"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`latest_criteria_record is missing from object`)
+
+		return NewItemsValueUnknown(), diags
+	}
+
+	latestCriteriaRecordVal, ok := latestCriteriaRecordAttribute.(basetypes.ObjectValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`latest_criteria_record expected to be basetypes.ObjectValue, was: %T`, latestCriteriaRecordAttribute))
+	}
+
 	nameAttribute, ok := attributes["name"]
 
 	if !ok {
@@ -1297,6 +1375,7 @@ func NewItemsValue(attributeTypes map[string]attr.Type, attributes map[string]at
 		EndDatecode:          endDatecodeVal,
 		Id:                   idVal,
 		Identifier:           identifierVal,
+		LatestCriteriaRecord: latestCriteriaRecordVal,
 		Name:                 nameVal,
 		ProjectId:            projectIdVal,
 		StartDatecode:        startDatecodeVal,
@@ -1378,6 +1457,7 @@ type ItemsValue struct {
 	EndDatecode          basetypes.Int64Value  `tfsdk:"end_datecode"`
 	Id                   basetypes.Int64Value  `tfsdk:"id"`
 	Identifier           basetypes.StringValue `tfsdk:"identifier"`
+	LatestCriteriaRecord basetypes.ObjectValue `tfsdk:"latest_criteria_record"`
 	Name                 basetypes.StringValue `tfsdk:"name"`
 	ProjectId            basetypes.Int64Value  `tfsdk:"project_id"`
 	StartDatecode        basetypes.Int64Value  `tfsdk:"start_datecode"`
@@ -1385,7 +1465,7 @@ type ItemsValue struct {
 }
 
 func (v ItemsValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error) {
-	attrTypes := make(map[string]tftypes.Type, 11)
+	attrTypes := make(map[string]tftypes.Type, 12)
 
 	var val tftypes.Value
 	var err error
@@ -1402,6 +1482,9 @@ func (v ItemsValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error)
 	attrTypes["end_datecode"] = basetypes.Int64Type{}.TerraformType(ctx)
 	attrTypes["id"] = basetypes.Int64Type{}.TerraformType(ctx)
 	attrTypes["identifier"] = basetypes.StringType{}.TerraformType(ctx)
+	attrTypes["latest_criteria_record"] = basetypes.ObjectType{
+		AttrTypes: LatestCriteriaRecordValue{}.AttributeTypes(ctx),
+	}.TerraformType(ctx)
 	attrTypes["name"] = basetypes.StringType{}.TerraformType(ctx)
 	attrTypes["project_id"] = basetypes.Int64Type{}.TerraformType(ctx)
 	attrTypes["start_datecode"] = basetypes.Int64Type{}.TerraformType(ctx)
@@ -1410,7 +1493,7 @@ func (v ItemsValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error)
 
 	switch v.state {
 	case attr.ValueStateKnown:
-		vals := make(map[string]tftypes.Value, 11)
+		vals := make(map[string]tftypes.Value, 12)
 
 		val, err = v.ActiveCriteriaRecord.ToTerraformValue(ctx)
 
@@ -1475,6 +1558,14 @@ func (v ItemsValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error)
 		}
 
 		vals["identifier"] = val
+
+		val, err = v.LatestCriteriaRecord.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["latest_criteria_record"] = val
 
 		val, err = v.Name.ToTerraformValue(ctx)
 
@@ -1579,6 +1670,27 @@ func (v ItemsValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue, d
 		)
 	}
 
+	var latestCriteriaRecord basetypes.ObjectValue
+
+	if v.LatestCriteriaRecord.IsNull() {
+		latestCriteriaRecord = types.ObjectNull(
+			LatestCriteriaRecordValue{}.AttributeTypes(ctx),
+		)
+	}
+
+	if v.LatestCriteriaRecord.IsUnknown() {
+		latestCriteriaRecord = types.ObjectUnknown(
+			LatestCriteriaRecordValue{}.AttributeTypes(ctx),
+		)
+	}
+
+	if !v.LatestCriteriaRecord.IsNull() && !v.LatestCriteriaRecord.IsUnknown() {
+		latestCriteriaRecord = types.ObjectValueMust(
+			LatestCriteriaRecordValue{}.AttributeTypes(ctx),
+			v.LatestCriteriaRecord.Attributes(),
+		)
+	}
+
 	attributeTypes := map[string]attr.Type{
 		"active_criteria_record": basetypes.ObjectType{
 			AttrTypes: ActiveCriteriaRecordValue{}.AttributeTypes(ctx),
@@ -1588,10 +1700,13 @@ func (v ItemsValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue, d
 		"criteria_records": basetypes.ListType{
 			ElemType: CriteriaRecordsValue{}.Type(ctx),
 		},
-		"description":    basetypes.StringType{},
-		"end_datecode":   basetypes.Int64Type{},
-		"id":             basetypes.Int64Type{},
-		"identifier":     basetypes.StringType{},
+		"description":  basetypes.StringType{},
+		"end_datecode": basetypes.Int64Type{},
+		"id":           basetypes.Int64Type{},
+		"identifier":   basetypes.StringType{},
+		"latest_criteria_record": basetypes.ObjectType{
+			AttrTypes: LatestCriteriaRecordValue{}.AttributeTypes(ctx),
+		},
 		"name":           basetypes.StringType{},
 		"project_id":     basetypes.Int64Type{},
 		"start_datecode": basetypes.Int64Type{},
@@ -1616,6 +1731,7 @@ func (v ItemsValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue, d
 			"end_datecode":           v.EndDatecode,
 			"id":                     v.Id,
 			"identifier":             v.Identifier,
+			"latest_criteria_record": latestCriteriaRecord,
 			"name":                   v.Name,
 			"project_id":             v.ProjectId,
 			"start_datecode":         v.StartDatecode,
@@ -1671,6 +1787,10 @@ func (v ItemsValue) Equal(o attr.Value) bool {
 		return false
 	}
 
+	if !v.LatestCriteriaRecord.Equal(other.LatestCriteriaRecord) {
+		return false
+	}
+
 	if !v.Name.Equal(other.Name) {
 		return false
 	}
@@ -1704,10 +1824,13 @@ func (v ItemsValue) AttributeTypes(ctx context.Context) map[string]attr.Type {
 		"criteria_records": basetypes.ListType{
 			ElemType: CriteriaRecordsValue{}.Type(ctx),
 		},
-		"description":    basetypes.StringType{},
-		"end_datecode":   basetypes.Int64Type{},
-		"id":             basetypes.Int64Type{},
-		"identifier":     basetypes.StringType{},
+		"description":  basetypes.StringType{},
+		"end_datecode": basetypes.Int64Type{},
+		"id":           basetypes.Int64Type{},
+		"identifier":   basetypes.StringType{},
+		"latest_criteria_record": basetypes.ObjectType{
+			AttrTypes: LatestCriteriaRecordValue{}.AttributeTypes(ctx),
+		},
 		"name":           basetypes.StringType{},
 		"project_id":     basetypes.Int64Type{},
 		"start_datecode": basetypes.Int64Type{},
@@ -1765,12 +1888,12 @@ func (t ActiveCriteriaRecordType) ValueFromObject(ctx context.Context, in basety
 		return nil, diags
 	}
 
-	criteriaVal, ok := criteriaAttribute.(basetypes.ObjectValue)
+	criteriaVal, ok := criteriaAttribute.(basetypes.StringValue)
 
 	if !ok {
 		diags.AddError(
 			"Attribute Wrong Type",
-			fmt.Sprintf(`criteria expected to be basetypes.ObjectValue, was: %T`, criteriaAttribute))
+			fmt.Sprintf(`criteria expected to be basetypes.StringValue, was: %T`, criteriaAttribute))
 	}
 
 	criteriaErrorAttribute, ok := attributes["criteria_error"]
@@ -1970,12 +2093,12 @@ func NewActiveCriteriaRecordValue(attributeTypes map[string]attr.Type, attribute
 		return NewActiveCriteriaRecordValueUnknown(), diags
 	}
 
-	criteriaVal, ok := criteriaAttribute.(basetypes.ObjectValue)
+	criteriaVal, ok := criteriaAttribute.(basetypes.StringValue)
 
 	if !ok {
 		diags.AddError(
 			"Attribute Wrong Type",
-			fmt.Sprintf(`criteria expected to be basetypes.ObjectValue, was: %T`, criteriaAttribute))
+			fmt.Sprintf(`criteria expected to be basetypes.StringValue, was: %T`, criteriaAttribute))
 	}
 
 	criteriaErrorAttribute, ok := attributes["criteria_error"]
@@ -2151,7 +2274,7 @@ func (t ActiveCriteriaRecordType) ValueType(ctx context.Context) attr.Value {
 
 type ActiveCriteriaRecordValue struct {
 	CreatedAt     basetypes.StringValue `tfsdk:"created_at"`
-	Criteria      basetypes.ObjectValue `tfsdk:"criteria"`
+	Criteria      basetypes.StringValue `tfsdk:"criteria"`
 	CriteriaError basetypes.StringValue `tfsdk:"criteria_error"`
 	EndMonth      basetypes.Int64Value  `tfsdk:"end_month"`
 	Id            basetypes.Int64Value  `tfsdk:"id"`
@@ -2167,9 +2290,7 @@ func (v ActiveCriteriaRecordValue) ToTerraformValue(ctx context.Context) (tftype
 	var err error
 
 	attrTypes["created_at"] = basetypes.StringType{}.TerraformType(ctx)
-	attrTypes["criteria"] = basetypes.ObjectType{
-		AttrTypes: CriteriaValue{}.AttributeTypes(ctx),
-	}.TerraformType(ctx)
+	attrTypes["criteria"] = basetypes.StringType{}.TerraformType(ctx)
 	attrTypes["criteria_error"] = basetypes.StringType{}.TerraformType(ctx)
 	attrTypes["end_month"] = basetypes.Int64Type{}.TerraformType(ctx)
 	attrTypes["id"] = basetypes.Int64Type{}.TerraformType(ctx)
@@ -2267,32 +2388,9 @@ func (v ActiveCriteriaRecordValue) String() string {
 func (v ActiveCriteriaRecordValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
-	var criteria basetypes.ObjectValue
-
-	if v.Criteria.IsNull() {
-		criteria = types.ObjectNull(
-			CriteriaValue{}.AttributeTypes(ctx),
-		)
-	}
-
-	if v.Criteria.IsUnknown() {
-		criteria = types.ObjectUnknown(
-			CriteriaValue{}.AttributeTypes(ctx),
-		)
-	}
-
-	if !v.Criteria.IsNull() && !v.Criteria.IsUnknown() {
-		criteria = types.ObjectValueMust(
-			CriteriaValue{}.AttributeTypes(ctx),
-			v.Criteria.Attributes(),
-		)
-	}
-
 	attributeTypes := map[string]attr.Type{
-		"created_at": basetypes.StringType{},
-		"criteria": basetypes.ObjectType{
-			AttrTypes: CriteriaValue{}.AttributeTypes(ctx),
-		},
+		"created_at":     basetypes.StringType{},
+		"criteria":       basetypes.StringType{},
 		"criteria_error": basetypes.StringType{},
 		"end_month":      basetypes.Int64Type{},
 		"id":             basetypes.Int64Type{},
@@ -2312,7 +2410,7 @@ func (v ActiveCriteriaRecordValue) ToObjectValue(ctx context.Context) (basetypes
 		attributeTypes,
 		map[string]attr.Value{
 			"created_at":     v.CreatedAt,
-			"criteria":       criteria,
+			"criteria":       v.Criteria,
 			"criteria_error": v.CriteriaError,
 			"end_month":      v.EndMonth,
 			"id":             v.Id,
@@ -2379,272 +2477,14 @@ func (v ActiveCriteriaRecordValue) Type(ctx context.Context) attr.Type {
 
 func (v ActiveCriteriaRecordValue) AttributeTypes(ctx context.Context) map[string]attr.Type {
 	return map[string]attr.Type{
-		"created_at": basetypes.StringType{},
-		"criteria": basetypes.ObjectType{
-			AttrTypes: CriteriaValue{}.AttributeTypes(ctx),
-		},
+		"created_at":     basetypes.StringType{},
+		"criteria":       basetypes.StringType{},
 		"criteria_error": basetypes.StringType{},
 		"end_month":      basetypes.Int64Type{},
 		"id":             basetypes.Int64Type{},
 		"scope_id":       basetypes.Int64Type{},
 		"start_month":    basetypes.Int64Type{},
 	}
-}
-
-type CriteriaType struct {
-	basetypes.ObjectType
-}
-
-func (t CriteriaType) Equal(o attr.Type) bool {
-	other, ok := o.(CriteriaType)
-
-	if !ok {
-		return false
-	}
-
-	return t.ObjectType.Equal(other.ObjectType)
-}
-
-func (t CriteriaType) String() string {
-	return "CriteriaType"
-}
-
-func (t CriteriaType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
-	var diags diag.Diagnostics
-
-	if diags.HasError() {
-		return nil, diags
-	}
-
-	return CriteriaValue{
-		state: attr.ValueStateKnown,
-	}, diags
-}
-
-func NewCriteriaValueNull() CriteriaValue {
-	return CriteriaValue{
-		state: attr.ValueStateNull,
-	}
-}
-
-func NewCriteriaValueUnknown() CriteriaValue {
-	return CriteriaValue{
-		state: attr.ValueStateUnknown,
-	}
-}
-
-func NewCriteriaValue(attributeTypes map[string]attr.Type, attributes map[string]attr.Value) (CriteriaValue, diag.Diagnostics) {
-	var diags diag.Diagnostics
-
-	// Reference: https://github.com/hashicorp/terraform-plugin-framework/issues/521
-	ctx := context.Background()
-
-	for name, attributeType := range attributeTypes {
-		attribute, ok := attributes[name]
-
-		if !ok {
-			diags.AddError(
-				"Missing CriteriaValue Attribute Value",
-				"While creating a CriteriaValue value, a missing attribute value was detected. "+
-					"A CriteriaValue must contain values for all attributes, even if null or unknown. "+
-					"This is always an issue with the provider and should be reported to the provider developers.\n\n"+
-					fmt.Sprintf("CriteriaValue Attribute Name (%s) Expected Type: %s", name, attributeType.String()),
-			)
-
-			continue
-		}
-
-		if !attributeType.Equal(attribute.Type(ctx)) {
-			diags.AddError(
-				"Invalid CriteriaValue Attribute Type",
-				"While creating a CriteriaValue value, an invalid attribute value was detected. "+
-					"A CriteriaValue must use a matching attribute type for the value. "+
-					"This is always an issue with the provider and should be reported to the provider developers.\n\n"+
-					fmt.Sprintf("CriteriaValue Attribute Name (%s) Expected Type: %s\n", name, attributeType.String())+
-					fmt.Sprintf("CriteriaValue Attribute Name (%s) Given Type: %s", name, attribute.Type(ctx)),
-			)
-		}
-	}
-
-	for name := range attributes {
-		_, ok := attributeTypes[name]
-
-		if !ok {
-			diags.AddError(
-				"Extra CriteriaValue Attribute Value",
-				"While creating a CriteriaValue value, an extra attribute value was detected. "+
-					"A CriteriaValue must not contain values beyond the expected attribute types. "+
-					"This is always an issue with the provider and should be reported to the provider developers.\n\n"+
-					fmt.Sprintf("Extra CriteriaValue Attribute Name: %s", name),
-			)
-		}
-	}
-
-	if diags.HasError() {
-		return NewCriteriaValueUnknown(), diags
-	}
-
-	if diags.HasError() {
-		return NewCriteriaValueUnknown(), diags
-	}
-
-	return CriteriaValue{
-		state: attr.ValueStateKnown,
-	}, diags
-}
-
-func NewCriteriaValueMust(attributeTypes map[string]attr.Type, attributes map[string]attr.Value) CriteriaValue {
-	object, diags := NewCriteriaValue(attributeTypes, attributes)
-
-	if diags.HasError() {
-		// This could potentially be added to the diag package.
-		diagsStrings := make([]string, 0, len(diags))
-
-		for _, diagnostic := range diags {
-			diagsStrings = append(diagsStrings, fmt.Sprintf(
-				"%s | %s | %s",
-				diagnostic.Severity(),
-				diagnostic.Summary(),
-				diagnostic.Detail()))
-		}
-
-		panic("NewCriteriaValueMust received error(s): " + strings.Join(diagsStrings, "\n"))
-	}
-
-	return object
-}
-
-func (t CriteriaType) ValueFromTerraform(ctx context.Context, in tftypes.Value) (attr.Value, error) {
-	if in.Type() == nil {
-		return NewCriteriaValueNull(), nil
-	}
-
-	if !in.Type().Equal(t.TerraformType(ctx)) {
-		return nil, fmt.Errorf("expected %s, got %s", t.TerraformType(ctx), in.Type())
-	}
-
-	if !in.IsKnown() {
-		return NewCriteriaValueUnknown(), nil
-	}
-
-	if in.IsNull() {
-		return NewCriteriaValueNull(), nil
-	}
-
-	attributes := map[string]attr.Value{}
-
-	val := map[string]tftypes.Value{}
-
-	err := in.As(&val)
-
-	if err != nil {
-		return nil, err
-	}
-
-	for k, v := range val {
-		a, err := t.AttrTypes[k].ValueFromTerraform(ctx, v)
-
-		if err != nil {
-			return nil, err
-		}
-
-		attributes[k] = a
-	}
-
-	return NewCriteriaValueMust(CriteriaValue{}.AttributeTypes(ctx), attributes), nil
-}
-
-func (t CriteriaType) ValueType(ctx context.Context) attr.Value {
-	return CriteriaValue{}
-}
-
-type CriteriaValue struct {
-	state attr.ValueState
-}
-
-func (v CriteriaValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error) {
-	attrTypes := make(map[string]tftypes.Type, 0)
-
-	objectType := tftypes.Object{AttributeTypes: attrTypes}
-
-	switch v.state {
-	case attr.ValueStateKnown:
-		vals := make(map[string]tftypes.Value, 0)
-
-		if err := tftypes.ValidateValue(objectType, vals); err != nil {
-			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
-		}
-
-		return tftypes.NewValue(objectType, vals), nil
-	case attr.ValueStateNull:
-		return tftypes.NewValue(objectType, nil), nil
-	case attr.ValueStateUnknown:
-		return tftypes.NewValue(objectType, tftypes.UnknownValue), nil
-	default:
-		panic(fmt.Sprintf("unhandled Object state in ToTerraformValue: %s", v.state))
-	}
-}
-
-func (v CriteriaValue) IsNull() bool {
-	return v.state == attr.ValueStateNull
-}
-
-func (v CriteriaValue) IsUnknown() bool {
-	return v.state == attr.ValueStateUnknown
-}
-
-func (v CriteriaValue) String() string {
-	return "CriteriaValue"
-}
-
-func (v CriteriaValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue, diag.Diagnostics) {
-	var diags diag.Diagnostics
-
-	attributeTypes := map[string]attr.Type{}
-
-	if v.IsNull() {
-		return types.ObjectNull(attributeTypes), diags
-	}
-
-	if v.IsUnknown() {
-		return types.ObjectUnknown(attributeTypes), diags
-	}
-
-	objVal, diags := types.ObjectValue(
-		attributeTypes,
-		map[string]attr.Value{})
-
-	return objVal, diags
-}
-
-func (v CriteriaValue) Equal(o attr.Value) bool {
-	other, ok := o.(CriteriaValue)
-
-	if !ok {
-		return false
-	}
-
-	if v.state != other.state {
-		return false
-	}
-
-	if v.state != attr.ValueStateKnown {
-		return true
-	}
-
-	return true
-}
-
-func (v CriteriaValue) Type(ctx context.Context) attr.Type {
-	return CriteriaType{
-		basetypes.ObjectType{
-			AttrTypes: v.AttributeTypes(ctx),
-		},
-	}
-}
-
-func (v CriteriaValue) AttributeTypes(ctx context.Context) map[string]attr.Type {
-	return map[string]attr.Type{}
 }
 
 type CriteriaRecordsType struct {
@@ -2698,12 +2538,12 @@ func (t CriteriaRecordsType) ValueFromObject(ctx context.Context, in basetypes.O
 		return nil, diags
 	}
 
-	criteriaVal, ok := criteriaAttribute.(basetypes.ObjectValue)
+	criteriaVal, ok := criteriaAttribute.(basetypes.StringValue)
 
 	if !ok {
 		diags.AddError(
 			"Attribute Wrong Type",
-			fmt.Sprintf(`criteria expected to be basetypes.ObjectValue, was: %T`, criteriaAttribute))
+			fmt.Sprintf(`criteria expected to be basetypes.StringValue, was: %T`, criteriaAttribute))
 	}
 
 	criteriaErrorAttribute, ok := attributes["criteria_error"]
@@ -2903,12 +2743,12 @@ func NewCriteriaRecordsValue(attributeTypes map[string]attr.Type, attributes map
 		return NewCriteriaRecordsValueUnknown(), diags
 	}
 
-	criteriaVal, ok := criteriaAttribute.(basetypes.ObjectValue)
+	criteriaVal, ok := criteriaAttribute.(basetypes.StringValue)
 
 	if !ok {
 		diags.AddError(
 			"Attribute Wrong Type",
-			fmt.Sprintf(`criteria expected to be basetypes.ObjectValue, was: %T`, criteriaAttribute))
+			fmt.Sprintf(`criteria expected to be basetypes.StringValue, was: %T`, criteriaAttribute))
 	}
 
 	criteriaErrorAttribute, ok := attributes["criteria_error"]
@@ -3084,7 +2924,7 @@ func (t CriteriaRecordsType) ValueType(ctx context.Context) attr.Value {
 
 type CriteriaRecordsValue struct {
 	CreatedAt     basetypes.StringValue `tfsdk:"created_at"`
-	Criteria      basetypes.ObjectValue `tfsdk:"criteria"`
+	Criteria      basetypes.StringValue `tfsdk:"criteria"`
 	CriteriaError basetypes.StringValue `tfsdk:"criteria_error"`
 	EndMonth      basetypes.Int64Value  `tfsdk:"end_month"`
 	Id            basetypes.Int64Value  `tfsdk:"id"`
@@ -3100,9 +2940,7 @@ func (v CriteriaRecordsValue) ToTerraformValue(ctx context.Context) (tftypes.Val
 	var err error
 
 	attrTypes["created_at"] = basetypes.StringType{}.TerraformType(ctx)
-	attrTypes["criteria"] = basetypes.ObjectType{
-		AttrTypes: CriteriaValue{}.AttributeTypes(ctx),
-	}.TerraformType(ctx)
+	attrTypes["criteria"] = basetypes.StringType{}.TerraformType(ctx)
 	attrTypes["criteria_error"] = basetypes.StringType{}.TerraformType(ctx)
 	attrTypes["end_month"] = basetypes.Int64Type{}.TerraformType(ctx)
 	attrTypes["id"] = basetypes.Int64Type{}.TerraformType(ctx)
@@ -3200,32 +3038,9 @@ func (v CriteriaRecordsValue) String() string {
 func (v CriteriaRecordsValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
-	var criteria basetypes.ObjectValue
-
-	if v.Criteria.IsNull() {
-		criteria = types.ObjectNull(
-			CriteriaValue{}.AttributeTypes(ctx),
-		)
-	}
-
-	if v.Criteria.IsUnknown() {
-		criteria = types.ObjectUnknown(
-			CriteriaValue{}.AttributeTypes(ctx),
-		)
-	}
-
-	if !v.Criteria.IsNull() && !v.Criteria.IsUnknown() {
-		criteria = types.ObjectValueMust(
-			CriteriaValue{}.AttributeTypes(ctx),
-			v.Criteria.Attributes(),
-		)
-	}
-
 	attributeTypes := map[string]attr.Type{
-		"created_at": basetypes.StringType{},
-		"criteria": basetypes.ObjectType{
-			AttrTypes: CriteriaValue{}.AttributeTypes(ctx),
-		},
+		"created_at":     basetypes.StringType{},
+		"criteria":       basetypes.StringType{},
 		"criteria_error": basetypes.StringType{},
 		"end_month":      basetypes.Int64Type{},
 		"id":             basetypes.Int64Type{},
@@ -3245,7 +3060,7 @@ func (v CriteriaRecordsValue) ToObjectValue(ctx context.Context) (basetypes.Obje
 		attributeTypes,
 		map[string]attr.Value{
 			"created_at":     v.CreatedAt,
-			"criteria":       criteria,
+			"criteria":       v.Criteria,
 			"criteria_error": v.CriteriaError,
 			"end_month":      v.EndMonth,
 			"id":             v.Id,
@@ -3312,10 +3127,8 @@ func (v CriteriaRecordsValue) Type(ctx context.Context) attr.Type {
 
 func (v CriteriaRecordsValue) AttributeTypes(ctx context.Context) map[string]attr.Type {
 	return map[string]attr.Type{
-		"created_at": basetypes.StringType{},
-		"criteria": basetypes.ObjectType{
-			AttrTypes: CriteriaValue{}.AttributeTypes(ctx),
-		},
+		"created_at":     basetypes.StringType{},
+		"criteria":       basetypes.StringType{},
 		"criteria_error": basetypes.StringType{},
 		"end_month":      basetypes.Int64Type{},
 		"id":             basetypes.Int64Type{},
@@ -3324,9 +3137,655 @@ func (v CriteriaRecordsValue) AttributeTypes(ctx context.Context) map[string]att
 	}
 }
 
-// Reference: https://github.com/hashicorp/terraform-plugin-framework/issues/521
+type LatestCriteriaRecordType struct {
+	basetypes.ObjectType
+}
 
-// This could potentially be added to the diag package.
+func (t LatestCriteriaRecordType) Equal(o attr.Type) bool {
+	other, ok := o.(LatestCriteriaRecordType)
+
+	if !ok {
+		return false
+	}
+
+	return t.ObjectType.Equal(other.ObjectType)
+}
+
+func (t LatestCriteriaRecordType) String() string {
+	return "LatestCriteriaRecordType"
+}
+
+func (t LatestCriteriaRecordType) ValueFromObject(ctx context.Context, in basetypes.ObjectValue) (basetypes.ObjectValuable, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	attributes := in.Attributes()
+
+	createdAtAttribute, ok := attributes["created_at"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`created_at is missing from object`)
+
+		return nil, diags
+	}
+
+	createdAtVal, ok := createdAtAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`created_at expected to be basetypes.StringValue, was: %T`, createdAtAttribute))
+	}
+
+	criteriaAttribute, ok := attributes["criteria"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`criteria is missing from object`)
+
+		return nil, diags
+	}
+
+	criteriaVal, ok := criteriaAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`criteria expected to be basetypes.StringValue, was: %T`, criteriaAttribute))
+	}
+
+	criteriaErrorAttribute, ok := attributes["criteria_error"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`criteria_error is missing from object`)
+
+		return nil, diags
+	}
+
+	criteriaErrorVal, ok := criteriaErrorAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`criteria_error expected to be basetypes.StringValue, was: %T`, criteriaErrorAttribute))
+	}
+
+	endMonthAttribute, ok := attributes["end_month"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`end_month is missing from object`)
+
+		return nil, diags
+	}
+
+	endMonthVal, ok := endMonthAttribute.(basetypes.Int64Value)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`end_month expected to be basetypes.Int64Value, was: %T`, endMonthAttribute))
+	}
+
+	idAttribute, ok := attributes["id"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`id is missing from object`)
+
+		return nil, diags
+	}
+
+	idVal, ok := idAttribute.(basetypes.Int64Value)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`id expected to be basetypes.Int64Value, was: %T`, idAttribute))
+	}
+
+	scopeIdAttribute, ok := attributes["scope_id"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`scope_id is missing from object`)
+
+		return nil, diags
+	}
+
+	scopeIdVal, ok := scopeIdAttribute.(basetypes.Int64Value)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`scope_id expected to be basetypes.Int64Value, was: %T`, scopeIdAttribute))
+	}
+
+	startMonthAttribute, ok := attributes["start_month"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`start_month is missing from object`)
+
+		return nil, diags
+	}
+
+	startMonthVal, ok := startMonthAttribute.(basetypes.Int64Value)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`start_month expected to be basetypes.Int64Value, was: %T`, startMonthAttribute))
+	}
+
+	if diags.HasError() {
+		return nil, diags
+	}
+
+	return LatestCriteriaRecordValue{
+		CreatedAt:     createdAtVal,
+		Criteria:      criteriaVal,
+		CriteriaError: criteriaErrorVal,
+		EndMonth:      endMonthVal,
+		Id:            idVal,
+		ScopeId:       scopeIdVal,
+		StartMonth:    startMonthVal,
+		state:         attr.ValueStateKnown,
+	}, diags
+}
+
+func NewLatestCriteriaRecordValueNull() LatestCriteriaRecordValue {
+	return LatestCriteriaRecordValue{
+		state: attr.ValueStateNull,
+	}
+}
+
+func NewLatestCriteriaRecordValueUnknown() LatestCriteriaRecordValue {
+	return LatestCriteriaRecordValue{
+		state: attr.ValueStateUnknown,
+	}
+}
+
+func NewLatestCriteriaRecordValue(attributeTypes map[string]attr.Type, attributes map[string]attr.Value) (LatestCriteriaRecordValue, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	// Reference: https://github.com/hashicorp/terraform-plugin-framework/issues/521
+	ctx := context.Background()
+
+	for name, attributeType := range attributeTypes {
+		attribute, ok := attributes[name]
+
+		if !ok {
+			diags.AddError(
+				"Missing LatestCriteriaRecordValue Attribute Value",
+				"While creating a LatestCriteriaRecordValue value, a missing attribute value was detected. "+
+					"A LatestCriteriaRecordValue must contain values for all attributes, even if null or unknown. "+
+					"This is always an issue with the provider and should be reported to the provider developers.\n\n"+
+					fmt.Sprintf("LatestCriteriaRecordValue Attribute Name (%s) Expected Type: %s", name, attributeType.String()),
+			)
+
+			continue
+		}
+
+		if !attributeType.Equal(attribute.Type(ctx)) {
+			diags.AddError(
+				"Invalid LatestCriteriaRecordValue Attribute Type",
+				"While creating a LatestCriteriaRecordValue value, an invalid attribute value was detected. "+
+					"A LatestCriteriaRecordValue must use a matching attribute type for the value. "+
+					"This is always an issue with the provider and should be reported to the provider developers.\n\n"+
+					fmt.Sprintf("LatestCriteriaRecordValue Attribute Name (%s) Expected Type: %s\n", name, attributeType.String())+
+					fmt.Sprintf("LatestCriteriaRecordValue Attribute Name (%s) Given Type: %s", name, attribute.Type(ctx)),
+			)
+		}
+	}
+
+	for name := range attributes {
+		_, ok := attributeTypes[name]
+
+		if !ok {
+			diags.AddError(
+				"Extra LatestCriteriaRecordValue Attribute Value",
+				"While creating a LatestCriteriaRecordValue value, an extra attribute value was detected. "+
+					"A LatestCriteriaRecordValue must not contain values beyond the expected attribute types. "+
+					"This is always an issue with the provider and should be reported to the provider developers.\n\n"+
+					fmt.Sprintf("Extra LatestCriteriaRecordValue Attribute Name: %s", name),
+			)
+		}
+	}
+
+	if diags.HasError() {
+		return NewLatestCriteriaRecordValueUnknown(), diags
+	}
+
+	createdAtAttribute, ok := attributes["created_at"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`created_at is missing from object`)
+
+		return NewLatestCriteriaRecordValueUnknown(), diags
+	}
+
+	createdAtVal, ok := createdAtAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`created_at expected to be basetypes.StringValue, was: %T`, createdAtAttribute))
+	}
+
+	criteriaAttribute, ok := attributes["criteria"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`criteria is missing from object`)
+
+		return NewLatestCriteriaRecordValueUnknown(), diags
+	}
+
+	criteriaVal, ok := criteriaAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`criteria expected to be basetypes.StringValue, was: %T`, criteriaAttribute))
+	}
+
+	criteriaErrorAttribute, ok := attributes["criteria_error"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`criteria_error is missing from object`)
+
+		return NewLatestCriteriaRecordValueUnknown(), diags
+	}
+
+	criteriaErrorVal, ok := criteriaErrorAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`criteria_error expected to be basetypes.StringValue, was: %T`, criteriaErrorAttribute))
+	}
+
+	endMonthAttribute, ok := attributes["end_month"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`end_month is missing from object`)
+
+		return NewLatestCriteriaRecordValueUnknown(), diags
+	}
+
+	endMonthVal, ok := endMonthAttribute.(basetypes.Int64Value)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`end_month expected to be basetypes.Int64Value, was: %T`, endMonthAttribute))
+	}
+
+	idAttribute, ok := attributes["id"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`id is missing from object`)
+
+		return NewLatestCriteriaRecordValueUnknown(), diags
+	}
+
+	idVal, ok := idAttribute.(basetypes.Int64Value)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`id expected to be basetypes.Int64Value, was: %T`, idAttribute))
+	}
+
+	scopeIdAttribute, ok := attributes["scope_id"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`scope_id is missing from object`)
+
+		return NewLatestCriteriaRecordValueUnknown(), diags
+	}
+
+	scopeIdVal, ok := scopeIdAttribute.(basetypes.Int64Value)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`scope_id expected to be basetypes.Int64Value, was: %T`, scopeIdAttribute))
+	}
+
+	startMonthAttribute, ok := attributes["start_month"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`start_month is missing from object`)
+
+		return NewLatestCriteriaRecordValueUnknown(), diags
+	}
+
+	startMonthVal, ok := startMonthAttribute.(basetypes.Int64Value)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`start_month expected to be basetypes.Int64Value, was: %T`, startMonthAttribute))
+	}
+
+	if diags.HasError() {
+		return NewLatestCriteriaRecordValueUnknown(), diags
+	}
+
+	return LatestCriteriaRecordValue{
+		CreatedAt:     createdAtVal,
+		Criteria:      criteriaVal,
+		CriteriaError: criteriaErrorVal,
+		EndMonth:      endMonthVal,
+		Id:            idVal,
+		ScopeId:       scopeIdVal,
+		StartMonth:    startMonthVal,
+		state:         attr.ValueStateKnown,
+	}, diags
+}
+
+func NewLatestCriteriaRecordValueMust(attributeTypes map[string]attr.Type, attributes map[string]attr.Value) LatestCriteriaRecordValue {
+	object, diags := NewLatestCriteriaRecordValue(attributeTypes, attributes)
+
+	if diags.HasError() {
+		// This could potentially be added to the diag package.
+		diagsStrings := make([]string, 0, len(diags))
+
+		for _, diagnostic := range diags {
+			diagsStrings = append(diagsStrings, fmt.Sprintf(
+				"%s | %s | %s",
+				diagnostic.Severity(),
+				diagnostic.Summary(),
+				diagnostic.Detail()))
+		}
+
+		panic("NewLatestCriteriaRecordValueMust received error(s): " + strings.Join(diagsStrings, "\n"))
+	}
+
+	return object
+}
+
+func (t LatestCriteriaRecordType) ValueFromTerraform(ctx context.Context, in tftypes.Value) (attr.Value, error) {
+	if in.Type() == nil {
+		return NewLatestCriteriaRecordValueNull(), nil
+	}
+
+	if !in.Type().Equal(t.TerraformType(ctx)) {
+		return nil, fmt.Errorf("expected %s, got %s", t.TerraformType(ctx), in.Type())
+	}
+
+	if !in.IsKnown() {
+		return NewLatestCriteriaRecordValueUnknown(), nil
+	}
+
+	if in.IsNull() {
+		return NewLatestCriteriaRecordValueNull(), nil
+	}
+
+	attributes := map[string]attr.Value{}
+
+	val := map[string]tftypes.Value{}
+
+	err := in.As(&val)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range val {
+		a, err := t.AttrTypes[k].ValueFromTerraform(ctx, v)
+
+		if err != nil {
+			return nil, err
+		}
+
+		attributes[k] = a
+	}
+
+	return NewLatestCriteriaRecordValueMust(LatestCriteriaRecordValue{}.AttributeTypes(ctx), attributes), nil
+}
+
+func (t LatestCriteriaRecordType) ValueType(ctx context.Context) attr.Value {
+	return LatestCriteriaRecordValue{}
+}
+
+type LatestCriteriaRecordValue struct {
+	CreatedAt     basetypes.StringValue `tfsdk:"created_at"`
+	Criteria      basetypes.StringValue `tfsdk:"criteria"`
+	CriteriaError basetypes.StringValue `tfsdk:"criteria_error"`
+	EndMonth      basetypes.Int64Value  `tfsdk:"end_month"`
+	Id            basetypes.Int64Value  `tfsdk:"id"`
+	ScopeId       basetypes.Int64Value  `tfsdk:"scope_id"`
+	StartMonth    basetypes.Int64Value  `tfsdk:"start_month"`
+	state         attr.ValueState
+}
+
+func (v LatestCriteriaRecordValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error) {
+	attrTypes := make(map[string]tftypes.Type, 7)
+
+	var val tftypes.Value
+	var err error
+
+	attrTypes["created_at"] = basetypes.StringType{}.TerraformType(ctx)
+	attrTypes["criteria"] = basetypes.StringType{}.TerraformType(ctx)
+	attrTypes["criteria_error"] = basetypes.StringType{}.TerraformType(ctx)
+	attrTypes["end_month"] = basetypes.Int64Type{}.TerraformType(ctx)
+	attrTypes["id"] = basetypes.Int64Type{}.TerraformType(ctx)
+	attrTypes["scope_id"] = basetypes.Int64Type{}.TerraformType(ctx)
+	attrTypes["start_month"] = basetypes.Int64Type{}.TerraformType(ctx)
+
+	objectType := tftypes.Object{AttributeTypes: attrTypes}
+
+	switch v.state {
+	case attr.ValueStateKnown:
+		vals := make(map[string]tftypes.Value, 7)
+
+		val, err = v.CreatedAt.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["created_at"] = val
+
+		val, err = v.Criteria.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["criteria"] = val
+
+		val, err = v.CriteriaError.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["criteria_error"] = val
+
+		val, err = v.EndMonth.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["end_month"] = val
+
+		val, err = v.Id.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["id"] = val
+
+		val, err = v.ScopeId.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["scope_id"] = val
+
+		val, err = v.StartMonth.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["start_month"] = val
+
+		if err := tftypes.ValidateValue(objectType, vals); err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		return tftypes.NewValue(objectType, vals), nil
+	case attr.ValueStateNull:
+		return tftypes.NewValue(objectType, nil), nil
+	case attr.ValueStateUnknown:
+		return tftypes.NewValue(objectType, tftypes.UnknownValue), nil
+	default:
+		panic(fmt.Sprintf("unhandled Object state in ToTerraformValue: %s", v.state))
+	}
+}
+
+func (v LatestCriteriaRecordValue) IsNull() bool {
+	return v.state == attr.ValueStateNull
+}
+
+func (v LatestCriteriaRecordValue) IsUnknown() bool {
+	return v.state == attr.ValueStateUnknown
+}
+
+func (v LatestCriteriaRecordValue) String() string {
+	return "LatestCriteriaRecordValue"
+}
+
+func (v LatestCriteriaRecordValue) ToObjectValue(ctx context.Context) (basetypes.ObjectValue, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	attributeTypes := map[string]attr.Type{
+		"created_at":     basetypes.StringType{},
+		"criteria":       basetypes.StringType{},
+		"criteria_error": basetypes.StringType{},
+		"end_month":      basetypes.Int64Type{},
+		"id":             basetypes.Int64Type{},
+		"scope_id":       basetypes.Int64Type{},
+		"start_month":    basetypes.Int64Type{},
+	}
+
+	if v.IsNull() {
+		return types.ObjectNull(attributeTypes), diags
+	}
+
+	if v.IsUnknown() {
+		return types.ObjectUnknown(attributeTypes), diags
+	}
+
+	objVal, diags := types.ObjectValue(
+		attributeTypes,
+		map[string]attr.Value{
+			"created_at":     v.CreatedAt,
+			"criteria":       v.Criteria,
+			"criteria_error": v.CriteriaError,
+			"end_month":      v.EndMonth,
+			"id":             v.Id,
+			"scope_id":       v.ScopeId,
+			"start_month":    v.StartMonth,
+		})
+
+	return objVal, diags
+}
+
+func (v LatestCriteriaRecordValue) Equal(o attr.Value) bool {
+	other, ok := o.(LatestCriteriaRecordValue)
+
+	if !ok {
+		return false
+	}
+
+	if v.state != other.state {
+		return false
+	}
+
+	if v.state != attr.ValueStateKnown {
+		return true
+	}
+
+	if !v.CreatedAt.Equal(other.CreatedAt) {
+		return false
+	}
+
+	if !v.Criteria.Equal(other.Criteria) {
+		return false
+	}
+
+	if !v.CriteriaError.Equal(other.CriteriaError) {
+		return false
+	}
+
+	if !v.EndMonth.Equal(other.EndMonth) {
+		return false
+	}
+
+	if !v.Id.Equal(other.Id) {
+		return false
+	}
+
+	if !v.ScopeId.Equal(other.ScopeId) {
+		return false
+	}
+
+	if !v.StartMonth.Equal(other.StartMonth) {
+		return false
+	}
+
+	return true
+}
+
+func (v LatestCriteriaRecordValue) Type(ctx context.Context) attr.Type {
+	return LatestCriteriaRecordType{
+		basetypes.ObjectType{
+			AttrTypes: v.AttributeTypes(ctx),
+		},
+	}
+}
+
+func (v LatestCriteriaRecordValue) AttributeTypes(ctx context.Context) map[string]attr.Type {
+	return map[string]attr.Type{
+		"created_at":     basetypes.StringType{},
+		"criteria":       basetypes.StringType{},
+		"criteria_error": basetypes.StringType{},
+		"end_month":      basetypes.Int64Type{},
+		"id":             basetypes.Int64Type{},
+		"scope_id":       basetypes.Int64Type{},
+		"start_month":    basetypes.Int64Type{},
+	}
+}
 
 type PaginationType struct {
 	basetypes.ObjectType

@@ -57,7 +57,7 @@ func (d *billingSourceGcpDataSource) Read(_ context.Context, _ datasource.ReadRe
 }
 
 func flattenBillingSourceGcpDataSource(apiObject any, _ *billingSourceGcpDataSourceModel) diag.Diagnostics {
-	// TODO: implement — type-switch the response and map SDK fields to model fields
+	// TODO: implement, type-switch the response and map SDK fields to model fields
 	_ = apiObject
 	return nil
 }

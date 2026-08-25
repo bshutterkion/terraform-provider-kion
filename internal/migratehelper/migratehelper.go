@@ -1,7 +1,7 @@
 // Package migratehelper holds the runtime converters the generated state
 // upgraders (<name>_upgrade_gen.go) call. The upgraders transform the old-schema
 // (SDKv2) state as a raw JSON map into a new-schema JSON map, then decode it with
-// tftypes.ValueFromJSON — so nested objects, sets, maps, and scalars all migrate
+// tftypes.ValueFromJSON, so nested objects, sets, maps, and scalars all migrate
 // uniformly. These helpers operate at the JSON level. It is hand-written
 // infrastructure (like internal/flex), not a resource body.
 package migratehelper
@@ -24,7 +24,7 @@ func OrNull(raw json.RawMessage) json.RawMessage {
 	return raw
 }
 
-// ProjectIDs maps an old set/list of single-field objects — [{<field>: n}, …] —
+// ProjectIDs maps an old set/list of single-field objects, [{<field>: n}, …],
 // to a JSON array of those field values ([n, …]). This is the block-set → id-list
 // transform (owner_users:[{id}] → owner_user_ids:[int]). Null/absent → null.
 func ProjectIDs(raw json.RawMessage, field string) json.RawMessage {
@@ -48,7 +48,7 @@ func ProjectIDs(raw json.RawMessage, field string) json.RawMessage {
 	return b
 }
 
-// Unwrap turns an old single-element block set/list — [{…}] — into a single
+// Unwrap turns an old single-element block set/list, [{…}], into a single
 // object {…}, for blocks that became a SingleNestedAttribute (e.g. aws_account's
 // aws_organizational_unit). Empty/absent → null.
 func Unwrap(raw json.RawMessage) json.RawMessage {
@@ -62,7 +62,7 @@ func Unwrap(raw json.RawMessage) json.RawMessage {
 	return elems[0]
 }
 
-// MapToObjectList explodes an old map attribute — {"k": v, …} — into the list of
+// MapToObjectList explodes an old map attribute, {"k": v, …}, into the list of
 // two-field objects the new schema declares: [{keyField: "k", valField: v}, …].
 // This is the map→object-list transform (kion_aws_cloudformation_template's
 // `tags = {env = "prod"}` map(string) → cft's `tags` list of
@@ -111,7 +111,7 @@ func MapToObjectList(raw json.RawMessage, keyField, valField string) json.RawMes
 	return b
 }
 
-// StringToNum converts an old string id ("42") to a JSON number (42) — used where
+// StringToNum converts an old string id ("42") to a JSON number (42), used where
 // the new schema declares id as a number (e.g. aws_account). Null/absent → null.
 func StringToNum(raw json.RawMessage) json.RawMessage {
 	if len(raw) == 0 || string(raw) == "null" {

@@ -75,7 +75,7 @@ func computeRequiredAdditions(t *testing.T) map[string][]string {
 
 // TestRequiredAdditions_matchSchemas is the guarantee behind the map: if a future
 // spec makes an existing resource require something the old provider never had,
-// this fails until RequiredAdditions records it — so kmigrate keeps telling
+// this fails until RequiredAdditions records it. So kmigrate keeps telling
 // practitioners about breaks it cannot fix for them.
 func TestRequiredAdditions_matchSchemas(t *testing.T) {
 	want := computeRequiredAdditions(t)
@@ -133,7 +133,7 @@ func TestRewriteFile_silentWhenRequiredArePresent(t *testing.T) {
 }
 
 // The account resources gained account_name, but as a rename of the old `name`
-// — RewriteFile fills it in, so reporting it would send practitioners chasing a
+// RewriteFile fills it in, so reporting it would send practitioners chasing a
 // value they already have.
 func TestRequiredAdditions_excludesRenameTargets(t *testing.T) {
 	for _, rtype := range []string{"kion_azure_account", "kion_custom_account", "kion_gcp_account"} {

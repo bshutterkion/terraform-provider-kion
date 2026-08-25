@@ -40,7 +40,7 @@ make install                  # Build + copy to ~/.terraform.d/plugins/
 
 > Adding or removing a resource/data source changes this provider's supported
 > surface, which the sibling `terraform-coverage-test` project tracks. After such
-> a change, run `make coverage-new` in that repo — a new "gap" (or "stale") there
+> a change, run `make coverage-new` in that repo. A new "gap" (or "stale") there
 > means coverage-test needs a matching module update.
 
 Run a single test: `go test -v -run TestAccKionLabel_basic ./internal/service/label/`
@@ -50,35 +50,35 @@ Run a single test: `go test -v -run TestAccKionLabel_basic ./internal/service/la
 ### Service Package Pattern (AWS-style)
 
 Each resource lives in `internal/service/<name>/` with these files:
-- `<name>.go` — Resource: struct, schema, CRUD methods, model
-- `<name>_data_source.go` — Data source: struct, schema, read, model
-- `<name>_test.go` — Resource acceptance tests
-- `<name>_data_source_test.go` — Data source acceptance tests
-- `service_package.go` — Factory registration (implements `conns.ServicePackage`)
+- `<name>.go`: resource struct, schema, CRUD methods, model
+- `<name>_data_source.go`: data source struct, schema, read, model
+- `<name>_test.go`: resource acceptance tests
+- `<name>_data_source_test.go`: data source acceptance tests
+- `service_package.go`: factory registration (implements `conns.ServicePackage`)
 
 Resources embed `framework.ResourceWithConfigure`, data sources embed `framework.DataSourceWithConfigure`. Both get the `KionClient` via `r.Meta().Client`.
 
 ### Key Internal Packages
 
-- `internal/conns/` — `ServicePackage` interface definition
-- `internal/errs/` — SDK response types to Terraform diagnostics
-- `internal/flex/` — Type converters between TF Framework types and SDK types (int, string, bool, list)
-- `internal/framework/` — Base types providing `Meta()` accessor for client
-- `internal/servicepkg/` — Shared types (`ServicePackageResource`, `ServicePackageDataSource`)
-- `internal/provider/` — Provider definition, configuration, service package registration
-- `internal/kgen/` — Template-based scaffold generation (resource, datasource, convert)
-- `cmd/kgen/` — CLI entry point for scaffold generator
+- `internal/conns/`: `ServicePackage` interface definition
+- `internal/errs/`: SDK response types to Terraform diagnostics
+- `internal/flex/`: type converters between TF Framework types and SDK types (int, string, bool, list)
+- `internal/framework/`: base types providing the `Meta()` accessor for the client
+- `internal/servicepkg/`: shared types (`ServicePackageResource`, `ServicePackageDataSource`)
+- `internal/provider/`: provider definition, configuration, service package registration
+- `internal/kgen/`: template-based scaffold generation (resource, datasource, convert)
+- `cmd/kgen/`: CLI entry point for the scaffold generator
 
 ### Generated vs Hand-Written Code
 
-- **Generated (do NOT edit)**: `internal/provider_kion/*_gen.go` — provider schema from tfplugingen
-- **Scaffolded (edit to implement)**: `internal/service/*/` — service packages with stub CRUD methods
+- **Generated (do NOT edit)**: `internal/provider_kion/*_gen.go`, the provider schema from tfplugingen
+- **Scaffolded (edit to implement)**: `internal/service/*/`, service packages with stub CRUD methods
 - **Hand-written**: `internal/flex/`, `internal/errs/`, `internal/framework/`, `internal/conns/`, `internal/provider/provider.go`
-- **Reference implementation**: `internal/service/label/` — fully working CRUD with SDK integration
+- **Reference implementation**: `internal/service/label/`, fully working CRUD with SDK integration
 
 ### Provider Configuration
 
-Provider accepts `api_url`, `api_key`, `auth_token` — all readable from environment variables `KION_API_URL`, `KION_API_KEY`, `KION_AUTH_TOKEN`. Authentication requires either `api_key` or `auth_token`.
+Provider accepts `api_url`, `api_key`, and `auth_token`, all readable from environment variables `KION_API_URL`, `KION_API_KEY`, `KION_AUTH_TOKEN`. Authentication requires either `api_key` or `auth_token`.
 
 ## Key Conventions
 
@@ -91,6 +91,6 @@ Provider accepts `api_url`, `api_key`, `auth_token` — all readable from enviro
 
 ## CI/CD
 
-GitHub Actions only; there is no `.gitlab-ci.yml`. `.github/workflows/ci.yml` runs on pull requests and pushes to `main`: `fmt`, `vet`, `lint`, `test-unit` (race detector + coverage), `modules` (drift + `terraform validate`/`test`), `internal-refs`, `secrets`, `codeql`, and a `ci` aggregator job for branch protection. `.github/workflows/release.yml` runs goreleaser on a `v*` tag. No kion-sdk-go checkout is needed — the `replace` in `go.mod` is versioned, so the module proxy resolves it. Local `make ci` covers the first four jobs; the Lefthook pre-push hook runs them, except on tag-only pushes where it matches no files. See `.github/workflows/README.md`.
+GitHub Actions only; there is no `.gitlab-ci.yml`. `.github/workflows/ci.yml` runs on pull requests and pushes to `main`: `fmt`, `vet`, `lint`, `test-unit` (race detector + coverage), `modules` (drift + `terraform validate`/`test`), `internal-refs`, `secrets`, `codeql`, and a `ci` aggregator job for branch protection. `.github/workflows/release.yml` runs goreleaser on a `v*` tag. No kion-sdk-go checkout is needed. The `replace` in `go.mod` is versioned, so the module proxy resolves it. Local `make ci` covers every job except `codeql`, which only runs on GitHub; the Lefthook pre-push hook runs the four Go checks, except on tag-only pushes where it matches no files. See `.github/workflows/README.md`.
 
 Acceptance tests: 4 parallel workers, 120-minute timeout. Sweepers (`make sweep`) clean up orphaned `test-acc`-prefixed resources.

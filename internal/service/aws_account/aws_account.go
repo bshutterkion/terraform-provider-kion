@@ -51,8 +51,8 @@ func (r *awsAccountResource) Metadata(_ context.Context, req resource.MetadataRe
 
 // Schema is declared here rather than delegating to AwsAccountResourceSchema in
 // aws_account_schema_gen.go, unlike every other resource. The generated schema is
-// now accurate — it agrees with this one on all 28 attribute names and on their
-// optional/computed/required flags — but three shapes cannot be expressed by the
+// now accurate, it agrees with this one on all 28 attribute names and on their
+// optional/computed/required flags, but three shapes cannot be expressed by the
 // code generator, and each difference would break existing configurations:
 //
 //   - aws_organizational_unit and move_project_settings are nested *blocks* here
@@ -227,7 +227,7 @@ func (r *awsAccountResource) Create(ctx context.Context, req resource.CreateRequ
 	hasAccountNumber := !plan.AccountNumber.IsNull() && !plan.AccountNumber.IsUnknown()
 
 	if hasAccountNumber {
-		// Import existing AWS account — the SDK doesn't have a dedicated
+		// Import existing AWS account. The SDK doesn't have a dedicated
 		// "import existing to cache" endpoint separate from "create new".
 		// For now this path is not supported; users should use the create-new
 		// path or terraform import.
@@ -524,7 +524,7 @@ func (r *awsAccountResource) ImportState(ctx context.Context, req resource.Impor
 		location = accounthelper.LocationCache
 
 	default:
-		// No prefix — auto-detect by trying both endpoints.
+		// No prefix, auto-detect by trying both endpoints.
 		parsed, diags := framework.StringToInt64(importID)
 		resp.Diagnostics.Append(diags...)
 		if resp.Diagnostics.HasError() {

@@ -1,4 +1,4 @@
-# Schema overrides — per-type customizations the OpenAPI spec cannot express.
+# Schema overrides: per-type customizations the OpenAPI spec cannot express.
 #
 # tfplugingen derives schemas purely from the spec, so it has no notion of plan
 # modifiers, defaults, Terraform-idiomatic type choices (e.g. string IDs), or a
@@ -25,10 +25,10 @@ resources:
   # billing_source is blended: its schema is derived from the /v4/billing-source
   # LIST read (there is no public by-id GET), which leaks the list's sort query
   # params into the resource schema as Optional+Computed attrs that no CRUD op
-  # ever sets. Drop them — they are not resource attributes. (count/page are
+  # ever sets. Drop them; they are not resource attributes. (count/page are
   # response-derived and already dropped via generator_config `ignores`.)
   billing_source:
-    description: "Manages a Kion custom billing source. Supply exactly one connection block \u2014 aws_connection or azure_connection \u2014 as Kion rejects a request carrying both."
+    description: "Manages a Kion custom billing source. Supply exactly one connection block, either aws_connection or azure_connection, as Kion rejects a request carrying both."
     attributes:
       # The credential lives inside the azure_connection block, not at top level.
       # Overrides are add-if-missing, so naming it at the wrong depth silently
@@ -138,7 +138,7 @@ resources:
   custom_variable_override:
     # Synthetic multi-entity resource: the spec op gives only the path params
     # (account_id→entity_id via renames.yaml, custom_variable_id). Everything
-    # else is reconstructed here — entity_type/id/last_updated are not in the
+    # else is reconstructed here. entity_type/id/last_updated are not in the
     # spec, and value_* replace the ignored polymorphic `value`.
     description: Manages a Kion Custom Variable Override.
     attributes:
@@ -747,7 +747,7 @@ resources:
     description: "Manages a Kion Compliance Control."
     # DELETE is scoped by the parent program (/v4/compliance/program/{id}/control/
     # {controlID}), but create/read/update never reference a program id and it is
-    # absent from the ComplianceControl body — add it as a required input used
+    # absent from the ComplianceControl body. Add it as a required input used
     # only to build the delete call (replace-on-change).
     attributes:
       program_id:
@@ -778,7 +778,7 @@ resources:
     description: "Manages a Kion AMI."
     # Three fields use the SDK's SQL-null wrappers (OptNullString {String,Valid};
     # OptNullTime {Time,Valid}), which tfplugingen modeled as nested objects.
-    # They are semantically nullable scalars — retype to string (flex's
+    # They are semantically nullable scalars, so retype to string (flex's
     # OptNullString/OptNullTime converters build the wrapper).
     attributes:
       expiration_alert_unit:
@@ -813,7 +813,7 @@ resources:
     # input, and models `criteria` as an empty object (fixed to jx.Raw in the
     # SDK). Re-express the schema here: a JSON-string criteria, the parent
     # scope_id (Required, replace-on-change), and the computed criteria_id.
-    description: Manages a Kion Scope Criteria — a versioned criteria record on a scope.
+    description: Manages a Kion Scope Criteria, a versioned criteria record on a scope.
     attributes:
       id:
         type: string
@@ -854,7 +854,7 @@ resources:
         description: End month for the criteria period (YYYYMM format).
 
   # kion_account shares cloud_account.gtpl with kion_aws_account, so it shares the
-  # schema too — see the anchor on aws_account.attributes above.
+  # schema too. See the anchor on aws_account.attributes above.
   account:
     description: "Manages a Kion Account."
     attributes: *cloud_account_attributes
@@ -862,7 +862,7 @@ resources:
   # app_config is a settings singleton: one row that always exists, addressed by a
   # static id rather than a path parameter. Because /v3/app-config takes no {id},
   # the string-id default has nothing to key off and the derived schema carries no
-  # `id` at all — but the resource still needs one for ImportStatePassthroughID.
+  # `id` at all, but the resource still needs one for ImportStatePassthroughID.
   app_config:
     description: "Manages the Kion App Config (workspace-wide application settings singleton)."
     attributes:
@@ -894,8 +894,8 @@ resources:
 
 
   # Resource-level descriptions for types that need no other override. These
-  # cannot come from the spec — OpenAPI has no notion of a Terraform resource
-  # description — so without them tfplugindocs emits an empty summary and the
+  # cannot come from the spec, because OpenAPI has no notion of a Terraform
+  # resource description. Without them tfplugindocs emits an empty summary and the
   # generated docs/ page has no title line.
   app_api_key:
     description: "Manages a Kion App Api Key."

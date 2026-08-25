@@ -1,15 +1,15 @@
 // Package schemas orchestrates Terraform schema code generation. It runs
 // HashiCorp's tfplugingen tools against the OpenAPI spec, applies our own
 // attribute renames (which tfplugingen can't do for body properties), and
-// distributes the generated *_schema_gen.go files — plus a ValidateImplementation
-// unit test per type — into the matching internal/service/<name>/ package.
+// distributes the generated *_schema_gen.go files, plus a ValidateImplementation
+// unit test per type, into the matching internal/service/<name>/ package.
 //
 // This replaces the former scripts/gen-schemas.sh. It shells out to
 // tfplugingen-openapi and tfplugingen-framework, which must be on PATH
 // (install with `make install-codegen-tools`).
 //
-// The two external boundaries — the filesystem (kfs.FS) and command execution
-// (Runner) — are injected so the pipeline is unit-testable against mocks.
+// The two external boundaries, the filesystem (kfs.FS) and command execution
+// (Runner). Are injected so the pipeline is unit-testable against mocks.
 package schemas
 
 import (
@@ -107,7 +107,7 @@ func (g *generator) generate(opts Options) (int, error) {
 
 	for _, tool := range []string{"tfplugingen-openapi", "tfplugingen-framework"} {
 		if err := g.run.LookPath(tool); err != nil {
-			return 0, fmt.Errorf("%s not found on PATH — run: make install-codegen-tools", tool)
+			return 0, fmt.Errorf("%s not found on PATH. Run: make install-codegen-tools", tool)
 		}
 	}
 	if _, err := g.fs.Stat(spec); err != nil {
@@ -158,6 +158,9 @@ func (g *generator) generate(opts Options) (int, error) {
 		return 0, err
 	}
 
+	if err := g.checkNothingSkipped(specJSON, cfg); err != nil {
+		return 0, err
+	}
 	if err := g.applyRenames(specJSON, renames); err != nil {
 		return 0, err
 	}
@@ -225,7 +228,7 @@ func (g *generator) distribute(root string, k kind) ([]string, error) {
 		name := strings.TrimPrefix(e.Name(), k.dirPrefix)
 		pkgDir := filepath.Join(root, serviceDir, name)
 		if fi, err := g.fs.Stat(pkgDir); err != nil || !fi.IsDir() {
-			fmt.Printf("  skip %s — no service package at %s/%s (run kgen first)\n", name, serviceDir, name)
+			fmt.Printf("  skip %s: no service package at %s/%s (run kgen first)\n", name, serviceDir, name)
 			continue
 		}
 
@@ -238,7 +241,7 @@ func (g *generator) distribute(root string, k kind) ([]string, error) {
 
 		m := k.schemaFuncRe.FindStringSubmatch(content)
 		// A service with both a resource and a data source emits colliding
-		// top-level declarations in each file — the `<Name>Model` plus any
+		// top-level declarations in each file, the `<Name>Model` plus any
 		// nested-object CustomTypes (e.g. ExpiresAtType/Value). Rename them in
 		// the data-source file so the two don't redeclare each other in the
 		// shared package. (Runs after the resource kind, so its schema file is
@@ -302,7 +305,7 @@ func dedupTopLevelDecls(src string) string {
 	kept := f.Decls[:0]
 	for _, d := range f.Decls {
 		keys := declNames(d)
-		if len(keys) == 0 { // imports, or anything unkeyed — always keep
+		if len(keys) == 0 { // imports, or anything unkeyed, always keep
 			kept = append(kept, d)
 			continue
 		}
@@ -313,7 +316,7 @@ func dedupTopLevelDecls(src string) string {
 			}
 		}
 		if allSeen {
-			continue // every name already declared — drop this duplicate
+			continue // every name already declared. Drop this duplicate
 		}
 		for _, k := range keys {
 			seen[k] = true
@@ -384,7 +387,7 @@ func topLevelDecls(src string) []string {
 }
 
 // renameSharedDecls suffixes, in dsContent, every identifier in decls that also
-// appears there — so a data source's generated CustomTypes don't redeclare the
+// appears there, so a data source's generated CustomTypes don't redeclare the
 // resource's in the shared package. Word-boundary matching renames the type,
 // its methods' receivers, its constructors, and all references consistently.
 func renameSharedDecls(dsContent string, decls []string) string {
@@ -399,7 +402,7 @@ func renameSharedDecls(dsContent string, decls []string) string {
 // spec: top-level `paths` and `components.{schemas,responses,parameters}`.
 // Addition entries add-or-overwrite by key. It exists because the public spec /
 // SDK omits some endpoints (e.g. a resource's private by-id read), so we supply
-// those endpoints — transcribed from the backend — for tfplugingen to generate
+// those endpoints, transcribed from the backend, for tfplugingen to generate
 // from. Returns the merged spec as JSON.
 func mergeSpecAdditions(specRaw, additionsRaw []byte) ([]byte, error) {
 	var spec map[string]any
@@ -438,7 +441,119 @@ func mergeSpecAdditions(specRaw, additionsRaw []byte) ([]byte, error) {
 			mergeStringMap(specComps, addComps, section)
 		}
 	}
+	if err := applyPropertyTypes(spec, add); err != nil {
+		return nil, err
+	}
 	return json.Marshal(spec)
+}
+
+// checkNothingSkipped fails if tfplugingen-openapi dropped a resource or data
+// source the config asks for.
+//
+// It exits 0 after logging "skipping resource schema mapping" to stderr, so a
+// skip looked exactly like success. The generated file for a skipped type is
+// simply not written, and because the previous one is still on disk, nothing
+// downstream notices: `scope`, `scope_criteria` and the `custom_variable` data
+// source each carried a committed schema that no longer regenerated, and they
+// missed the list-to-set conversion every other resource received. Comparing the
+// produced code spec against the config catches that on the next run.
+func (g *generator) checkNothingSkipped(specJSON, cfgPath string) error {
+	raw, err := os.ReadFile(specJSON)
+	if err != nil {
+		return fmt.Errorf("reading provider code spec: %w", err)
+	}
+	var ir struct {
+		Resources   []struct{ Name string } `json:"resources"`
+		DataSources []struct{ Name string } `json:"datasources"`
+	}
+	if err := json.Unmarshal(raw, &ir); err != nil {
+		return fmt.Errorf("parsing provider code spec: %w", err)
+	}
+	cfgRaw, err := os.ReadFile(cfgPath)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", cfgPath, err)
+	}
+	var cfg struct {
+		Resources   map[string]any `yaml:"resources"`
+		DataSources map[string]any `yaml:"data_sources"`
+	}
+	if err := yaml.Unmarshal(cfgRaw, &cfg); err != nil {
+		return fmt.Errorf("parsing %s: %w", cfgPath, err)
+	}
+
+	var missing []string
+	for _, sec := range []struct {
+		label string
+		want  map[string]any
+		got   []struct{ Name string }
+	}{
+		{"resource", cfg.Resources, ir.Resources},
+		{"data source", cfg.DataSources, ir.DataSources},
+	} {
+		have := make(map[string]bool, len(sec.got))
+		for _, g := range sec.got {
+			have[g.Name] = true
+		}
+		for name := range sec.want {
+			if !have[name] {
+				missing = append(missing, fmt.Sprintf("%s %s", sec.label, name))
+			}
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	sort.Strings(missing)
+	return fmt.Errorf("tfplugingen-openapi skipped %d configured type(s), see its warnings above:\n  %s\n"+
+		"An untyped property (no type, allOf, oneOf or anyOf) drops the whole type. Give it a type in "+
+		"codegen/spec_additions.yaml under property_types, or ignore it in codegen/config_overrides.yaml",
+		len(missing), strings.Join(missing, "\n  "))
+}
+
+// applyPropertyTypes sets `type` on named component properties the spec leaves
+// untyped. tfplugingen drops the entire resource or data source when it meets a
+// property with no type and no allOf/oneOf/anyOf, so one untyped field costs the
+// whole schema. Overwriting the component wholesale via `components.schemas`
+// would work but re-transcribes every other property, and those copies go stale
+// the next time the spec is refreshed. This patches the one field instead.
+//
+// Entries are "SchemaName.property: type".
+func applyPropertyTypes(spec, add map[string]any) error {
+	pts, ok := add["property_types"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	comps, ok := spec["components"].(map[string]any)
+	if !ok {
+		return fmt.Errorf("property_types: spec has no components")
+	}
+	schemas, ok := comps["schemas"].(map[string]any)
+	if !ok {
+		return fmt.Errorf("property_types: spec has no components.schemas")
+	}
+	for key, typ := range pts {
+		name, prop, found := strings.Cut(key, ".")
+		if !found {
+			return fmt.Errorf("property_types: %q must be \"Schema.property\"", key)
+		}
+		sch, ok := schemas[name].(map[string]any)
+		if !ok {
+			return fmt.Errorf("property_types: no component schema %q", name)
+		}
+		props, ok := sch["properties"].(map[string]any)
+		if !ok {
+			return fmt.Errorf("property_types: %s has no properties", name)
+		}
+		p, ok := props[prop].(map[string]any)
+		if !ok {
+			return fmt.Errorf("property_types: %s has no property %q", name, prop)
+		}
+		if existing, ok := p["type"]; ok {
+			return fmt.Errorf("property_types: %s.%s already has type %v; drop the entry", name, prop, existing)
+		}
+		p["type"] = typ
+	}
+	return nil
 }
 
 // mergeStringMap merges src[key] into dst[key] (both string-keyed maps); src
@@ -560,7 +675,7 @@ type attributeOverride struct {
 	// Sensitive marks the attribute secret so Terraform redacts it from plan and
 	// apply output. The OpenAPI spec has no way to say "this is a credential", so
 	// without an explicit override every generated schema exposed its secrets in
-	// cleartext — smtp_password, oauth_client_secret, tenant_client_secret,
+	// cleartext, smtp_password, oauth_client_secret, tenant_client_secret,
 	// key_secret and private_key were all unmarked.
 	Sensitive     bool                         `yaml:"sensitive"`
 	PlanModifiers []string                     `yaml:"plan_modifiers"` // e.g. stringplanmodifier.UseStateForUnknown()
@@ -569,7 +684,7 @@ type attributeOverride struct {
 }
 
 // customTypeOverride wraps a scalar attribute in a Terraform framework custom
-// type — e.g. jsontypes.Normalized for a JSON-string attribute that must
+// type, e.g. jsontypes.Normalized for a JSON-string attribute that must
 // compare semantically rather than byte-for-byte. It maps to the provider code
 // spec's `custom_type` object, which tfplugingen-framework emits as the
 // attribute's CustomType and the model field's Go type.
@@ -597,7 +712,7 @@ func (g *generator) applySchemaOverrides(specPath, overridesPath string) error {
 			return fmt.Errorf("parsing schema overrides %s: %w", overridesPath, err)
 		}
 	case os.IsNotExist(err):
-		// No sidecar — still apply the global string-id default below.
+		// No sidecar, still apply the global string-id default below.
 	default:
 		return fmt.Errorf("reading schema overrides %s: %w", overridesPath, err)
 	}
@@ -612,7 +727,7 @@ func (g *generator) applySchemaOverrides(specPath, overridesPath string) error {
 	}
 
 	// Global string-id default: mirror terraform-provider-aws's
-	// framework.IDAttribute() — every resource's id is a computed string with
+	// framework.IDAttribute(). Every resource's id is a computed string with
 	// UseStateForUnknown (the API models ids as int64, but the shipped SDKv2
 	// provider and TF convention use string ids for import + state parity).
 	// Resources whose sidecar overrides id explicitly keep their own settings.
@@ -766,7 +881,7 @@ func applyOverrideSection(node any, overrides map[string]schemaOverride) error {
 			schemaObj["attributes"] = attrs
 		}
 
-		// Insert overrides for attributes absent from the spec — e.g. a
+		// Insert overrides for attributes absent from the spec, e.g. a
 		// polymorphic field tfplugingen dropped, re-expressed as typed
 		// sub-attributes. Sorted for deterministic output.
 		missing := make([]string, 0, len(so.Attributes))
@@ -809,7 +924,7 @@ func applyAttrOverride(attr map[string]any, ao attributeOverride) error {
 		delete(attr, curType)
 		attr[ao.Type] = typeObj
 		// The prior type may have carried structural keys that don't apply to
-		// the new one — single_nested's `attributes` and generated `custom_type`,
+		// the new one, single_nested's `attributes` and generated `custom_type`,
 		// or list/map's `element_type`. Drop them when retyping to a scalar so
 		// the node is a valid scalar attribute; a replacement custom_type (if
 		// any) is re-added below.
@@ -865,7 +980,7 @@ func applyAttrOverride(attr map[string]any, ao attributeOverride) error {
 	if len(ao.Attributes) > 0 {
 		// Merge into the children the spec already produced rather than replacing
 		// them. This block used to build the list from scratch, so overriding one
-		// field of a nested object silently deleted every sibling — naming just
+		// field of a nested object silently deleted every sibling, naming just
 		// azure_connection.tenant_client_secret erased the rest of the connection
 		// block and left an attribute with no type at all, which the provider code
 		// spec rejects. Existing children are updated in place; children named only
@@ -979,7 +1094,7 @@ func (g *generator) writeTest(path string, tmpl *template.Template, pkg, pascal,
 // findConstructor scans a service package's hand-written source (skipping
 // generated and test files) for the exported constructor whose name and return
 // type match this kind, e.g. `func NewAWSIAMPolicyResource() resource.Resource`.
-// The generated test must call that real name — its acronym casing won't match
+// The generated test must call that real name, its acronym casing won't match
 // tfplugingen's naive PascalCase derived from the snake_case config key.
 func (g *generator) findConstructor(pkgDir string, k kind) (string, bool) {
 	entries, err := g.fs.ReadDir(pkgDir)
@@ -1136,7 +1251,7 @@ const associationSetSuffix = "_ids"
 // unorderedListNames are collections whose element type alone does not identify
 // them (they hold strings, not ids) but which are still unordered sets in the
 // API. Evidence, not guesswork: each produced an order-only diff on a real
-// migration — the same members returned in a different order than the
+// migration, the same members returned in a different order than the
 // configuration listed them.
 //
 // `regions` was originally left ordered on the assumption that a practitioner
@@ -1155,7 +1270,7 @@ var unorderedListNames = map[string]bool{
 // applyAssociationSetDefault retypes `*_ids` list attributes as sets.
 //
 // The OpenAPI spec describes these as JSON arrays, so the generator produced
-// schema.ListAttribute — an ORDERED type. The SDKv2 provider used TypeSet, which
+// schema.ListAttribute, an ORDERED type. The SDKv2 provider used TypeSet, which
 // compares by membership. That difference is invisible until a configuration
 // written for the old provider is migrated: state holds the set in hash order
 // while config holds it in API order, the two are equal as sets and unequal as
@@ -1163,7 +1278,7 @@ var unorderedListNames = map[string]bool{
 // and re-added at a different position.
 //
 // Observed on a real installation: of 98 attribute differences across 843
-// migrated resources, 96 were exactly this — same members, different order, no
+// migrated resources, 96 were exactly this, same members, different order, no
 // actual change. Sorting on read does not fix it, because a provider cannot
 // reorder a practitioner's configuration; only set semantics can.
 //
@@ -1208,8 +1323,8 @@ func applyAssociationSetDefault(node any) error {
 			//   - a list of int64. In this API a bare list of integers is always
 			//     a collection of related object ids; there is no attribute where
 			//     the order of such a list carries meaning. This is what catches
-			//     the ones that do NOT follow the naming convention —
-			//     aws_iam_policies, azure_role_definitions, gcp_iam_roles — which
+			//     the ones that do NOT follow the naming convention,
+			//     aws_iam_policies, azure_role_definitions, gcp_iam_roles, which
 			//     a suffix rule alone missed, leaving them still producing
 			//     order-only diffs.
 			//   - a name ending in _ids, for id collections of some other element

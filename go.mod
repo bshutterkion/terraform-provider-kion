@@ -1,6 +1,6 @@
 module terraform-provider-kion
 
-go 1.25.5
+go 1.25.13
 
 require (
 	github.com/hashicorp/hcl/v2 v2.24.0
@@ -42,7 +42,7 @@ require (
 // The SDK's module path is github.com/kionsoftware/kion-sdk-go; it is currently
 // published at github.com/bshutterkion/kion-sdk-go. This versioned replace points
 // the import path at that host so the provider builds from a plain clone, with no
-// sibling checkout. Delete this line once the module path itself is published —
+// sibling checkout. Delete this line once the module path itself is published,
 // no import in the tree changes.
 replace github.com/kionsoftware/kion-sdk-go => github.com/bshutterkion/kion-sdk-go v0.9.0
 

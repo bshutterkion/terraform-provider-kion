@@ -8,7 +8,7 @@ import (
 )
 
 // fixtureIndex builds an sdkIndex from the Label testdata fixtures via the real
-// fileSource — exercising the parsers end-to-end, not a mock.
+// fileSource, exercising the parsers end-to-end, not a mock.
 func fixtureIndex(t *testing.T) sdkIndex {
 	t.Helper()
 	src := NewFileSource()
@@ -272,7 +272,7 @@ func TestNestedRecordWrapper_skippedWhenAmbiguous(t *testing.T) {
 func TestNestedRecordWrapper_skippedWhenNotAModelObjectAttr(t *testing.T) {
 	read, byTF, idx := nestedRecordIndex()
 	// A plain scalar model attribute over the same SDK struct is not a record
-	// wrapper — the record would have nowhere to land.
+	// wrapper. The record would have nowhere to land.
 	byTF["azure_policy"] = ModelField{GoName: "AzurePolicy", TFSDK: "azure_policy", Type: "types.String"}
 	if _, _, _, ok := nestedRecordWrapper(&read, byTF, idx); ok {
 		t.Error("a non-object model attribute must not be treated as a record wrapper")

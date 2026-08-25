@@ -43,7 +43,7 @@ linters:
       check-blank: true
       exclude-functions:
         - (*os.File).Close
-        # Diagnostic writes to stderr / an injected io.Writer — the write error
+        # Diagnostic writes to stderr / an injected io.Writer; the write error
         # is not actionable in CLI tooling. Matches terraform-provider-aws.
         - fmt.Fprint
         - fmt.Fprintf
@@ -86,11 +86,11 @@ linters:
 
   exclusions:
     rules:
-      # HashiCorp-generated schema files — skip all linters
+      # HashiCorp-generated schema files: skip all linters
       - path: _gen\.go$
         linters:
           - all
-      # Service packages are generated scaffolds — suppress style and naming
+      # Service packages are generated scaffolds, so suppress style and naming
       - path: internal/service/
         linters:
           - revive

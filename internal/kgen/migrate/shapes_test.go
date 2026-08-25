@@ -18,8 +18,8 @@ import (
 type jsonShape string
 
 const (
-	shapeArray  jsonShape = "array"  // '[' — list/set/tuple, and SDKv2 list/set blocks
-	shapeObject jsonShape = "object" // '{' — map/object, single-nested
+	shapeArray  jsonShape = "array"  // '[', list/set/tuple, and SDKv2 list/set blocks
+	shapeObject jsonShape = "object" // '{', map/object, single-nested
 	shapeString jsonShape = "string"
 	shapeNumber jsonShape = "number"
 	shapeBool   jsonShape = "bool"
@@ -91,7 +91,7 @@ func migratedPairs(t *testing.T) (map[string]string, map[string]Resource, map[st
 }
 
 // handles reports whether the transform restructures this new attribute rather
-// than passing the old value through — i.e. whether a rule exists that can fix a
+// than passing the old value through. I.e. whether a rule exists that can fix a
 // shape mismatch.
 func handles(tr Transform, attr string) (string, bool) {
 	if pr, ok := tr.Project[attr]; ok && pr.From != "" {
@@ -113,14 +113,14 @@ func handles(tr Transform, attr string) (string, bool) {
 // migration surface: every attribute whose JSON shape changed between the old
 // and new schema MUST be covered by a state_upgrades rule. An uncovered one is
 // passed through verbatim by the generated upgrader and blows up in
-// ValueFromJSON on a real customer's state — which is exactly what
+// ValueFromJSON on a real customer's state, which is exactly what
 // kion_aws_cloudformation_template.tags did.
 func TestUpgradeShapes_allIncompatiblesHandled(t *testing.T) {
 	pairs, oldS, newS, ups := migratedPairs(t)
 
 	// The complete, deliberate inventory of TOP-LEVEL shape changes on the
-	// migrated surface — the ones where the old JSON's very first byte no longer
-	// matches what the new type wants — each with the rule that restructures it.
+	// migrated surface, the ones where the old JSON's very first byte no longer
+	// matches what the new type wants, each with the rule that restructures it.
 	// Anything not on this list is a new shape change that needs a rule (or a
 	// considered addition here); anything on it that no longer mismatches is
 	// stale. This list is short on purpose: it is the whole set of ways a
@@ -149,14 +149,14 @@ func TestUpgradeShapes_allIncompatiblesHandled(t *testing.T) {
 
 			if so != sn {
 				if !covered {
-					t.Errorf("%s: %s → %s but no state_upgrades rule restructures it — "+
+					t.Errorf("%s: %s → %s but no state_upgrades rule restructures it; "+
 						"the generated upgrader passes the old value through and ValueFromJSON will reject it",
 						key, so, sn)
 					continue
 				}
 				got[key] = rule
 				if wantRule, listed := want[key]; !listed {
-					t.Errorf("%s: %s → %s handled by %q but not in the reviewed inventory — "+
+					t.Errorf("%s: %s → %s handled by %q but not in the reviewed inventory; "+
 						"add it once you have confirmed the rule is right", key, so, sn, rule)
 				} else if wantRule != rule {
 					t.Errorf("%s: handled by %q, inventory says %q", key, rule, wantRule)
@@ -165,7 +165,7 @@ func TestUpgradeShapes_allIncompatiblesHandled(t *testing.T) {
 			}
 
 			// Same top-level shape, but a block's array holds objects while a
-			// plain collection attribute holds scalars — an ELEMENT-level
+			// plain collection attribute holds scalars, an ELEMENT-level
 			// mismatch that decodes no better. These are the ubiquitous
 			// ownership projections (owner_users { id } → owner_user_ids = [id]),
 			// so they need a rule but not an inventory entry.
@@ -177,14 +177,14 @@ func TestUpgradeShapes_allIncompatiblesHandled(t *testing.T) {
 	}
 	for key := range want {
 		if _, ok := got[key]; !ok {
-			t.Errorf("%s: listed as a shape change but the snapshots no longer show one — stale entry", key)
+			t.Errorf("%s: listed as a shape change but the snapshots no longer show one; stale entry", key)
 		}
 	}
 }
 
 // TestUpgradeShapes_passthroughObjectsMatchFieldForField covers the subtler half:
 // an old block-set and a new list/set-nested attribute have the SAME json shape
-// (both arrays of objects), so the upgrader passes them straight through — which
+// (both arrays of objects), so the upgrader passes them straight through, which
 // is only correct while the object's fields are identical. tftypes rejects both a
 // missing and an extra object key, so one renamed field inside
 // kion_project.project_funding would break every project's upgrade silently
@@ -210,7 +210,7 @@ func TestUpgradeShapes_passthroughObjectsMatchFieldForField(t *testing.T) {
 			}
 			checked++
 			if !eqStrs(oa.NestedAttrs, na.NestedAttrs) {
-				t.Errorf("%s.%s: passed through unchanged but the object's fields differ — "+
+				t.Errorf("%s.%s: passed through unchanged but the object's fields differ; "+
 					"old %v, new %v; tftypes rejects missing and extra keys alike",
 					oldType, name, oa.NestedAttrs, na.NestedAttrs)
 			}
@@ -219,7 +219,7 @@ func TestUpgradeShapes_passthroughObjectsMatchFieldForField(t *testing.T) {
 	// kion_project's budget, move_ou_settings and project_funding are the three.
 	if checked != 3 {
 		t.Errorf("checked %d block→nested-object passthroughs, expected 3 "+
-			"(kion_project budget/move_ou_settings/project_funding) — "+
+			"(kion_project budget/move_ou_settings/project_funding): "+
 			"update this count deliberately if the surface changed", checked)
 	}
 }
