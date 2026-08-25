@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode"
 
 	"gopkg.in/yaml.v3"
 
@@ -27,12 +28,22 @@ var kindAliases = map[string]string{
 }
 
 // archetypeInfo is the slice of a crud_archetypes.yaml entry Build needs: the
-// archetype kind plus the two association fields (association.gtpl reads the
-// same two off the same struct — see internal/kgen/crud/assoc.go).
+// archetype kind, the two association fields (association.gtpl reads the
+// same two off the same struct — see internal/kgen/crud/assoc.go), and the
+// three compound_key_parent_read fields (internal/kgen/crud/compound.go's
+// archetype struct reads the same three, under the same yaml names) that
+// ShapeNestedCollection carries into the manifest row.
 type archetypeInfo struct {
 	Kind        string
 	KeyField    string
 	ParentField string
+	// Collection, ParentIDField, ChildIDField are populated only for
+	// compound_key_parent_read. Collection is copied verbatim from
+	// crud_archetypes.yaml (Go-style, e.g. "CriteriaRecords") -- Build
+	// converts it to the JSON key the manifest carries.
+	Collection    string
+	ParentIDField string
+	ChildIDField  string
 }
 
 // parentOverrides corrects resources, verified against a real install, where
@@ -294,6 +305,20 @@ func Build(readPaths, dataSourcePaths, privateListPaths, privateResourcePaths ma
 			r.ImportID.KeyField = info.KeyField
 		}
 
+		// ShapeNestedCollection's records live inline in the parent payload
+		// (Classify never attaches a Parent block for it, unlike
+		// ShapeParentList), so the runtime enumerator needs the collection key
+		// and the two id fields carried explicitly rather than re-deriving
+		// them. Collection is converted from crud_archetypes.yaml's Go-style
+		// name (e.g. "CriteriaRecords") to the JSON key the live payload
+		// actually uses ("criteria_records") here, once, at generation time --
+		// not by the reader on every enumeration.
+		if r.ReadShape == ShapeNestedCollection {
+			r.Collection = jsonKeyFromGoName(info.Collection)
+			r.ParentIDField = info.ParentIDField
+			r.ChildIDField = info.ChildIDField
+		}
+
 		// Applied after derivation: these two tables replace a wrongly
 		// derived parent (or a flat classification that never had one) with
 		// the live-verified shape. See their doc comments for the evidence.
@@ -408,6 +433,29 @@ func parentFromPath(path string) Parent {
 	}
 }
 
+// jsonKeyFromGoName folds a Go exported field name (as crud_archetypes.yaml's
+// collection: key names it, e.g. "CriteriaRecords") into the snake_case JSON
+// key the live API actually uses ("criteria_records"): an underscore is
+// inserted before every uppercase letter that is not the first character,
+// and the whole string is lowercased. This is a plain camel/Pascal->snake
+// fold, not an acronym-aware one -- a run of consecutive capitals (e.g. "ID")
+// would split as "i_d" rather than staying "id". No field crud_archetypes.yaml
+// currently declares as a collection has that shape, but a future one might;
+// this limitation is intentional to keep the fold simple and predictable.
+func jsonKeyFromGoName(name string) string {
+	if name == "" {
+		return ""
+	}
+	var b strings.Builder
+	for i, r := range name {
+		if i > 0 && unicode.IsUpper(r) {
+			b.WriteByte('_')
+		}
+		b.WriteRune(unicode.ToLower(r))
+	}
+	return b.String()
+}
+
 // Generate reads the codegen inputs from root and writes OutputPath.
 func Generate(fsw kfs.FS, root string) (*Manifest, error) {
 	readPaths, err := loadReadPaths(fsw, filepath.Join(root, "codegen", "generator_config.yaml"))
@@ -504,24 +552,25 @@ func loadArchetypeKinds(fsw kfs.FS, path string) (map[string]archetypeInfo, erro
 		Kind        string `yaml:"kind"`
 		KeyField    string `yaml:"key_field"`
 		ParentField string `yaml:"parent_field"`
-		// compound_key_parent_read names the child's field child_id_field rather
-		// than key_field. Without it the import id would be "<parent>/" with an
-		// empty child and every record would be skipped for a missing key.
-		ChildIDField string `yaml:"child_id_field"`
+		// compound_key_parent_read's own identity fields -- see
+		// internal/kgen/crud/compound.go's archetype struct, which parses the
+		// same three yaml keys off the same file for the CRUD generator side.
+		Collection    string `yaml:"collection"`
+		ParentIDField string `yaml:"parent_id_field"`
+		ChildIDField  string `yaml:"child_id_field"`
 	}
 	if err := yaml.Unmarshal(raw, &doc); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 	out := make(map[string]archetypeInfo, len(doc))
 	for kind, entry := range doc {
-		keyField := entry.KeyField
-		if keyField == "" {
-			keyField = entry.ChildIDField
-		}
 		out[kind] = archetypeInfo{
-			Kind:        entry.Kind,
-			KeyField:    keyField,
-			ParentField: entry.ParentField,
+			Kind:          entry.Kind,
+			KeyField:      entry.KeyField,
+			ParentField:   entry.ParentField,
+			Collection:    entry.Collection,
+			ParentIDField: entry.ParentIDField,
+			ChildIDField:  entry.ChildIDField,
 		}
 	}
 	return out, nil
