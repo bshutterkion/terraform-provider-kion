@@ -1,9 +1,11 @@
 # kion-import: live validation
 
-Record of running `kion-import` against a real Kion installation. The authored
-endpoint tables in `internal/kgen/importmanifest/paths.go` cannot be derived from
-codegen, so they are unverified until a run like this exercises them. Re-run this
-after changing an archetype, a read path, or one of those tables.
+Record of running `kion-import` against a real Kion installation. The collection
+paths a parent-scoped or association resource reads through are authored in
+`codegen/config_overrides.yaml` rather than derived -- codegen records by-id
+reads, which those shapes have none of -- so they are unverified until a run like
+this exercises them. Re-run this after changing an archetype, a read path, or one
+of those entries.
 
 ## Environment
 
