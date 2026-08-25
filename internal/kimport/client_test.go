@@ -40,19 +40,20 @@ func TestListDataEnvelope(t *testing.T) {
 }
 
 // TestListNamedCollectionEnvelope is List's end-to-end counterpart to
-// TestUnwrapNamedCollectionEnvelope: a real /v1/dashboards response,
-// {"status":200,"data":{"dashboards":[...]}}, must come back as records
+// TestUnwrapNamedCollectionEnvelope: a real /v1/dashboards response --
+// {"status":200,"data":{"dashboards":[...],"hidden_dashboard_count":0}}, with
+// a sibling scalar key alongside the array -- must come back as records
 // through the full HTTP round trip, not just the pure unwrap helper.
 func TestListNamedCollectionEnvelope(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprint(w, `{"status":200,"data":{"dashboards":[{"id":1},{"id":2}]}}`)
+		fmt.Fprint(w, `{"status":200,"data":{"dashboards":[{"id":1},{"id":2},{"id":3},{"id":4}],"hidden_dashboard_count":0}}`)
 	}))
 	defer srv.Close()
 
 	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v1/dashboards")
 	require.NoError(t, err)
-	assert.Len(t, got, 2)
+	assert.Len(t, got, 4)
 }
 
 func TestListPaginatesItemsEnvelope(t *testing.T) {
@@ -309,14 +310,15 @@ func TestUnwrapGenuineSingleObjectDataStillOneRecord(t *testing.T) {
 	assert.Equal(t, -1, total)
 }
 
-// TestUnwrapNamedCollectionEnvelope covers /v1/dashboards' shape:
-// {"status":200,"data":{"dashboards":[{...}]}}. unwrap must recognize data as
-// a single-key object whose value is an array and use that array as the
-// records, the same way it already recurses into an {"items":[...]} nested
-// envelope.
+// TestUnwrapNamedCollectionEnvelope covers /v1/dashboards' real shape:
+// {"status":200,"data":{"dashboards":[{...}],"hidden_dashboard_count":0}} --
+// an array-valued key plus a sibling scalar. unwrap must recognize data as
+// having exactly one array-valued key and use that array as the records,
+// ignoring the scalar sibling, the same way it already recurses into an
+// {"items":[...]} nested envelope.
 func TestUnwrapNamedCollectionEnvelope(t *testing.T) {
 	t.Parallel()
-	records, total, err := unwrap(json.RawMessage(`{"status":200,"data":{"dashboards":[{"id":1,"name":"a"},{"id":2,"name":"b"}]}}`))
+	records, total, err := unwrap(json.RawMessage(`{"status":200,"data":{"dashboards":[{"id":1,"name":"a"},{"id":2,"name":"b"}],"hidden_dashboard_count":0}}`))
 	require.NoError(t, err)
 	require.Len(t, records, 2)
 	assert.Equal(t, float64(1), records[0]["id"])
@@ -325,36 +327,50 @@ func TestUnwrapNamedCollectionEnvelope(t *testing.T) {
 	assert.Equal(t, -1, total)
 }
 
+// TestUnwrapNamedCollectionEnvelopeWithSeveralScalarSiblings extends the
+// real-shape case to several sibling scalar/object keys, not just one --
+// exactly one array-valued key must still be enough to identify the records,
+// regardless of how many non-array keys ride alongside it.
+func TestUnwrapNamedCollectionEnvelopeWithSeveralScalarSiblings(t *testing.T) {
+	t.Parallel()
+	records, total, err := unwrap(json.RawMessage(`{"status":200,"data":{"dashboards":[{"id":1}],"hidden_dashboard_count":0,"page":1,"meta":{"note":"x"}}}`))
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	assert.Equal(t, float64(1), records[0]["id"])
+	assert.Equal(t, -1, total)
+}
+
 // TestUnwrapNamedCollectionEnvelopeEmptyArray covers the empty-list case of
-// the same shape: {"data":{"dashboards":[]}} must yield zero records, not an
-// error and not one bogus record.
+// the same shape: {"data":{"dashboards":[],"hidden_dashboard_count":0}} must
+// yield zero records, not an error and not one bogus record.
 func TestUnwrapNamedCollectionEnvelopeEmptyArray(t *testing.T) {
 	t.Parallel()
-	records, _, err := unwrap(json.RawMessage(`{"status":200,"data":{"dashboards":[]}}`))
+	records, _, err := unwrap(json.RawMessage(`{"status":200,"data":{"dashboards":[],"hidden_dashboard_count":0}}`))
 	require.NoError(t, err)
 	assert.Len(t, records, 0)
 }
 
-// TestUnwrapTwoKeyDataObjectFallsThroughUnchanged is a regression guard: two
-// or more keys under data must NOT trigger the named-collection shortcut --
-// it isn't unambiguous which key (if any) is the record list, so this must
-// fall through to the existing singleton-object behavior instead of picking
-// one arbitrarily.
-func TestUnwrapTwoKeyDataObjectFallsThroughUnchanged(t *testing.T) {
+// TestUnwrapTwoArrayValuedKeysFallsThroughUnchanged is a regression guard:
+// two (or more) ARRAY-VALUED keys under data must NOT trigger the
+// named-collection shortcut -- it isn't unambiguous which array is the
+// record list, so this must fall through to the existing singleton-object
+// behavior instead of picking one arbitrarily. A sibling scalar key does not
+// count towards this -- see TestUnwrapNamedCollectionEnvelope.
+func TestUnwrapTwoArrayValuedKeysFallsThroughUnchanged(t *testing.T) {
 	t.Parallel()
-	records, total, err := unwrap(json.RawMessage(`{"status":200,"data":{"dashboards":[{"id":1}],"total_dashboards":1}}`))
+	records, total, err := unwrap(json.RawMessage(`{"status":200,"data":{"dashboards":[{"id":1}],"favorites":[{"id":2}]}}`))
 	require.NoError(t, err)
 	require.Len(t, records, 1)
-	// Falls through to the whole data object as one record, not the inner array.
+	// Falls through to the whole data object as one record, not either inner array.
 	assert.Contains(t, records[0], "dashboards")
-	assert.Contains(t, records[0], "total_dashboards")
+	assert.Contains(t, records[0], "favorites")
 	assert.Equal(t, -1, total)
 }
 
 // TestUnwrapSingleKeyNonArrayValueFallsThroughUnchanged is a regression
-// guard: a single-key data object whose value is NOT an array (e.g.
-// {"data":{"id":1}}) must not be treated as a named-collection envelope --
-// it must still come back as one record via the existing singleton branch.
+// guard: a data object with zero array-valued keys (e.g. {"data":{"id":1}})
+// must not be treated as a named-collection envelope -- it must still come
+// back as one record via the existing singleton branch.
 func TestUnwrapSingleKeyNonArrayValueFallsThroughUnchanged(t *testing.T) {
 	t.Parallel()
 	records, total, err := unwrap(json.RawMessage(`{"status":200,"data":{"id":1}}`))
