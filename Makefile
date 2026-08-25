@@ -374,7 +374,11 @@ testacc: ## Run acceptance tests (requires KION_API_URL and credentials)
 sweep: ## Remove orphaned test resources (requires KION_API_URL and credentials)
 	@echo "$(RED)WARNING: This will destroy infrastructure. Use only in development accounts.$(RESET)"
 	@echo "$(YELLOW)Sweeping test resources...$(RESET)"
-	@TF_ACC=1 go test -v -sweep=all -timeout 30m ./internal/provider/...
+	@# internal/sweep is the only package with the resource.TestMain that runs
+	@# sweepers, and -sweep must follow the package list: go test stops parsing
+	@# packages at the first flag it does not know, so a trailing ./... would be
+	@# handed to the test binary and the ROOT package run instead.
+	@TF_ACC=1 go test -v -timeout 30m ./internal/sweep/... -sweep=all
 
 .PHONY: clean
 clean: ## Remove build artifacts (binary, release bin/, coverage files)

@@ -2,31 +2,9 @@
 
 package scope_criteria
 
-import (
-	"fmt"
-
-	"terraform-provider-kion/internal/conns"
-
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-)
-
-func init() {
-	resource.AddTestSweepers("kion_scope_criteria", &resource.Sweeper{
-		Name: "kion_scope_criteria",
-		F:    sweepScopeCriteria,
-	})
-}
-
-func sweepScopeCriteria(_ string) error {
-	conn, err := conns.SharedClient()
-	if err != nil {
-		return fmt.Errorf("getting shared client: %w", err)
-	}
-	_ = conn
-
-	// kion_scope_criteria is a compound-key sub-resource with no independent list
-	// endpoint. Records are enumerated per parent. A real sweeper must list
-	// every parent and delete each test-acc child, which needs the FK-fixture
-	// sweeper follow-up. No-op for now.
-	return nil
-}
+// No acceptance-test sweeper is registered for kion_scope_criteria:
+// a compound-key sub-resource has no independent collection endpoint.
+//
+// A registered sweeper that returned nil would report success to `make sweep`
+// while orphaned test-acc records accumulated, so none is registered at all.
+// Clean these up by hand, or fix the generator input that blocks enumeration.

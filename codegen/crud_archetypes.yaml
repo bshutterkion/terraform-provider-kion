@@ -14,6 +14,15 @@
 #   collection       field on the parent read payload holding []child
 #   record_id_field  field on the child record equal to child_id
 #   json_fields      model attributes carried as jx.Raw <-> jsontypes.Normalized
+#
+# `kind: entity` entries route to the normal entity renderer and only carry
+# tweaks, including the sweeper's:
+#   sweep_parent        resource whose collection yields the parent ids
+#   sweep_parent_param  the list param those ids are passed as
+# A parent-scoped collection takes a required parent id, which the data source
+# cannot supply (so it stays id-only) but a sweeper can, by walking the parents
+# first. Without these the resource gets NO sweeper, which is deliberate: a
+# registered sweeper that swept nothing would report success to `make sweep`.
 
 scope_criteria:
   kind: compound_key_parent_read
@@ -41,6 +50,33 @@ compliance_control:
   delete_record_param: ControlID
   delete_extra_param: ID
   delete_extra_field: program_id
+
+# Parent-scoped collections: GET .../{parent}/... needs a parent id, so only a
+# sweeper (which enumerates the parents) can list them.
+compliance_family:
+  kind: entity
+  sweep_parent: compliance_program
+  sweep_parent_param: ID
+
+compliance_level:
+  kind: entity
+  sweep_parent: compliance_program
+  sweep_parent_param: ID
+
+ou_note:
+  kind: entity
+  sweep_parent: ou
+  sweep_parent_param: ID
+
+idms_group_association:
+  kind: entity
+  sweep_parent: idms
+  sweep_parent_param: ID
+
+saml_group_association:
+  kind: entity
+  sweep_parent: idms
+  sweep_parent_param: ID
 
 global_permission_mapping:
   kind: association

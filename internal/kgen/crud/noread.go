@@ -77,9 +77,12 @@ func (g *generator) generateNoRead(dir, name string, ops resOps, idx sdkIndex, m
 	if err != nil {
 		return 0, err
 	}
-	sweepGo, _, err := renderSweep(rm)
+	sweepGo, sweepReason, err := renderSweep(rm)
 	if err != nil {
 		return 0, err
+	}
+	if sweepReason != "" {
+		g.unswept = append(g.unswept, downgrade{Resource: name, Reason: sweepReason})
 	}
 	// DataSourceCtor must be supplied even when it resolves to "": the template
 	// branches on it, and Go's text/template errors on a field that is absent
