@@ -238,28 +238,3 @@ resources:
     update: { method: PATCH,  path: "/v3/ou-note/{id}", spec: public }
     delete: { method: DELETE, path: "/v3/ou-note/{id}", spec: public }
     private_twin_delete: { method: DELETE, path: "/v2/ou-note/{id}" }
-
-# ---------------------------------------------------------------------------
-# List-read-only: the API has NO by-id read anywhere (public OR private). Only a
-# collection GET. Not a private-endpoint gap; the resource read has to be
-# "list-then-filter" (or the collection is the read). Recorded so nobody hunts for
-# a by-id endpoint that doesn't exist.
-list_read_only:
-  aws_resource_tag: { read: { method: GET, path: "/v3/aws-resource-tag" } }   # + POST, DELETE /{id}
-  billing_source:   { read: { method: GET, path: "/v4/billing-source" } }     # create is per-provider; DELETE /v3/billing-source/{id}
-  global_permission_mapping: { read: { method: GET, path: "/v3/global/permission-mapping" } }  # global singleton; index IS the read
-
-# ---------------------------------------------------------------------------
-# Verified fully public (checked against the backend; here to close the analysis,
-# these are NOT gaps, no private endpoint needed):
-#   budget                    full /v3/budget CRUD (GET/POST/PUT/DELETE /{id})
-#   custom_variable_override  public /v3/{account,ou,project}/{id}/custom-variable/{cv_id} (GET/PUT/DELETE)
-#   account, aws_account,     public GET/PATCH/DELETE /v3/account/{id}; create is per-provider
-#     azure_account, gcp_account, custom_account
-#   ou_/project_/funding_source_permission_mapping: public /v3 index + PATCH upsert
-#     (schema handled by reconstruction in schema_overrides, not a private endpoint)
-#
-# Genuinely unsupportable as CRUD resources (no read endpoint at all / not a resource):
-#   forecast          only POST /v1/spend-forecast (an RPC, not managed state)
-#   forecast_category no backend routes or model at all
-#   app_config        singleton settings (GET index + PATCH + per-key PUTs); not CRUD-shaped

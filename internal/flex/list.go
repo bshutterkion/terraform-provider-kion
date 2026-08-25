@@ -146,19 +146,10 @@ func Uint64SliceToFrameworkSet(ctx context.Context, v []uint64) (types.Set, diag
 
 // --- Membership diff: for associations synced via paired add/remove endpoints ---
 
-// Uint64ListDiff extracts the old (state) and new (plan) uint64 id lists and
+// Uint64SetDiff extracts the old (state) and new (plan) uint64 id sets and
 // returns the ids to add (in new, not old) and to remove (in old, not new).
 // Used by resources whose owner/member associations are updated through
 // separate add/remove endpoints rather than the main update body.
-func Uint64ListDiff(ctx context.Context, old, cur types.List, diags *diag.Diagnostics) (add, remove []uint64) {
-	o, d := Uint64SliceFromFramework(ctx, old)
-	diags.Append(d...)
-	n, d2 := Uint64SliceFromFramework(ctx, cur)
-	diags.Append(d2...)
-	return subtractUint64(n, o), subtractUint64(o, n)
-}
-
-// Uint64SetDiff is Uint64ListDiff for types.Set-typed membership attributes.
 func Uint64SetDiff(ctx context.Context, old, cur types.Set, diags *diag.Diagnostics) (add, remove []uint64) {
 	o, d := Uint64SliceFromFrameworkSet(ctx, old)
 	diags.Append(d...)
@@ -182,17 +173,8 @@ func subtractUint64(a, b []uint64) []uint64 {
 	return out
 }
 
-// Int64ListDiff / Int64SetDiff are the []int64 analogs of the uint64 ones,
-// for member endpoints that take []int64 (e.g. UpdateUGroupUsers).
-func Int64ListDiff(ctx context.Context, old, cur types.List, diags *diag.Diagnostics) (add, remove []int64) {
-	o, d := Uint64SliceFromFramework(ctx, old)
-	diags.Append(d...)
-	n, d2 := Uint64SliceFromFramework(ctx, cur)
-	diags.Append(d2...)
-	return toInt64(subtractUint64(n, o)), toInt64(subtractUint64(o, n))
-}
-
-// Int64SetDiff is Int64ListDiff for types.Set-typed member attributes.
+// Int64SetDiff is the []int64 analog of Uint64SetDiff, for member endpoints that
+// take []int64 (e.g. UpdateUGroupUsers).
 func Int64SetDiff(ctx context.Context, old, cur types.Set, diags *diag.Diagnostics) (add, remove []int64) {
 	o, d := Uint64SliceFromFrameworkSet(ctx, old)
 	diags.Append(d...)
