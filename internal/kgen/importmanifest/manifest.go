@@ -38,6 +38,9 @@ const (
 
 // Parent describes a parent-scoped or association read.
 type Parent struct {
+	// Kind is diagnostic only -- not consumed by the runtime enumerator, which
+	// reads ListPath/ChildPath/ParentIDField instead. Useful when eyeballing
+	// the generated JSON.
 	Kind          string `json:"kind"`
 	ListPath      string `json:"list_path"`
 	ChildPath     string `json:"child_path"` // contains "{parent_id}"
@@ -52,8 +55,15 @@ type ImportID struct {
 
 // Resource is one row of the manifest.
 type Resource struct {
-	TFType    string    `json:"tf_type"`
-	Kind      string    `json:"kind"`
+	TFType string `json:"tf_type"`
+	// Kind is diagnostic only -- not consumed by the runtime enumerator (which
+	// keys everything off TFType), kept so the generated JSON is legible
+	// without cross-referencing tf_type back to a codegen kind by hand.
+	Kind string `json:"kind"`
+	// Archetype is diagnostic only -- not consumed by the runtime enumerator.
+	// It records which crud_archetypes.yaml kind produced this row, useful
+	// for tracing a derivation decision back to its source, but ReadShape and
+	// ImportID are what the enumerator actually reads.
 	Archetype string    `json:"archetype"`
 	ReadShape ReadShape `json:"read_shape"`
 	Readable  bool      `json:"readable"`
