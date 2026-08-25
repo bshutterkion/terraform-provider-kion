@@ -6,6 +6,7 @@
 package kimport
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -36,9 +37,13 @@ type Client struct {
 	http    *http.Client
 }
 
-// NewClient builds a Client. baseURL should include any /api prefix the install
-// serves under; an app hit directly serves at the root.
-func NewClient(baseURL, apiKey string, skipSSL bool) *Client {
+// NewClient builds a Client. apiPrefix (e.g. "/api") is appended to baseURL,
+// tolerating a leading slash either way and never doubling a prefix baseURL
+// already ends with. Hosted installs serve their API under "/api" -- pass
+// that so callers can hand this a bare install URL unmodified. Pass "" for
+// an install that serves the API at the root (e.g. an app hit directly on
+// localhost). This mirrors kion-env-copy's KION_API_PREFIX convention.
+func NewClient(baseURL, apiKey string, skipSSL bool, apiPrefix string) *Client {
 	defaultTransport, ok := http.DefaultTransport.(*http.Transport)
 	if !ok {
 		defaultTransport = &http.Transport{}
@@ -48,10 +53,27 @@ func NewClient(baseURL, apiKey string, skipSSL bool) *Client {
 		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec // user-requested
 	}
 	return &Client{
-		baseURL: strings.TrimSuffix(baseURL, "/"),
+		baseURL: joinAPIPrefix(baseURL, apiPrefix),
 		apiKey:  apiKey,
 		http:    &http.Client{Transport: transport, Timeout: 60 * time.Second},
 	}
+}
+
+// joinAPIPrefix appends prefix to baseURL. Both sides are normalized of
+// leading/trailing slashes before joining, and if baseURL already ends with
+// prefix (e.g. a caller passes --url https://host/api with the default
+// --api-prefix /api), the prefix is not doubled. An empty (post-trim) prefix
+// leaves baseURL untouched.
+func joinAPIPrefix(baseURL, prefix string) string {
+	base := strings.TrimSuffix(baseURL, "/")
+	trimmedPrefix := strings.Trim(prefix, "/")
+	if trimmedPrefix == "" {
+		return base
+	}
+	if base == trimmedPrefix || strings.HasSuffix(base, "/"+trimmedPrefix) {
+		return base
+	}
+	return base + "/" + trimmedPrefix
 }
 
 func (c *Client) get(ctx context.Context, path string, page int) (json.RawMessage, error) {
@@ -81,18 +103,46 @@ func (c *Client) get(ctx context.Context, path string, page int) (json.RawMessag
 		}
 		return nil, fmt.Errorf("GET %s: %s", path, resp.Status)
 	}
+	buf, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("GET %s: read body: %w", path, err)
+	}
 	var body json.RawMessage
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+	if err := json.Unmarshal(buf, &body); err != nil {
+		if looksLikeHTML(buf) {
+			return nil, fmt.Errorf(
+				"GET %s: got an HTML page instead of JSON (likely a missing or wrong --api-prefix -- "+
+					"the install may serve its API under a different prefix, or at the root if you are "+
+					"hitting it directly): %s", path, snippetOf(buf))
+		}
 		return nil, fmt.Errorf("GET %s: decode: %w", path, err)
 	}
 	return body, nil
 }
 
+// looksLikeHTML reports whether buf, after leading whitespace, starts with
+// "<" -- the shape of an HTML error/login page a web app returns with HTTP
+// 200 for an unrecognized path, which a plain JSON-decode error would
+// otherwise report as an opaque "invalid character '<'" message.
+func looksLikeHTML(buf []byte) bool {
+	trimmed := bytes.TrimLeft(buf, " \t\r\n")
+	return len(trimmed) > 0 && trimmed[0] == '<'
+}
+
 // truncateBody reads up to bodyLimit bytes from resp.Body and returns a single-line snippet.
 func truncateBody(resp *http.Response) string {
 	buf, _ := io.ReadAll(io.LimitReader(resp.Body, int64(bodyLimit)+1)) //nolint:errcheck // body read errors are acceptable here
+	return snippetOf(buf)
+}
+
+// snippetOf renders buf as a single-line, length-capped preview for error messages.
+func snippetOf(buf []byte) string {
 	if len(buf) == 0 {
 		return ""
+	}
+	truncated := len(buf) > bodyLimit
+	if truncated {
+		buf = buf[:bodyLimit]
 	}
 	snippet := string(buf)
 	// Remove newlines and tabs for single-line output
@@ -102,9 +152,8 @@ func truncateBody(resp *http.Response) string {
 		}
 		return r
 	}, snippet)
-	// Cap and add ellipsis if truncated
-	if len(buf) > bodyLimit {
-		snippet = snippet[:bodyLimit] + "…"
+	if truncated {
+		snippet += "…"
 	}
 	return strings.TrimSpace(snippet)
 }

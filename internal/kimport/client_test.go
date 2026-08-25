@@ -19,7 +19,7 @@ func TestListBareArray(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got, err := NewClient(srv.URL, "k", false).List(context.Background(), "/v3/ou")
+	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v3/ou")
 	require.NoError(t, err)
 	assert.Len(t, got, 2)
 }
@@ -31,7 +31,7 @@ func TestListDataEnvelope(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got, err := NewClient(srv.URL, "k", false).List(context.Background(), "/v3/ou")
+	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v3/ou")
 	require.NoError(t, err)
 	assert.Len(t, got, 1)
 }
@@ -49,7 +49,7 @@ func TestListPaginatesItemsEnvelope(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got, err := NewClient(srv.URL, "k", false).List(context.Background(), "/beta/scope")
+	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/beta/scope")
 	require.NoError(t, err)
 	assert.Len(t, got, 3)
 	assert.Equal(t, 2, pages)
@@ -66,7 +66,7 @@ func TestListStopsOnEmptyPage(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got, err := NewClient(srv.URL, "k", false).List(context.Background(), "/beta/scope")
+	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/beta/scope")
 	require.NoError(t, err)
 	assert.Len(t, got, 1)
 }
@@ -80,7 +80,7 @@ func TestListSendsBearerAuth(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, err := NewClient(srv.URL, "secret", false).List(context.Background(), "/v3/ou")
+	_, err := NewClient(srv.URL, "secret", false, "").List(context.Background(), "/v3/ou")
 	require.NoError(t, err)
 	assert.Equal(t, "Bearer secret", auth)
 }
@@ -92,7 +92,7 @@ func TestListErrorsOnNon2xx(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, err := NewClient(srv.URL, "k", false).List(context.Background(), "/v4/compliance/family")
+	_, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v4/compliance/family")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "405")
 }
@@ -111,7 +111,7 @@ func TestListPage2TransportError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got, err := NewClient(srv.URL, "k", false).List(context.Background(), "/beta/scope")
+	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/beta/scope")
 	require.Error(t, err)
 	assert.Len(t, got, 2) // page 1 records are returned despite page 2 error
 	assert.Contains(t, err.Error(), "500")
@@ -130,7 +130,7 @@ func TestListPage2UnwrapError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got, err := NewClient(srv.URL, "k", false).List(context.Background(), "/beta/scope")
+	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/beta/scope")
 	require.Error(t, err)
 	assert.Len(t, got, 2) // page 1 records are returned despite page 2 unwrap error
 }
@@ -145,7 +145,7 @@ func TestListExceedsMaxPages(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, err := NewClient(srv.URL, "k", false).List(context.Background(), "/beta/scope")
+	_, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/beta/scope")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "max pages")
 	// Should have hit the cap and stopped
@@ -159,7 +159,7 @@ func TestListNullItemsEnvelope(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got, err := NewClient(srv.URL, "k", false).List(context.Background(), "/beta/scope")
+	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/beta/scope")
 	require.NoError(t, err)
 	assert.Len(t, got, 0)
 }
@@ -171,7 +171,7 @@ func TestListEmptyItemsEnvelope(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	got, err := NewClient(srv.URL, "k", false).List(context.Background(), "/beta/scope")
+	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/beta/scope")
 	require.NoError(t, err)
 	assert.Len(t, got, 0)
 }
@@ -239,7 +239,120 @@ func TestListErrorIncludesBody(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, err := NewClient(srv.URL, "k", false).List(context.Background(), "/v3/ou")
+	_, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v3/ou")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid request parameter")
+}
+
+// TestJoinAPIPrefix covers the pure URL-normalization helper: default prefix
+// applied, empty prefix omitting it, no doubling when the base URL already
+// ends with the prefix, and tolerance for a prefix given with or without its
+// leading/trailing slash.
+func TestJoinAPIPrefix(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		baseURL string
+		prefix  string
+		want    string
+	}{
+		{"default appended", "https://kion.example.com", "/api", "https://kion.example.com/api"},
+		{"empty prefix omits it", "https://kion.example.com", "", "https://kion.example.com"},
+		{"empty prefix still trims trailing slash on base", "https://kion.example.com/", "", "https://kion.example.com"},
+		{"no doubling when URL already ends in prefix", "https://kion.example.com/api", "/api", "https://kion.example.com/api"},
+		{"no doubling with trailing slash on base", "https://kion.example.com/api/", "/api", "https://kion.example.com/api"},
+		{"prefix without leading slash", "https://kion.example.com", "api", "https://kion.example.com/api"},
+		{"prefix with leading and trailing slash", "https://kion.example.com", "/api/", "https://kion.example.com/api"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, joinAPIPrefix(tt.baseURL, tt.prefix))
+		})
+	}
+}
+
+// TestNewClientAppliesAPIPrefixToRequests confirms the prefix actually reaches
+// the wire, not just the pure helper: --url https://host with the default
+// --api-prefix /api must request /api/v3/ou, not /v3/ou.
+func TestNewClientAppliesAPIPrefixToRequests(t *testing.T) {
+	t.Parallel()
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		fmt.Fprint(w, `[]`)
+	}))
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL, "k", false, "/api").List(context.Background(), "/v3/ou")
+	require.NoError(t, err)
+	assert.Equal(t, "/api/v3/ou", gotPath)
+}
+
+// TestNewClientEmptyAPIPrefixOmitsIt covers the --api-prefix "" escape hatch
+// for an app hit directly (e.g. localhost), which serves the API at the root.
+func TestNewClientEmptyAPIPrefixOmitsIt(t *testing.T) {
+	t.Parallel()
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		fmt.Fprint(w, `[]`)
+	}))
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v3/ou")
+	require.NoError(t, err)
+	assert.Equal(t, "/v3/ou", gotPath)
+}
+
+// TestNewClientAPIPrefixNoDoublingWhenURLAlreadyHasSuffix covers --url
+// https://host/api with the default --api-prefix /api: the request must hit
+// /api/v3/ou, not /api/api/v3/ou.
+func TestNewClientAPIPrefixNoDoublingWhenURLAlreadyHasSuffix(t *testing.T) {
+	t.Parallel()
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		fmt.Fprint(w, `[]`)
+	}))
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL+"/api", "k", false, "/api").List(context.Background(), "/v3/ou")
+	require.NoError(t, err)
+	assert.Equal(t, "/api/v3/ou", gotPath)
+}
+
+// TestGetHTMLBodyProducesSpecificNonJSONError covers the case that motivated
+// the /api-prefix work: hitting the bare host returns the web app's HTML
+// shell with HTTP 200, so the failure only shows up as a JSON decode error.
+// That must be replaced with a specific message naming the likely cause
+// instead of a raw/opaque unmarshal error.
+func TestGetHTMLBodyProducesSpecificNonJSONError(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "<!DOCTYPE html>\n<html><head><title>Kion</title></head><body>app shell</body></html>")
+	}))
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v3/ou")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "HTML")
+	assert.Contains(t, err.Error(), "--api-prefix")
+	assert.NotContains(t, err.Error(), "invalid character")
+}
+
+// TestGetHTMLBodyWithLeadingWhitespaceStillDetected is a regression guard for
+// looksLikeHTML's whitespace tolerance.
+func TestGetHTMLBodyWithLeadingWhitespaceStillDetected(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "\n\n  <html><body>app shell</body></html>")
+	}))
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v3/ou")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "HTML")
 }

@@ -28,6 +28,7 @@ var (
 	flagSkipSSL         bool
 	flagManifest        string
 	flagProbe           bool
+	flagAPIPrefix       string
 )
 
 func main() {
@@ -56,6 +57,10 @@ The API key is read from --api-key or the KION_APIKEY environment variable.`,
 		"override the embedded import manifest (maintainers)")
 	root.Flags().BoolVar(&flagProbe, "probe", false,
 		"report per-resource read outcomes and write nothing")
+	root.Flags().StringVar(&flagAPIPrefix, "api-prefix", "/api",
+		"path prefix the install serves its API under, appended to --url. "+
+			"Hosted installs serve under /api (the default); set to \"\" only when hitting an app "+
+			"directly (e.g. on localhost), where the API is served at the root")
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
@@ -84,7 +89,7 @@ func run(_ *cobra.Command, _ []string) error {
 	}
 
 	ctx := context.Background()
-	client := kimport.NewClient(flagURL, flagAPIKey, flagSkipSSL)
+	client := kimport.NewClient(flagURL, flagAPIKey, flagSkipSSL, flagAPIPrefix)
 
 	fmt.Printf("Enumerating %s (%d resource types)\n", flagURL, len(manifest.Resources))
 	results := make([]kimport.Result, 0, len(manifest.Resources))
