@@ -293,6 +293,11 @@ crud-force: ## Regenerate ALL CRUD output, overwriting existing files (use after
 import-manifest: ## Generate codegen/import_manifest.json (kgen import-manifest)
 	@go run ./cmd/kgen import-manifest
 
+.PHONY: field-audit
+field-audit: ## Rewrite codegen/unexposed_fields.yaml from the current tree
+	@go test ./internal/kgen/fieldaudit/ -update -count=1
+	@echo "$(GREEN)✓ codegen/unexposed_fields.yaml regenerated$(RESET)"
+
 .PHONY: generate
 generate: version-gen generate-schemas crud import-manifest ## Regenerate the full generatable surface
 
