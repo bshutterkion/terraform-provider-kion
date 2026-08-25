@@ -36,6 +36,10 @@ go run ../../../cmd/kgen datasource <PascalName>
 # Install locally
 make install                  # Build + copy to ~/.terraform.d/plugins/
 
+# Enumerate an install into Terraform import blocks
+./bin/kion-import --url https://kion.example.com --out imports.tf
+./bin/kion-import --url https://kion.example.com --probe   # read outcomes only
+
 ```
 
 > Adding or removing a resource/data source changes this provider's supported
@@ -79,6 +83,41 @@ Resources embed `framework.ResourceWithConfigure`, data sources embed `framework
 ### Provider Configuration
 
 Provider accepts `api_url`, `api_key`, and `auth_token`, all readable from environment variables `KION_API_URL`, `KION_API_KEY`, `KION_AUTH_TOKEN`. Authentication requires either `api_key` or `auth_token`.
+
+### Import tooling
+
+`kgen import-manifest` derives `codegen/import_manifest.json` from
+`generator_config.yaml` + `crud_archetypes.yaml` + the schema snapshot: the list
+endpoint, read shape and **import-id format** per resource. The id format
+mirrors what each crud template generates in `ImportState` — plain `id` for
+entity/parentlist, `"<parent>/<key>"` for association — which is knowledge that
+exists nowhere else, and is why this lives here rather than in a downstream tool.
+
+`cmd/kion-import` reads that manifest (embedded, per `codegen/embed.go`'s
+kmigrate precedent) and enumerates a live install into `import` blocks. It
+generates no configuration and no state: `terraform plan -generate-config-out`
+and `terraform apply` do both through the provider's own `Read`/`ImportState`.
+
+`import_manifest.json` is generated — run `make import-manifest` after changing
+an archetype or a read path. `TestManifestIsCurrent` fails if you forget.
+
+The collection paths in `internal/kgen/importmanifest/paths.go` are **authored,
+not derived** (codegen records by-id reads, which parent-scoped and association
+resources lack). Verify them with `kion-import --probe` against a live install.
+
+`kion-import` appends `/api` to `--url` by default (hosted installs serve their
+API under that prefix). Pass `--api-prefix ""` for an install whose API is hit
+directly at the root — e.g. an app reached straight on localhost rather than
+through the usual hosted path. See `internal/kimport/client.go`'s
+`joinAPIPrefix`/`NewClient` for the exact normalization rules (no doubling when
+`--url` already ends in the prefix, tolerant of a prefix given with or without
+its slashes).
+
+`docs/import-tooling-validation.md` records a full run against a real install:
+as of that run, 15 resources fail (plus 3 unsupported), each with its cause
+(structurally unreadable, flat list 405 with no parent fallback, authored path
+wrong, missing parent id, etc.) — read it before assuming a resource that fails
+locally is a new bug rather than a known, already-diagnosed gap.
 
 ## Key Conventions
 
