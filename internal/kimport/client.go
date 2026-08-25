@@ -307,6 +307,64 @@ func soleArrayValue(raw json.RawMessage) (json.RawMessage, bool) {
 	return found, true
 }
 
+// dropPagePadding removes the zero-valued filler some paginated endpoints
+// return alongside the page they were asked for. The compliance parent-scoped
+// collections (/v4/compliance/program/{id}/control and .../family) answer
+// every page with an items array of length total, populating only the
+// requested page's window and leaving the rest as zero-valued structs. Left
+// in, page 1 already satisfies len(records) >= total, paging stops, and every
+// record past the first page is lost -- reported as "N record(s) skipped: no
+// id" once the padding reaches toRecords.
+//
+// Only a paginated envelope that overshot the page size is filtered, so a
+// well-behaved endpoint keeps its records untouched. Nothing real is dropped
+// either way: an all-zero record has no id and is unimportable regardless.
+func dropPagePadding(records []map[string]any, total int) []map[string]any {
+	if total < 0 || len(records) <= pageSize {
+		return records
+	}
+	kept := records[:0]
+	for _, rec := range records {
+		if !isZeroRecord(rec) {
+			kept = append(kept, rec)
+		}
+	}
+	return kept
+}
+
+// isZeroRecord reports whether every value in rec is its type's zero value --
+// the shape of a padding slot in a pre-sized response array.
+func isZeroRecord(rec map[string]any) bool {
+	for _, v := range rec {
+		switch t := v.(type) {
+		case nil:
+		case string:
+			if t != "" {
+				return false
+			}
+		case bool:
+			if t {
+				return false
+			}
+		case float64:
+			if t != 0 {
+				return false
+			}
+		case []any:
+			if len(t) > 0 {
+				return false
+			}
+		case map[string]any:
+			if !isZeroRecord(t) {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 // List GETs path, unwrapping and paging as needed.
 func (c *Client) List(ctx context.Context, path string) ([]map[string]any, error) {
 	body, err := c.get(ctx, path, 1)
@@ -320,6 +378,7 @@ func (c *Client) List(ctx context.Context, path string) ([]map[string]any, error
 	if total < 0 {
 		return records, nil // not a paginated envelope
 	}
+	records = dropPagePadding(records, total)
 
 	for page := 2; len(records) < total; page++ {
 		// Enforce hard cap to prevent infinite loops
@@ -335,6 +394,7 @@ func (c *Client) List(ctx context.Context, path string) ([]map[string]any, error
 		if err != nil {
 			return records, fmt.Errorf("GET %s (page %d): %w", path, page, err)
 		}
+		batch = dropPagePadding(batch, total)
 		// Empty batch is a legitimate stop signal
 		if len(batch) == 0 {
 			break

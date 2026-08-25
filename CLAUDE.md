@@ -124,8 +124,9 @@ through the usual hosted path. See `internal/kimport/client.go`'s
 its slashes).
 
 `docs/import-tooling-validation.md` records full runs against a real install. As
-of the latest (`main` @ 69c566c) **no resource errors**: 68 rows in, 59 ok, 6
-empty, 3 refused by design, 8 reading with a recorded caveat. Read it before
+of the latest run **no resource errors and no records skipped for a missing
+id**: 68 rows in, 60 ok, 5 empty, 3 refused by design, 5 reading with a
+recorded caveat. Read it before
 assuming a resource that fails locally is a new bug rather than a known,
 already-diagnosed gap — it also carries the per-defect history (API prefix,
 nested envelopes, per-type record wrappers, alias double-import, SQL null

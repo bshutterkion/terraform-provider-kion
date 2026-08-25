@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -253,6 +254,157 @@ func TestListEmptyItemsEnvelope(t *testing.T) {
 	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/beta/scope")
 	require.NoError(t, err)
 	assert.Len(t, got, 0)
+}
+
+// paddedComplianceHandler mimics /v4/compliance/program/{id}/control: every
+// page answers with an items array of length total, carrying only the
+// requested page's window of real records and zero-valued filler everywhere
+// else.
+func paddedComplianceHandler(t *testing.T, total int, pagesSeen *int) http.HandlerFunc {
+	t.Helper()
+	return func(w http.ResponseWriter, r *http.Request) {
+		*pagesSeen++
+		page, err := strconv.Atoi(r.URL.Query().Get("page"))
+		if err != nil || page < 1 {
+			page = 1
+		}
+		start, end := (page-1)*pageSize, page*pageSize
+		items := make([]map[string]any, 0, total)
+		for i := range total {
+			if i >= start && i < end {
+				items = append(items, map[string]any{"id": i + 1, "name": fmt.Sprintf("c%d", i+1), "compliance_levels": []int{}})
+				continue
+			}
+			items = append(items, map[string]any{"id": 0, "name": "", "compliance_levels": nil})
+		}
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
+			"status": 200,
+			"data":   map[string]any{"pagination": map[string]any{"page": page}, "total": total, "items": items},
+		}))
+	}
+}
+
+// TestListDropsZeroValuedPagePadding is the live shape from issue #32: the
+// compliance parent-scoped collections pre-size items to total and populate
+// only the page window, so page 1 alone looked complete and every later
+// record was lost as "no id".
+func TestListDropsZeroValuedPagePadding(t *testing.T) {
+	t.Parallel()
+	const total = 250
+	var pages int
+	srv := httptest.NewServer(paddedComplianceHandler(t, total, &pages))
+	defer srv.Close()
+
+	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v4/compliance/program/12/control")
+	require.NoError(t, err)
+	require.Len(t, got, total)
+	assert.Equal(t, 3, pages)
+	for i, rec := range got {
+		assert.Equal(t, float64(i+1), rec["id"], "record %d", i)
+	}
+}
+
+// TestListLeavesWellBehavedPagesUntouched guards the filter's blast radius:
+// an ordinary paginated endpoint whose pages are at most pageSize long must
+// not be inspected for padding at all.
+func TestListLeavesWellBehavedPagesUntouched(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("page") == "1" {
+			fmt.Fprint(w, `{"items":[{"id":1},{"id":0,"name":""}],"total":3}`)
+			return
+		}
+		fmt.Fprint(w, `{"items":[{"id":3}],"total":3}`)
+	}))
+	defer srv.Close()
+
+	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/beta/scope")
+	require.NoError(t, err)
+	assert.Len(t, got, 3)
+}
+
+// TestListUnpaddedOversizedPageIsNotFiltered covers an endpoint that ignores
+// count and returns every record on page 1: longer than pageSize, but all
+// real, so nothing may be dropped and no second page is fetched.
+func TestListUnpaddedOversizedPageIsNotFiltered(t *testing.T) {
+	t.Parallel()
+	const total = pageSize + 5
+	var pages int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		pages++
+		items := make([]map[string]any, 0, total)
+		for i := range total {
+			items = append(items, map[string]any{"id": i + 1})
+		}
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{"items": items, "total": total}))
+	}))
+	defer srv.Close()
+
+	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v3/ou")
+	require.NoError(t, err)
+	assert.Len(t, got, total)
+	assert.Equal(t, 1, pages)
+}
+
+func TestDropPagePadding(t *testing.T) {
+	t.Parallel()
+	oversized := func(populated int) []map[string]any {
+		out := make([]map[string]any, 0, pageSize+10)
+		for i := range pageSize + 10 {
+			if i < populated {
+				out = append(out, map[string]any{"id": float64(i + 1)})
+				continue
+			}
+			out = append(out, map[string]any{"id": float64(0), "name": ""})
+		}
+		return out
+	}
+	tests := []struct {
+		name    string
+		records []map[string]any
+		total   int
+		want    int
+	}{
+		{"unpaginated is untouched", oversized(3), -1, pageSize + 10},
+		{"at or under the page size is untouched", []map[string]any{{"id": float64(0)}}, 99, 1},
+		{"padding past the page window is dropped", oversized(pageSize), pageSize + 10, pageSize},
+		{"all real records survive", oversized(pageSize + 10), pageSize + 10, pageSize + 10},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Len(t, dropPagePadding(tt.records, tt.total), tt.want)
+		})
+	}
+}
+
+func TestIsZeroRecord(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		rec  map[string]any
+		want bool
+	}{
+		{"empty object", map[string]any{}, true},
+		{"live compliance padding slot", map[string]any{
+			"id": float64(0), "compliance_family_id": float64(0), "control_number": float64(0),
+			"name": "", "description": "", "severity": "", "title": "",
+			"compliance_levels": nil, "cloud_provider_policy_ids": nil,
+		}, true},
+		{"nested all-zero object", map[string]any{"id": float64(0), "meta": map[string]any{"x": ""}}, true},
+		{"empty array", map[string]any{"ids": []any{}}, true},
+		{"nonzero id", map[string]any{"id": float64(3), "name": ""}, false},
+		{"nonempty name only", map[string]any{"id": float64(0), "name": "x"}, false},
+		{"true bool", map[string]any{"enabled": true}, false},
+		{"populated array", map[string]any{"ids": []any{float64(1)}}, false},
+		{"nested nonzero object", map[string]any{"meta": map[string]any{"x": float64(1)}}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, isZeroRecord(tt.rec))
+		})
+	}
 }
 
 // TestUnwrapNestedDataEnvelope covers the doubly-nested envelope shape seen
