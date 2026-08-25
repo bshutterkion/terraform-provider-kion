@@ -123,20 +123,26 @@ expressed, from the other end. The refusal is per id, so a list keeps every
 reference that was not part of a loop, and which direction wins is fixed by
 block order in the file — the same edge loses on every run.
 
-### Attributes the read cannot recover
+### Attributes the API accepts and discards
 
-Import can only give a resource what its read returns. A couple of resources
-accept a value on create that no read — public or private — gives back, so it
-imports as `null` even though it was set:
+`reason` on `kion_ou_cloud_access_role_exemption` and
+`kion_project_cloud_access_role_exemption` is **never stored**. It is not that
+the read omits it — there is nothing to read:
 
-| resource | attribute | why |
-|---|---|---|
-| `kion_ou_cloud_access_role_exemption` | `reason` | the private read backing it (`/v1/ou/{id}/cloud-access-role-exemption`) omits `reason`, and no other endpoint returns it either |
-| `kion_project_cloud_access_role_exemption` | `reason` | same gap, on `/v1/project/{id}/cloud-access-role-exemption` |
+- the `cloud_access_role_exemption` table has no `reason` column
+- the backend's exemption entity has no such field
+- the `/v3` controller that handles the create never reads `Reason` off the
+  request, though the request model declares it with a swagger example
 
-Both attributes are Optional+Computed, so nothing errors and `terraform plan`
-is clean — the value is just gone. If the reason recorded against an exemption
-matters to you, re-enter it by hand after import.
+So an exemption imports with `reason = null` because no exemption has ever had
+one. Setting it in a configuration is silently a no-op: the provider sends it,
+the API accepts the request, and the value goes nowhere. **Do not re-enter these
+by hand after an import** — there is nothing to restore, and a value you set
+will not persist.
+
+(The `additional_comments` and `approver_comments` fields that do exist belong
+to `cloud_access_role_exemption_request`, a pending request awaiting approval —
+a different table and a different thing from a granted exemption.)
 
 ## Rewrite into module calls
 
