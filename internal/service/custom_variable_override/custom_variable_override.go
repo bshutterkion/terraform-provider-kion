@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-faster/jx"
@@ -442,14 +443,44 @@ func readOverrideIntoModel(ctx context.Context, conn *generated.Client, model *c
 	return diags
 }
 
+// ImportState splits the three-part id Create builds,
+// "<entity_type>/<entity_id>/<custom_variable_id>". All three parts are
+// required: entity_type selects which endpoint Read calls, and neither id can
+// be derived from the other. Setting only "id" left Read with no parent and no
+// variable, so every import failed.
 func (r *customVariableOverrideResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	id, diags := framework.StringToInt64(req.ID)
-	resp.Diagnostics.Append(diags...)
+	parts := strings.Split(req.ID, "/")
+	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("importing %s", ResNameCustomVariableOverride),
+			fmt.Sprintf("expected an id of the form \"<entity_type>/<entity_id>/<custom_variable_id>\", got %q", req.ID),
+		)
+		return
+	}
+	entityType, entityID, cvID := parts[0], parts[1], parts[2]
+
+	switch entityType {
+	case "project", "ou", "account":
+	default:
+		resp.Diagnostics.AddError(
+			fmt.Sprintf("importing %s", ResNameCustomVariableOverride),
+			fmt.Sprintf("unsupported entity_type %q; expected one of: project, ou, account", entityType),
+		)
+		return
+	}
+
+	_, entityDiags := parseIDString(entityID, "entity_id")
+	resp.Diagnostics.Append(entityDiags...)
+	_, cvDiags := parseIDString(cvID, "custom_variable_id")
+	resp.Diagnostics.Append(cvDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("entity_type"), entityType)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("entity_id"), entityID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("custom_variable_id"), cvID)...)
 }
 
 func flattenCustomVariableOverride(apiObject any, model *customVariableOverrideResourceModel) diag.Diagnostics {

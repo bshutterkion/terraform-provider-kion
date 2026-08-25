@@ -198,10 +198,51 @@ func TestBuildAliasIsNotEnumerated(t *testing.T) {
 // TestBuildTwoPlaceholderPathIsUnreadable guards the compound-path veto: a
 // chosen path with two or more "{...}" placeholders can't be enumerated from
 // either id alone, so it must be marked unreadable even when its archetype
-// (cv_override here) would otherwise fix it readable and ShapeSpecial. This
-// is kion_custom_variable_override's
-// /v3/account/{account_id}/custom-variable/{custom_variable_id}.
+// would otherwise fix it readable and ShapeSpecial.
+//
+// kion_custom_variable_override used to be the live example, until a plural
+// sibling collection turned out to make it enumerable after all (see
+// TestBuildCustomVariableOverrideIsRescuedByItsParentCollections). No shipped
+// resource hits this branch now, so the case is exercised synthetically -- the
+// veto is still the right default for a compound path with no such sibling.
 func TestBuildTwoPlaceholderPathIsUnreadable(t *testing.T) {
+	t.Parallel()
+	m := Build(
+		map[string]string{
+			"widget_setting": "/v3/widget/{widget_id}/setting/{setting_id}",
+		},
+		map[string]string{},
+		map[string]string{},
+		map[string]string{},
+		map[string]archetypeInfo{
+			"widget_setting": {Kind: "cv_override"},
+		},
+		[]string{"kion_widget_setting"},
+		map[string]bool{},
+	)
+	r := byType(m, "kion_widget_setting")
+	assert.False(t, r.Readable)
+	assert.Equal(t, ShapeNone, r.ReadShape)
+	assert.Empty(t, r.ListPath)
+	assert.Nil(t, r.Parent)
+	assert.Contains(t, r.Reason, "/v3/widget/{widget_id}/setting/{setting_id}")
+	// The reason must say the identity is compound, and must NOT claim the
+	// API has no read -- it does (a real, public GET), the identity is just
+	// two ids instead of one. See generate.go's placeholders >= 2 case.
+	assert.Contains(t, r.Reason, "widget_id")
+	assert.Contains(t, r.Reason, "setting_id")
+	assert.Contains(t, r.Reason, "compound identity")
+	assert.NotContains(t, r.Reason, "no read")
+}
+
+// TestBuildCustomVariableOverrideIsRescuedByItsParentCollections: derivation
+// vetoes the two-placeholder by-id read, and the override tables then have to
+// undo every part of that veto -- shape, readability, reason, the three parent
+// sets, the discriminator, and the three-part import id. The last is the one
+// with no other guard: multiParentOverrides establishes the read but leaves
+// ImportID at the plain id Classify returned, which would emit "12" instead of
+// "account/15/12" and resolve to nothing.
+func TestBuildCustomVariableOverrideIsRescuedByItsParentCollections(t *testing.T) {
 	t.Parallel()
 	m := Build(
 		map[string]string{
@@ -217,18 +258,27 @@ func TestBuildTwoPlaceholderPathIsUnreadable(t *testing.T) {
 		map[string]bool{},
 	)
 	r := byType(m, "kion_custom_variable_override")
-	assert.False(t, r.Readable)
-	assert.Equal(t, ShapeNone, r.ReadShape)
-	assert.Empty(t, r.ListPath)
-	assert.Nil(t, r.Parent)
-	assert.Contains(t, r.Reason, "/v3/account/{account_id}/custom-variable/{custom_variable_id}")
-	// The reason must say the identity is compound, and must NOT claim the
-	// API has no read -- it does (a real, public GET), the identity is just
-	// two ids instead of one. See generate.go's placeholders >= 2 case.
-	assert.Contains(t, r.Reason, "account_id")
-	assert.Contains(t, r.Reason, "custom_variable_id")
-	assert.Contains(t, r.Reason, "compound identity")
-	assert.NotContains(t, r.Reason, "no read")
+
+	assert.True(t, r.Readable)
+	assert.Equal(t, ShapeParentList, r.ReadShape)
+	assert.Empty(t, r.Reason, "the compound-identity veto must not survive the rescue")
+	assert.Equal(t, "override", r.RequireValidField)
+
+	assert.Equal(t, FormatKindParentSlashKey, r.ImportID.Format)
+	assert.Equal(t, "custom_variable_id", r.ImportID.KeyField)
+
+	require.Len(t, r.Parents, 3, "the resource is polymorphic across all three entity types")
+	kinds := make([]string, 0, len(r.Parents))
+	for _, p := range r.Parents {
+		kinds = append(kinds, p.Kind)
+		assert.Contains(t, p.ChildPath, "{parent_id}")
+		assert.Contains(t, p.ChildPath, "/custom-variable")
+	}
+	// Each Kind becomes the first segment of the import id, so it has to match
+	// the entity_type the resource's own CRUD dispatches on.
+	assert.Equal(t, []string{"account", "ou", "project"}, kinds)
+	require.NotNil(t, r.Parent)
+	assert.Equal(t, r.Parents[0], *r.Parent, "Parent must mirror Parents[0]")
 }
 
 // TestBuildParentlessAssociationUsesPlainID guards the else-branch of

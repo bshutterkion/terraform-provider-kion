@@ -109,10 +109,13 @@ type parentSetOutcome struct {
 	records          []Record
 	failures         []string // real (non-404) child-read failures, as text
 	absentParents    int      // parents whose child read 404'd: this parent has none
-	skippedWrongKind int      // records of a neighboring kind sharing the collection
-	parentsSkipped   int      // parents with no usable id
-	skippedNoID      int      // toRecords: records with no id
-	skippedNoKey     int      // toRecords: FormatParentSlashKey records missing their key field
+	skippedWrongKind int      // records the RequireValidField discriminator dropped
+	// requireValidField is echoed from the resource so the reason can name the
+	// discriminator without re-threading the manifest row.
+	requireValidField string
+	parentsSkipped    int // parents with no usable id
+	skippedNoID       int // toRecords: records with no id
+	skippedNoKey      int // toRecords: FormatParentSlashKey records missing their key field
 }
 
 // readParentSet lists p.ListPath for the parent ids, then reads p.ChildPath
@@ -168,6 +171,7 @@ func readParentSet(ctx context.Context, l Lister, p importmanifest.Parent, r imp
 			// see Resource.RequireValidField.
 			if r.RequireValidField != "" && !isValidWrapper(child[r.RequireValidField]) {
 				out.skippedWrongKind++
+				out.requireValidField = r.RequireValidField
 				continue
 			}
 			if _, ok := child[p.ParentIDField]; !ok {
@@ -187,7 +191,7 @@ func readParentSet(ctx context.Context, l Lister, p importmanifest.Parent, r imp
 					continue
 				}
 				child[p.ParentIDField] = owner
-				recs, noID, noKey := toRecords([]map[string]any{child}, r, owner)
+				recs, noID, noKey := toRecords([]map[string]any{child}, r, parentSegment(r, p, owner))
 				out.records = append(out.records, recs...)
 				out.skippedNoID += noID
 				out.skippedNoKey += noKey
@@ -195,7 +199,7 @@ func readParentSet(ctx context.Context, l Lister, p importmanifest.Parent, r imp
 			continue
 		}
 
-		recs, noID, noKey := toRecords(kept, r, pid)
+		recs, noID, noKey := toRecords(kept, r, parentSegment(r, p, pid))
 		out.records = append(out.records, recs...)
 		out.skippedNoID += noID
 		out.skippedNoKey += noKey
@@ -203,16 +207,33 @@ func readParentSet(ctx context.Context, l Lister, p importmanifest.Parent, r imp
 	return out, nil
 }
 
+// parentSegment renders the parent portion of a compound import id: the bare
+// parent id, or "<kind>/<id>" when the resource's ImportState also needs the
+// parent's entity type named (see FormatKindParentSlashKey).
+func parentSegment(r importmanifest.Resource, p importmanifest.Parent, pid string) string {
+	if r.ImportID.Format == importmanifest.FormatKindParentSlashKey && p.Kind != "" {
+		return p.Kind + "/" + pid
+	}
+	return pid
+}
+
 // isValidWrapper reports whether v is a present value: a bare non-zero number,
-// or Kion's SQL null wrapper with Valid true. Used as the discriminator for a
-// collection that mixes resource kinds (see Resource.RequireValidField).
+// Kion's SQL null wrapper with Valid true, or a plain non-empty object. Used as
+// the discriminator for a collection that mixes resource kinds (see
+// Resource.RequireValidField).
+//
+// The plain-object case is custom_variable_override's "override", which is
+// either null or {"value": ...} with no Valid flag; a wrapper that does carry
+// Valid keeps its original meaning.
 func isValidWrapper(v any) bool {
 	switch t := v.(type) {
 	case nil:
 		return false
 	case map[string]any:
-		valid, ok := t["Valid"].(bool)
-		return ok && valid
+		if valid, ok := t["Valid"].(bool); ok {
+			return valid
+		}
+		return len(t) > 0
 	default:
 		s := stringify(v)
 		return s != "" && s != "0"
@@ -248,7 +269,11 @@ func parentSetReasonParts(o parentSetOutcome) []string {
 		parts = append(parts, fmt.Sprintf("%d parent(s) failed; first: %s", len(o.failures), o.failures[0]))
 	}
 	if o.skippedWrongKind > 0 {
-		parts = append(parts, fmt.Sprintf("%d record(s) of another kind sharing the collection", o.skippedWrongKind))
+		// Names the discriminator rather than asserting a cause: on the
+		// exemption collections these records really are another kind, but on
+		// custom-variable they are the same kind merely inherited rather than
+		// overridden here, and calling those "another kind" was wrong.
+		parts = append(parts, fmt.Sprintf("%d record(s) in the collection with no %q set", o.skippedWrongKind, o.requireValidField))
 	}
 	if o.parentsSkipped > 0 {
 		parts = append(parts, fmt.Sprintf("%d parent(s) skipped: no id", o.parentsSkipped))
@@ -458,7 +483,10 @@ func toRecords(raw []map[string]any, r importmanifest.Resource, parentID string)
 
 		var id string
 		switch r.ImportID.Format {
-		case importmanifest.FormatParentSlashKey:
+		// Both compound formats append "/<key>" to a parent segment the caller
+		// already rendered; parentSegment is what puts the kind in front of it
+		// for the three-part one.
+		case importmanifest.FormatParentSlashKey, importmanifest.FormatKindParentSlashKey:
 			if parentID == "" {
 				skippedNoID++
 				continue

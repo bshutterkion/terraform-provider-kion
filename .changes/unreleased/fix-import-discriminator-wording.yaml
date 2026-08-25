@@ -1,0 +1,3 @@
+kind: BUG FIXES
+body: "`kion-import` reported every `require_valid_field` drop as \"record(s) of another kind sharing the collection\". That is true of the cloud-access-role exemption collections, which really do mix kinds, but wrong for `kion_custom_variable_override`, whose collection returns the same kind merely inherited rather than overridden at that entity. The message now names the discriminator instead of asserting a cause: `1099 record(s) in the collection with no \"override\" set`. Drops are still always counted and reported."
+time: 2026-08-25T14:31:00Z

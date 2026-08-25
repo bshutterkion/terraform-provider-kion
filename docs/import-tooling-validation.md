@@ -12,7 +12,7 @@ of those entries.
 | | |
 |---|---|
 | Install | a demo Kion installation (3.16.3) |
-| Date | 2026-08-25, on `main` @ d5a9200 |
+| Date | 2026-08-25, on `feat/import-custom-variable-override` @ f4ec800 |
 | Manifest | `codegen/import_manifest.json`, 68 resource types |
 | Command | `kion-import --url https://kion.example.com --out imports.tf` |
 
@@ -21,18 +21,19 @@ Credentials come from `--api-key` or `KION_APIKEY`; none are recorded here.
 ## Result
 
 ```
-Coverage: 68 resource types, 51966 records
-  empty: 5, ok: 60, unsupported: 3
+Coverage: 68 resource types, 51987 records
+  empty: 5, ok: 61, unsupported: 2
 ```
 
-51,880 `import` blocks generated, **zero errors**, and zero records skipped for a
+51,901 `import` blocks generated, **zero errors**, and zero records skipped for a
 missing id. Every one of the 68 manifest rows produced a result.
 
-The three `unsupported` rows are refusals by design, not gaps: two alias types
-(`kion_aws_cloudformation_template`, `kion_aws_iam_policy`) that would put two
-Terraform resources in charge of one record, and `kion_custom_variable_override`,
-whose identity is compound (`account_id` + `custom_variable_id`) and so is not
-enumerable from a flat list even though its read exists.
+The two remaining `unsupported` rows are refusals by design, not gaps: alias
+types (`kion_aws_cloudformation_template`, `kion_aws_iam_policy`) that would put
+two Terraform resources in charge of one record.
+
+`kion_custom_variable_override` used to be the third, refused for a compound
+identity. It now enumerates; see *A compound identity with a plural sibling*.
 
 ### How this run compares
 
@@ -41,7 +42,11 @@ enumerable from a flat list even though its read exists.
 | 2026-08-24 | production-scale | 53,513 | 49 | — | 15 | 4 |
 | 2026-08-25 (earlier) | production-scale | 53,513 | 59 | 2 | 3 | 4 |
 | 2026-08-25 @ 69c566c | demo (3.16.3) | 48,355 | 59 | 6 | 0 | 3 |
-| **2026-08-25 @ d5a9200** | **demo (3.16.3)** | **51,966** | **60** | **5** | **0** | **3** |
+| 2026-08-25 @ d5a9200 | demo (3.16.3) | 51,966 | 60 | 5 | 0 | 3 |
+| **2026-08-25 @ f4ec800** | **demo (3.16.3)** | **51,987** | **61** | **5** | **0** | **2** |
+
+The last row differs from the one above it by exactly the 21
+`custom_variable_override` records, which is the whole of the +21.
 
 **The rows are not the same install** — the first two ran against a
 production-scale install, the last two against a demo one. Compare the *status
@@ -197,25 +202,26 @@ Nothing errors. Three rows are refused by design, six are legitimately empty, an
 five read with a caveat. **All are recorded, not silently omitted** -- they
 appear in both the report and the generated file.
 
-### Refused by design (3)
+### Refused by design (2)
 
-`custom_variable_override` needs two ids in its path, neither discoverable
-without the other. `aws_cloudformation_template` and `aws_iam_policy` are alias
-tf_types; see *Alias types were imported twice* below.
+`aws_cloudformation_template` and `aws_iam_policy` are alias tf_types; see
+*Alias types were imported twice* below.
 
 This list used to include `aws_resource_tag`, `ou_cloud_access_role_exemption`
 and `project_cloud_access_role_exemption` as "structurally unreadable". That was
-wrong -- see *`no_read` did not mean unreadable*.
+wrong -- see *`no_read` did not mean unreadable*. It also used to include
+`custom_variable_override`; see *A compound identity with a plural sibling*.
 
-### Read with caveats (5)
+### Read with caveats (6)
 
 | resource | caveat |
 |---|---|
 | `idms_group_association` | 2 parents failed; `GET /v3/idms/1/group-association` 502 |
 | `saml_group_association` | same 502, same parent |
 | `idms_open_id_access_rule` | 10 parents had none |
-| `ou_cloud_access_role_exemption` | 237 records of another kind sharing the collection |
-| `project_cloud_access_role_exemption` | 12 records of another kind, so none remain |
+| `ou_cloud_access_role_exemption` | 237 records with no `ou_cloud_access_role_id` set |
+| `project_cloud_access_role_exemption` | 12 such records, so none remain |
+| `custom_variable_override` | 1,791 records with no `override` set |
 
 The 502 is server-side and specific to IDMS 1 on that install -- IDMS 2/3/4
 answer 200/404 normally, and three consecutive retries all returned 502. It is
@@ -297,6 +303,99 @@ raw keeps working: the `flex.Null*` types encode back to the bare scalar.
 **When a resource fails only under `plan`, fetch its private read directly and
 compare it field by field against the generated wire struct.** The probe cannot
 see this class of failure.
+
+## A compound identity with a plural sibling
+
+`kion_custom_variable_override` was refused because its read path carries two
+placeholders:
+
+```
+/v3/account/{account_id}/custom-variable/{custom_variable_id}
+```
+
+Neither id can be discovered from the other, so derivation's compound-identity
+veto marked it unreadable. That veto is still correct **for that path**. What
+was never checked is whether the path has a sibling that needs only one id --
+and it does:
+
+```
+/v3/account/{id}/custom-variable   -> every custom variable at that account
+/v3/ou/{id}/custom-variable        -> same, per OU
+/v3/project/{id}/custom-variable   -> same, per project
+```
+
+So the cross product is enumerable in **one request per entity**, not one per
+(entity, variable) pair. Measured on the demo install:
+
+| | accounts | OUs | projects | total |
+|---|---:|---:|---:|---:|
+| entities | 92 | 22 | 37 | **151** |
+| overrides found | 5 | 12 | 4 | **21** |
+
+12 custom variables exist, so the cross product is 151 x 12 = 1,812 cells, of
+which 21 carry an override. Probing each pair directly would have been 1,812
+requests; the plural collection makes it 151, all of which returned 200.
+
+Three things had to be true, each verified live:
+
+- **`override` is local, not inherited.** Each element carries both an
+  `inherited` block (where the effective value comes from) and an `override`
+  that is non-null only where a value is actually set at that entity. Project 9
+  sits under OU 11, which overrides variable 4 -- and project 9 reports
+  `override: null` for variable 4 while carrying its own overrides on 3 and 8.
+  If inheritance leaked into `override` the count would have been far above 21.
+- **All three parent kinds carry records.** An account-only fix would have
+  found 5 of the 21. The OU set is the largest.
+- **Entity ids are per-kind**, so `account/2` and `ou/2` are different parents.
+  The import id has to name the kind (`FormatKindParentSlashKey`); a two-part
+  `2/4` would collide and `RenderImports` would drop one as a duplicate.
+
+### The read was never the problem; `ImportState` was
+
+Even with enumeration working, every import would still have failed.
+`cvoverride.gtpl` parsed `req.ID` as a bare integer and set only `id` -- into a
+`StringAttribute`, and leaving `entity_type`, `entity_id` and
+`custom_variable_id` unset, which is exactly what `Read` dispatches on. `Create`
+has always built a three-part id (`"<entity_type>/<entity_id>/<custom_variable_id>"`);
+`ImportState` now splits it back out and validates both halves.
+
+This is the same class of defect as the `no_read` empty shells below: the
+enumeration side looked fine in isolation, and only an end-to-end
+plan-and-apply showed it.
+
+### Verified end to end
+
+Against the demo install, with the provider built from this branch:
+
+```
+Plan:     21 to import, 0 to add, 0 to change, 0 to destroy.
+Apply complete! Resources: 21 imported, 0 added, 0 changed, 0 destroyed.
+```
+
+A second `plan` reports **No changes**, so the round trip is clean. Every
+generated block carries real attributes -- `entity_type`, `entity_id`,
+`custom_variable_id` and one of `value_string`/`value_list`/`value_map` -- not
+the empty bodies the `no_read` resources used to produce.
+
+`entity_id` stays out of `rewrite-refs`: `codegen/references.yaml` records it as
+unclassifiable because its target depends on `entity_type`. Import blocks
+resolve regardless; the generated configuration just holds a literal id.
+
+### The caveat wording was wrong for this shape
+
+`RequireValidField` drops were reported as "record(s) of another kind sharing
+the collection". True on the exemption collections, false here -- those 1,791
+records are the *same* kind, merely inherited rather than overridden at that
+entity. The message now names the discriminator instead of asserting a cause:
+
+```
+1099 record(s) in the collection with no "override" set
+237 record(s) in the collection with no "ou_cloud_access_role_id" set
+```
+
+The drop is still always counted and reported. 1,791 + 21 = 1,812 reconciles
+against the cross product exactly, which is what makes the count worth printing
+even though it dwarfs the result.
 
 ## `no_read` did not mean unreadable
 
