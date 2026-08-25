@@ -510,9 +510,9 @@ func TestBuildPrivateListReadOnlyPathBeatsGeneratorConfigPaths(t *testing.T) {
 func TestBuildPrivateResourceReadPathIsLastResort(t *testing.T) {
 	t.Parallel()
 	m := Build(
-		map[string]string{}, // nothing in generator_config.yaml resources:
-		map[string]string{}, // nothing in generator_config.yaml data_sources:
-		map[string]string{}, // not list-read-only
+		map[string]string{},                            // nothing in generator_config.yaml resources:
+		map[string]string{},                            // nothing in generator_config.yaml data_sources:
+		map[string]string{},                            // not list-read-only
 		map[string]string{"widget": "/v1/widget/{id}"}, // private_endpoints.yaml resources:
 		map[string]archetypeInfo{"widget": {Kind: "raw_http"}},
 		[]string{"kion_widget"},
