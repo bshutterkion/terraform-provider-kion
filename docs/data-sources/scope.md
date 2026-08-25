@@ -62,9 +62,11 @@ Optional:
 Read-Only:
 
 - `alias` (String)
+- `criteria_error` (String)
 - `description` (String)
 - `end_datecode` (Number)
 - `id` (Number)
+- `identifier` (String)
 - `name` (String)
 - `project_id` (Number)
 - `start_datecode` (Number)

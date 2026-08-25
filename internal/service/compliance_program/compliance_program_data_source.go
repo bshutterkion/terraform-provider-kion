@@ -42,6 +42,7 @@ var listObjectAttrTypes = map[string]attr.Type{
 	"version":                           types.StringType,
 	"managed_resource_library_checksum": types.StringType,
 	"managed_resource_library_id":       types.StringType,
+	"parent_program_id":                 types.Int64Type,
 	"system_managed_program":            types.BoolType,
 }
 
@@ -118,6 +119,9 @@ func (d *compliance_programDataSource) Schema(_ context.Context, _ datasource.Sc
 							Computed: true,
 						},
 						"managed_resource_library_id": schema.StringAttribute{
+							Computed: true,
+						},
+						"parent_program_id": schema.Int64Attribute{
 							Computed: true,
 						},
 						"system_managed_program": schema.BoolAttribute{
@@ -289,6 +293,7 @@ func compliance_programToRow(lbl generated.ComplianceProgram) map[string]any {
 		"version":                           lbl.Version.Or(""),
 		"managed_resource_library_checksum": lbl.ManagedResourceLibraryChecksum.Or(""),
 		"managed_resource_library_id":       lbl.ManagedResourceLibraryID.Or(""),
+		"parent_program_id":                 int64(lbl.ParentProgramID.Or(0)),
 		"system_managed_program":            lbl.SystemManagedProgram.Or(false),
 	}
 	if lbl.ID.Set {
@@ -315,6 +320,7 @@ func buildComplianceProgramList(ctx context.Context, items []generated.Complianc
 			"version":                           types.StringValue(lbl.Version.Or("")),
 			"managed_resource_library_checksum": types.StringValue(lbl.ManagedResourceLibraryChecksum.Or("")),
 			"managed_resource_library_id":       types.StringValue(lbl.ManagedResourceLibraryID.Or("")),
+			"parent_program_id":                 types.Int64Value(int64(lbl.ParentProgramID.Or(0))),
 			"system_managed_program":            types.BoolValue(lbl.SystemManagedProgram.Or(false)),
 		})
 		if objDiags.HasError() {

@@ -38,8 +38,10 @@ var listObjectAttrTypes = map[string]attr.Type{
 	"resource_group_region_id": types.Int64Type,
 	"template":                 types.StringType,
 	"template_parameters":      types.StringType,
+	"created_by":               types.StringType,
 	"ct_managed":               types.BoolType,
 	"is_enabled":               types.BoolType,
+	"version":                  types.Int64Type,
 }
 
 // NewAzureArmTemplateDataSource returns a new instance of the data source.
@@ -117,10 +119,16 @@ func (d *azure_arm_templateDataSource) Schema(_ context.Context, _ datasource.Sc
 						"template_parameters": schema.StringAttribute{
 							Computed: true,
 						},
+						"created_by": schema.StringAttribute{
+							Computed: true,
+						},
 						"ct_managed": schema.BoolAttribute{
 							Computed: true,
 						},
 						"is_enabled": schema.BoolAttribute{
+							Computed: true,
+						},
+						"version": schema.Int64Attribute{
 							Computed: true,
 						},
 					},
@@ -269,8 +277,10 @@ func azure_arm_templateToRow(lbl generated.AzureARMTemplateDefinitionWithOwners)
 		"resource_group_region_id": int64(lbl.AzureArmTemplate.Value.ResourceGroupRegionID.Or(0)),
 		"template":                 lbl.AzureArmTemplate.Value.Template.Or(""),
 		"template_parameters":      lbl.AzureArmTemplate.Value.TemplateParameters.Or(""),
+		"created_by":               lbl.AzureArmTemplate.Value.CreatedBy.Or(""),
 		"ct_managed":               lbl.AzureArmTemplate.Value.CtManaged.Or(false),
 		"is_enabled":               lbl.IsEnabled.Or(false),
+		"version":                  int64(lbl.AzureArmTemplate.Value.Version.Or(0)),
 	}
 	if lbl.AzureArmTemplate.Value.ID.Set {
 		row["id"] = int64(lbl.AzureArmTemplate.Value.ID.Value)
@@ -295,8 +305,10 @@ func buildAzureArmTemplateList(ctx context.Context, items []generated.AzureARMTe
 			"resource_group_region_id": types.Int64Value(int64(lbl.AzureArmTemplate.Value.ResourceGroupRegionID.Or(0))),
 			"template":                 types.StringValue(lbl.AzureArmTemplate.Value.Template.Or("")),
 			"template_parameters":      types.StringValue(lbl.AzureArmTemplate.Value.TemplateParameters.Or("")),
+			"created_by":               types.StringValue(lbl.AzureArmTemplate.Value.CreatedBy.Or("")),
 			"ct_managed":               types.BoolValue(lbl.AzureArmTemplate.Value.CtManaged.Or(false)),
 			"is_enabled":               types.BoolValue(lbl.IsEnabled.Or(false)),
+			"version":                  types.Int64Value(int64(lbl.AzureArmTemplate.Value.Version.Or(0))),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags

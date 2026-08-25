@@ -40,6 +40,8 @@ var listObjectAttrTypes = map[string]attr.Type{
 	"name":           types.StringType,
 	"project_id":     types.Int64Type,
 	"start_datecode": types.Int64Type,
+	"criteria_error": types.StringType,
+	"identifier":     types.StringType,
 }
 
 // NewScopeDataSource returns a new instance of the data source.
@@ -109,6 +111,12 @@ func (d *scopeDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, 
 							Computed: true,
 						},
 						"start_datecode": schema.Int64Attribute{
+							Computed: true,
+						},
+						"criteria_error": schema.StringAttribute{
+							Computed: true,
+						},
+						"identifier": schema.StringAttribute{
 							Computed: true,
 						},
 					},
@@ -275,6 +283,8 @@ func scopeToRow(lbl generated.Scope) map[string]any {
 		"name":           lbl.Name.Or(""),
 		"project_id":     int64(lbl.ProjectID.Or(0)),
 		"start_datecode": int64(lbl.StartDatecode.Or(0)),
+		"criteria_error": lbl.CriteriaError.Or(""),
+		"identifier":     lbl.Identifier.Or(""),
 	}
 	if lbl.ID.Set {
 		row["id"] = int64(lbl.ID.Value)
@@ -298,6 +308,8 @@ func buildScopeList(ctx context.Context, items []generated.Scope) (types.List, d
 			"name":           types.StringValue(lbl.Name.Or("")),
 			"project_id":     types.Int64Value(int64(lbl.ProjectID.Or(0))),
 			"start_datecode": types.Int64Value(int64(lbl.StartDatecode.Or(0))),
+			"criteria_error": types.StringValue(lbl.CriteriaError.Or("")),
+			"identifier":     types.StringValue(lbl.Identifier.Or("")),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags

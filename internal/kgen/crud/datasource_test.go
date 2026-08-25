@@ -8,7 +8,7 @@ import (
 )
 
 func TestRenderDataSource_labelDualMode(t *testing.T) {
-	got, downgrade, err := renderDataSource(labelResourceModel(t), FieldPolicy{})
+	got, downgrade, _, err := renderDataSource(labelResourceModel(t), FieldPolicy{})
 	if err != nil {
 		t.Fatalf("renderDataSource: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestRenderDataSource_shapeBNotPaginated(t *testing.T) {
 	}
 	rm.List = lm
 
-	got, downgrade, err := renderDataSource(rm, FieldPolicy{})
+	got, downgrade, _, err := renderDataSource(rm, FieldPolicy{})
 	if err != nil {
 		t.Fatalf("renderDataSource: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestRenderSweep_shapeBNotPaginated(t *testing.T) {
 func TestRenderDataSource_idOnlyFallback(t *testing.T) {
 	rm := labelResourceModel(t)
 	rm.List = nil // simulate a resource with no list endpoint
-	got, _, err := renderDataSource(rm, FieldPolicy{})
+	got, _, _, err := renderDataSource(rm, FieldPolicy{})
 	if err != nil {
 		t.Fatalf("renderDataSource: %v", err)
 	}

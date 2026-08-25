@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -27,9 +28,12 @@ const FieldPolicyPath = "codegen/unexposed_fields.yaml"
 // The default is now to expose every renderable response scalar, and this
 // policy is the exception list. Inverting it that way matters: the previous
 // behavior hid new fields silently, whereas hiding one now takes an entry in
-// a reviewed file. Credentials are the entries that must never be removed --
-// account_cache's key_id and key_secret are live secrets, and they were kept
-// out of the schema only by the accident this change undoes.
+// a reviewed file.
+//
+// Two things withhold a field, because they fail differently. The file names
+// exactly what to hide and covers a credential no pattern would recognize
+// (account_cache.key_id); secretName recognizes a credential-shaped string
+// nobody listed, which is what protects a secret the API has not returned yet.
 type FieldPolicy struct {
 	hidden map[string]bool
 }
@@ -55,6 +59,36 @@ func LoadFieldPolicy(root string) (FieldPolicy, error) {
 }
 
 // Hidden reports whether pkg's field is withheld from the data source.
-func (p FieldPolicy) Hidden(pkg, field string) bool {
-	return p.hidden[pkg+"."+field]
+// modelType is the framework type the field would project to; a credential can
+// only ride in a string, so the name heuristic applies to nothing else.
+func (p FieldPolicy) Hidden(pkg, field, modelType string) bool {
+	if p.hidden[pkg+"."+field] {
+		return true
+	}
+	return modelType == "types.String" && secretName(field)
+}
+
+// secretNameParts are the substrings that mark a field name as credential-
+// shaped. They are matched against response-only fields, never against a
+// resource attribute, so nothing a configuration already sets is affected.
+var secretNameParts = []string{
+	"secret", "password", "passwd", "private_key", "credential", "token",
+}
+
+// secretName reports whether a string field's name looks like a credential.
+//
+// This is the structural half of the guarantee that account_cache's key_secret
+// stays unexposed: exposure is default-deny for a credential-shaped string, so
+// a newly returned secret is withheld even if nobody thought to list it.
+// unexposed_fields.yaml still carries key_id, which no pattern can recognize --
+// a list and a pattern cover different failure modes, and neither is enough
+// alone.
+func secretName(field string) bool {
+	f := strings.ToLower(field)
+	for _, part := range secretNameParts {
+		if strings.Contains(f, part) {
+			return true
+		}
+	}
+	return f == "key" || strings.HasSuffix(f, "_key")
 }

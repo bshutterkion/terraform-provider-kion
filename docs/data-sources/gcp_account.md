@@ -65,6 +65,8 @@ Read-Only:
 - `account_alias` (String)
 - `account_name` (String)
 - `account_type_id` (Number)
+- `created_at` (String)
+- `deleted_at` (String)
 - `id` (Number)
 - `payer_id` (Number)
 - `project_id` (Number)

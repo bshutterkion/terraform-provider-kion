@@ -62,11 +62,16 @@ Optional:
 
 Read-Only:
 
+- `created_at` (String)
+- `deleted_at` (String)
+- `display_name` (String)
 - `email` (String)
 - `enabled` (Boolean)
 - `first_name` (String)
 - `id` (Number)
 - `idms_id` (Number)
+- `last_login` (String)
 - `last_name` (String)
+- `password_needs_update` (Boolean)
 - `phone` (String)
 - `username` (String)

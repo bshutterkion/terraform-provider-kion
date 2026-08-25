@@ -62,6 +62,7 @@ Optional:
 
 Read-Only:
 
+- `created_by` (String)
 - `ct_managed` (Boolean)
 - `deployment_mode` (Number)
 - `description` (String)
@@ -72,3 +73,4 @@ Read-Only:
 - `resource_group_region_id` (Number)
 - `template` (String)
 - `template_parameters` (String)
+- `version` (Number)

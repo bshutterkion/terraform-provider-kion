@@ -30,8 +30,11 @@ var (
 
 // listObjectAttrTypes is the schema of an entry inside the `list` attribute.
 var listObjectAttrTypes = map[string]attr.Type{
-	"id":   types.Int64Type,
-	"name": types.StringType,
+	"id":         types.Int64Type,
+	"name":       types.StringType,
+	"created_at": types.StringType,
+	"last_used":  types.StringType,
+	"user_id":    types.Int64Type,
 }
 
 // NewAppApiKeyDataSource returns a new instance of the data source.
@@ -71,6 +74,15 @@ func (d *app_api_keyDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 							Computed: true,
 						},
 						"name": schema.StringAttribute{
+							Computed: true,
+						},
+						"created_at": schema.StringAttribute{
+							Computed: true,
+						},
+						"last_used": schema.StringAttribute{
+							Computed: true,
+						},
+						"user_id": schema.Int64Attribute{
 							Computed: true,
 						},
 					},
@@ -200,7 +212,10 @@ func fetchAllAppApiKey(ctx context.Context, conn *generated.Client) ([]generated
 // app_api_keyToRow converts an element into the map filter.Match expects.
 func app_api_keyToRow(lbl generated.AppAPIKey) map[string]any {
 	row := map[string]any{
-		"name": lbl.Name.Or(""),
+		"name":       lbl.Name.Or(""),
+		"created_at": lbl.CreatedAt.Or(""),
+		"last_used":  lbl.LastUsed.Or(""),
+		"user_id":    int64(lbl.UserID.Or(0)),
 	}
 	if lbl.ID.Set {
 		row["id"] = int64(lbl.ID.Value)
@@ -217,8 +232,11 @@ func buildAppApiKeyList(ctx context.Context, items []generated.AppAPIKey) (types
 			idVal = types.Int64Value(int64(lbl.ID.Value))
 		}
 		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
-			"id":   idVal,
-			"name": types.StringValue(lbl.Name.Or("")),
+			"id":         idVal,
+			"name":       types.StringValue(lbl.Name.Or("")),
+			"created_at": types.StringValue(lbl.CreatedAt.Or("")),
+			"last_used":  types.StringValue(lbl.LastUsed.Or("")),
+			"user_id":    types.Int64Value(int64(lbl.UserID.Or(0))),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags

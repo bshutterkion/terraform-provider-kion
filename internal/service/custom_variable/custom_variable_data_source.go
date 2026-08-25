@@ -41,6 +41,7 @@ var listObjectAttrTypes = map[string]attr.Type{
 	"type":                     types.StringType,
 	"value_validation_message": types.StringType,
 	"value_validation_regex":   types.StringType,
+	"created_by":               types.Int64Type,
 }
 
 // NewCustomVariableDataSource returns a new instance of the data source.
@@ -116,6 +117,9 @@ func (d *custom_variableDataSource) Schema(_ context.Context, _ datasource.Schem
 							Computed: true,
 						},
 						"value_validation_regex": schema.StringAttribute{
+							Computed: true,
+						},
+						"created_by": schema.Int64Attribute{
 							Computed: true,
 						},
 					},
@@ -285,6 +289,7 @@ func custom_variableToRow(lbl generated.CustomVariable) map[string]any {
 		"type":                     lbl.Type.Or(""),
 		"value_validation_message": lbl.ValueValidationMessage.Or(""),
 		"value_validation_regex":   lbl.ValueValidationRegex.Or(""),
+		"created_by":               int64(lbl.CreatedBy.Or(0)),
 	}
 	if lbl.ID.Set {
 		row["id"] = int64(lbl.ID.Value)
@@ -309,6 +314,7 @@ func buildCustomVariableList(ctx context.Context, items []generated.CustomVariab
 			"type":                     types.StringValue(lbl.Type.Or("")),
 			"value_validation_message": types.StringValue(lbl.ValueValidationMessage.Or("")),
 			"value_validation_regex":   types.StringValue(lbl.ValueValidationRegex.Or("")),
+			"created_by":               types.Int64Value(int64(lbl.CreatedBy.Or(0))),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags

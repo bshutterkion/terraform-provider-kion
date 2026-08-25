@@ -70,3 +70,4 @@ Read-Only:
 - `region` (String)
 - `sync_deprecation` (Boolean)
 - `sync_tags` (Boolean)
+- `unavailable_in_aws` (Boolean)

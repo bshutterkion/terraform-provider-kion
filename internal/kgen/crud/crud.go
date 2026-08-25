@@ -44,6 +44,16 @@ type downgrade struct {
 	Reason   string
 }
 
+// droppedField records a field a dual-mode data source built without. It is not
+// an error -- a slice or nested object has no place in a `list` object -- but it
+// narrows what a `filter` block can match, so the set is printed rather than
+// absorbed by the bare `continue` that used to swallow it.
+type droppedField struct {
+	Resource string
+	Field    string
+	Reason   string
+}
+
 type generator struct {
 	fs          kfs.FS
 	src         Source
@@ -57,7 +67,8 @@ type generator struct {
 	// data source must withhold. Loaded once per run alongside the other
 	// codegen inputs above.
 	fieldPolicy FieldPolicy
-	downgrades  []downgrade // data sources that lost their filter block this run
+	downgrades  []downgrade    // data sources that lost their filter block this run
+	dropped     []droppedField // fields a list data source could not project this run
 	// dataSources is the generator_config `data_sources` op-set, needed to reach
 	// a resource OTHER than the one being generated: a parent-scoped sweeper
 	// enumerates its parent's collection.
@@ -189,6 +200,7 @@ func (g *generator) generate(opts Options) (int, error) {
 		written += n
 	}
 	g.reportUnswept()
+	g.reportDropped()
 	return written, g.reportDowngrades(opts.Strict)
 }
 
@@ -204,6 +216,20 @@ func (g *generator) reportUnswept() {
 	fmt.Fprintf(os.Stderr, "-- orphaned test-acc records behind. Each sweep.go says the same.\n")
 	for _, u := range g.unswept {
 		fmt.Fprintf(os.Stderr, "--   kion_%s: %s\n", u.Resource, u.Reason)
+	}
+	fmt.Fprint(os.Stderr, "\n")
+}
+
+// reportDropped prints the fields no `filter` block can match because the
+// dual-mode build could not project them into the `list` objects.
+func (g *generator) reportDropped() {
+	if len(g.dropped) == 0 {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "\n-- kgen crud: %d field(s) dropped from a data source's `list` objects;\n", len(g.dropped))
+	fmt.Fprintf(os.Stderr, "-- no `filter` block can match on them.\n")
+	for _, d := range g.dropped {
+		fmt.Fprintf(os.Stderr, "--   kion_%s.%s: %s\n", d.Resource, d.Field, d.Reason)
 	}
 	fmt.Fprint(os.Stderr, "\n")
 }
@@ -377,12 +403,15 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	if err != nil {
 		return 0, err
 	}
-	dataSourceGo, dsDowngrade, err := renderDataSource(rm, g.fieldPolicy)
+	dataSourceGo, dsDowngrade, dsDrops, err := renderDataSource(rm, g.fieldPolicy)
 	if err != nil {
 		return 0, err
 	}
 	if dsDowngrade != "" {
 		g.downgrades = append(g.downgrades, downgrade{Resource: name, Reason: dsDowngrade})
+	}
+	for _, d := range dsDrops {
+		g.dropped = append(g.dropped, droppedField{Resource: name, Field: d.Field, Reason: d.Reason})
 	}
 	sweepGo, sweepReason, err := renderSweep(rm)
 	if err != nil {

@@ -58,7 +58,13 @@ Optional:
 
 Read-Only:
 
+- `azure_domain` (String)
 - `azure_object_id` (String)
+- `azure_username` (String)
+- `created_at` (String)
+- `delete_finalized_at` (String)
+- `deleted_at` (String)
 - `id` (Number)
 - `payer_id` (Number)
+- `updated_at` (String)
 - `user_id` (Number)

@@ -62,6 +62,7 @@ Optional:
 
 Read-Only:
 
+- `created_by` (Number)
 - `description` (String)
 - `id` (Number)
 - `key_validation_message` (String)

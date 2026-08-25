@@ -36,6 +36,7 @@ var accountListObjectAttrTypes = map[string]attr.Type{
 	"account_type_id":              types.Int64Type,
 	"car_external_id":              types.StringType,
 	"created_at":                   types.StringType,
+	"deleted_at":                   types.StringType,
 	"email":                        types.StringType,
 	"id":                           types.Int64Type,
 	"include_linked_account_spend": types.BoolType,
@@ -77,6 +78,7 @@ func (d *accountDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 						"account_type_id":              schema.Int64Attribute{Computed: true},
 						"car_external_id":              schema.StringAttribute{Computed: true},
 						"created_at":                   schema.StringAttribute{Computed: true},
+						"deleted_at":                   schema.StringAttribute{Computed: true},
 						"email":                        schema.StringAttribute{Computed: true},
 						"id":                           schema.Int64Attribute{Computed: true},
 						"include_linked_account_spend": schema.BoolAttribute{Computed: true},
@@ -148,6 +150,7 @@ func accountToRow(a generated.Account) map[string]any {
 		"account_number":        a.AccountNumber.Value,
 		"car_external_id":       a.CarExternalID.Value,
 		"created_at":            a.CreatedAt.Value,
+		"deleted_at":            a.DeletedAt.Value,
 		"email":                 a.AccountEmail.Value,
 		"linked_account_number": a.LinkedAccountNumber.Value,
 		"linked_role":           a.LinkedRole.Value,
@@ -181,6 +184,7 @@ func buildAccountList(ctx context.Context, items []generated.Account) (types.Lis
 			"account_type_id":              accountOptNilUint64(a.AccountTypeID),
 			"car_external_id":              accountOptString(a.CarExternalID),
 			"created_at":                   accountOptString(a.CreatedAt),
+			"deleted_at":                   accountOptNilString(a.DeletedAt),
 			"email":                        accountOptString(a.AccountEmail),
 			"id":                           accountOptUint64(a.ID),
 			"include_linked_account_spend": accountOptNilBool(a.IncludeLinkedAccountSpend),
@@ -204,6 +208,13 @@ func buildAccountList(ctx context.Context, items []generated.Account) (types.Lis
 
 func accountOptString(v generated.OptString) attr.Value {
 	if !v.Set {
+		return types.StringNull()
+	}
+	return types.StringValue(v.Value)
+}
+
+func accountOptNilString(v generated.OptNilString) attr.Value {
+	if !v.Set || v.Null {
 		return types.StringNull()
 	}
 	return types.StringValue(v.Value)
