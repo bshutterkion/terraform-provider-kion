@@ -43,8 +43,11 @@ func TestClassifyArchetypes(t *testing.T) {
 		{"cloud_account", ShapeGeneric, FormatID, true, false},
 		// Both look the child up under its parent, so both need the parent in
 		// the import id; a bare id leaves the parent zero and the read 404s.
+		// They diverge in read shape though: parent_list makes a second HTTP
+		// call per parent, while compound_key_parent_read's children are
+		// nested inline in the parent's own list payload (ShapeNestedCollection).
 		{"parent_list", ShapeParentList, FormatParentSlashKey, true, false},
-		{"compound_key_parent_read", ShapeParentList, FormatParentSlashKey, true, false},
+		{"compound_key_parent_read", ShapeNestedCollection, FormatParentSlashKey, true, false},
 		{"association", ShapeAssociation, FormatParentSlashKey, true, true},
 		{"singleton", ShapeSpecial, FormatID, true, false},
 		{"raw_http", ShapeSpecial, FormatID, true, false},

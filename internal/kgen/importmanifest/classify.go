@@ -59,12 +59,20 @@ func Classify(archetype string, readPath string, hasParent bool) (ReadShape, IDF
 			return ShapeAssociation, FormatParentSlashKey, true, ""
 		}
 		return ShapeAssociation, FormatID, true, ""
-	case "parent_list", "compound_key_parent_read":
-		// Both look the record up under its parent, so both split req.ID on "/"
-		// in ImportState: compound_key_parent_read always has, and parent_list
-		// now does too. A bare id leaves the parent zero and every read 404s,
-		// which is how 187 enforcement imports failed against a real install.
+	case "parent_list":
+		// Looks the record up under its parent via a second HTTP call per
+		// parent id, so it splits req.ID on "/" in ImportState. A bare id
+		// leaves the parent zero and every read 404s, which is how 187
+		// enforcement imports failed against a real install.
 		return ShapeParentList, FormatParentSlashKey, true, ""
+	case "compound_key_parent_read":
+		// Unlike parent_list, the child records are not behind a second
+		// endpoint -- they live inline inside the parent's own list payload
+		// (e.g. /beta/scope's criteria_records). entity_compound.gtpl's
+		// ImportState still splits req.ID on "/" the same way, so the id
+		// format matches parent_list even though the read is structurally
+		// different (one HTTP call, not two).
+		return ShapeNestedCollection, FormatParentSlashKey, true, ""
 	case "singleton", "raw_http", "cv_override":
 		return ShapeSpecial, FormatID, true, ""
 	}

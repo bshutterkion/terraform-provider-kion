@@ -19,11 +19,19 @@ type ReadShape string
 
 // ReadShape constants.
 const (
-	ShapeGeneric     ReadShape = "generic"     // flat list at ListPath
-	ShapeParentList  ReadShape = "parent_list" // one collection per parent
+	ShapeGeneric    ReadShape = "generic"     // flat list at ListPath
+	ShapeParentList ReadShape = "parent_list" // one collection per parent, fetched
+	// with a second HTTP call per parent id
 	ShapeAssociation ReadShape = "association" // membership rows under a parent
-	ShapeSpecial     ReadShape = "special"     // bespoke endpoint (singleton/raw)
-	ShapeNone        ReadShape = "none"        // cannot be enumerated
+	// ShapeNestedCollection is a parent list whose records live inline in the
+	// parent's own list payload -- e.g. /beta/scope returns scope objects, each
+	// carrying a CriteriaRecords array of its criteria. There is no second HTTP
+	// call: Collection names the JSON key of the nested array on each parent
+	// record, and ParentIDField/ChildIDField name the fields on each nested
+	// element that make up its "<parent>/<child>" import id.
+	ShapeNestedCollection ReadShape = "nested_collection"
+	ShapeSpecial          ReadShape = "special" // bespoke endpoint (singleton/raw)
+	ShapeNone             ReadShape = "none"    // cannot be enumerated
 )
 
 // IDFormat is how a record's Terraform import id is built. It mirrors the
@@ -90,9 +98,18 @@ type Resource struct {
 	// one parent collection (e.g. kion_budget under both /v3/ou and
 	// /v3/project). Parent always mirrors Parents[0] when Parents is set, so a
 	// reader that only knows about Parent still gets a correct (if partial) read.
-	Parents  []Parent `json:"parents,omitempty"`
-	ImportID ImportID `json:"import_id"`
-	Reason   string   `json:"reason,omitempty"`
+	Parents []Parent `json:"parents,omitempty"`
+	// Collection, ParentIDField, and ChildIDField are populated only when
+	// ReadShape is ShapeNestedCollection. Collection is the JSON key (already
+	// converted from the archetype's Go-style name, e.g. "criteria_records")
+	// of the nested array on each record at ListPath. ParentIDField and
+	// ChildIDField name the fields read off each element of that array to
+	// build its "<parent>/<child>" import id.
+	Collection    string   `json:"collection,omitempty"`
+	ParentIDField string   `json:"parent_id_field,omitempty"`
+	ChildIDField  string   `json:"child_id_field,omitempty"`
+	ImportID      ImportID `json:"import_id"`
+	Reason        string   `json:"reason,omitempty"`
 	// AliasOf names the tf_type this one is a second name for. The provider
 	// serves kion_aws_iam_policy and kion_iam_policy from one implementation over
 	// one endpoint, so enumerating both reads the same objects twice and would

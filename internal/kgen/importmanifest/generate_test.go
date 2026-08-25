@@ -648,6 +648,63 @@ func TestBuildNameFieldOnlyWhenSchemaHasNameAttribute(t *testing.T) {
 	assert.Empty(t, tag.NameField)
 }
 
+// TestBuildCompoundKeyParentReadProducesNestedCollectionRow guards
+// kion_scope_criteria's real shape: generator_config.yaml's data_sources:
+// section (checked before resources:) records scope_criteria's read as
+// "/beta/scope" with NO placeholder -- the same flat list scope itself uses --
+// so this exercises Build's 0-placeholder default branch, not the
+// parent-scoped placeholder branch ShapeParentList goes through. Collection
+// must come out converted to its JSON key ("criteria_records"), not the
+// Go-style name crud_archetypes.yaml declares ("CriteriaRecords").
+func TestBuildCompoundKeyParentReadProducesNestedCollectionRow(t *testing.T) {
+	t.Parallel()
+	m := Build(
+		map[string]string{"scope_criteria": "/beta/scope/{id}"}, // resources: read path (loses to data_sources: below)
+		map[string]string{"scope_criteria": "/beta/scope"},      // data_sources: read path
+		map[string]string{},
+		map[string]string{},
+		map[string]archetypeInfo{
+			"scope_criteria": {
+				Kind:          "compound_key_parent_read",
+				Collection:    "CriteriaRecords",
+				ParentIDField: "scope_id",
+				ChildIDField:  "criteria_id",
+			},
+		},
+		[]string{"kion_scope_criteria"},
+		map[string]bool{},
+	)
+	r := byType(m, "kion_scope_criteria")
+	assert.Equal(t, ShapeNestedCollection, r.ReadShape)
+	assert.Equal(t, "/beta/scope", r.ListPath)
+	assert.Equal(t, "criteria_records", r.Collection)
+	assert.Equal(t, "scope_id", r.ParentIDField)
+	assert.Equal(t, "criteria_id", r.ChildIDField)
+	assert.Equal(t, FormatParentSlashKey, r.ImportID.Format)
+	assert.True(t, r.Readable)
+	assert.Nil(t, r.Parent, "ShapeNestedCollection has no second-endpoint Parent block")
+}
+
+// TestJSONKeyFromGoName guards the Go-style-name -> JSON-key fold Build
+// applies to compound_key_parent_read's Collection field. Its doc comment
+// already names the acronym limitation ("ID" -> "i_d") as intentional; this
+// test locks in the ordinary cases plus that documented edge case, so a
+// change to the fold's behavior (acronym-aware or not) is a deliberate
+// decision, not an accident.
+func TestJSONKeyFromGoName(t *testing.T) {
+	t.Parallel()
+	cases := []struct{ in, want string }{
+		{"CriteriaRecords", "criteria_records"},
+		{"Name", "name"},
+		{"", ""},
+		{"a", "a"},
+		{"ID", "i_d"}, // documented limitation: not acronym-aware
+	}
+	for _, c := range cases {
+		assert.Equal(t, c.want, jsonKeyFromGoName(c.in), c.in)
+	}
+}
+
 func TestManifestMarshalsDeterministically(t *testing.T) {
 	t.Parallel()
 	a, err := json.MarshalIndent(fixture(), "", "  ")
