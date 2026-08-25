@@ -541,10 +541,15 @@
       "tf_type": "kion_idms_open_id",
       "kind": "idms_open_id",
       "archetype": "entity",
-      "read_shape": "generic",
+      "read_shape": "parent_list",
       "readable": true,
-      "list_path": "/v4/idms/open-id",
       "name_field": "name",
+      "parent": {
+        "kind": "idms",
+        "list_path": "/v3/idms",
+        "child_path": "/v4/idms/open-id/{parent_id}",
+        "parent_id_field": "idms_id"
+      },
       "import_id": {
         "format": "id"
       }
@@ -553,10 +558,15 @@
       "tf_type": "kion_idms_open_id_access_rule",
       "kind": "idms_open_id_access_rule",
       "archetype": "entity",
-      "read_shape": "generic",
+      "read_shape": "parent_list",
       "readable": true,
-      "list_path": "/v4/idms/open-id/access-rule",
       "name_field": "name",
+      "parent": {
+        "kind": "idms",
+        "list_path": "/v3/idms",
+        "child_path": "/v4/idms/open-id/{parent_id}/access-rule",
+        "parent_id_field": "idms_id"
+      },
       "import_id": {
         "format": "id"
       }
@@ -565,10 +575,15 @@
       "tf_type": "kion_idms_open_id_group_association",
       "kind": "idms_open_id_group_association",
       "archetype": "entity",
-      "read_shape": "generic",
+      "read_shape": "parent_list",
       "readable": true,
-      "list_path": "/v4/idms/open-id/group-association",
       "name_field": "name",
+      "parent": {
+        "kind": "idms",
+        "list_path": "/v3/idms",
+        "child_path": "/v4/idms/open-id/{parent_id}/group-association",
+        "parent_id_field": "idms_id"
+      },
       "import_id": {
         "format": "id"
       }

@@ -342,6 +342,50 @@ func TestBuildParentScopedPathDerivesParentIDField(t *testing.T) {
 	}
 }
 
+// TestBuildOverridesOpenIDFamilyParent guards Fix 3: the OpenID family's
+// derived parent list (the text before each resource's trailing "/{id}") is
+// not itself listable -- /v4/idms/open-id 405s live. parentOverrides must
+// replace each of the three resources' derivation with a Parent scoped by
+// the IDMS id instead: ListPath "/v3/idms" (the real enumerable list),
+// ParentIDField "idms_id", and the live-verified child path.
+func TestBuildOverridesOpenIDFamilyParent(t *testing.T) {
+	t.Parallel()
+	m := Build(
+		map[string]string{ // real generator_config.yaml resources: read paths
+			"idms_open_id":                   "/v4/idms/open-id/{id}",
+			"idms_open_id_access_rule":       "/v4/idms/open-id/access-rule/{id}",
+			"idms_open_id_group_association": "/v4/idms/open-id/group-association/{id}",
+		},
+		map[string]string{},
+		map[string]archetypeInfo{},
+		[]string{
+			"kion_idms_open_id",
+			"kion_idms_open_id_access_rule",
+			"kion_idms_open_id_group_association",
+		},
+	)
+
+	cases := []struct {
+		tfType        string
+		wantChildPath string
+	}{
+		{"kion_idms_open_id", "/v4/idms/open-id/{parent_id}"},
+		{"kion_idms_open_id_access_rule", "/v4/idms/open-id/{parent_id}/access-rule"},
+		{"kion_idms_open_id_group_association", "/v4/idms/open-id/{parent_id}/group-association"},
+	}
+	for _, c := range cases {
+		r := byType(m, c.tfType)
+		require.NotNil(t, r.Parent, c.tfType)
+		assert.Equal(t, "/v3/idms", r.Parent.ListPath, c.tfType)
+		assert.Equal(t, "idms_id", r.Parent.ParentIDField, c.tfType)
+		assert.Equal(t, "idms", r.Parent.Kind, c.tfType)
+		assert.Equal(t, c.wantChildPath, r.Parent.ChildPath, c.tfType)
+		assert.Equal(t, ShapeParentList, r.ReadShape, c.tfType)
+		assert.True(t, r.Readable, c.tfType)
+		assert.Empty(t, r.ListPath, c.tfType)
+	}
+}
+
 func TestManifestMarshalsDeterministically(t *testing.T) {
 	t.Parallel()
 	a, err := json.MarshalIndent(fixture(), "", "  ")

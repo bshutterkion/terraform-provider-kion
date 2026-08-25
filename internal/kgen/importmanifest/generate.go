@@ -35,6 +35,37 @@ type archetypeInfo struct {
 	ParentField string
 }
 
+// parentOverrides corrects three resources, verified against a real install,
+// where placeholder-based derivation picks a parent list that isn't actually
+// listable:
+//
+//	/v4/idms/open-id                     -> 405 (not a listable collection)
+//	/v4/idms/open-id/28                  -> 200 (single OpenID-type IDMS)
+//	/v4/idms/open-id/28/access-rule       -> 200
+//	/v4/idms/open-id/28/group-association -> 200
+//	/v3/idms                             -> 200, and it enumerates them
+//
+// OpenID records are keyed by the IDMS id, not their own -- so the child
+// paths derivation would produce are correct (a single-object GET for
+// kion_idms_open_id itself, which the reader already handles; the
+// create-shaped, not read-shaped, collection endpoints for its two
+// sub-resources), only the parent LIST is wrong. This table overrides just
+// Kind/ListPath/ParentIDField; ChildPath is the live-verified value.
+var parentOverrides = map[string]Parent{
+	"kion_idms_open_id": {
+		Kind: "idms", ListPath: "/v3/idms",
+		ChildPath: "/v4/idms/open-id/{parent_id}", ParentIDField: "idms_id",
+	},
+	"kion_idms_open_id_access_rule": {
+		Kind: "idms", ListPath: "/v3/idms",
+		ChildPath: "/v4/idms/open-id/{parent_id}/access-rule", ParentIDField: "idms_id",
+	},
+	"kion_idms_open_id_group_association": {
+		Kind: "idms", ListPath: "/v3/idms",
+		ChildPath: "/v4/idms/open-id/{parent_id}/group-association", ParentIDField: "idms_id",
+	},
+}
+
 // Build assembles the manifest from already-loaded inputs. Pure: no I/O, so the
 // table-driven tests do not need a filesystem.
 //
@@ -157,6 +188,18 @@ func Build(readPaths, dataSourcePaths map[string]string, archetypes map[string]a
 		// depends on the association having a key field at all.
 		if r.ReadShape == ShapeAssociation {
 			r.ImportID.KeyField = info.KeyField
+		}
+
+		// Applied after derivation: these two tables replace a wrongly
+		// derived parent (or a flat classification that never had one) with
+		// the live-verified shape. See their doc comments for the evidence.
+		if ov, ok := parentOverrides[tfType]; ok {
+			p := ov
+			r.Parent = &p
+			r.ListPath = ""
+			r.ReadShape = ShapeParentList
+			r.Readable = true
+			r.Reason = ""
 		}
 
 		out = append(out, r)
