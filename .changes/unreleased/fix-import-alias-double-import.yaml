@@ -1,0 +1,3 @@
+kind: BUG FIXES
+body: "`kion-import` no longer imports aliased resources twice. `kion_aws_iam_policy` and `kion_iam_policy` are two names for one implementation over one endpoint, as are `kion_aws_cloudformation_template` and `kion_cft`, but each had its own manifest row with the same list path and both were enumerated. Against a real install that produced 1,348 identical IAM-policy ids and 296 CloudFormation-template ids, 1,644 duplicate import blocks that would have put two Terraform resources in charge of each Kion record, each reverting the other's drift. The alias is still listed, so every type the provider serves is accounted for, but only the current name is enumerated."
+time: 2026-08-25T04:01:00Z
