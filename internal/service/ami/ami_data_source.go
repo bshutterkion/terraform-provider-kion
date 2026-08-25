@@ -30,14 +30,15 @@ var (
 
 // listObjectAttrTypes is the schema of an entry inside the `list` attribute.
 var listObjectAttrTypes = map[string]attr.Type{
-	"id":               types.Int64Type,
-	"account_id":       types.Int64Type,
-	"aws_ami_id":       types.StringType,
-	"description":      types.StringType,
-	"name":             types.StringType,
-	"region":           types.StringType,
-	"sync_deprecation": types.BoolType,
-	"sync_tags":        types.BoolType,
+	"id":                 types.Int64Type,
+	"account_id":         types.Int64Type,
+	"aws_ami_id":         types.StringType,
+	"description":        types.StringType,
+	"name":               types.StringType,
+	"region":             types.StringType,
+	"sync_deprecation":   types.BoolType,
+	"sync_tags":          types.BoolType,
+	"unavailable_in_aws": types.BoolType,
 }
 
 // NewAmiDataSource returns a new instance of the data source.
@@ -113,6 +114,9 @@ func (d *amiDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, re
 							Computed: true,
 						},
 						"sync_tags": schema.BoolAttribute{
+							Computed: true,
+						},
+						"unavailable_in_aws": schema.BoolAttribute{
 							Computed: true,
 						},
 					},
@@ -254,13 +258,14 @@ func fetchAllAmi(ctx context.Context, conn *generated.Client) ([]generated.AMIWi
 // amiToRow converts an element into the map filter.Match expects.
 func amiToRow(lbl generated.AMIWithOwners) map[string]any {
 	row := map[string]any{
-		"account_id":       int64(lbl.Ami.Value.AccountID.Or(0)),
-		"aws_ami_id":       lbl.Ami.Value.AWSAmiID.Or(""),
-		"description":      lbl.Ami.Value.Description.Or(""),
-		"name":             lbl.Ami.Value.Name.Or(""),
-		"region":           lbl.Ami.Value.Region.Or(""),
-		"sync_deprecation": lbl.Ami.Value.SyncDeprecation.Or(false),
-		"sync_tags":        lbl.Ami.Value.SyncTags.Or(false),
+		"account_id":         int64(lbl.Ami.Value.AccountID.Or(0)),
+		"aws_ami_id":         lbl.Ami.Value.AWSAmiID.Or(""),
+		"description":        lbl.Ami.Value.Description.Or(""),
+		"name":               lbl.Ami.Value.Name.Or(""),
+		"region":             lbl.Ami.Value.Region.Or(""),
+		"sync_deprecation":   lbl.Ami.Value.SyncDeprecation.Or(false),
+		"sync_tags":          lbl.Ami.Value.SyncTags.Or(false),
+		"unavailable_in_aws": lbl.Ami.Value.UnavailableInAWS.Or(false),
 	}
 	if lbl.Ami.Value.ID.Set {
 		row["id"] = int64(lbl.Ami.Value.ID.Value)
@@ -277,14 +282,15 @@ func buildAmiList(ctx context.Context, items []generated.AMIWithOwners) (types.L
 			idVal = types.Int64Value(int64(lbl.Ami.Value.ID.Value))
 		}
 		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
-			"id":               idVal,
-			"account_id":       types.Int64Value(int64(lbl.Ami.Value.AccountID.Or(0))),
-			"aws_ami_id":       types.StringValue(lbl.Ami.Value.AWSAmiID.Or("")),
-			"description":      types.StringValue(lbl.Ami.Value.Description.Or("")),
-			"name":             types.StringValue(lbl.Ami.Value.Name.Or("")),
-			"region":           types.StringValue(lbl.Ami.Value.Region.Or("")),
-			"sync_deprecation": types.BoolValue(lbl.Ami.Value.SyncDeprecation.Or(false)),
-			"sync_tags":        types.BoolValue(lbl.Ami.Value.SyncTags.Or(false)),
+			"id":                 idVal,
+			"account_id":         types.Int64Value(int64(lbl.Ami.Value.AccountID.Or(0))),
+			"aws_ami_id":         types.StringValue(lbl.Ami.Value.AWSAmiID.Or("")),
+			"description":        types.StringValue(lbl.Ami.Value.Description.Or("")),
+			"name":               types.StringValue(lbl.Ami.Value.Name.Or("")),
+			"region":             types.StringValue(lbl.Ami.Value.Region.Or("")),
+			"sync_deprecation":   types.BoolValue(lbl.Ami.Value.SyncDeprecation.Or(false)),
+			"sync_tags":          types.BoolValue(lbl.Ami.Value.SyncTags.Or(false)),
+			"unavailable_in_aws": types.BoolValue(lbl.Ami.Value.UnavailableInAWS.Or(false)),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags

@@ -33,6 +33,8 @@ var listObjectAttrTypes = map[string]attr.Type{
 	"id":                    types.Int64Type,
 	"description":           types.StringType,
 	"name":                  types.StringType,
+	"car_restricted":        types.BoolType,
+	"gcp_id":                types.StringType,
 	"gcp_managed_policy":    types.BoolType,
 	"system_managed_policy": types.BoolType,
 }
@@ -80,6 +82,12 @@ func (d *gcp_iam_roleDataSource) Schema(_ context.Context, _ datasource.SchemaRe
 							Computed: true,
 						},
 						"name": schema.StringAttribute{
+							Computed: true,
+						},
+						"car_restricted": schema.BoolAttribute{
+							Computed: true,
+						},
+						"gcp_id": schema.StringAttribute{
 							Computed: true,
 						},
 						"gcp_managed_policy": schema.BoolAttribute{
@@ -219,6 +227,8 @@ func gcp_iam_roleToRow(lbl generated.GCPRoleWithOwners) map[string]any {
 	row := map[string]any{
 		"description":           lbl.GcpRole.Value.Description.Or(""),
 		"name":                  lbl.GcpRole.Value.Name.Or(""),
+		"car_restricted":        lbl.GcpRole.Value.CarRestricted.Or(false),
+		"gcp_id":                lbl.GcpRole.Value.GcpID.Or(""),
 		"gcp_managed_policy":    lbl.GcpRole.Value.GcpManagedPolicy.Or(false),
 		"system_managed_policy": lbl.GcpRole.Value.SystemManagedPolicy.Or(false),
 	}
@@ -240,6 +250,8 @@ func buildGcpIamRoleList(ctx context.Context, items []generated.GCPRoleWithOwner
 			"id":                    idVal,
 			"description":           types.StringValue(lbl.GcpRole.Value.Description.Or("")),
 			"name":                  types.StringValue(lbl.GcpRole.Value.Name.Or("")),
+			"car_restricted":        types.BoolValue(lbl.GcpRole.Value.CarRestricted.Or(false)),
+			"gcp_id":                types.StringValue(lbl.GcpRole.Value.GcpID.Or("")),
 			"gcp_managed_policy":    types.BoolValue(lbl.GcpRole.Value.GcpManagedPolicy.Or(false)),
 			"system_managed_policy": types.BoolValue(lbl.GcpRole.Value.SystemManagedPolicy.Or(false)),
 		})

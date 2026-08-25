@@ -57,7 +57,9 @@ Optional:
 
 Read-Only:
 
+- `car_restricted` (Boolean)
 - `description` (String)
+- `gcp_id` (String)
 - `gcp_managed_policy` (Boolean)
 - `id` (Number)
 - `name` (String)

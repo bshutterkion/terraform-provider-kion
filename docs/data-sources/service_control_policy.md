@@ -59,6 +59,7 @@ Optional:
 Read-Only:
 
 - `aws_managed_policy` (Boolean)
+- `created_by_user_id` (Number)
 - `description` (String)
 - `id` (Number)
 - `name` (String)

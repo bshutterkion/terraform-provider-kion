@@ -30,10 +30,16 @@ var (
 
 // listObjectAttrTypes is the schema of an entry inside the `list` attribute.
 var listObjectAttrTypes = map[string]attr.Type{
-	"id":              types.Int64Type,
-	"azure_object_id": types.StringType,
-	"payer_id":        types.Int64Type,
-	"user_id":         types.Int64Type,
+	"id":                  types.Int64Type,
+	"azure_object_id":     types.StringType,
+	"payer_id":            types.Int64Type,
+	"user_id":             types.Int64Type,
+	"azure_domain":        types.StringType,
+	"azure_username":      types.StringType,
+	"created_at":          types.StringType,
+	"delete_finalized_at": types.StringType,
+	"deleted_at":          types.StringType,
+	"updated_at":          types.StringType,
 }
 
 // NewAccountLinkageDataSource returns a new instance of the data source.
@@ -85,6 +91,24 @@ func (d *account_linkageDataSource) Schema(_ context.Context, _ datasource.Schem
 							Computed: true,
 						},
 						"user_id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"azure_domain": schema.StringAttribute{
+							Computed: true,
+						},
+						"azure_username": schema.StringAttribute{
+							Computed: true,
+						},
+						"created_at": schema.StringAttribute{
+							Computed: true,
+						},
+						"delete_finalized_at": schema.StringAttribute{
+							Computed: true,
+						},
+						"deleted_at": schema.StringAttribute{
+							Computed: true,
+						},
+						"updated_at": schema.StringAttribute{
 							Computed: true,
 						},
 					},
@@ -218,9 +242,15 @@ func fetchAllAccountLinkage(ctx context.Context, conn *generated.Client) ([]gene
 // account_linkageToRow converts an element into the map filter.Match expects.
 func account_linkageToRow(lbl generated.AzureAccountLinkage) map[string]any {
 	row := map[string]any{
-		"azure_object_id": lbl.AzureObjectID.Or(""),
-		"payer_id":        int64(lbl.PayerID.Or(0)),
-		"user_id":         int64(lbl.UserID.Or(0)),
+		"azure_object_id":     lbl.AzureObjectID.Or(""),
+		"payer_id":            int64(lbl.PayerID.Or(0)),
+		"user_id":             int64(lbl.UserID.Or(0)),
+		"azure_domain":        lbl.AzureDomain.Or(""),
+		"azure_username":      lbl.AzureUsername.Or(""),
+		"created_at":          lbl.CreatedAt.Or(""),
+		"delete_finalized_at": lbl.DeleteFinalizedAt.Or(""),
+		"deleted_at":          lbl.DeletedAt.Or(""),
+		"updated_at":          lbl.UpdatedAt.Or(""),
 	}
 	if lbl.ID.Set {
 		row["id"] = int64(lbl.ID.Value)
@@ -237,10 +267,16 @@ func buildAccountLinkageList(ctx context.Context, items []generated.AzureAccount
 			idVal = types.Int64Value(int64(lbl.ID.Value))
 		}
 		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
-			"id":              idVal,
-			"azure_object_id": types.StringValue(lbl.AzureObjectID.Or("")),
-			"payer_id":        types.Int64Value(int64(lbl.PayerID.Or(0))),
-			"user_id":         types.Int64Value(int64(lbl.UserID.Or(0))),
+			"id":                  idVal,
+			"azure_object_id":     types.StringValue(lbl.AzureObjectID.Or("")),
+			"payer_id":            types.Int64Value(int64(lbl.PayerID.Or(0))),
+			"user_id":             types.Int64Value(int64(lbl.UserID.Or(0))),
+			"azure_domain":        types.StringValue(lbl.AzureDomain.Or("")),
+			"azure_username":      types.StringValue(lbl.AzureUsername.Or("")),
+			"created_at":          types.StringValue(lbl.CreatedAt.Or("")),
+			"delete_finalized_at": types.StringValue(lbl.DeleteFinalizedAt.Or("")),
+			"deleted_at":          types.StringValue(lbl.DeletedAt.Or("")),
+			"updated_at":          types.StringValue(lbl.UpdatedAt.Or("")),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags

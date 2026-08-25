@@ -46,6 +46,7 @@ var listObjectAttrTypes = map[string]attr.Type{
 	"last_scan_id":             types.Int64Type,
 	"name":                     types.StringType,
 	"severity_type_id":         types.Int64Type,
+	"default_severity_type_id": types.Int64Type,
 }
 
 // NewComplianceCheckDataSource returns a new instance of the data source.
@@ -169,6 +170,9 @@ func (d *compliance_checkDataSource) Schema(_ context.Context, _ datasource.Sche
 							Computed: true,
 						},
 						"severity_type_id": schema.Int64Attribute{
+							Computed: true,
+						},
+						"default_severity_type_id": schema.Int64Attribute{
 							Computed: true,
 						},
 					},
@@ -341,6 +345,7 @@ func compliance_checkToRow(lbl generated.ComplianceCheck) map[string]any {
 		"last_scan_id":             int64(lbl.LastScanID.Or(0)),
 		"name":                     lbl.Name.Or(""),
 		"severity_type_id":         int64(lbl.SeverityTypeID.Or(0)),
+		"default_severity_type_id": int64(lbl.DefaultSeverityTypeID.Or(0)),
 	}
 	if lbl.ID.Set {
 		row["id"] = int64(lbl.ID.Value)
@@ -373,6 +378,7 @@ func buildComplianceCheckList(ctx context.Context, items []generated.ComplianceC
 			"last_scan_id":             types.Int64Value(int64(lbl.LastScanID.Or(0))),
 			"name":                     types.StringValue(lbl.Name.Or("")),
 			"severity_type_id":         types.Int64Value(int64(lbl.SeverityTypeID.Or(0))),
+			"default_severity_type_id": types.Int64Value(int64(lbl.DefaultSeverityTypeID.Or(0))),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags

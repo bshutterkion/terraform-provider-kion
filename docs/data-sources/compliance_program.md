@@ -67,6 +67,7 @@ Read-Only:
 - `managed_resource_library_checksum` (String)
 - `managed_resource_library_id` (String)
 - `name` (String)
+- `parent_program_id` (Number)
 - `system_managed_program` (Boolean)
 - `terse_name` (String)
 - `verbose_name` (String)

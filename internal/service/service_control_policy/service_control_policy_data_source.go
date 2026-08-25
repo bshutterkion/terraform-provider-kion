@@ -35,6 +35,7 @@ var listObjectAttrTypes = map[string]attr.Type{
 	"name":                  types.StringType,
 	"policy":                types.StringType,
 	"aws_managed_policy":    types.BoolType,
+	"created_by_user_id":    types.Int64Type,
 	"system_managed_policy": types.BoolType,
 }
 
@@ -90,6 +91,9 @@ func (d *service_control_policyDataSource) Schema(_ context.Context, _ datasourc
 							Computed: true,
 						},
 						"aws_managed_policy": schema.BoolAttribute{
+							Computed: true,
+						},
+						"created_by_user_id": schema.Int64Attribute{
 							Computed: true,
 						},
 						"system_managed_policy": schema.BoolAttribute{
@@ -230,6 +234,7 @@ func service_control_policyToRow(lbl generated.ServiceControlPolicyWithOwners) m
 		"name":                  lbl.ServiceControlPolicy.Value.Name.Or(""),
 		"policy":                lbl.ServiceControlPolicy.Value.Policy.Or(""),
 		"aws_managed_policy":    lbl.ServiceControlPolicy.Value.AWSManagedPolicy.Or(false),
+		"created_by_user_id":    int64(lbl.ServiceControlPolicy.Value.CreatedByUserID.Or(0)),
 		"system_managed_policy": lbl.ServiceControlPolicy.Value.SystemManagedPolicy.Or(false),
 	}
 	if lbl.ServiceControlPolicy.Value.ID.Set {
@@ -252,6 +257,7 @@ func buildServiceControlPolicyList(ctx context.Context, items []generated.Servic
 			"name":                  types.StringValue(lbl.ServiceControlPolicy.Value.Name.Or("")),
 			"policy":                types.StringValue(lbl.ServiceControlPolicy.Value.Policy.Or("")),
 			"aws_managed_policy":    types.BoolValue(lbl.ServiceControlPolicy.Value.AWSManagedPolicy.Or(false)),
+			"created_by_user_id":    types.Int64Value(int64(lbl.ServiceControlPolicy.Value.CreatedByUserID.Or(0))),
 			"system_managed_policy": types.BoolValue(lbl.ServiceControlPolicy.Value.SystemManagedPolicy.Or(false)),
 		})
 		if objDiags.HasError() {

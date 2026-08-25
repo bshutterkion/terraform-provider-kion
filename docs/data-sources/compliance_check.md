@@ -77,6 +77,7 @@ Read-Only:
 - `created_at` (String)
 - `created_by_user_id` (Number)
 - `ct_managed` (Boolean)
+- `default_severity_type_id` (Number)
 - `description` (String)
 - `frequency_minutes` (Number)
 - `frequency_type_id` (Number)

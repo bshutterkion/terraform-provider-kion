@@ -37,6 +37,8 @@ var listObjectAttrTypes = map[string]attr.Type{
 	"payer_id":       types.Int64Type,
 	"project_id":     types.Int64Type,
 	"start_datecode": types.StringType,
+	"created_at":     types.StringType,
+	"deleted_at":     types.StringType,
 }
 
 // NewCustomAccountDataSource returns a new instance of the data source.
@@ -106,6 +108,12 @@ func (d *custom_accountDataSource) Schema(_ context.Context, _ datasource.Schema
 							Computed: true,
 						},
 						"start_datecode": schema.StringAttribute{
+							Computed: true,
+						},
+						"created_at": schema.StringAttribute{
+							Computed: true,
+						},
+						"deleted_at": schema.StringAttribute{
 							Computed: true,
 						},
 					},
@@ -251,6 +259,8 @@ func custom_accountToRow(lbl generated.Account) map[string]any {
 		"payer_id":       int64(lbl.PayerID.Or(0)),
 		"project_id":     int64(lbl.ProjectID.Or(0)),
 		"start_datecode": lbl.StartDatecode.Or(""),
+		"created_at":     lbl.CreatedAt.Or(""),
+		"deleted_at":     lbl.DeletedAt.Or(""),
 	}
 	if lbl.ID.Set {
 		row["id"] = int64(lbl.ID.Value)
@@ -274,6 +284,8 @@ func buildCustomAccountList(ctx context.Context, items []generated.Account) (typ
 			"payer_id":       types.Int64Value(int64(lbl.PayerID.Or(0))),
 			"project_id":     types.Int64Value(int64(lbl.ProjectID.Or(0))),
 			"start_datecode": types.StringValue(lbl.StartDatecode.Or("")),
+			"created_at":     types.StringValue(lbl.CreatedAt.Or("")),
+			"deleted_at":     types.StringValue(lbl.DeletedAt.Or("")),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags

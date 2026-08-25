@@ -38,6 +38,8 @@ var listObjectAttrTypes = map[string]attr.Type{
 	"project_id":           types.Int64Type,
 	"skip_access_checking": types.BoolType,
 	"start_datecode":       types.StringType,
+	"created_at":           types.StringType,
+	"deleted_at":           types.StringType,
 }
 
 // NewGcpAccountDataSource returns a new instance of the data source.
@@ -113,6 +115,12 @@ func (d *gcp_accountDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 							Computed: true,
 						},
 						"start_datecode": schema.StringAttribute{
+							Computed: true,
+						},
+						"created_at": schema.StringAttribute{
+							Computed: true,
+						},
+						"deleted_at": schema.StringAttribute{
 							Computed: true,
 						},
 					},
@@ -261,6 +269,8 @@ func gcp_accountToRow(lbl generated.Account) map[string]any {
 		"project_id":           int64(lbl.ProjectID.Or(0)),
 		"skip_access_checking": lbl.SkipAccessChecking.Or(false),
 		"start_datecode":       lbl.StartDatecode.Or(""),
+		"created_at":           lbl.CreatedAt.Or(""),
+		"deleted_at":           lbl.DeletedAt.Or(""),
 	}
 	if lbl.ID.Set {
 		row["id"] = int64(lbl.ID.Value)
@@ -285,6 +295,8 @@ func buildGcpAccountList(ctx context.Context, items []generated.Account) (types.
 			"project_id":           types.Int64Value(int64(lbl.ProjectID.Or(0))),
 			"skip_access_checking": types.BoolValue(lbl.SkipAccessChecking.Or(false)),
 			"start_datecode":       types.StringValue(lbl.StartDatecode.Or("")),
+			"created_at":           types.StringValue(lbl.CreatedAt.Or("")),
+			"deleted_at":           types.StringValue(lbl.DeletedAt.Or("")),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags

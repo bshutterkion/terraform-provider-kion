@@ -59,6 +59,7 @@ Optional:
 Read-Only:
 
 - `azure_managed_policy` (Boolean)
+- `car_restricted` (Boolean)
 - `description` (String)
 - `enabled` (Boolean)
 - `id` (Number)

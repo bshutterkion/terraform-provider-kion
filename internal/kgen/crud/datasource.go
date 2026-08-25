@@ -73,19 +73,20 @@ func (d dsData) NeedsPayload() bool {
 // back to the id-only data source and reports the downgrade.
 //
 // The returned downgrade string is non-empty exactly when a collection read was
-// configured but the filter-capable data source could not be built.
-func renderDataSource(rm ResourceModel, policy FieldPolicy) (out []byte, downgrade string, err error) {
+// configured but the filter-capable data source could not be built; drops lists
+// the fields the dual-mode build could not project.
+func renderDataSource(rm ResourceModel, policy FieldPolicy) (out []byte, downgrade string, drops []dropped, err error) {
 	if rm.List != nil {
-		b, berr := renderListDataSource(rm, policy)
+		b, d, berr := renderListDataSource(rm, policy)
 		if berr == nil {
-			return b, "", nil
+			return b, "", d, nil
 		}
 		downgrade = berr.Error()
 	} else {
 		downgrade = rm.ListDowngrade
 	}
 	b, err := renderIDOnlyDataSource(rm)
-	return b, downgrade, err
+	return b, downgrade, nil, err
 }
 
 // renderIDOnlyDataSource renders an id-only <name>_data_source.go (single read
@@ -320,18 +321,27 @@ type listDSData struct {
 	Assigns      []listScalarAssign
 }
 
-func renderListDataSource(rm ResourceModel, policy FieldPolicy) ([]byte, error) {
-	data, err := buildListDSData(rm, policy)
-	if err != nil {
-		return nil, err
-	}
-	return execGoTemplate("datasource_list", dataSourceListTmpl, data, rm.Name+"_data_source.go")
+// dropped is one field a list data source could not project into its `list`
+// objects, so the loss is reported at the end of a run rather than absorbed.
+type dropped struct {
+	Field  string
+	Reason string
 }
 
-func buildListDSData(rm ResourceModel, policy FieldPolicy) (listDSData, error) {
+func renderListDataSource(rm ResourceModel, policy FieldPolicy) ([]byte, []dropped, error) {
+	data, drops, err := buildListDSData(rm, policy)
+	if err != nil {
+		return nil, nil, err
+	}
+	out, err := execGoTemplate("datasource_list", dataSourceListTmpl, data, rm.Name+"_data_source.go")
+	return out, drops, err
+}
+
+func buildListDSData(rm ResourceModel, policy FieldPolicy) (listDSData, []dropped, error) {
+	var drops []dropped
 	base, err := buildDSData(rm)
 	if err != nil {
-		return listDSData{}, err
+		return listDSData{}, nil, err
 	}
 	view := buildRecordView(rm)
 	// The dual-mode list objects carry an id; without one in the response the
@@ -340,15 +350,15 @@ func buildListDSData(rm ResourceModel, policy FieldPolicy) (listDSData, error) {
 		// An empty field set means the read payload's OpenAPI schema declares no
 		// properties at all. Nothing the generator can do, the spec must be fixed.
 		if len(view.Fields) == 0 {
-			return listDSData{}, fmt.Errorf("%s dual-mode data source: read payload %s has no fields at all (empty OpenAPI schema)", rm.Name, rm.Read.RespPayload)
+			return listDSData{}, nil, fmt.Errorf("%s dual-mode data source: read payload %s has no fields at all (empty OpenAPI schema)", rm.Name, rm.Read.RespPayload)
 		}
-		return listDSData{}, fmt.Errorf("%s dual-mode data source: response has no id field", rm.Name)
+		return listDSData{}, nil, fmt.Errorf("%s dual-mode data source: response has no id field", rm.Name)
 	}
 	lm := rm.List
 	// The id is special-cased: it is always exposed as an Int64 and the list
 	// objects key off it, so an id the templates cannot unwrap is fatal here.
 	if !listIDOK(view.Fields["id"].Type) {
-		return listDSData{}, fmt.Errorf("%s dual-mode data source: id field type %q unsupported for list", rm.Name, view.Fields["id"].Type)
+		return listDSData{}, nil, fmt.Errorf("%s dual-mode data source: id field type %q unsupported for list", rm.Name, view.Fields["id"].Type)
 	}
 	d := listDSData{
 		dsData:       base,
@@ -372,15 +382,16 @@ func buildListDSData(rm ResourceModel, policy FieldPolicy) (listDSData, error) {
 
 	// A field the `list` objects cannot render is dropped from the data source
 	// entirely rather than failing it, losing one attribute beats losing the
-	// whole filter block.
+	// whole filter block. The drop is recorded so the run reports it.
 	attrs := make([]dsField, 0, len(base.Attrs))
 	for _, a := range base.Attrs {
 		pf, ok := view.Fields[a.TFName]
 		if !ok {
-			return listDSData{}, fmt.Errorf("field %q not in response payload", a.TFName)
+			return listDSData{}, nil, fmt.Errorf("field %q not in response payload", a.TFName)
 		}
 		attrType, objExpr, rowExpr, ok := listValueExprs("lbl."+a.SDKGo, pf.Type, a.ModelType)
 		if !ok {
+			drops = append(drops, dropped{a.TFName, fmt.Sprintf("resource attribute: SDK type %q has no `list` projection", pf.Type)})
 			continue
 		}
 		attrs = append(attrs, a)
@@ -411,7 +422,7 @@ func buildListDSData(rm ResourceModel, policy FieldPolicy) (listDSData, error) {
 	}
 	slices.Sort(names) // generated output must not depend on map order
 	for _, name := range names {
-		if seen[name] || policy.Hidden(rm.Name, name) {
+		if seen[name] {
 			continue
 		}
 		rf := view.Fields[name]
@@ -419,16 +430,24 @@ func buildListDSData(rm ResourceModel, policy FieldPolicy) (listDSData, error) {
 		if !known {
 			continue // not a scalar the list objects can render
 		}
+		if policy.Hidden(rm.Name, name, ls.model) {
+			continue
+		}
+		// Past this point the type IS renderable, so a failure is an internal
+		// inconsistency rather than an expected shape. Report those.
 		path, ok := view.Paths[name]
 		if !ok {
+			drops = append(drops, dropped{name, "response field: renderable scalar with no access path"})
 			continue
 		}
 		attrType, objExpr, rowExpr, ok := listValueExprs("lbl."+path, rf.Type, ls.model)
 		if !ok {
+			drops = append(drops, dropped{name, fmt.Sprintf("response field: SDK type %q has no `list` projection", rf.Type)})
 			continue
 		}
 		schemaType, ok := schemaAttrType(ls.model)
 		if !ok {
+			drops = append(drops, dropped{name, fmt.Sprintf("response field: model type %q has no schema attribute", ls.model)})
 			continue
 		}
 		d.ObjFields = append(d.ObjFields, listObjField{
@@ -436,7 +455,7 @@ func buildListDSData(rm ResourceModel, policy FieldPolicy) (listDSData, error) {
 			SDKGo: path, ObjExpr: objExpr, RowExpr: rowExpr,
 		})
 	}
-	return d, nil
+	return d, drops, nil
 }
 
 // listIDOK reports whether an SDK id field is an Opt-wrapped integer, the shape
@@ -464,6 +483,7 @@ type listScalar struct {
 var listScalars = map[string]listScalar{
 	"string":       {"types.String", "%s", "types.StringValue"},
 	"OptString":    {"types.String", `%s.Or("")`, "types.StringValue"},
+	"OptNilString": {"types.String", `%s.Or("")`, "types.StringValue"},
 	"bool":         {"types.Bool", "%s", "types.BoolValue"},
 	"OptBool":      {"types.Bool", "%s.Or(false)", "types.BoolValue"},
 	"OptNilBool":   {"types.Bool", "%s.Or(false)", "types.BoolValue"},

@@ -339,6 +339,9 @@ func isScalar(goType string, structs map[string][]sdkField) bool {
 	if _, isStruct := structs[base]; isStruct {
 		return false
 	}
+	if base == "jx.Raw" {
+		return false // an arbitrary JSON document, not something filter.Match compares
+	}
 	if strings.Contains(base, ".") { // time.Time and friends
 		return true
 	}

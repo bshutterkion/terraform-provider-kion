@@ -30,14 +30,19 @@ var (
 
 // listObjectAttrTypes is the schema of an entry inside the `list` attribute.
 var listObjectAttrTypes = map[string]attr.Type{
-	"id":         types.Int64Type,
-	"email":      types.StringType,
-	"first_name": types.StringType,
-	"idms_id":    types.Int64Type,
-	"last_name":  types.StringType,
-	"phone":      types.StringType,
-	"username":   types.StringType,
-	"enabled":    types.BoolType,
+	"id":                    types.Int64Type,
+	"email":                 types.StringType,
+	"first_name":            types.StringType,
+	"idms_id":               types.Int64Type,
+	"last_name":             types.StringType,
+	"phone":                 types.StringType,
+	"username":              types.StringType,
+	"created_at":            types.StringType,
+	"deleted_at":            types.StringType,
+	"display_name":          types.StringType,
+	"enabled":               types.BoolType,
+	"last_login":            types.StringType,
+	"password_needs_update": types.BoolType,
 }
 
 // NewUserDataSource returns a new instance of the data source.
@@ -113,7 +118,22 @@ func (d *userDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 						"username": schema.StringAttribute{
 							Computed: true,
 						},
+						"created_at": schema.StringAttribute{
+							Computed: true,
+						},
+						"deleted_at": schema.StringAttribute{
+							Computed: true,
+						},
+						"display_name": schema.StringAttribute{
+							Computed: true,
+						},
 						"enabled": schema.BoolAttribute{
+							Computed: true,
+						},
+						"last_login": schema.StringAttribute{
+							Computed: true,
+						},
+						"password_needs_update": schema.BoolAttribute{
 							Computed: true,
 						},
 					},
@@ -255,13 +275,18 @@ func fetchAllUser(ctx context.Context, conn *generated.Client) ([]generated.User
 // userToRow converts an element into the map filter.Match expects.
 func userToRow(lbl generated.User) map[string]any {
 	row := map[string]any{
-		"email":      lbl.Email.Or(""),
-		"first_name": lbl.FirstName.Or(""),
-		"idms_id":    int64(lbl.IdmsID.Or(0)),
-		"last_name":  lbl.LastName.Or(""),
-		"phone":      lbl.Phone.Or(""),
-		"username":   lbl.Username.Or(""),
-		"enabled":    lbl.Enabled.Or(false),
+		"email":                 lbl.Email.Or(""),
+		"first_name":            lbl.FirstName.Or(""),
+		"idms_id":               int64(lbl.IdmsID.Or(0)),
+		"last_name":             lbl.LastName.Or(""),
+		"phone":                 lbl.Phone.Or(""),
+		"username":              lbl.Username.Or(""),
+		"created_at":            lbl.CreatedAt.Or(""),
+		"deleted_at":            lbl.DeletedAt.Or(""),
+		"display_name":          lbl.DisplayName.Or(""),
+		"enabled":               lbl.Enabled.Or(false),
+		"last_login":            lbl.LastLogin.Or(""),
+		"password_needs_update": lbl.PasswordNeedsUpdate.Or(false),
 	}
 	if lbl.ID.Set {
 		row["id"] = int64(lbl.ID.Value)
@@ -278,14 +303,19 @@ func buildUserList(ctx context.Context, items []generated.User) (types.List, dia
 			idVal = types.Int64Value(int64(lbl.ID.Value))
 		}
 		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
-			"id":         idVal,
-			"email":      types.StringValue(lbl.Email.Or("")),
-			"first_name": types.StringValue(lbl.FirstName.Or("")),
-			"idms_id":    types.Int64Value(int64(lbl.IdmsID.Or(0))),
-			"last_name":  types.StringValue(lbl.LastName.Or("")),
-			"phone":      types.StringValue(lbl.Phone.Or("")),
-			"username":   types.StringValue(lbl.Username.Or("")),
-			"enabled":    types.BoolValue(lbl.Enabled.Or(false)),
+			"id":                    idVal,
+			"email":                 types.StringValue(lbl.Email.Or("")),
+			"first_name":            types.StringValue(lbl.FirstName.Or("")),
+			"idms_id":               types.Int64Value(int64(lbl.IdmsID.Or(0))),
+			"last_name":             types.StringValue(lbl.LastName.Or("")),
+			"phone":                 types.StringValue(lbl.Phone.Or("")),
+			"username":              types.StringValue(lbl.Username.Or("")),
+			"created_at":            types.StringValue(lbl.CreatedAt.Or("")),
+			"deleted_at":            types.StringValue(lbl.DeletedAt.Or("")),
+			"display_name":          types.StringValue(lbl.DisplayName.Or("")),
+			"enabled":               types.BoolValue(lbl.Enabled.Or(false)),
+			"last_login":            types.StringValue(lbl.LastLogin.Or("")),
+			"password_needs_update": types.BoolValue(lbl.PasswordNeedsUpdate.Or(false)),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags

@@ -56,5 +56,8 @@ Optional:
 
 Read-Only:
 
+- `created_at` (String)
 - `id` (Number)
+- `last_used` (String)
 - `name` (String)
+- `user_id` (Number)

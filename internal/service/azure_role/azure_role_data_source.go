@@ -35,6 +35,7 @@ var listObjectAttrTypes = map[string]attr.Type{
 	"name":                  types.StringType,
 	"role_permissions":      types.StringType,
 	"azure_managed_policy":  types.BoolType,
+	"car_restricted":        types.BoolType,
 	"enabled":               types.BoolType,
 	"system_managed_policy": types.BoolType,
 }
@@ -91,6 +92,9 @@ func (d *azure_roleDataSource) Schema(_ context.Context, _ datasource.SchemaRequ
 							Computed: true,
 						},
 						"azure_managed_policy": schema.BoolAttribute{
+							Computed: true,
+						},
+						"car_restricted": schema.BoolAttribute{
 							Computed: true,
 						},
 						"enabled": schema.BoolAttribute{
@@ -234,6 +238,7 @@ func azure_roleToRow(lbl generated.AzureRoleWithOwners) map[string]any {
 		"name":                  lbl.AzureRole.Value.Name.Or(""),
 		"role_permissions":      lbl.AzureRole.Value.RolePermissions.Or(""),
 		"azure_managed_policy":  lbl.AzureRole.Value.AzureManagedPolicy.Or(false),
+		"car_restricted":        lbl.AzureRole.Value.CarRestricted.Or(false),
 		"enabled":               lbl.AzureRole.Value.Enabled.Or(false),
 		"system_managed_policy": lbl.AzureRole.Value.SystemManagedPolicy.Or(false),
 	}
@@ -257,6 +262,7 @@ func buildAzureRoleList(ctx context.Context, items []generated.AzureRoleWithOwne
 			"name":                  types.StringValue(lbl.AzureRole.Value.Name.Or("")),
 			"role_permissions":      types.StringValue(lbl.AzureRole.Value.RolePermissions.Or("")),
 			"azure_managed_policy":  types.BoolValue(lbl.AzureRole.Value.AzureManagedPolicy.Or(false)),
+			"car_restricted":        types.BoolValue(lbl.AzureRole.Value.CarRestricted.Or(false)),
 			"enabled":               types.BoolValue(lbl.AzureRole.Value.Enabled.Or(false)),
 			"system_managed_policy": types.BoolValue(lbl.AzureRole.Value.SystemManagedPolicy.Or(false)),
 		})

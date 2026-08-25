@@ -56,6 +56,7 @@ Read-Only:
 - `account_type_id` (Number)
 - `car_external_id` (String)
 - `created_at` (String)
+- `deleted_at` (String)
 - `email` (String)
 - `id` (Number)
 - `include_linked_account_spend` (Boolean)
