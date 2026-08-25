@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -776,6 +777,147 @@ func TestEnumerateMultiParentBothSetsFailingIsAnError(t *testing.T) {
 	assert.Empty(t, res.Records)
 	assert.Contains(t, res.Reason, "405")
 	assert.Contains(t, res.Reason, "500")
+}
+
+// --- Fix 5: a 404 on a per-parent child read means "this parent has none,"
+// not a failure. Modeled on kion_idms_open_id_access_rule: on a real
+// install, 10 of 11 IDMSes are not OpenID type, so their access-rule
+// endpoint 404s -- that is the correct answer, not 10 failed reads. ---
+
+func notFound(path string) *StatusError {
+	return &StatusError{Path: path, Status: http.StatusNotFound, Body: `{"status":404,"message":"IDMS not found"}`}
+}
+
+func TestEnumerateParentScopedAllParents404IsEmptyNotError(t *testing.T) {
+	t.Parallel()
+	l := &routeLister{routes: map[string]any{
+		"/v4/idms/open-id":               []map[string]any{rec("id", float64(1)), rec("id", float64(2)), rec("id", float64(3))},
+		"/v4/idms/open-id/1/access-rule": notFound("/v4/idms/open-id/1/access-rule"),
+		"/v4/idms/open-id/2/access-rule": notFound("/v4/idms/open-id/2/access-rule"),
+		"/v4/idms/open-id/3/access-rule": notFound("/v4/idms/open-id/3/access-rule"),
+	}}
+	res := Enumerate(context.Background(), l, importmanifest.Resource{
+		TFType: "kion_idms_open_id_access_rule", ReadShape: importmanifest.ShapeParentList, Readable: true,
+		Parent: &importmanifest.Parent{
+			Kind: "idms_open_id", ListPath: "/v4/idms/open-id",
+			ChildPath: "/v4/idms/open-id/{parent_id}/access-rule", ParentIDField: "idms_id",
+		},
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	})
+	assert.Equal(t, "empty", res.Status, "an expected 'has none' answer from every parent must not read as error")
+	assert.Empty(t, res.Records)
+	assert.Contains(t, res.Reason, "3 parent(s) had none")
+	assert.NotContains(t, res.Reason, "failed")
+}
+
+func TestEnumerateParentScopedSomeParents404SomeRecordsIsOkWithNoAbsenceNoise(t *testing.T) {
+	t.Parallel()
+	l := &routeLister{routes: map[string]any{
+		"/v4/idms/open-id":               []map[string]any{rec("id", float64(1)), rec("id", float64(2)), rec("id", float64(3))},
+		"/v4/idms/open-id/1/access-rule": notFound("/v4/idms/open-id/1/access-rule"),
+		"/v4/idms/open-id/2/access-rule": []map[string]any{rec("id", float64(20))},
+		"/v4/idms/open-id/3/access-rule": notFound("/v4/idms/open-id/3/access-rule"),
+	}}
+	res := Enumerate(context.Background(), l, importmanifest.Resource{
+		TFType: "kion_idms_open_id_access_rule", ReadShape: importmanifest.ShapeParentList, Readable: true,
+		Parent: &importmanifest.Parent{
+			Kind: "idms_open_id", ListPath: "/v4/idms/open-id",
+			ChildPath: "/v4/idms/open-id/{parent_id}/access-rule", ParentIDField: "idms_id",
+		},
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	})
+	require.Equal(t, "ok", res.Status)
+	require.Len(t, res.Records, 1)
+	assert.Empty(t, res.Reason, "a resource existing under a minority of parents is normal and must not be called out")
+}
+
+func TestEnumerateParentScoped502Among404sIsStillErrorAndNamesThe502(t *testing.T) {
+	t.Parallel()
+	l := &routeLister{routes: map[string]any{
+		"/v3/idms":                     []map[string]any{rec("id", float64(1)), rec("id", float64(2)), rec("id", float64(3))},
+		"/v3/idms/1/group-association": notFound("/v3/idms/1/group-association"),
+		"/v3/idms/2/group-association": &StatusError{Path: "/v3/idms/2/group-association", Status: http.StatusBadGateway},
+		"/v3/idms/3/group-association": notFound("/v3/idms/3/group-association"),
+	}}
+	res := Enumerate(context.Background(), l, importmanifest.Resource{
+		TFType: "kion_idms_group_association", ReadShape: importmanifest.ShapeParentList, Readable: true,
+		Parent: &importmanifest.Parent{
+			Kind: "idms", ListPath: "/v3/idms",
+			ChildPath: "/v3/idms/{parent_id}/group-association", ParentIDField: "idms_id",
+		},
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	})
+	assert.Equal(t, "error", res.Status, "a real failure among absences must still be reported, not swallowed")
+	assert.Empty(t, res.Records)
+	assert.Contains(t, res.Reason, "502")
+}
+
+func TestEnumerateParentScopedMixed404And502AndRecordsIsOkWith502NamedAnd404sSilent(t *testing.T) {
+	t.Parallel()
+	l := &routeLister{routes: map[string]any{
+		"/v3/idms":                     []map[string]any{rec("id", float64(1)), rec("id", float64(2)), rec("id", float64(3))},
+		"/v3/idms/1/group-association": notFound("/v3/idms/1/group-association"),
+		"/v3/idms/2/group-association": &StatusError{Path: "/v3/idms/2/group-association", Status: http.StatusBadGateway},
+		"/v3/idms/3/group-association": []map[string]any{rec("id", float64(30))},
+	}}
+	res := Enumerate(context.Background(), l, importmanifest.Resource{
+		TFType: "kion_idms_group_association", ReadShape: importmanifest.ShapeParentList, Readable: true,
+		Parent: &importmanifest.Parent{
+			Kind: "idms", ListPath: "/v3/idms",
+			ChildPath: "/v3/idms/{parent_id}/group-association", ParentIDField: "idms_id",
+		},
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	})
+	require.Equal(t, "ok", res.Status)
+	require.Len(t, res.Records, 1)
+	assert.Contains(t, res.Reason, "502")
+	assert.NotContains(t, res.Reason, "404")
+	assert.NotContains(t, res.Reason, "had none")
+}
+
+// The multi-parent path delegates each parent set through the same
+// absence-vs-failure logic, and combines record counts across every set
+// before deciding whether an absence is worth mentioning -- not per set.
+func TestEnumerateMultiParentAllParents404InBothSetsIsEmptyNotError(t *testing.T) {
+	t.Parallel()
+	l := &routeLister{routes: map[string]any{
+		"/v3/ou":               []map[string]any{rec("id", float64(1))},
+		"/v3/ou/1/budget":      notFound("/v3/ou/1/budget"),
+		"/v3/project":          []map[string]any{rec("id", float64(2))},
+		"/v3/project/2/budget": notFound("/v3/project/2/budget"),
+	}}
+	res := Enumerate(context.Background(), l, importmanifest.Resource{
+		TFType: "kion_budget", ReadShape: importmanifest.ShapeParentList, Readable: true,
+		Parents: []importmanifest.Parent{
+			{Kind: "ou", ListPath: "/v3/ou", ChildPath: "/v3/ou/{parent_id}/budget", ParentIDField: "ou_id"},
+			{Kind: "project", ListPath: "/v3/project", ChildPath: "/v3/project/{parent_id}/budget", ParentIDField: "project_id"},
+		},
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	})
+	assert.Equal(t, "empty", res.Status)
+	assert.Empty(t, res.Records)
+	assert.Contains(t, res.Reason, "2 parent(s) had none")
+}
+
+func TestEnumerateMultiParentOneSetAllAbsentOtherHasRecordsIsOkWithNoAbsenceNoise(t *testing.T) {
+	t.Parallel()
+	l := &routeLister{routes: map[string]any{
+		"/v3/ou":               []map[string]any{rec("id", float64(1))},
+		"/v3/ou/1/budget":      notFound("/v3/ou/1/budget"),
+		"/v3/project":          []map[string]any{rec("id", float64(2))},
+		"/v3/project/2/budget": []map[string]any{rec("id", float64(200))},
+	}}
+	res := Enumerate(context.Background(), l, importmanifest.Resource{
+		TFType: "kion_budget", ReadShape: importmanifest.ShapeParentList, Readable: true,
+		Parents: []importmanifest.Parent{
+			{Kind: "ou", ListPath: "/v3/ou", ChildPath: "/v3/ou/{parent_id}/budget", ParentIDField: "ou_id"},
+			{Kind: "project", ListPath: "/v3/project", ChildPath: "/v3/project/{parent_id}/budget", ParentIDField: "project_id"},
+		},
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	})
+	require.Equal(t, "ok", res.Status)
+	require.Len(t, res.Records, 1)
+	assert.NotContains(t, res.Reason, "had none")
 }
 
 func TestEnumerateSingleParentUnchangedWhenParentsEmpty(t *testing.T) {

@@ -5,7 +5,9 @@ package kimport
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"terraform-provider-kion/internal/kgen/importmanifest"
@@ -95,124 +97,188 @@ func Enumerate(ctx context.Context, l Lister, r importmanifest.Resource) Result 
 	return res
 }
 
-// parentScopedResult lists r.Parent.ListPath for the parent ids, then reads
-// r.Parent.ChildPath under each one. One bad parent doesn't sink the whole
-// resource -- its failure is recorded and enumeration continues -- but if
-// every parent failed and nothing came back, the resource is reported as
-// errored rather than merely empty.
-func parentScopedResult(ctx context.Context, l Lister, r importmanifest.Resource) Result {
-	res := Result{TFType: r.TFType}
+// parentSetOutcome is the raw tally from reading one parent set (every
+// parent's child collection under one Parent block). It stays unrendered --
+// no Reason, no Status -- because multiParentScopedResult needs to combine
+// several sets' outcomes before it can decide those: whether an absence is
+// worth mentioning depends on the record count across ALL parent sets, not
+// just this one (see readParentSet's doc comment).
+type parentSetOutcome struct {
+	records        []Record
+	failures       []string // real (non-404) child-read failures, as text
+	absentParents  int      // parents whose child read 404'd: this parent has none
+	parentsSkipped int      // parents with no usable id
+	skippedNoID    int      // toRecords: records with no id
+	skippedNoKey   int      // toRecords: FormatParentSlashKey records missing their key field
+}
 
-	parents, err := l.List(ctx, r.Parent.ListPath)
+// readParentSet lists p.ListPath for the parent ids, then reads p.ChildPath
+// under each one. One bad parent doesn't sink the whole set -- its failure
+// is recorded in the outcome and enumeration continues.
+//
+// A child read that 404s is not a failure: it means this particular parent
+// has none of resource r, same as a 200 with an empty body -- some resources
+// (e.g. kion_idms_open_id_access_rule) only exist under a minority of
+// parents, and the API answers "not found" rather than "here are zero"
+// for the rest. That is counted as absentParents, separately from failures,
+// so a real error (e.g. 502) is never confused with an expected gap.
+//
+// Only the top-level list call (p.ListPath itself failing) is returned as an
+// error -- that's not "one bad parent," it's not knowing what the parents
+// are at all.
+func readParentSet(ctx context.Context, l Lister, p importmanifest.Parent, r importmanifest.Resource) (parentSetOutcome, error) {
+	parents, err := l.List(ctx, p.ListPath)
 	if err != nil {
-		res.Status, res.Reason = "error", fmt.Sprintf("listing parents: %v", err)
-		return res
+		return parentSetOutcome{}, err
 	}
 
-	var failures []string
-	skippedNoID := 0
-	skippedNoKey := 0
-	parentsSkipped := 0
+	var out parentSetOutcome
 	for _, parent := range parents {
 		// A parent list can use the per-type wrapper shape too (the exact
 		// shape unwrapTypedRecord exists for) -- unwrap before reading id,
 		// or every parent silently drops with no count and no reason.
 		// unwrapTypedRecord's kind-match step is for the CHILD resource r,
-		// which isn't the parent's own kind -- r.Parent carries no reliable
+		// which isn't the parent's own kind -- p carries no reliable
 		// tf_type-derived kind for the parent entity, so pass "" and let it
 		// fall through to the structural "exactly one id-bearing map" rule,
 		// which already handles this shape correctly.
 		fields := unwrapTypedRecord(parent, "")
 		pid := stringify(fields["id"])
 		if pid == "" {
-			parentsSkipped++
+			out.parentsSkipped++
 			continue
 		}
-		path := strings.ReplaceAll(r.Parent.ChildPath, "{parent_id}", pid)
+		path := strings.ReplaceAll(p.ChildPath, "{parent_id}", pid)
 		children, err := l.List(ctx, path)
 		if err != nil {
-			failures = append(failures, err.Error())
+			var statusErr *StatusError
+			if errors.As(err, &statusErr) && statusErr.Status == http.StatusNotFound {
+				out.absentParents++
+				continue
+			}
+			out.failures = append(out.failures, err.Error())
 			continue
 		}
 		for _, child := range children {
-			if _, ok := child[r.Parent.ParentIDField]; !ok {
-				child[r.Parent.ParentIDField] = fields["id"]
+			if _, ok := child[p.ParentIDField]; !ok {
+				child[p.ParentIDField] = fields["id"]
 			}
 		}
 		recs, noID, noKey := toRecords(children, r, pid)
-		res.Records = append(res.Records, recs...)
-		skippedNoID += noID
-		skippedNoKey += noKey
+		out.records = append(out.records, recs...)
+		out.skippedNoID += noID
+		out.skippedNoKey += noKey
 	}
+	return out, nil
+}
 
-	var reasonParts []string
-	if len(failures) > 0 {
-		reasonParts = append(reasonParts, fmt.Sprintf("%d parent(s) failed; first: %s", len(failures), failures[0]))
+// parentSetReasonParts renders o's failure/skip counts as Reason fragments.
+// The absence count is deliberately not one of them -- callers decide
+// whether it is worth mentioning against the record count they have
+// visibility into (see readParentSet's doc comment), and append it
+// themselves.
+func parentSetReasonParts(o parentSetOutcome) []string {
+	var parts []string
+	if len(o.failures) > 0 {
+		parts = append(parts, fmt.Sprintf("%d parent(s) failed; first: %s", len(o.failures), o.failures[0]))
 	}
-	if parentsSkipped > 0 {
-		reasonParts = append(reasonParts, fmt.Sprintf("%d parent(s) skipped: no id", parentsSkipped))
+	if o.parentsSkipped > 0 {
+		parts = append(parts, fmt.Sprintf("%d parent(s) skipped: no id", o.parentsSkipped))
 	}
-	if sr := skipReason(skippedNoID, skippedNoKey); sr != "" {
-		reasonParts = append(reasonParts, sr)
+	if sr := skipReason(o.skippedNoID, o.skippedNoKey); sr != "" {
+		parts = append(parts, sr)
 	}
-	res.Reason = strings.Join(reasonParts, "; ")
+	return parts
+}
+
+// parentScopedResult reads r.Parent's single parent set and renders it as a
+// Result. If every parent failed (for real -- not merely had none) and
+// nothing came back, the resource is reported as errored rather than merely
+// empty; if the only thing standing between here and records was absent
+// parents, it is empty with a Reason naming how many.
+func parentScopedResult(ctx context.Context, l Lister, r importmanifest.Resource) Result {
+	res := Result{TFType: r.TFType}
+
+	outcome, err := readParentSet(ctx, l, *r.Parent, r)
+	if err != nil {
+		res.Status, res.Reason = "error", fmt.Sprintf("listing parents: %v", err)
+		return res
+	}
+	res.Records = outcome.records
+
+	parts := parentSetReasonParts(outcome)
+	// Absences are worth reporting only when they explain an empty result --
+	// when records also came back, a resource existing under a minority of
+	// parents is the normal case, and calling it out every run would train
+	// people to ignore the caveats block.
+	if outcome.absentParents > 0 && len(res.Records) == 0 {
+		parts = append(parts, fmt.Sprintf("%d parent(s) had none", outcome.absentParents))
+	}
+	res.Reason = strings.Join(parts, "; ")
 
 	// This also fires when failures are only partial and the surviving
 	// parents legitimately had zero children -- there is no way from here to
 	// tell "every parent that responded had nothing" from "the responses
 	// that mattered all failed," so this errs loud on purpose rather than
 	// risk reporting a resource as cleanly empty when part of its read
-	// actually failed.
-	if len(res.Records) == 0 && len(failures) > 0 {
-		res.Status = "error"
-		return res
-	}
-	if len(res.Records) == 0 {
-		res.Status = "empty"
-	} else {
+	// actually failed. Absent (404) parents don't trigger this -- they are
+	// a definite answer, not an unknown.
+	switch {
+	case len(res.Records) > 0:
 		res.Status = "ok"
+	case len(outcome.failures) > 0:
+		res.Status = "error"
+	default:
+		res.Status = "empty"
 	}
 	return res
 }
 
 // multiParentScopedResult reads every parent set in r.Parents (e.g.
-// kion_budget under both /v3/ou and /v3/project) via parentScopedResult and
-// concatenates their records. One parent set failing entirely -- or one
-// parent within a set failing -- does not prevent the other sets from being
-// read; each set's Reason (parentScopedResult already folds per-parent
-// failures into it) is carried forward, prefixed with that set's Kind so a
+// kion_budget under both /v3/ou and /v3/project) and concatenates their
+// records. One parent set failing entirely -- or one parent within a set
+// failing -- does not prevent the other sets from being read; each set's
+// failure/skip reason is carried forward, prefixed with that set's Kind so a
 // multi-set failure is still traceable to which parent it came from.
-// RenderImports already dedups by (tfType, id) across all of a resource's
-// records, so no dedup happens here.
+// Absences are tallied across every set and, per the same rule
+// parentScopedResult applies, mentioned only when the combined record count
+// across all sets is zero. RenderImports already dedups by (tfType, id)
+// across all of a resource's records, so no dedup happens here.
 func multiParentScopedResult(ctx context.Context, l Lister, r importmanifest.Resource) Result {
 	res := Result{TFType: r.TFType}
 
 	var reasonParts []string
 	anyFailure := false
+	totalAbsent := 0
 	for i := range r.Parents {
-		sub := r
 		p := r.Parents[i]
-		sub.Parent = &p
-		sub.Parents = nil
-
-		subRes := parentScopedResult(ctx, l, sub)
-		res.Records = append(res.Records, subRes.Records...)
-		if subRes.Status == "error" {
+		outcome, err := readParentSet(ctx, l, p, r)
+		if err != nil {
+			anyFailure = true
+			reasonParts = append(reasonParts, fmt.Sprintf("%s: listing parents: %v", p.Kind, err))
+			continue
+		}
+		res.Records = append(res.Records, outcome.records...)
+		totalAbsent += outcome.absentParents
+		if len(outcome.failures) > 0 {
 			anyFailure = true
 		}
-		if subRes.Reason != "" {
-			reasonParts = append(reasonParts, fmt.Sprintf("%s: %s", p.Kind, subRes.Reason))
+		if parts := parentSetReasonParts(outcome); len(parts) > 0 {
+			reasonParts = append(reasonParts, fmt.Sprintf("%s: %s", p.Kind, strings.Join(parts, "; ")))
 		}
+	}
+	if totalAbsent > 0 && len(res.Records) == 0 {
+		reasonParts = append(reasonParts, fmt.Sprintf("%d parent(s) had none", totalAbsent))
 	}
 	res.Reason = strings.Join(reasonParts, "; ")
 
 	switch {
-	case len(res.Records) == 0 && anyFailure:
-		res.Status = "error"
-	case len(res.Records) == 0:
-		res.Status = "empty"
-	default:
+	case len(res.Records) > 0:
 		res.Status = "ok"
+	case anyFailure:
+		res.Status = "error"
+	default:
+		res.Status = "empty"
 	}
 	return res
 }
