@@ -293,6 +293,19 @@ crud-force: ## Regenerate ALL CRUD output, overwriting existing files (use after
 import-manifest: ## Generate codegen/import_manifest.json (kgen import-manifest)
 	@go run ./cmd/kgen import-manifest
 
+# codegen/references.yaml is AUTHORED, not generated -- the attribute name does
+# not determine the target (payer_id is a billing source; portfolio_id is an AWS
+# id that must never be rewritten). There is nothing to regenerate, so this is a
+# check, not a build step: it fails naming any foreign-key-shaped attribute that
+# is in neither table, which is how a new resource's FK gets noticed.
+#
+# Already covered by ci-test (it runs ./internal/...); this target is the fast
+# way to ask the question on its own.
+.PHONY: references-check
+references-check: ## Fail if any foreign-key attribute is missing from codegen/references.yaml
+	@go test ./internal/kgen/references/ -run 'TestReferencesAreComplete|TestEveryTargetIsARealResource' -count=1
+	@echo "$(GREEN)✓ every foreign-key attribute is classified$(RESET)"
+
 .PHONY: field-audit
 field-audit: ## Rewrite codegen/unexposed_fields.yaml from the current tree
 	@go test ./internal/kgen/fieldaudit/ -update -count=1

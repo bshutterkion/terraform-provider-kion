@@ -103,6 +103,18 @@ The collection paths in `internal/kgen/importmanifest/paths.go` are **authored,
 not derived** (codegen records by-id reads, which parent-scoped and association
 resources lack). Verify them with `kion-import --probe` against a live install.
 
+`codegen/references.yaml` is the other **authored, not derived** input: which
+attributes are foreign keys and what each points at. `kion-import rewrite-refs`
+uses it to turn `ou_id = 11` into `ou_id = kion_ou.kion_ou_11.id`, so a
+generated configuration expresses its dependency graph instead of a frozen id
+space — which is what lets one move between installs without an id map. It
+cannot be derived: `payer_id` is a billing source, `ugroup_ids` a user group,
+and `portfolio_id` is an **AWS** id that must never be rewritten, sitting beside
+`internal_portfolio_ids`, which *is* a `kion_service_catalog`. Every settable
+`*_id`/`*_ids` attribute must appear in `references` or `not_references`;
+`TestReferencesAreComplete` (`make references-check`) fails on any that does
+not, so a new resource's foreign key cannot slip through unclassified.
+
 `kion-import` appends `/api` to `--url` by default (hosted installs serve their
 API under that prefix). Pass `--api-prefix ""` for an install whose API is hit
 directly at the root — e.g. an app reached straight on localhost rather than
