@@ -9,10 +9,10 @@ after changing an archetype, a read path, or one of those tables.
 
 | | |
 |---|---|
-| Install | `demo1.kion.io` |
+| Install | a production-scale Kion installation |
 | Date | 2026-08-24 |
 | Manifest | `codegen/import_manifest.json` — 68 resources, 65 readable |
-| Command | `kion-import --url https://demo1.kion.io --probe` |
+| Command | `kion-import --url https://kion.example.com --probe` |
 
 Credentials come from `--api-key` or `KION_APIKEY`; none are recorded here.
 
@@ -38,8 +38,8 @@ shape only a real install produces.
 
 ### 1. `/api` prefix, and an HTTP 200 that is not JSON
 
-`https://demo1.kion.io` returns the web application's HTML **with status 200**;
-only `https://demo1.kion.io/api` returns API JSON. A status-code check cannot
+`https://kion.example.com` returns the web application's HTML **with status 200**;
+only `https://kion.example.com/api` returns API JSON. A status-code check cannot
 distinguish them, so the original client fed HTML to the JSON parser for all 68
 resources and produced 68 identical unmarshal errors.
 
@@ -141,8 +141,8 @@ be resolved first.
 ```sh
 make build-tools
 export KION_APIKEY=…
-./bin/kion-import --url https://demo1.kion.io --probe          # read outcomes only
-./bin/kion-import --url https://demo1.kion.io --out imports.tf # generate
+./bin/kion-import --url https://kion.example.com --probe          # read outcomes only
+./bin/kion-import --url https://kion.example.com --out imports.tf # generate
 ```
 
 Add `--api-prefix ""` for a localhost app serving the API at the root.

@@ -1,0 +1,3 @@
+kind: NOTES
+body: "`scripts/check-no-internal-refs.sh` now rejects any internal hostname under the company domain, not just the one host it happened to list, and no longer carries the internal literals it screens for. A denylist of internal names is itself an internal reference: committing the strings publishes the index of what we are trying not to publish, and the script had to exempt itself from its own grep. The committed patterns now name nothing in particular; the specific literals come from `INTERNAL_REF_PATTERNS` (a CI secret) or an untracked local file, and the script reports when that private set is absent so a weakened check is visible rather than assumed. Use `kion.example.com` in documentation."
+time: 2026-08-25T00:06:00Z
