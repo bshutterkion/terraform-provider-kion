@@ -111,6 +111,63 @@ resource "not_kion_thing" "keep" {
 	assert.Contains(t, got, `resource "not_kion_thing" "keep"`)
 }
 
+// A resource label is unique per type, a module label is unique across the
+// configuration. kion_cloud_rule.soc_2 and kion_compliance_program.soc_2 are
+// both legal and both occur on a real install -- a cloud rule and the
+// compliance program it enforces share a name. Mapping both to module "soc_2"
+// produced "Duplicate module call" and Terraform refused the file; 29 labels
+// collided in one 588-block import.
+func TestRewrite_DisambiguatesCollidingLabels(t *testing.T) {
+	t.Parallel()
+	src := `resource "kion_cloud_rule" "soc_2" {
+  name = "rule"
+}
+
+resource "kion_compliance_program" "soc_2" {
+  name = "program"
+}
+
+resource "kion_ou" "unique" {
+  name = "eng"
+}
+`
+	out, _, err := importmodules.Rewrite([]byte(src), fixtureManifest(), "./modules")
+	require.NoError(t, err)
+	got := norm(string(out))
+
+	assert.Contains(t, got, `module "cloud_rule_soc_2"`)
+	assert.Contains(t, got, `module "compliance_program_soc_2"`)
+	// A label that does not collide keeps its name; qualifying everything
+	// would rename 559 blocks to fix 29.
+	assert.Contains(t, got, `module "unique"`)
+	assert.NotContains(t, got, `module "soc_2"`)
+}
+
+// A reference into a resource whose label was qualified must follow it, or the
+// retarget points at a module that does not exist.
+func TestRewrite_ReferenceFollowsQualifiedLabel(t *testing.T) {
+	t.Parallel()
+	src := `resource "kion_cloud_rule" "soc_2" {
+  name = "rule"
+}
+
+resource "kion_compliance_program" "soc_2" {
+  name = "program"
+}
+
+resource "kion_ou" "child" {
+  name         = "eng"
+  parent_ou_id = kion_cloud_rule.soc_2.id
+}
+`
+	out, _, err := importmodules.Rewrite([]byte(src), fixtureManifest(), "./modules")
+	require.NoError(t, err)
+	got := norm(string(out))
+
+	assert.Contains(t, got, "parent_ou_id = module.cloud_rule_soc_2.id")
+	assert.NotContains(t, got, "module.soc_2.id")
+}
+
 // A reference to a resource that is NOT converted must survive verbatim.
 func TestRewrite_LeavesUnconvertedReferencesAlone(t *testing.T) {
 	t.Parallel()

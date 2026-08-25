@@ -253,6 +253,23 @@ which matters while `1.0.0` is not on the registry.
 
 `make import-modules` does the rewrite alone, without the check.
 
+### Colliding labels are qualified
+
+A resource label is unique per type; a module label is unique across the whole
+configuration. `kion_cloud_rule.soc_2` and `kion_compliance_program.soc_2` are
+both legal, and both occur -- a cloud rule and the compliance program it
+enforces routinely share a name. On one 588-block import, 29 labels collided.
+
+A colliding label is qualified with its resource type:
+
+```hcl
+module "cloud_rule_soc_2"         { source = "./modules/terraform-kion-cloud-rule" }
+module "compliance_program_soc_2" { source = "./modules/terraform-kion-compliance-program" }
+```
+
+Labels that do not collide keep their name, and references follow the qualified
+form.
+
 ### What is not retargeted
 
 A traversal into any attribute other than `id` — `kion_ou.parent.name`, say. A

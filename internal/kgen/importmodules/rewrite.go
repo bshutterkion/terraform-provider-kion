@@ -58,19 +58,11 @@ func Rewrite(src []byte, manifest *Manifest, modulesDir string) ([]byte, []Warni
 	byType := manifest.ByType()
 	var warnings []Warning
 
-	// Every block this pass will convert, as "<type>.<label>". Collected up
-	// front because an expression may reference a block that appears later in
-	// the file, and a reference to a converted block has to be retargeted at
-	// the module or it points at a resource that no longer exists.
-	converted := map[string]bool{}
-	for _, block := range f.Body().Blocks() {
-		if block.Type() != "resource" || len(block.Labels()) < 2 {
-			continue
-		}
-		if _, ok := byType[block.Labels()[0]]; ok {
-			converted[block.Labels()[0]+"."+block.Labels()[1]] = true
-		}
-	}
+	// "<type>.<label>" -> the module label it becomes. Collected up front
+	// because an expression may reference a block declared later in the file,
+	// and a reference to a converted block has to be retargeted or it names a
+	// resource that no longer exists.
+	converted := moduleLabels(f, byType)
 
 	for _, block := range f.Body().Blocks() {
 		if block.Type() != "resource" || len(block.Labels()) < 2 {
@@ -124,7 +116,7 @@ func Rewrite(src []byte, manifest *Manifest, modulesDir string) ([]byte, []Warni
 		}
 
 		block.SetType("module")
-		block.SetLabels([]string{rname})
+		block.SetLabels([]string{converted[rtype+"."+rname]})
 		// Removed one at a time rather than with body.Clear(): Clear drops the
 		// newline that follows the body's opening brace, after which every
 		// SetAttributeRaw below renders onto the `{` line -- and any attribute
@@ -155,7 +147,7 @@ func Rewrite(src []byte, manifest *Manifest, modulesDir string) ([]byte, []Warni
 // retargetBodyRefs walks every block that is not a module call this pass just
 // wrote, retargeting references to converted resources. Nested blocks are
 // walked too: a reference is just as broken three levels down.
-func retargetBodyRefs(body *hclwrite.Body, converted map[string]bool) {
+func retargetBodyRefs(body *hclwrite.Body, converted map[string]string) {
 	if len(converted) == 0 {
 		return
 	}
@@ -211,6 +203,55 @@ func CountKnownBlocks(src []byte, manifest *Manifest) (rewritten, untouched int,
 	return rewritten, untouched, nil
 }
 
+// moduleLabels assigns each converted resource the label its module call will
+// carry.
+//
+// A resource label is unique per type -- kion_cloud_rule.soc_2 and
+// kion_compliance_program.soc_2 are both legal and both occur on a real
+// install, where a cloud rule and the compliance program it enforces routinely
+// share a name. A module label is unique across the whole configuration, so
+// mapping both to `module "soc_2"` produces "Duplicate module call" and
+// Terraform refuses the file. On one 588-block import, 29 labels collided.
+//
+// Colliding labels are qualified with the resource type (minus the kion_
+// prefix); the rest keep their name, so the common case reads as before. The
+// qualified form is checked for collisions of its own and suffixed if needed,
+// because a resource literally named cloud_rule_soc_2 is possible.
+func moduleLabels(f *hclwrite.File, byType map[string]Module) map[string]string {
+	type block struct{ tfType, label string }
+	var blocks []block
+	byLabel := map[string]int{}
+	for _, b := range f.Body().Blocks() {
+		if b.Type() != "resource" || len(b.Labels()) < 2 {
+			continue
+		}
+		if _, ok := byType[b.Labels()[0]]; !ok {
+			continue
+		}
+		blocks = append(blocks, block{b.Labels()[0], b.Labels()[1]})
+		byLabel[b.Labels()[1]]++
+	}
+
+	out := make(map[string]string, len(blocks))
+	taken := map[string]bool{}
+	for _, b := range blocks {
+		name := b.label
+		if byLabel[b.label] > 1 {
+			name = strings.TrimPrefix(b.tfType, "kion_") + "_" + b.label
+		}
+		for candidate, n := name, 2; ; n++ {
+			if !taken[candidate] {
+				name = candidate
+				break
+			}
+			candidate = fmt.Sprintf("%s_%d", name, n)
+		}
+		taken[name] = true
+		out[b.tfType+"."+b.label] = name
+	}
+	return out
+}
+
 // retargetRefs points references at the module that replaced the resource:
 // kion_ou.parent.id becomes module.parent.id.
 //
@@ -229,7 +270,7 @@ func CountKnownBlocks(src []byte, manifest *Manifest) (rewritten, untouched int,
 // converted resource is left alone for FindDanglingRefs to report, because the
 // module may well not expose a matching output and inventing one would produce
 // a configuration that plans against the wrong thing.
-func retargetRefs(toks hclwrite.Tokens, converted map[string]bool) hclwrite.Tokens {
+func retargetRefs(toks hclwrite.Tokens, converted map[string]string) hclwrite.Tokens {
 	if len(converted) == 0 {
 		return toks
 	}
@@ -244,15 +285,20 @@ func retargetRefs(toks hclwrite.Tokens, converted map[string]bool) hclwrite.Toke
 			string(out[i+4].Bytes) != "id" {
 			continue
 		}
-		if !converted[string(out[i].Bytes)+"."+string(out[i+2].Bytes)] {
+		label, ok := converted[string(out[i].Bytes)+"."+string(out[i+2].Bytes)]
+		if !ok {
 			continue
 		}
 		// Replaced, not mutated: these tokens are still owned by the parsed
 		// tree, and rewriting their bytes in place would corrupt the source
-		// block the caller may still read.
-		swapped := *out[i]
-		swapped.Bytes = []byte("module")
-		out[i] = &swapped
+		// block the caller may still read. The label is replaced too, because
+		// a collision may have qualified it.
+		root := *out[i]
+		root.Bytes = []byte("module")
+		out[i] = &root
+		lbl := *out[i+2]
+		lbl.Bytes = []byte(label)
+		out[i+2] = &lbl
 	}
 	return out
 }
