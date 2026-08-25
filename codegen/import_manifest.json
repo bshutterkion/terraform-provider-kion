@@ -195,6 +195,7 @@
       "readable": true,
       "list_path": "/v4/billing-source",
       "name_field": "name",
+      "require_valid_field": "custom_billing_source",
       "import_id": {
         "format": "id"
       }
