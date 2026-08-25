@@ -562,7 +562,8 @@
         "parent_id_field": "idms_id"
       },
       "import_id": {
-        "format": "id"
+        "format": "parent_slash_key",
+        "key_field": "id"
       }
     },
     {
@@ -578,7 +579,8 @@
         "parent_id_field": "idms_id"
       },
       "import_id": {
-        "format": "id"
+        "format": "parent_slash_key",
+        "key_field": "id"
       }
     },
     {
@@ -594,7 +596,8 @@
         "parent_id_field": "idms_id"
       },
       "import_id": {
-        "format": "id"
+        "format": "parent_slash_key",
+        "key_field": "id"
       }
     },
     {
@@ -642,10 +645,13 @@
         "kind": "ou",
         "list_path": "/v3/ou",
         "child_path": "/v1/ou/{parent_id}/cloud-access-role-exemption",
-        "parent_id_field": "ou_id"
+        "parent_id_field": "ou_id",
+        "parent_id_json": "OUID"
       },
+      "require_valid_field": "ou_cloud_access_role_id",
       "import_id": {
-        "format": "id"
+        "format": "parent_slash_key",
+        "key_field": "id"
       }
     },
     {
@@ -745,10 +751,13 @@
         "kind": "project",
         "list_path": "/v3/project",
         "child_path": "/v1/project/{parent_id}/cloud-access-role-exemption",
-        "parent_id_field": "project_id"
+        "parent_id_field": "project_id",
+        "parent_id_json": "project_id"
       },
+      "require_valid_field": "ou_cloud_access_role_id",
       "import_id": {
-        "format": "id"
+        "format": "parent_slash_key",
+        "key_field": "id"
       }
     },
     {

@@ -74,14 +74,29 @@ var parentOverrides = map[string]Parent{
 		Kind: "idms", ListPath: "/v3/idms",
 		ChildPath: "/v4/idms/open-id/{parent_id}/group-association", ParentIDField: "idms_id",
 	},
+	// ParentIDJSON: both collections are inherited, not owned -- see Parent's
+	// field doc. OUID is a bare number on the wire, project_id a SQL null
+	// wrapper; the enumerator reads either.
 	"kion_ou_cloud_access_role_exemption": {
 		Kind: "ou", ListPath: "/v3/ou",
 		ChildPath: "/v1/ou/{parent_id}/cloud-access-role-exemption", ParentIDField: "ou_id",
+		ParentIDJSON: "OUID",
 	},
 	"kion_project_cloud_access_role_exemption": {
 		Kind: "project", ListPath: "/v3/project",
 		ChildPath: "/v1/project/{parent_id}/cloud-access-role-exemption", ParentIDField: "project_id",
+		ParentIDJSON: "project_id",
 	},
+}
+
+// requireValidOverrides records the discriminator for collections that mix
+// resource kinds; see Resource.RequireValidField. Both exemption endpoints
+// return cloud RULE exemptions alongside cloud ACCESS ROLE exemptions, and only
+// the latter are these resources. Kept beside parentOverrides because it is the
+// same class of authored, live-verified knowledge the schema cannot supply.
+var requireValidOverrides = map[string]string{
+	"kion_ou_cloud_access_role_exemption":      "ou_cloud_access_role_id",
+	"kion_project_cloud_access_role_exemption": "ou_cloud_access_role_id",
 }
 
 // multiParentOverrides corrects resources enumerable under more than one
@@ -310,6 +325,19 @@ func Build(readPaths, dataSourcePaths, privateListPaths, privateResourcePaths ma
 			r.ReadShape = ShapeParentList
 			r.Readable = true
 			r.Reason = ""
+			// The override is what establishes the parent, so the import-id
+			// format has to be recomputed against it: Classify ran before this
+			// with hasParent false and returned the plain id, but the resource's
+			// ImportState splits on "/". A bare id leaves the parent zero and
+			// every read misses.
+			r.ImportID.Format = FormatParentSlashKey
+			if r.ImportID.KeyField == "" {
+				r.ImportID.KeyField = "id"
+			}
+		}
+
+		if field, ok := requireValidOverrides[tfType]; ok {
+			r.RequireValidField = field
 		}
 
 		if parents, ok := multiParentOverrides[tfType]; ok {

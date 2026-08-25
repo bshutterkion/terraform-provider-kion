@@ -102,6 +102,7 @@ type entityData struct {
 	UpdateBinds        []fieldBind
 	UpdateSliceBinds   []sliceBind
 	HasDelete          bool
+	ParentRead         *parentReadData // no_read resources given a real read (see parentread.go)
 	DeleteMethod       string
 	DeleteParams       string
 	DeleteIDParam      string
@@ -198,6 +199,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		ResName:       rm.Pascal,
 		TypeName:      "kion_" + rm.Name,
 		IDGo:          rm.IDField.GoName,
+		ParentRead:    rm.ParentRead,
 		SDKAlias:      "generated",
 		CreateMethod:  rm.Create.Method.Name,
 		CreateBodyOpt: rm.Create.Method.BodyType,

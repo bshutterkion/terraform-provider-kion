@@ -51,16 +51,16 @@ func (r *project_noteResource) Schema(ctx context.Context, _ resource.SchemaRequ
 // project_noteWire is the private read (and raw write) JSON shape; keys are the
 // schema attribute names. Kion wraps the by-id read in {"data": …}.
 type project_noteWire struct {
-	ID                 int64  `json:"id,omitempty"`
-	CreateUserId       int64  `json:"create_user_id,omitempty"`
-	CreateUserName     string `json:"create_user_name,omitempty"`
-	CreatedAt          string `json:"created_at,omitempty"`
-	LastUpdateUserId   int64  `json:"last_update_user_id,omitempty"`
-	LastUpdateUserName string `json:"last_update_user_name,omitempty"`
-	Name               string `json:"name,omitempty"`
-	ProjectId          int64  `json:"project_id,omitempty"`
-	Text               string `json:"text,omitempty"`
-	UpdatedAt          string `json:"updated_at,omitempty"`
+	ID                 int64          `json:"id,omitempty"`
+	CreateUserId       int64          `json:"create_user_id,omitempty"`
+	CreateUserName     string         `json:"create_user_name,omitempty"`
+	CreatedAt          string         `json:"created_at,omitempty"`
+	LastUpdateUserId   *flex.NullInt  `json:"last_update_user_id,omitempty"`
+	LastUpdateUserName string         `json:"last_update_user_name,omitempty"`
+	Name               string         `json:"name,omitempty"`
+	ProjectId          int64          `json:"project_id,omitempty"`
+	Text               string         `json:"text,omitempty"`
+	UpdatedAt          *flex.NullTime `json:"updated_at,omitempty"`
 }
 
 type project_noteReadEnvelope struct {
@@ -72,12 +72,12 @@ func (r *project_noteResource) wireFromModel(plan *ProjectNoteModel) project_not
 		CreateUserId:       plan.CreateUserId.ValueInt64(),
 		CreateUserName:     plan.CreateUserName.ValueString(),
 		CreatedAt:          plan.CreatedAt.ValueString(),
-		LastUpdateUserId:   plan.LastUpdateUserId.ValueInt64(),
+		LastUpdateUserId:   flex.NullIntFromFramework(plan.LastUpdateUserId),
 		LastUpdateUserName: plan.LastUpdateUserName.ValueString(),
 		Name:               plan.Name.ValueString(),
 		ProjectId:          plan.ProjectId.ValueInt64(),
 		Text:               plan.Text.ValueString(),
-		UpdatedAt:          plan.UpdatedAt.ValueString(),
+		UpdatedAt:          flex.NullTimeFromFramework(plan.UpdatedAt),
 	}
 }
 
@@ -86,12 +86,12 @@ func (r *project_noteResource) flatten(w project_noteWire, m *ProjectNoteModel) 
 	m.CreateUserId = types.Int64Value(w.CreateUserId)
 	m.CreateUserName = types.StringValue(w.CreateUserName)
 	m.CreatedAt = types.StringValue(w.CreatedAt)
-	m.LastUpdateUserId = types.Int64Value(w.LastUpdateUserId)
+	m.LastUpdateUserId = flex.NullIntPtrToFramework(w.LastUpdateUserId)
 	m.LastUpdateUserName = types.StringValue(w.LastUpdateUserName)
 	m.Name = types.StringValue(w.Name)
 	m.ProjectId = types.Int64Value(w.ProjectId)
 	m.Text = types.StringValue(w.Text)
-	m.UpdatedAt = types.StringValue(w.UpdatedAt)
+	m.UpdatedAt = flex.NullTimePtrToFramework(w.UpdatedAt)
 }
 
 // read fetches the record over the private API; found is false on a 404.

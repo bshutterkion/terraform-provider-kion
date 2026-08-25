@@ -5,6 +5,7 @@ package aws_resource_tag
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
+	"terraform-provider-kion/internal/conns"
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
@@ -75,14 +77,72 @@ func (r *aws_resource_tagResource) Create(ctx context.Context, req resource.Crea
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
+// aws_resource_tagRecord is one record of the private collection that backs the read.
+// The public spec has no single-record GET for kion_aws_resource_tag, only POST and
+// DELETE, so this collection is the only way to read one back.
+type aws_resource_tagRecord struct {
+	ID            int64  `json:"id"`
+	ResourceKey   string `json:"resource_key"`
+	ResourceValue string `json:"resource_value"`
+}
+
+type aws_resource_tagEnvelope struct {
+	Data []aws_resource_tagRecord `json:"data"`
+}
+
+// readAwsResourceTag returns the record with the given id from the collection,
+// or found=false when it holds no such record.
+
+func (r *aws_resource_tagResource) readAwsResourceTag(ctx context.Context, id int64) (aws_resource_tagRecord, bool, error) {
+	path := "/v3/aws-resource-tag"
+	body, err := r.Meta().RawGet(ctx, path)
+	if err != nil {
+		if conns.IsRawNotFound(err) {
+			return aws_resource_tagRecord{}, false, nil
+		}
+		return aws_resource_tagRecord{}, false, err
+	}
+	var env aws_resource_tagEnvelope
+	if err := json.Unmarshal(body, &env); err != nil {
+		return aws_resource_tagRecord{}, false, fmt.Errorf("decoding response: %w", err)
+	}
+	for _, rec := range env.Data {
+		if rec.ID != id {
+			continue
+		}
+		return rec, true, nil
+	}
+	return aws_resource_tagRecord{}, false, nil
+}
+
+func (r *aws_resource_tagResource) flattenAwsResourceTag(rec aws_resource_tagRecord, m *AwsResourceTagModel) {
+	m.Id = types.StringValue(strconv.FormatInt(rec.ID, 10))
+	m.ResourceKey = types.StringValue(rec.ResourceKey)
+	m.ResourceValue = types.StringValue(rec.ResourceValue)
+
+}
+
 func (r *aws_resource_tagResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	// kion_aws_resource_tag has no read endpoint; there is nothing to refresh, so the
-	// existing state is preserved as-is (no drift detection is possible).
 	var state AwsResourceTagModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	id, err := strconv.ParseInt(state.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+	rec, found, err := r.readAwsResourceTag(ctx, id)
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("reading %s (ID: %d)", ResNameAwsResourceTag, id), err.Error())
+		return
+	}
+	if !found {
+		resp.State.RemoveResource(ctx)
+		return
+	}
+	r.flattenAwsResourceTag(rec, &state)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 

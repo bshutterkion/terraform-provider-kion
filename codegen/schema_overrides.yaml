@@ -24,11 +24,16 @@
 resources:
 
   # --- JSON-valued attributes -------------------------------------------
-  # These carry JSON as a string. Compared byte-for-byte, the API's rendering
-  # never matches what a practitioner wrote, so every plan reported a change
-  # "# whitespace changes" and nothing could round-trip: 2,539 of the 2,561
-  # in-place updates a verification import produced were exactly this.
-  # jsontypes.Normalized compares them semantically.
+  # These carry JSON as a string. The API's rendering never matches what a
+  # practitioner wrote, so every plan reported a change "# whitespace changes"
+  # and nothing could round-trip: 2,539 of the 2,561 in-place updates a
+  # verification import produced were exactly this.
+  #
+  # The fix is in flex, not here: reads canonicalise to the compact,
+  # key-sorted form Terraform's jsonencode emits, so the two are byte-equal.
+  # jsontypes.Normalized is NOT the answer -- semantic equality is not
+  # consulted when a generated configuration is planned, and its validator
+  # rejects the YAML CloudFormation templates are often written in.
 
   # --- Required attributes the read cannot supply -------------------------
   # A Required attribute must be recoverable from Read, or the resource can
