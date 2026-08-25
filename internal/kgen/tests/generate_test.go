@@ -75,55 +75,28 @@ func hasSuffixInAny(paths []string, suffix string) bool {
 }
 
 // TestGenerate_FilterResource_WritesExpectedFiles runs Generate filtered to a
-// single resource and asserts the generated file set: the resource test file,
-// the sweep file, and the sweep entrypoint.
+// single resource and asserts the generated file set. Sweepers are not part of
+// it: kgen crud owns those.
 func TestGenerate_FilterResource_WritesExpectedFiles(t *testing.T) {
 	t.Chdir(t.TempDir())
 	m := swapFS(t)
 	statGoModThenMissing(m)
 	writes := captureWrites(m)
 
-	err := Generate(true /* force */, "kion_label", false /* sweepOnly */)
+	err := Generate(true /* force */, "kion_label")
 	require.NoError(t, err)
 
 	got := writes()
 	require.NotEmpty(t, got, "expected at least one file written")
 
-	// The label service package test + sweep files.
 	require.True(t, hasSuffixInAny(got, filepath.Join("internal", "service", "label", "label_test.go")),
 		"expected label_test.go to be written, got %v", got)
-	require.True(t, hasSuffixInAny(got, filepath.Join("internal", "service", "label", "sweep.go")),
-		"expected label sweep.go to be written, got %v", got)
-
-	// The sweep entrypoint is always written.
-	require.True(t, hasSuffixInAny(got, filepath.Join("internal", "sweep", "sweep_test.go")),
-		"expected sweep entrypoint sweep_test.go to be written, got %v", got)
+	require.False(t, hasSuffixInAny(got, filepath.Join("internal", "service", "label", "sweep.go")),
+		"sweepers are kgen crud's, this generator must not write one, got %v", got)
 
 	// The filter must exclude other resources' test files.
 	require.False(t, hasSuffixInAny(got, filepath.Join("service", "cloud_rule", "cloud_rule_test.go")),
 		"filter leaked cloud_rule test file, got %v", got)
-}
-
-// TestGenerate_SweepOnly writes only sweep files (no *_test.go resource test
-// files, no data source test files) plus the sweep entrypoint.
-func TestGenerate_SweepOnly(t *testing.T) {
-	t.Chdir(t.TempDir())
-	m := swapFS(t)
-	statGoModThenMissing(m)
-	writes := captureWrites(m)
-
-	err := Generate(true, "kion_label", true /* sweepOnly */)
-	require.NoError(t, err)
-
-	got := writes()
-	require.True(t, hasSuffixInAny(got, filepath.Join("service", "label", "sweep.go")),
-		"expected sweep.go, got %v", got)
-	require.True(t, hasSuffixInAny(got, filepath.Join("internal", "sweep", "sweep_test.go")),
-		"expected sweep entrypoint, got %v", got)
-
-	// sweepOnly must not emit the resource acceptance test file.
-	require.False(t, hasSuffixInAny(got, filepath.Join("service", "label", "label_test.go")),
-		"sweepOnly should not write label_test.go, got %v", got)
 }
 
 // TestGenerate_SkipWhenExists exercises the skip-if-exists branch: with
@@ -138,7 +111,7 @@ func TestGenerate_SkipWhenExists(t *testing.T) {
 	// the mock's AssertExpectations will fail if any write is attempted.
 	m.EXPECT().Stat(mock.Anything).Return(nil, nil).Maybe()
 
-	err := Generate(false /* force */, "kion_label", false)
+	err := Generate(false /* force */, "kion_label")
 	require.NoError(t, err)
 }
 
@@ -152,7 +125,7 @@ func TestGenerate_WriteFile_Error(t *testing.T) {
 	sentinel := errors.New("disk full")
 	m.EXPECT().WriteFile(mock.Anything, mock.Anything, mock.Anything).Return(sentinel).Maybe()
 
-	err := Generate(true, "kion_label", false)
+	err := Generate(true, "kion_label")
 	require.Error(t, err)
 	require.ErrorIs(t, err, sentinel)
 }
@@ -169,31 +142,26 @@ func TestGenerate_MkdirAll_Error(t *testing.T) {
 	// to keep the mock lenient in case ordering changes.
 	m.EXPECT().WriteFile(mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 
-	err := Generate(true, "kion_label", false)
+	err := Generate(true, "kion_label")
 	require.Error(t, err)
 	require.ErrorIs(t, err, sentinel)
 }
 
-// TestGenerate_NoMatchingResource confirms that a filter matching no
-// resource or data source still succeeds (the sweep entrypoint is always
-// generated, so the "generated == 0" guard never trips) and only writes the
-// entrypoint file.
+// TestGenerate_NoMatchingResource confirms that a filter matching no resource
+// or data source writes nothing and says so. It used to succeed silently: the
+// unconditional sweep entrypoint counted as a generated file, so the guard
+// never tripped.
 func TestGenerate_NoMatchingResource(t *testing.T) {
 	t.Chdir(t.TempDir())
 	m := swapFS(t)
 	statGoModThenMissing(m)
 	writes := captureWrites(m)
 
-	err := Generate(true, "kion_this_resource_does_not_exist", false)
-	require.NoError(t, err)
+	err := Generate(true, "kion_this_resource_does_not_exist")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no resource or data source found")
 
-	got := writes()
-	// The sweep entrypoint is unconditionally generated.
-	require.True(t, hasSuffixInAny(got, filepath.Join("internal", "sweep", "sweep_test.go")),
-		"expected sweep entrypoint even with a non-matching filter, got %v", got)
-	// No resource/data-source/sweep files for any service should be written.
-	require.False(t, hasSuffixInAny(got, filepath.Join("service", "label", "label_test.go")),
-		"non-matching filter should not write resource files, got %v", got)
+	require.Empty(t, writes(), "a non-matching filter must write nothing")
 }
 
 // TestGenerate_ProjectRootNotFound surfaces the findProjectRoot error when no
@@ -205,22 +173,21 @@ func TestGenerate_ProjectRootNotFound(t *testing.T) {
 	// fails.
 	m.EXPECT().Stat(mock.Anything).Return(nil, os.ErrNotExist).Maybe()
 
-	err := Generate(true, "kion_label", false)
+	err := Generate(true, "kion_label")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "could not find project root")
 }
 
 // TestGenerate_FullRun_NoFilter runs Generate across every registered package
 // and asserts a broad set of files was produced, including a data source test
-// file and the sweep entrypoint. This exercises the resource, data source, and
-// sweep generators together.
+// file. This exercises the resource and data source generators together.
 func TestGenerate_FullRun_NoFilter(t *testing.T) {
 	t.Chdir(t.TempDir())
 	m := swapFS(t)
 	statGoModThenMissing(m)
 	writes := captureWrites(m)
 
-	err := Generate(true, "" /* no filter */, false)
+	err := Generate(true, "" /* no filter */)
 	require.NoError(t, err)
 
 	got := writes()
@@ -229,9 +196,6 @@ func TestGenerate_FullRun_NoFilter(t *testing.T) {
 	// A resource test file for a well-known package.
 	require.True(t, hasSuffixInAny(got, filepath.Join("service", "label", "label_test.go")),
 		"expected label_test.go in full run")
-	// The sweep entrypoint.
-	require.True(t, hasSuffixInAny(got, filepath.Join("internal", "sweep", "sweep_test.go")),
-		"expected sweep entrypoint in full run")
 	// At least one data source test file should be emitted somewhere.
 	require.True(t, hasSuffixInAny(got, "_data_source_test.go"),
 		"expected at least one data source test file in full run")

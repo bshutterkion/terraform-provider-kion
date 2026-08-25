@@ -2,31 +2,9 @@
 
 package user
 
-import (
-	"fmt"
-
-	"terraform-provider-kion/internal/conns"
-
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-)
-
-func init() {
-	resource.AddTestSweepers("kion_user", &resource.Sweeper{
-		Name: "kion_user",
-		F:    sweepUser,
-	})
-}
-
-func sweepUser(_ string) error {
-	conn, err := conns.SharedClient()
-	if err != nil {
-		return fmt.Errorf("getting shared client: %w", err)
-	}
-	_ = conn
-
-	// TODO: list kion_user resources with the "test-acc" prefix and
-	// delete each.
-	// A real sweeper needs both a resolvable collection endpoint and a delete op;
-	// this resource is missing at least one (see the kgen crud run output).
-	return nil
-}
+// No acceptance-test sweeper is registered for kion_user:
+// the API exposes no delete endpoint, so orphans cannot be removed.
+//
+// A registered sweeper that returned nil would report success to `make sweep`
+// while orphaned test-acc records accumulated, so none is registered at all.
+// Clean these up by hand, or fix the generator input that blocks enumeration.

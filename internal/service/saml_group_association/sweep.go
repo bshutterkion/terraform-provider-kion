@@ -3,11 +3,15 @@
 package saml_group_association
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"terraform-provider-kion/internal/conns"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
 
 func init() {
@@ -17,16 +21,72 @@ func init() {
 	})
 }
 
+// sweepSamlGroupAssociation walks every kion_idms, because the collection is
+// listable only under its parent. It reads GetIDMSGroupAssociations beneath each, then
+// deletes the records carrying the acceptance-test prefix via DeleteIDMSGroupAssociation.
 func sweepSamlGroupAssociation(_ string) error {
 	conn, err := conns.SharedClient()
 	if err != nil {
 		return fmt.Errorf("getting shared client: %w", err)
 	}
-	_ = conn
+	ctx := context.Background()
 
-	// TODO: list kion_saml_group_association resources with the "test-acc" prefix and
-	// delete each via conn.Client.DeleteIDMSGroupAssociation.
-	// A real sweeper needs both a resolvable collection endpoint and a delete op;
-	// this resource is missing at least one (see the kgen crud run output).
+	var ids []int64
+	parents, err := sweepSamlGroupAssociationParentIDs(ctx, conn)
+	if err != nil {
+		return err
+	}
+	for _, parentID := range parents {
+		// GetIDMSGroupAssociations is not paginated: one call returns the whole collection.
+		out, err := conn.Client.GetIDMSGroupAssociations(ctx, generated.GetIDMSGroupAssociationsParams{ID: parentID})
+		if err != nil {
+			return fmt.Errorf("listing kion_saml_group_association: %w", err)
+		}
+		if resp, ok := out.(*generated.GroupAssociationListResponse); ok {
+			items := resp.Data
+			for _, item := range items {
+				if item.ID.Set && sweepSamlGroupAssociationMatch(item) {
+					ids = append(ids, int64(item.ID.Value))
+				}
+			}
+		}
+	}
+
+	for _, id := range ids {
+		if _, err := conn.Client.DeleteIDMSGroupAssociation(ctx, generated.DeleteIDMSGroupAssociationParams{ID: id}); err != nil {
+			return fmt.Errorf("deleting kion_saml_group_association (%d): %w", id, err)
+		}
+	}
 	return nil
+}
+
+func sweepSamlGroupAssociationMatch(item generated.SAMLGroupAssociation) bool {
+	for _, s := range []string{
+		item.AssertionName.Or(""),
+		item.AssertionRegex.Or(""),
+	} {
+		if strings.HasPrefix(s, "test-acc") {
+			return true
+		}
+	}
+	return false
+}
+
+// sweepSamlGroupAssociationParentIDs lists every kion_idms id, which is what
+// GetIDMSGroupAssociations needs to reach the kion_saml_group_association records beneath one.
+func sweepSamlGroupAssociationParentIDs(ctx context.Context, conn *conns.KionClient) ([]int64, error) {
+	var ids []int64
+	out, err := conn.Client.GetIDMSIndex(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing kion_idms: %w", err)
+	}
+	if resp, ok := out.(*generated.IDMSListResponse); ok {
+		items := resp.Data
+		for _, item := range items {
+			if item.ID.Set {
+				ids = append(ids, int64(item.ID.Value))
+			}
+		}
+	}
+	return ids, nil
 }

@@ -12,7 +12,7 @@ of those entries.
 | | |
 |---|---|
 | Install | a demo Kion installation (3.16.3) |
-| Date | 2026-08-25, on `fix/records-skipped-no-id` (branched from `main` @ 89a9195) |
+| Date | 2026-08-25, on `main` @ d5a9200 |
 | Manifest | `codegen/import_manifest.json`, 68 resource types |
 | Command | `kion-import --url https://kion.example.com --out imports.tf` |
 
@@ -25,15 +25,8 @@ Coverage: 68 resource types, 51966 records
   empty: 5, ok: 60, unsupported: 3
 ```
 
-51,880 `import` blocks generated, **zero errors**, and — as of the page-padding
-fix below — zero records skipped for a missing id. Every one of the 68 manifest
-rows produced a result.
-
-These totals are that run's, and they are now ten low: the padding fix in
-*Pages padded to `total`* recovers ten `compliance_family` records that this run
-never fetched. The per-resource sections below reflect the fixed behavior; the
-headline counts are left as recorded rather than adjusted by arithmetic, and a
-full re-run supersedes them.
+51,880 `import` blocks generated, **zero errors**, and zero records skipped for a
+missing id. Every one of the 68 manifest rows produced a result.
 
 The three `unsupported` rows are refusals by design, not gaps: two alias types
 (`kion_aws_cloudformation_template`, `kion_aws_iam_policy`) that would put two
@@ -48,19 +41,19 @@ enumerable from a flat list even though its read exists.
 | 2026-08-24 | production-scale | 53,513 | 49 | — | 15 | 4 |
 | 2026-08-25 (earlier) | production-scale | 53,513 | 59 | 2 | 3 | 4 |
 | 2026-08-25 @ 69c566c | demo (3.16.3) | 48,355 | 59 | 6 | 0 | 3 |
-| 2026-08-25 @ `main` 89a9195 | demo (3.16.3) | 48,364 | 60 | 5 | 0 | 3 |
-| **2026-08-25 @ `fix/records-skipped-no-id`** | **demo (3.16.3)** | **51,966** | **60** | **5** | **0** | **3** |
+| **2026-08-25 @ d5a9200** | **demo (3.16.3)** | **51,966** | **60** | **5** | **0** | **3** |
 
 **The rows are not the same install** — the first two ran against a
-production-scale install, the last three against a demo one. Compare the *status
+production-scale install, the last two against a demo one. Compare the *status
 columns*, which are properties of the tooling; the record counts are properties
 of the install and are not comparable across rows.
 
-The last two rows *are* the same install, an hour apart, so their record counts
-are comparable: the 3,602-record jump is the page-padding fix below recovering
-3,592 compliance controls and 10 compliance families. `scope_criteria` moving
-from `empty` to `ok` between 69c566c and `main` is the earlier
-`nested_collection` fix, not this one.
+The last two rows *are* the same install, so their counts are comparable, and
+the 3,611-record difference between them is entirely records the earlier run
+never fetched: 3,592 `compliance_control` and 10 `compliance_family` to the
+padding fix, 9 `scope_criteria` to the `nested_collection` read shape. The
+resource that moved from `empty` to `ok` is `scope_criteria`, which had read
+nothing at all.
 
 The last three errors and the fourth `unsupported` were cleared by the two fixes
 recorded below (*Private reads that render SQL null wrappers* and *`no_read` did
@@ -151,8 +144,9 @@ needs to see.
 
 ### 5. Pages padded to `total`, hiding real records
 
-Found after this run, by investigating the `record(s) skipped: no id` caveats
-below rather than accepting them as a documented quirk.
+Found by investigating the `record(s) skipped: no id` caveats an earlier run
+recorded, rather than accepting them as a documented quirk. This run is the
+first with the fix in place.
 
 Some collections pad every page out to `total` instead of to the page size.
 `/v4/compliance/program/5/family` holds 110 families:
@@ -178,7 +172,21 @@ scattered bad data.
 Fixed: zero-valued records are dropped before the page count is compared against
 `total`. Such a record carries no id and could never have produced an `import`
 block, so nothing is lost, and the count now reflects what was retrieved.
-`compliance_family` returns the full 597, matching a direct count over the API.
+
+**3,602 records on this install were missing, not 10.** `compliance_family` was
+the resource that exposed the mechanism, and its ten losses are what made the
+alphabetical clustering visible, but `compliance_control` was losing 3,592 by
+the same route:
+
+| resource | before | after |
+|---|---:|---:|
+| `compliance_control` | 2,414 (3,592 "skipped") | **6,006** |
+| `compliance_family` | 587 (10 "skipped") | **597** |
+
+597 matches a direct count over the API. Measured against a binary built from
+the pre-fix commit, not inferred: the first reading of this assumed
+`compliance_control`'s skips were harmless padding and that it recovered
+nothing, which was wrong by 3,592 records.
 
 The padding itself is a server-side defect and is worth reporting separately:
 any client paging that endpoint hits it.
@@ -188,19 +196,6 @@ any client paging that endpoint hits it.
 Nothing errors. Three rows are refused by design, six are legitimately empty, and
 five read with a caveat. **All are recorded, not silently omitted** -- they
 appear in both the report and the generated file.
-
-The same padding hides far more `compliance_control`. That collection is
-parent-scoped under 28 programs, each capped at its first 100 controls:
-
-```
-GET /v4/compliance/program/12/control?count=100&page=1
-  -> total 1189, items 1189, of which 100 carry an id
-```
-
-`compliance_family` lost 10 records to this; `compliance_control` lost **3,592**.
-Re-probed on the fixed build: 2,414 -> 6,006 and 587 -> 597, a total of +3,602,
-which is exactly the two skip counts.
-
 
 ### Refused by design (3)
 
@@ -236,13 +231,13 @@ read shape for `scope_criteria`. All three now read clean:
 
 | resource | then | now |
 |---|---|---|
-| `compliance_control` | 6006, 3592 skipped | 6006, no caveat |
+| `compliance_control` | 2414, 3592 skipped | **6006**, no caveat |
 | `compliance_family` | 587, 10 skipped | **597**, no caveat |
 | `scope_criteria` | 9 skipped, 0 read | 9, no caveat |
 
-### Empty (5)
+### Empty (6)
 
-Five collections are genuinely empty on this install, including
+Six collections are genuinely empty on this install, including
 `kion_aws_resource_tag` -- which is why its new read has **no live coverage**.
 Its field names come from the spec's `AWSResourceTag` component and are exercised
 only by unit tests. Verify it against an install that has records.
@@ -255,15 +250,13 @@ only by unit tests. Verify it against an install that has records.
 - **Skip counting is load-bearing.** Before the wrapper fix, this run reported
   `kion_azure_policy: empty, 0 records` as a clean result. With skip counts it
   reported `19425 record(s) skipped: no id`. Roughly 23,000 records were being
-  dropped silently; the count is what surfaced it. It earned its keep a second
-  time on the page-padding defect: a resource returning 2,414 records looks
-  healthy, and only `3592 record(s) skipped` said otherwise.
+  dropped silently; the count is what surfaced it.
 - **A skip count is a symptom, not a diagnosis.** The same mechanism that
-  surfaced the wrapper bug later described missing `compliance_family` and
-  `compliance_control` records as *skipped* ones, and the numbers were accurate
-  enough that the caveats sat in this document as settled. A skip count says
-  something was not emitted; it does not say the records were reachable and
-  ignored. Reconcile against the API before recording one as understood.
+  surfaced the wrapper bug later described ten *missing* `compliance_family`
+  records as ten *skipped* ones, and the number was accurate enough that the
+  caveat sat in this document as settled. A skip count says something was not
+  emitted; it does not say the records were reachable and ignored. Reconcile
+  against the API before recording one as understood.
 - **The one-result-per-row contract holds** against the real manifest: 68 rows in,
   68 results out, every failure attributed.
 
@@ -363,6 +356,6 @@ Narrow a run with `--include` / `--exclude` / `--selection`; see
 wants: Kion's shipped policy and compliance catalogs dominate the count. On the
 install above, excluding `kion_azure_policy`, `kion_compliance_check`,
 `kion_compliance_control` and `kion_compliance_standard` takes the run from
-51,966 records to 10,150.
+48,355 records to 10,131.
 
 Add `--api-prefix ""` for a localhost app serving the API at the root.
