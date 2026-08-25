@@ -17,6 +17,16 @@ func TestLoadEmbeddedManifest(t *testing.T) {
 	assert.GreaterOrEqual(t, len(m.Resources), 68)
 }
 
+// TestLoadManifestRejectsOldVersion guards the Fix 4 ManifestVersion bump
+// (1 -> 2, for the new Parents field): a manifest still stamped with the old
+// version must be rejected, not silently accepted with a nil Parents field
+// on every resource.
+func TestLoadManifestRejectsOldVersion(t *testing.T) {
+	t.Parallel()
+	_, err := LoadManifest([]byte(`{"version":1,"resources":[]}`))
+	require.Error(t, err)
+}
+
 func TestReportCountsEachStatus(t *testing.T) {
 	t.Parallel()
 	out := FormatReport([]Result{

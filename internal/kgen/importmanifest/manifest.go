@@ -12,7 +12,7 @@
 package importmanifest
 
 // ManifestVersion is bumped when the JSON shape changes incompatibly.
-const ManifestVersion = 1
+const ManifestVersion = 2
 
 // ReadShape is how a resource's records are enumerated.
 type ReadShape string
@@ -60,8 +60,13 @@ type Resource struct {
 	ListPath  string    `json:"list_path,omitempty"`
 	NameField string    `json:"name_field,omitempty"`
 	Parent    *Parent   `json:"parent,omitempty"`
-	ImportID  ImportID  `json:"import_id"`
-	Reason    string    `json:"reason,omitempty"`
+	// Parents holds every parent set for a resource enumerable under more than
+	// one parent collection (e.g. kion_budget under both /v3/ou and
+	// /v3/project). Parent always mirrors Parents[0] when Parents is set, so a
+	// reader that only knows about Parent still gets a correct (if partial) read.
+	Parents  []Parent `json:"parents,omitempty"`
+	ImportID ImportID `json:"import_id"`
+	Reason   string   `json:"reason,omitempty"`
 }
 
 // Manifest is the generated document. Resources are sorted by TFType so a

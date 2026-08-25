@@ -38,3 +38,6 @@ docs/superpowers/
 # checkout of this repo, so leaving it untracked-but-visible buries `git status`.
 # Anchored: only the one at the repo root, not any nested .claude/ we may add.
 /.claude/worktrees/
+
+# Private denylist for check-no-internal-refs.sh (see that script's header)
+scripts/.internal-refs-private

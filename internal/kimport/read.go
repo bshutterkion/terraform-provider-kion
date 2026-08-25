@@ -61,6 +61,9 @@ func Enumerate(ctx context.Context, l Lister, r importmanifest.Resource) Result 
 		res.Records = records
 		res.Reason = skipReason(skippedNoID, skippedNoKey)
 	case importmanifest.ShapeParentList, importmanifest.ShapeAssociation:
+		if len(r.Parents) > 0 {
+			return multiParentScopedResult(ctx, l, r)
+		}
 		if r.Parent == nil {
 			raw, err := l.List(ctx, r.ListPath)
 			if err != nil {
@@ -167,6 +170,48 @@ func parentScopedResult(ctx context.Context, l Lister, r importmanifest.Resource
 	if len(res.Records) == 0 {
 		res.Status = "empty"
 	} else {
+		res.Status = "ok"
+	}
+	return res
+}
+
+// multiParentScopedResult reads every parent set in r.Parents (e.g.
+// kion_budget under both /v3/ou and /v3/project) via parentScopedResult and
+// concatenates their records. One parent set failing entirely -- or one
+// parent within a set failing -- does not prevent the other sets from being
+// read; each set's Reason (parentScopedResult already folds per-parent
+// failures into it) is carried forward, prefixed with that set's Kind so a
+// multi-set failure is still traceable to which parent it came from.
+// RenderImports already dedups by (tfType, id) across all of a resource's
+// records, so no dedup happens here.
+func multiParentScopedResult(ctx context.Context, l Lister, r importmanifest.Resource) Result {
+	res := Result{TFType: r.TFType}
+
+	var reasonParts []string
+	anyFailure := false
+	for i := range r.Parents {
+		sub := r
+		p := r.Parents[i]
+		sub.Parent = &p
+		sub.Parents = nil
+
+		subRes := parentScopedResult(ctx, l, sub)
+		res.Records = append(res.Records, subRes.Records...)
+		if subRes.Status == "error" {
+			anyFailure = true
+		}
+		if subRes.Reason != "" {
+			reasonParts = append(reasonParts, fmt.Sprintf("%s: %s", p.Kind, subRes.Reason))
+		}
+	}
+	res.Reason = strings.Join(reasonParts, "; ")
+
+	switch {
+	case len(res.Records) == 0 && anyFailure:
+		res.Status = "error"
+	case len(res.Records) == 0:
+		res.Status = "empty"
+	default:
 		res.Status = "ok"
 	}
 	return res

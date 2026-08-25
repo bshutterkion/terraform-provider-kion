@@ -1,0 +1,3 @@
+kind: NOTES
+body: "`kgen import-manifest` generates `codegen/import_manifest.json`, describing how to enumerate each resource and how to build its Terraform import id. It derives everything from `generator_config.yaml` and `crud_archetypes.yaml`, so the import id format always matches the `ImportState` the CRUD templates generate, and the list endpoints come from the same data-source paths the provider itself uses. `make generate` runs it, and `TestManifestIsCurrent` fails if the committed manifest is stale. The manifest is embedded into `kion-import`, so a shipped binary cannot be paired with a manifest from a different commit."
+time: 2026-08-25T00:05:00Z
