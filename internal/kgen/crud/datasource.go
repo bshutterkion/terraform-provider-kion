@@ -74,9 +74,9 @@ func (d dsData) NeedsPayload() bool {
 //
 // The returned downgrade string is non-empty exactly when a collection read was
 // configured but the filter-capable data source could not be built.
-func renderDataSource(rm ResourceModel) (out []byte, downgrade string, err error) {
+func renderDataSource(rm ResourceModel, policy FieldPolicy) (out []byte, downgrade string, err error) {
 	if rm.List != nil {
-		b, berr := renderListDataSource(rm)
+		b, berr := renderListDataSource(rm, policy)
 		if berr == nil {
 			return b, "", nil
 		}
@@ -320,15 +320,15 @@ type listDSData struct {
 	Assigns      []listScalarAssign
 }
 
-func renderListDataSource(rm ResourceModel) ([]byte, error) {
-	data, err := buildListDSData(rm)
+func renderListDataSource(rm ResourceModel, policy FieldPolicy) ([]byte, error) {
+	data, err := buildListDSData(rm, policy)
 	if err != nil {
 		return nil, err
 	}
 	return execGoTemplate("datasource_list", dataSourceListTmpl, data, rm.Name+"_data_source.go")
 }
 
-func buildListDSData(rm ResourceModel) (listDSData, error) {
+func buildListDSData(rm ResourceModel, policy FieldPolicy) (listDSData, error) {
 	base, err := buildDSData(rm)
 	if err != nil {
 		return listDSData{}, err
@@ -394,6 +394,48 @@ func buildListDSData(rm ResourceModel) (listDSData, error) {
 		})
 	}
 	d.Attrs = attrs
+
+	// Response-only scalars: everything above came from the resource's
+	// attributes, which are generated from the create request body, so a field
+	// the server owns has not been considered yet. Those reach the `list`
+	// objects and the filter row but deliberately NOT d.Attrs or d.Assigns --
+	// they are not settable, so they have no place among the data source's own
+	// scalar arguments.
+	seen := make(map[string]bool, len(d.ObjFields))
+	for _, f := range d.ObjFields {
+		seen[f.TFName] = true
+	}
+	names := make([]string, 0, len(view.Fields))
+	for name := range view.Fields {
+		names = append(names, name)
+	}
+	slices.Sort(names) // generated output must not depend on map order
+	for _, name := range names {
+		if seen[name] || policy.Hidden(rm.Name, name) {
+			continue
+		}
+		rf := view.Fields[name]
+		ls, known := listScalars[rf.Type]
+		if !known {
+			continue // not a scalar the list objects can render
+		}
+		path, ok := view.Paths[name]
+		if !ok {
+			continue
+		}
+		attrType, objExpr, rowExpr, ok := listValueExprs("lbl."+path, rf.Type, ls.model)
+		if !ok {
+			continue
+		}
+		schemaType, ok := schemaAttrType(ls.model)
+		if !ok {
+			continue
+		}
+		d.ObjFields = append(d.ObjFields, listObjField{
+			TFName: name, SchemaType: schemaType, AttrType: attrType,
+			SDKGo: path, ObjExpr: objExpr, RowExpr: rowExpr,
+		})
+	}
 	return d, nil
 }
 

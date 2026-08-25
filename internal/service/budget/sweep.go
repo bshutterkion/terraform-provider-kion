@@ -2,31 +2,9 @@
 
 package budget
 
-import (
-	"fmt"
-
-	"terraform-provider-kion/internal/conns"
-
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-)
-
-func init() {
-	resource.AddTestSweepers("kion_budget", &resource.Sweeper{
-		Name: "kion_budget",
-		F:    sweepBudget,
-	})
-}
-
-func sweepBudget(_ string) error {
-	conn, err := conns.SharedClient()
-	if err != nil {
-		return fmt.Errorf("getting shared client: %w", err)
-	}
-	_ = conn
-
-	// TODO: list kion_budget resources with the "test-acc" prefix and
-	// delete each via conn.Client.DeleteBudget.
-	// A real sweeper needs both a resolvable collection endpoint and a delete op;
-	// this resource is missing at least one (see the kgen crud run output).
-	return nil
-}
+// No acceptance-test sweeper is registered for kion_budget:
+// no resolvable collection endpoint: list envelope Budget holds no []Budget items field (read payload).
+//
+// A registered sweeper that returned nil would report success to `make sweep`
+// while orphaned test-acc records accumulated, so none is registered at all.
+// Clean these up by hand, or fix the generator input that blocks enumeration.

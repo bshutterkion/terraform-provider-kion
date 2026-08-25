@@ -58,5 +58,7 @@ Optional:
 Read-Only:
 
 - `description` (String)
+- `gcp_managed_policy` (Boolean)
 - `id` (Number)
 - `name` (String)
+- `system_managed_policy` (Boolean)

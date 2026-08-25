@@ -14,7 +14,7 @@ import (
 	{{.SDKAlias}} "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
 
-{{if .Paginated}}const sweepPageSize = 100
+{{if or .Paginated (and .Parent .Parent.Paginated)}}const sweepPageSize = 100
 {{end}}
 func init() {
 	resource.AddTestSweepers("{{.ResourceType}}", &resource.Sweeper{
@@ -23,7 +23,11 @@ func init() {
 	})
 }
 
-{{if .Paginated -}}
+{{if .Parent -}}
+// sweep{{.Pascal}} walks every kion_{{.Parent.Resource}}, because the collection is
+// listable only under its parent. It reads {{.ListMethod}} beneath each, then
+// deletes the records carrying the acceptance-test prefix via {{.DeleteMethod}}.
+{{- else if .Paginated -}}
 // sweep{{.Pascal}} paginates {{.ListMethod}} collecting ids whose test resources
 // carry the acceptance-test prefix, then deletes them via {{.DeleteMethod}}.
 {{- else -}}
@@ -39,11 +43,19 @@ func sweep{{.Pascal}}(_ string) error {
 	ctx := context.Background()
 
 	var ids []int64
+{{- if .Parent}}
+	parents, err := sweep{{.Pascal}}ParentIDs(ctx, conn)
+	if err != nil {
+		return err
+	}
+	for _, parentID := range parents {
+{{- end}}
 {{- if .Paginated}}
 	page := int64(1)
 	for {
 		out, err := conn.Client.{{.ListMethod}}(ctx, {{.SDKAlias}}.{{.ListParams}}{
-			{{.PageParam}}:  {{.SDKAlias}}.NewOptInt64(page),
+			{{if .Parent}}{{.Parent.Param}}: {{if eq .Parent.ParamType "int64"}}parentID{{else}}{{.Parent.ParamType}}(parentID){{end}},
+			{{end}}{{.PageParam}}:  {{.SDKAlias}}.NewOptInt64(page),
 			{{.CountParam}}: {{.SDKAlias}}.NewOptInt64(int64(sweepPageSize)),
 		})
 		if err != nil {
@@ -85,7 +97,7 @@ func sweep{{.Pascal}}(_ string) error {
 	}
 {{- else}}
 	// {{.ListMethod}} is not paginated: one call returns the whole collection.
-	out, err := conn.Client.{{.ListMethod}}(ctx{{if .HasParams}}, {{.SDKAlias}}.{{.ListParams}}{}{{end}})
+	out, err := conn.Client.{{.ListMethod}}(ctx{{if .HasParams}}, {{.SDKAlias}}.{{.ListParams}}{ {{if .Parent}}{{.Parent.Param}}: {{if eq .Parent.ParamType "int64"}}parentID{{else}}{{.Parent.ParamType}}(parentID){{end}}{{end}}}{{end}})
 	if err != nil {
 		return fmt.Errorf("listing {{.ResourceType}}: %w", err)
 	}
@@ -106,6 +118,9 @@ func sweep{{.Pascal}}(_ string) error {
 			}
 		}
 		{{- end}}
+	}
+{{- end}}
+{{- if .Parent}}
 	}
 {{- end}}
 
@@ -129,3 +144,81 @@ func sweep{{.Pascal}}Match(item {{.SDKAlias}}.{{.ElemType}}) bool {
 	}
 	return false
 }
+{{if .Parent}}
+// sweep{{.Pascal}}ParentIDs lists every kion_{{.Parent.Resource}} id, which is what
+// {{.ListMethod}} needs to reach the {{.ResourceType}} records beneath one.
+func sweep{{.Pascal}}ParentIDs(ctx context.Context, conn *conns.KionClient) ([]int64, error) {
+	var ids []int64
+{{- with .Parent}}
+{{- if .Paginated}}
+	page := int64(1)
+	for {
+		out, err := conn.Client.{{.Method}}(ctx, {{$.SDKAlias}}.{{.Params}}{
+			{{.PageParam}}:  {{$.SDKAlias}}.NewOptInt64(page),
+			{{.CountParam}}: {{$.SDKAlias}}.NewOptInt64(int64(sweepPageSize)),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("listing kion_{{.Resource}}: %w", err)
+		}
+		resp, ok := out.(*{{$.SDKAlias}}.{{.RespType}})
+		if !ok{{if .EnvelopeGuard}} || !{{.EnvelopeGuard}}{{end}} {
+			break
+		}
+		items := {{.ItemsExpr}}
+		{{- if .ItemsGuard}}
+		if {{.ItemsGuard}} {
+			for _, item := range {{.ItemsSlice}} {
+				{{if .IDOpt}}if item.{{.IDGo}}.Set {
+					ids = append(ids, int64(item.{{.IDGo}}.Value))
+				}{{else}}ids = append(ids, int64(item.{{.IDGo}})){{end}}
+			}
+		}
+		{{- else}}
+		for _, item := range {{.ItemsSlice}} {
+			{{if .IDOpt}}if item.{{.IDGo}}.Set {
+				ids = append(ids, int64(item.{{.IDGo}}.Value))
+			}{{else}}ids = append(ids, int64(item.{{.IDGo}})){{end}}
+		}
+		{{- end}}
+		{{- if .TotalExpr}}
+		total := int64(0)
+		if {{.TotalExpr}}.Set {
+			total = {{.TotalExpr}}.Value
+		}
+		if total > 0 && page*int64(sweepPageSize) >= total {
+			break
+		}
+		{{- end}}
+		if {{.ItemsBreak}} {
+			break
+		}
+		page++
+	}
+{{- else}}
+	out, err := conn.Client.{{.Method}}(ctx{{if .HasParams}}, {{$.SDKAlias}}.{{.Params}}{}{{end}})
+	if err != nil {
+		return nil, fmt.Errorf("listing kion_{{.Resource}}: %w", err)
+	}
+	if resp, ok := out.(*{{$.SDKAlias}}.{{.RespType}}); ok{{if .EnvelopeGuard}} && {{.EnvelopeGuard}}{{end}} {
+		items := {{.ItemsExpr}}
+		{{- if .ItemsGuard}}
+		if {{.ItemsGuard}} {
+			for _, item := range {{.ItemsSlice}} {
+				{{if .IDOpt}}if item.{{.IDGo}}.Set {
+					ids = append(ids, int64(item.{{.IDGo}}.Value))
+				}{{else}}ids = append(ids, int64(item.{{.IDGo}})){{end}}
+			}
+		}
+		{{- else}}
+		for _, item := range {{.ItemsSlice}} {
+			{{if .IDOpt}}if item.{{.IDGo}}.Set {
+				ids = append(ids, int64(item.{{.IDGo}}.Value))
+			}{{else}}ids = append(ids, int64(item.{{.IDGo}})){{end}}
+		}
+		{{- end}}
+	}
+{{- end}}
+{{- end}}
+	return ids, nil
+}
+{{end}}

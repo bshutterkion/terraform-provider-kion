@@ -1,54 +1,73 @@
 # kion-import: live validation
 
-Record of running `kion-import` against a real Kion installation. The authored
-endpoint tables in `internal/kgen/importmanifest/paths.go` cannot be derived from
-codegen, so they are unverified until a run like this exercises them. Re-run this
-after changing an archetype, a read path, or one of those tables.
+Record of running `kion-import` against a real Kion installation. The collection
+paths a parent-scoped or association resource reads through are authored in
+`codegen/config_overrides.yaml` rather than derived -- codegen records by-id
+reads, which those shapes have none of -- so they are unverified until a run like
+this exercises them. Re-run this after changing an archetype, a read path, or one
+of those entries.
 
 ## Environment
 
 | | |
 |---|---|
-| Install | a production-scale Kion installation |
-| Date | 2026-08-25 (superseding 2026-08-24) |
+| Install | a demo Kion installation (3.16.3) |
+| Date | 2026-08-25, on `main` @ d5a9200 |
 | Manifest | `codegen/import_manifest.json`, 68 resource types |
-| Command | `kion-import --url https://kion.example.com --probe` |
+| Command | `kion-import --url https://kion.example.com --out imports.tf` |
 
 Credentials come from `--api-key` or `KION_APIKEY`; none are recorded here.
 
 ## Result
 
 ```
-Coverage: 68 resource types, 53513 records
-  ok: 59, empty: 2, error: 3, unsupported: 4
+Coverage: 68 resource types, 51966 records
+  empty: 5, ok: 60, unsupported: 3
 ```
 
-49,556 `import` blocks generated. **Zero records skipped for a missing id.**
+51,880 `import` blocks generated, **zero errors**, and zero records skipped for a
+missing id. Every one of the 68 manifest rows produced a result.
 
-Largest reads: `kion_azure_policy` 19425, `kion_compliance_check` 16265,
-`kion_compliance_control` 6006, `kion_project_permission_mapping` 1443,
-`kion_gcp_iam_role` 1382, `kion_iam_policy` 1348,
-`kion_funding_source_permission_mapping` 1035, `kion_azure_role` 828,
-`kion_ou_permission_mapping` 726, `kion_compliance_family` 588.
+The three `unsupported` rows are refusals by design, not gaps: two alias types
+(`kion_aws_cloudformation_template`, `kion_aws_iam_policy`) that would put two
+Terraform resources in charge of one record, and `kion_custom_variable_override`,
+whose identity is compound (`account_id` + `custom_variable_id`) and so is not
+enumerable from a flat list even though its read exists.
 
-The 2026-08-24 run reported `ok: 49, error: 15`. Ten of those fifteen now read,
-including every resource previously listed under "flat list not served": `budget`
-9, `compliance_control` 6006, `idms_group_association` 18, `idms_open_id` 1,
-`ou_cloud_access_role` 13, `project_cloud_access_role` 62,
-`saml_group_association` 18, `scope_criteria` 9. `ou_note` returns an empty
-collection rather than 405.
+### How this run compares
 
-47,324 `import` blocks generated. **Zero records skipped for a missing id.**
+| run | install | records | ok | empty | error | unsupported |
+|---|---|---|---|---|---|---|
+| 2026-08-24 | production-scale | 53,513 | 49 | — | 15 | 4 |
+| 2026-08-25 (earlier) | production-scale | 53,513 | 59 | 2 | 3 | 4 |
+| 2026-08-25 @ 69c566c | demo (3.16.3) | 48,355 | 59 | 6 | 0 | 3 |
+| **2026-08-25 @ d5a9200** | **demo (3.16.3)** | **51,966** | **60** | **5** | **0** | **3** |
 
-Largest reads: `kion_azure_policy` 19425, `kion_compliance_check` 16265,
-`kion_gcp_iam_role` 1382, `kion_iam_policy` / `kion_aws_cloudformation_template`
-1348, `kion_project_permission_mapping` 1443, `kion_funding_source_permission_mapping`
-1035, `kion_azure_role` 828, `kion_ou_permission_mapping` 726, `kion_compliance_family`
-597.
+**The rows are not the same install** — the first two ran against a
+production-scale install, the last two against a demo one. Compare the *status
+columns*, which are properties of the tooling; the record counts are properties
+of the install and are not comparable across rows.
+
+The last two rows *are* the same install, so their counts are comparable, and
+the 3,611-record difference between them is entirely records the earlier run
+never fetched: 3,592 `compliance_control` and 10 `compliance_family` to the
+padding fix, 9 `scope_criteria` to the `nested_collection` read shape. The
+resource that moved from `empty` to `ok` is `scope_criteria`, which had read
+nothing at all.
+
+The last three errors and the fourth `unsupported` were cleared by the two fixes
+recorded below (*Private reads that render SQL null wrappers* and *`no_read` did
+not mean unreadable*). `kion_dashboard` and `kion_funding_source_note` now read;
+`kion_aws_resource_tag` and both `*_cloud_access_role_exemption` types moved out
+of "structurally unreadable" entirely.
+
+The production-scale figures are the ones quoted in
+[IMPORTING.md](IMPORTING.md): 53,513 records, of which 19,425 are Azure policy
+definitions and 16,265 are compliance checks.
 
 ## Defects this run found
 
-Three, none of which unit tests could have caught — each depends on a response
+Five, none of which unit tests could have caught — each depends on a response
 shape only a real install produces.
 
 ### 1. `/api` prefix, and an HTTP 200 that is not JSON
@@ -104,38 +123,6 @@ inner object is the record. Sibling arrays and scalars are ignored; two candidat
 means ambiguous and the record is left untouched. `Record.Raw` keeps the outer
 object.
 
-## Still failing on this install
-
-Three error, four are structurally unreadable, two are legitimately empty. **All
-are recorded, not silently omitted** -- they appear in both the report and the
-generated file.
-
-### Structurally unreadable (expected, by design)
-
-`aws_resource_tag`, `ou_cloud_access_role_exemption`,
-`project_cloud_access_role_exemption` are declared `kind: no_read` in
-`crud_archetypes.yaml`: no by-id GET and no listable collection.
-`custom_variable_override` needs two ids in its path, neither discoverable
-without the other.
-
-### Errors
-
-| resource | |
-|---|---|
-| `dashboard` | `GET /beta/dashboard` 405 |
-| `funding_source_note` | `GET /v2/funding-source-note` 405 |
-| `idms_open_id_access_rule` | all 10 parents 404: `GET /v4/idms/open-id/1/access-rule` |
-
-`idms_open_id` itself now reads one record, so the access-rule read is reaching
-parents that exist but hold no access rules; the 404 is the API's answer for an
-IDMS with none, not a wrong path.
-
-### Empty
-
-`account_linkage` and `ou_note` return empty collections. `ou_note` 405'd on the
-previous run, so this is the endpoint behaving differently, not a code change.
-
-
 ### 4. Alias types were imported twice
 
 `kion_aws_iam_policy` and `kion_iam_policy` are two names for one implementation
@@ -155,6 +142,107 @@ accounted for in the report but never enumerated. `--list-types` shows the legac
 name against the current one, which is what an operator migrating a configuration
 needs to see.
 
+### 5. Pages padded to `total`, hiding real records
+
+Found by investigating the `record(s) skipped: no id` caveats an earlier run
+recorded, rather than accepting them as a documented quirk. This run is the
+first with the fix in place.
+
+Some collections pad every page out to `total` instead of to the page size.
+`/v4/compliance/program/5/family` holds 110 families:
+
+| request | items | real | zero-valued padding |
+|---|---:|---:|---:|
+| `count=100&page=1` | 110 | 100 (Access…Temporary) | 10 |
+| `count=100&page=2` | 110 | 10 (Transaction…Wireless) | 100 |
+| `count=500&page=1` | 110 | 110 | 0 |
+
+`Client.List` unwrapped 110 records and `total: 110` from page 1, evaluated
+`len(records) < total` as `110 < 110`, and stopped. The ten real records that
+exist only on page 2 were never requested. `toRecords` then dropped the ten
+fillers for having no id and reported `10 record(s) skipped: no id`.
+
+The count was right and the wording was wrong in the way that matters: it
+describes records being *ignored* when the event was records never being
+*fetched*. It also happened to equal the number missing, which made it look
+self-consistent. What gave it away was the alphabet -- every missing family
+sorted between Transaction and Wireless, which is a lost final page, not
+scattered bad data.
+
+Fixed: zero-valued records are dropped before the page count is compared against
+`total`. Such a record carries no id and could never have produced an `import`
+block, so nothing is lost, and the count now reflects what was retrieved.
+
+**3,602 records on this install were missing, not 10.** `compliance_family` was
+the resource that exposed the mechanism, and its ten losses are what made the
+alphabetical clustering visible, but `compliance_control` was losing 3,592 by
+the same route:
+
+| resource | before | after |
+|---|---:|---:|
+| `compliance_control` | 2,414 (3,592 "skipped") | **6,006** |
+| `compliance_family` | 587 (10 "skipped") | **597** |
+
+597 matches a direct count over the API. Measured against a binary built from
+the pre-fix commit, not inferred: the first reading of this assumed
+`compliance_control`'s skips were harmless padding and that it recovered
+nothing, which was wrong by 3,592 records.
+
+The padding itself is a server-side defect and is worth reporting separately:
+any client paging that endpoint hits it.
+
+## Still failing on this install
+
+Nothing errors. Three rows are refused by design, six are legitimately empty, and
+five read with a caveat. **All are recorded, not silently omitted** -- they
+appear in both the report and the generated file.
+
+### Refused by design (3)
+
+`custom_variable_override` needs two ids in its path, neither discoverable
+without the other. `aws_cloudformation_template` and `aws_iam_policy` are alias
+tf_types; see *Alias types were imported twice* below.
+
+This list used to include `aws_resource_tag`, `ou_cloud_access_role_exemption`
+and `project_cloud_access_role_exemption` as "structurally unreadable". That was
+wrong -- see *`no_read` did not mean unreadable*.
+
+### Read with caveats (5)
+
+| resource | caveat |
+|---|---|
+| `idms_group_association` | 2 parents failed; `GET /v3/idms/1/group-association` 502 |
+| `saml_group_association` | same 502, same parent |
+| `idms_open_id_access_rule` | 10 parents had none |
+| `ou_cloud_access_role_exemption` | 237 records of another kind sharing the collection |
+| `project_cloud_access_role_exemption` | 12 records of another kind, so none remain |
+
+The 502 is server-side and specific to IDMS 1 on that install -- IDMS 2/3/4
+answer 200/404 normally, and three consecutive retries all returned 502. It is
+reported rather than swallowed, and one bad parent does not sink the resource.
+
+The two exemption caveats are the kind-mixing filter working; see below.
+
+This table used to carry three more rows -- `compliance_control` (3592),
+`compliance_family` (10) and `scope_criteria` (9), each reported as
+`record(s) skipped: no id`. None of them were what that wording implied; see
+*Pages padded to `total`* below for the first two, and the `nested_collection`
+read shape for `scope_criteria`. All three now read clean:
+
+| resource | then | now |
+|---|---|---|
+| `compliance_control` | 2414, 3592 skipped | **6006**, no caveat |
+| `compliance_family` | 587, 10 skipped | **597**, no caveat |
+| `scope_criteria` | 9 skipped, 0 read | 9, no caveat |
+
+### Empty (5)
+
+Five collections are genuinely empty on this install, including
+`kion_aws_resource_tag` -- which is why its new read has **no live coverage**.
+Its field names come from the spec's `AWSResourceTag` component and are exercised
+only by unit tests. Verify it against an install that has records.
+
+
 ## What this run validated
 
 - **The parent-scoped fallback works.** `compliance_family` and `compliance_level`
@@ -163,6 +251,12 @@ needs to see.
   `kion_azure_policy: empty, 0 records` as a clean result. With skip counts it
   reported `19425 record(s) skipped: no id`. Roughly 23,000 records were being
   dropped silently; the count is what surfaced it.
+- **A skip count is a symptom, not a diagnosis.** The same mechanism that
+  surfaced the wrapper bug later described ten *missing* `compliance_family`
+  records as ten *skipped* ones, and the number was accurate enough that the
+  caveat sat in this document as settled. A skip count says something was not
+  emitted; it does not say the records were reachable and ignored. Reconcile
+  against the API before recording one as understood.
 - **The one-result-per-row contract holds** against the real manifest: 68 rows in,
   68 results out, every failure attributed.
 
@@ -258,8 +352,10 @@ export KION_APIKEY=…
 ```
 
 Narrow a run with `--include` / `--exclude` / `--selection`; see
-[IMPORTING.md](IMPORTING.md). Importing all 53,513 records is rarely what an
-operator wants, since Kion's shipped policy and compliance catalogs are 35,690 of
-them.
+[IMPORTING.md](IMPORTING.md). Importing everything is rarely what an operator
+wants: Kion's shipped policy and compliance catalogs dominate the count. On the
+install above, excluding `kion_azure_policy`, `kion_compliance_check`,
+`kion_compliance_control` and `kion_compliance_standard` takes the run from
+48,355 records to 10,131.
 
 Add `--api-prefix ""` for a localhost app serving the API at the root.

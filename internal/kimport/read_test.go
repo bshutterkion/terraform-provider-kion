@@ -938,3 +938,128 @@ func TestEnumerateSingleParentUnchangedWhenParentsEmpty(t *testing.T) {
 	require.Equal(t, "ok", res.Status)
 	assert.Len(t, res.Records, 2)
 }
+
+// --- ShapeNestedCollection (kion_scope_criteria's /beta/scope shape). ---
+
+// nestedScopeResource is the manifest row kion_scope_criteria gets, mirroring
+// what Build produces for the compound_key_parent_read archetype: Collection
+// is already converted to its JSON key, and ImportID.Format is
+// FormatParentSlashKey even though nestedCollectionResult doesn't consult it
+// directly -- only Collection/ParentIDField/ChildIDField drive the read.
+func nestedScopeResource() importmanifest.Resource {
+	return importmanifest.Resource{
+		TFType: "kion_scope_criteria", ReadShape: importmanifest.ShapeNestedCollection, Readable: true,
+		ListPath: "/beta/scope", Collection: "criteria_records",
+		ParentIDField: "scope_id", ChildIDField: "criteria_id",
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatParentSlashKey},
+	}
+}
+
+// TestEnumerateNestedCollectionReadsFromParentPayloadNoSecondCall uses the
+// real /beta/scope shape: one scope with two nested criteria records, one
+// with none. Neither criteria record carries "criteria_id" (only "id"),
+// matching what the live API actually sends -- this is the fallback path,
+// not the happy path where the archetype's declared child_id_field is
+// present. Critically, the routeLister only serves "/beta/scope": if
+// nestedCollectionResult made a second HTTP call per scope (the
+// ShapeParentList way) this would fail with a 404, proving the read happens
+// entirely from the one list payload.
+func TestEnumerateNestedCollectionReadsFromParentPayloadNoSecondCall(t *testing.T) {
+	t.Parallel()
+	l := &routeLister{routes: map[string]any{
+		"/beta/scope": []map[string]any{
+			rec("id", float64(3), "name", "prod-scope", "criteria_records", []any{
+				rec("id", float64(41), "scope_id", float64(3), "criteria", "region = us-east-1"),
+				rec("id", float64(42), "scope_id", float64(3), "criteria", "service = ec2"),
+			}, "active_criteria_record", rec("id", float64(42)), "latest_criteria_record", rec("id", float64(42))),
+			rec("id", float64(4), "name", "empty-scope", "criteria_records", []any{}),
+		},
+	}}
+	res := Enumerate(context.Background(), l, nestedScopeResource())
+	require.Equal(t, "ok", res.Status)
+	require.Len(t, res.Records, 2)
+	assert.Equal(t, "3/41", res.Records[0].ID)
+	assert.Equal(t, "3/42", res.Records[1].ID)
+	assert.Equal(t, []string{"/beta/scope"}, l.calls, "no second HTTP call per scope")
+}
+
+// TestEnumerateNestedCollectionPrefersDeclaredChildIDFieldOverElementID
+// verifies that when an element DOES carry the archetype's declared
+// child_id_field, that value wins over the element's own "id" -- the
+// fallback in nestedCollectionResult only fires when child_id_field is
+// absent, it does not unconditionally prefer "id".
+func TestEnumerateNestedCollectionPrefersDeclaredChildIDFieldOverElementID(t *testing.T) {
+	t.Parallel()
+	l := &routeLister{routes: map[string]any{
+		"/beta/scope": []map[string]any{
+			rec("id", float64(3), "criteria_records", []any{
+				rec("id", float64(999), "criteria_id", float64(41), "scope_id", float64(3)),
+			}),
+		},
+	}}
+	res := Enumerate(context.Background(), l, nestedScopeResource())
+	require.Equal(t, "ok", res.Status)
+	require.Len(t, res.Records, 1)
+	assert.Equal(t, "3/41", res.Records[0].ID)
+}
+
+// TestEnumerateNestedCollectionSkipsElementsMissingParentIDField covers a
+// criteria record with no scope_id at all (and no other way to learn its
+// parent) -- it is skipped and counted, not silently dropped.
+func TestEnumerateNestedCollectionSkipsElementsMissingParentIDField(t *testing.T) {
+	t.Parallel()
+	l := &routeLister{routes: map[string]any{
+		"/beta/scope": []map[string]any{
+			rec("id", float64(3), "criteria_records", []any{
+				rec("id", float64(41)), // no scope_id
+			}),
+		},
+	}}
+	res := Enumerate(context.Background(), l, nestedScopeResource())
+	assert.Equal(t, "empty", res.Status)
+	assert.Empty(t, res.Records)
+	assert.Contains(t, res.Reason, "1 record(s) skipped: no id")
+}
+
+// TestEnumerateNestedCollectionSkipsNonObjectElements covers a malformed
+// nested array entry (not an object) -- counted the same way as a missing id.
+func TestEnumerateNestedCollectionSkipsNonObjectElements(t *testing.T) {
+	t.Parallel()
+	l := &routeLister{routes: map[string]any{
+		"/beta/scope": []map[string]any{
+			rec("id", float64(3), "criteria_records", []any{"not-an-object"}),
+		},
+	}}
+	res := Enumerate(context.Background(), l, nestedScopeResource())
+	assert.Equal(t, "empty", res.Status)
+	assert.Contains(t, res.Reason, "1 record(s) skipped: no id")
+}
+
+// TestEnumerateNestedCollectionAllEmptyCollectionsIsEmptyNotError covers
+// scopes that all have zero (or absent) criteria -- a legitimate empty
+// result, not an error.
+func TestEnumerateNestedCollectionAllEmptyCollectionsIsEmptyNotError(t *testing.T) {
+	t.Parallel()
+	l := &routeLister{routes: map[string]any{
+		"/beta/scope": []map[string]any{
+			rec("id", float64(3), "criteria_records", []any{}),
+			rec("id", float64(4)), // collection key absent entirely
+		},
+	}}
+	res := Enumerate(context.Background(), l, nestedScopeResource())
+	assert.Equal(t, "empty", res.Status)
+	assert.Empty(t, res.Records)
+	assert.Empty(t, res.Reason)
+}
+
+// TestEnumerateNestedCollectionTopLevelListErrorIsReported covers the one
+// call that CAN fail outright: reading r.ListPath itself.
+func TestEnumerateNestedCollectionTopLevelListErrorIsReported(t *testing.T) {
+	t.Parallel()
+	l := &routeLister{routes: map[string]any{
+		"/beta/scope": errors.New("502 bad gateway"),
+	}}
+	res := Enumerate(context.Background(), l, nestedScopeResource())
+	assert.Equal(t, "error", res.Status)
+	assert.Contains(t, res.Reason, "502")
+}

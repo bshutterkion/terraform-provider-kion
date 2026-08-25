@@ -78,6 +78,8 @@ func Enumerate(ctx context.Context, l Lister, r importmanifest.Resource) Result 
 			break
 		}
 		return parentScopedResult(ctx, l, r)
+	case importmanifest.ShapeNestedCollection:
+		return nestedCollectionResult(ctx, l, r)
 	default:
 		// A manifest row with a ReadShape this switch doesn't recognize is a
 		// codegen/manifest bug, not an expected gap -- name it rather than
@@ -345,6 +347,85 @@ func multiParentScopedResult(ctx context.Context, l Lister, r importmanifest.Res
 		res.Status = "error"
 	default:
 		res.Status = "empty"
+	}
+	return res
+}
+
+// nestedCollectionResult reads r.ListPath once and, for every parent object,
+// extracts its records from the array nested under r.Collection -- rather
+// than making a second HTTP call per parent id, the way readParentSet does
+// for ShapeParentList/ShapeAssociation. Kion's /beta/scope, for example,
+// returns scope objects, each carrying a criteria_records array; the
+// criteria live inline in the scope's own payload and have no endpoint of
+// their own.
+//
+// Each nested element's import id is "<parent>/<child>", both read off the
+// ELEMENT itself via r.ParentIDField/r.ChildIDField -- the observed payload
+// carries scope_id directly on each criteria record, so there is no need to
+// fall back to the enclosing parent's own id. When an element lacks
+// r.ChildIDField (live criteria records carry "id", not "criteria_id"), the
+// element's own "id" is used instead; toRecords' FormatParentSlashKey branch
+// has no equivalent fallback because in that shape the child id field is
+// always populated -- this fallback exists here specifically because
+// crud_archetypes.yaml's child_id_field for scope_criteria names a field the
+// live API doesn't actually send.
+//
+// Only the top-level r.ListPath read can fail outright; a malformed or
+// missing nested collection on one parent just yields zero records for that
+// parent, same as any other resource with a legitimately empty result.
+func nestedCollectionResult(ctx context.Context, l Lister, r importmanifest.Resource) Result {
+	res := Result{TFType: r.TFType}
+
+	parents, err := l.List(ctx, r.ListPath)
+	if err != nil {
+		res.Status, res.Reason = "error", err.Error()
+		return res
+	}
+
+	var skippedNoID int
+	for _, parent := range parents {
+		// Same reasoning as readParentSet's unwrap call: kind is the CHILD
+		// resource's kind, not the parent's, so pass "" here and let the
+		// structural fallback find the parent's own id-bearing shape.
+		fields := unwrapTypedRecord(parent, "")
+		arr, ok := fields[r.Collection].([]any)
+		if !ok {
+			continue
+		}
+		for _, item := range arr {
+			child, ok := item.(map[string]any)
+			if !ok {
+				skippedNoID++
+				continue
+			}
+			cfields := unwrapTypedRecord(child, r.Kind)
+
+			parentKey := stringify(cfields[r.ParentIDField])
+			childKey := stringify(cfields[r.ChildIDField])
+			if childKey == "" {
+				childKey = stringify(cfields["id"])
+			}
+			if parentKey == "" || childKey == "" {
+				skippedNoID++
+				continue
+			}
+
+			name := ""
+			if r.NameField != "" {
+				name = stringify(cfields[r.NameField])
+			}
+			// child (not cfields) is kept as Raw so no information is lost, even
+			// when the element was wrapped -- mirrors toRecords' obj-vs-fields
+			// choice for Raw.
+			res.Records = append(res.Records, Record{ID: parentKey + "/" + childKey, Name: name, Raw: child})
+		}
+	}
+
+	res.Reason = skipReason(skippedNoID, 0)
+	if len(res.Records) == 0 {
+		res.Status = "empty"
+	} else {
+		res.Status = "ok"
 	}
 	return res
 }

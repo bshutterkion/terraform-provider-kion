@@ -31,3 +31,12 @@ var StateUpgradesYAML []byte
 //
 //go:embed import_manifest.json
 var ImportManifestJSON []byte
+
+// ReferencesYAML is codegen/references.yaml as of the build.
+//
+// Embedded on the same grounds: `kion-import rewrite-refs` runs wherever the
+// operator ran `terraform plan -generate-config-out`, which is not a checkout
+// of this repo.
+//
+//go:embed references.yaml
+var ReferencesYAML []byte

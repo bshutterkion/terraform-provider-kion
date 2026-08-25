@@ -99,9 +99,23 @@ and `terraform apply` do both through the provider's own `Read`/`ImportState`.
 `import_manifest.json` is generated — run `make import-manifest` after changing
 an archetype or a read path. `TestManifestIsCurrent` fails if you forget.
 
-The collection paths in `internal/kgen/importmanifest/paths.go` are **authored,
-not derived** (codegen records by-id reads, which parent-scoped and association
-resources lack). Verify them with `kion-import --probe` against a live install.
+The collection paths a parent-scoped or association resource reads through are
+**authored, not derived** (codegen records by-id reads, which those shapes lack).
+They live in `codegen/config_overrides.yaml`, merged over the derivation into
+`generator_config.yaml`. Verify them with `kion-import --probe` against a live
+install.
+
+`codegen/references.yaml` is the other **authored, not derived** input: which
+attributes are foreign keys and what each points at. `kion-import rewrite-refs`
+uses it to turn `ou_id = 11` into `ou_id = kion_ou.kion_ou_11.id`, so a
+generated configuration expresses its dependency graph instead of a frozen id
+space — which is what lets one move between installs without an id map. It
+cannot be derived: `payer_id` is a billing source, `ugroup_ids` a user group,
+and `portfolio_id` is an **AWS** id that must never be rewritten, sitting beside
+`internal_portfolio_ids`, which *is* a `kion_service_catalog`. Every settable
+`*_id`/`*_ids` attribute must appear in `references` or `not_references`;
+`TestReferencesAreComplete` (`make references-check`) fails on any that does
+not, so a new resource's foreign key cannot slip through unclassified.
 
 `kion-import` appends `/api` to `--url` by default (hosted installs serve their
 API under that prefix). Pass `--api-prefix ""` for an install whose API is hit
@@ -111,11 +125,14 @@ through the usual hosted path. See `internal/kimport/client.go`'s
 `--url` already ends in the prefix, tolerant of a prefix given with or without
 its slashes).
 
-`docs/import-tooling-validation.md` records a full run against a real install:
-as of that run, 15 resources fail (plus 3 unsupported), each with its cause
-(structurally unreadable, flat list 405 with no parent fallback, authored path
-wrong, missing parent id, etc.) — read it before assuming a resource that fails
-locally is a new bug rather than a known, already-diagnosed gap.
+`docs/import-tooling-validation.md` records full runs against a real install. As
+of the latest run **no resource errors and no records skipped for a missing
+id**: 68 rows in, 60 ok, 5 empty, 3 refused by design, 5 reading with a
+recorded caveat. Read it before
+assuming a resource that fails locally is a new bug rather than a known,
+already-diagnosed gap — it also carries the per-defect history (API prefix,
+nested envelopes, per-type record wrappers, alias double-import, SQL null
+wrappers, and `no_read` resources that import as empty shells).
 
 ### Migration from the previous provider
 
@@ -137,4 +154,4 @@ locally is a new bug rather than a known, already-diagnosed gap.
 
 GitHub Actions only; there is no `.gitlab-ci.yml`. `.github/workflows/ci.yml` runs on pull requests and pushes to `main`: `fmt`, `vet`, `lint`, `test-unit` (race detector + coverage), `acctest-config` (test HCL matches provider schema), `docs` (docs/examples drift gate), `modules` (drift + `terraform validate`/`test` over every module), `internal-refs`, `secrets`, `codeql`, and a `ci` aggregator job for branch protection. `.github/workflows/release.yml` runs goreleaser on a `v*` tag; the tag is the version — nothing in the repo records it. No kion-sdk-go checkout is needed anywhere: the `replace` in `go.mod` is versioned, so the module proxy resolves it (do not reintroduce a clone step in workflows — it would silently override the pin). Local `make ci` covers every job except `codeql`. See `.github/workflows/README.md`.
 
-Acceptance tests: 4 parallel workers, 120-minute timeout. Sweepers (`make sweep`) clean up orphaned `test-acc`-prefixed resources.
+Acceptance tests: 4 parallel workers, 120-minute timeout. Sweepers (`make sweep`) clean up orphaned `test-acc`-prefixed resources for the 36 resource types that have one; 14 more cannot be enumerated or deleted through the API and deliberately register nothing, each `sweep.go` saying why (`make crud-force` prints the set). `docs/TESTING.md` lists them. A sweeper only runs if `internal/sweep/sweep_test.go` blank-imports its package; `TestSweeperRegistration` guards both that list and against a sweeper body that never reaches the API.

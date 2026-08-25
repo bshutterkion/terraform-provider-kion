@@ -53,7 +53,16 @@ type generator struct {
 	oldSchema   map[string]migrate.Resource  // codegen/schema_snapshots/old.json (lazy)
 	newSchema   map[string]migrate.Resource  // codegen/schema_snapshots/new.json (lazy)
 	root        string
+	// fieldPolicy is codegen/unexposed_fields.yaml: the response fields a list
+	// data source must withhold. Loaded once per run alongside the other
+	// codegen inputs above.
+	fieldPolicy FieldPolicy
 	downgrades  []downgrade // data sources that lost their filter block this run
+	// dataSources is the generator_config `data_sources` op-set, needed to reach
+	// a resource OTHER than the one being generated: a parent-scoped sweeper
+	// enumerates its parent's collection.
+	dataSources map[string]dsOps
+	unswept     []downgrade // resources that got no sweeper this run, with the reason
 }
 
 // Generate is the stage entry point.
@@ -72,6 +81,12 @@ func (g *generator) generate(opts Options) (int, error) {
 		root = r
 	}
 
+	policy, err := LoadFieldPolicy(root)
+	if err != nil {
+		return 0, err
+	}
+	g.fieldPolicy = policy
+
 	cfgPath := opts.Config
 	if cfgPath == "" {
 		cfgPath = filepath.Join("codegen", "generator_config.yaml")
@@ -82,6 +97,7 @@ func (g *generator) generate(opts Options) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	g.dataSources = dataSources
 
 	sdkDir := opts.SDKDir
 	if sdkDir == "" {
@@ -172,7 +188,24 @@ func (g *generator) generate(opts Options) (int, error) {
 		}
 		written += n
 	}
+	g.reportUnswept()
 	return written, g.reportDowngrades(opts.Strict)
+}
+
+// reportUnswept prints the aggregated no-sweeper report. Each entry is a
+// resource whose orphaned test-acc records `make sweep` will NOT clean up. It is
+// not an error: several are structurally unsweepable (no delete endpoint at
+// all). It is printed so the set is visible rather than silently assumed empty.
+func (g *generator) reportUnswept() {
+	if len(g.unswept) == 0 {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "\n-- kgen crud: %d resource(s) got NO sweeper; `make sweep` leaves their\n", len(g.unswept))
+	fmt.Fprintf(os.Stderr, "-- orphaned test-acc records behind. Each sweep.go says the same.\n")
+	for _, u := range g.unswept {
+		fmt.Fprintf(os.Stderr, "--   kion_%s: %s\n", u.Resource, u.Reason)
+	}
+	fmt.Fprint(os.Stderr, "\n")
 }
 
 // reportDowngrades prints the aggregated downgrade report. Every entry means a
@@ -264,6 +297,11 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		rm.DeleteRecordParam = entityArch.DeleteRecordParam
 		rm.DeleteExtraParam = entityArch.DeleteExtraParam
 		rm.DeleteExtraField = entityArch.DeleteExtraField
+		if entityArch.SweepParent != "" {
+			if err := g.bindSweepParent(&rm, ds, idx, *entityArch); err != nil {
+				fmt.Fprintf(os.Stderr, "kgen crud: %s: %v\n", name, err)
+			}
+		}
 	}
 
 	// Resolve nested-object body/response fields (needs the schema_gen Value types).
@@ -339,19 +377,19 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	if err != nil {
 		return 0, err
 	}
-	dataSourceGo, dsDowngrade, err := renderDataSource(rm)
+	dataSourceGo, dsDowngrade, err := renderDataSource(rm, g.fieldPolicy)
 	if err != nil {
 		return 0, err
 	}
 	if dsDowngrade != "" {
 		g.downgrades = append(g.downgrades, downgrade{Resource: name, Reason: dsDowngrade})
 	}
-	sweepGo, sweepNote, err := renderSweep(rm)
+	sweepGo, sweepReason, err := renderSweep(rm)
 	if err != nil {
 		return 0, err
 	}
-	if sweepNote != "" {
-		fmt.Fprintf(os.Stderr, "kgen crud: %s: real sweeper failed (%v); using stub\n", name, sweepNote)
+	if sweepReason != "" {
+		g.unswept = append(g.unswept, downgrade{Resource: name, Reason: sweepReason})
 	}
 
 	files := []genFile{
@@ -413,10 +451,14 @@ func (g *generator) generateCompound(dir, name string, ops resOps, idx sdkIndex,
 	if err != nil {
 		return 0, err
 	}
-	sweepGo, err := renderCompoundSweep(d)
+	// A compound-key sub-resource has no independent collection: records are
+	// enumerated per parent, which needs the FK-fixture sweeper follow-up.
+	sweepReason := "a compound-key sub-resource has no independent collection endpoint"
+	sweepGo, err := renderNoSweep(name, d.TypeName, sweepReason)
 	if err != nil {
 		return 0, err
 	}
+	g.unswept = append(g.unswept, downgrade{Resource: name, Reason: sweepReason})
 	files := []genFile{
 		{filepath.Join(dir, name+".go"), resourceGo},
 		{filepath.Join(dir, name+"_data_source.go"), dataSourceGo},

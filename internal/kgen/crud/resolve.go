@@ -228,6 +228,20 @@ func wrapperSliceElem(typeName string, idx sdkIndex) (elem string, nilAware, ok 
 // payload's record-wrapper sub-object, so one field mapping serves both the
 // by-id and the by-filter mode.
 func resolveList(ref *opRef, idx sdkIndex, read OpModel) (*listModel, error) {
+	return resolveListWith(ref, idx, read, listOpts{})
+}
+
+// listOpts relaxes resolveList for callers that are not the data source.
+type listOpts struct {
+	// AcceptElem overrides the "element must be a type the read yields" rule.
+	AcceptElem func(elem string) bool
+	// ParentParam names one required (non-Opt) param the caller supplies itself,
+	// e.g. the parent id of a parent-scoped collection. The data source has no
+	// value for such a param, but a sweeper enumerating parents does.
+	ParentParam string
+}
+
+func resolveListWith(ref *opRef, idx sdkIndex, read OpModel, opts listOpts) (*listModel, error) {
 	if ref == nil {
 		return nil, fmt.Errorf("no data-source list op configured")
 	}
@@ -271,6 +285,10 @@ func resolveList(ref *opRef, idx sdkIndex, read OpModel) (*listModel, error) {
 			}
 		}
 	}
+	accept := opts.AcceptElem
+	if accept == nil {
+		accept = func(elem string) bool { return elem == read.RespPayload || elem == wrapperType }
+	}
 
 	lm := &listModel{Method: m, RespType: respType, DataOpt: strings.HasPrefix(data.Type, "Opt")}
 	if m.ParamsType != "" {
@@ -290,7 +308,7 @@ func resolveList(ref *opRef, idx sdkIndex, read OpModel) (*listModel, error) {
 			if !ok {
 				continue
 			}
-			if elem != read.RespPayload && elem != wrapperType {
+			if !accept(elem) {
 				continue
 			}
 			lm.ItemsGo, lm.ItemsNil, lm.ElemType = f.GoName, nilAware, elem
@@ -306,7 +324,7 @@ func resolveList(ref *opRef, idx sdkIndex, read OpModel) (*listModel, error) {
 		if !ok {
 			return nil, fmt.Errorf("list envelope %s: Data field type %s is neither a known struct nor a slice", respType, data.Type)
 		}
-		if elem != read.RespPayload && elem != wrapperType {
+		if !accept(elem) {
 			return nil, fmt.Errorf("list envelope %s: Data is []%s but the read yields %s", respType, elem, read.RespPayload)
 		}
 		lm.DataDirect = true
@@ -337,6 +355,8 @@ func resolveList(ref *opRef, idx sdkIndex, read OpModel) (*listModel, error) {
 				if f.Type == "OptInt64" {
 					lm.CountParam = "Count"
 				}
+			case opts.ParentParam:
+				// Supplied by the caller (a sweeper that enumerates parents first).
 			default:
 				// A slice param (an ogen repeated query param) is omitted when nil,
 				// so it is optional despite carrying no Opt wrapper.

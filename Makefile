@@ -20,6 +20,12 @@ NAMESPACE := kionsoftware
 NAME := kion
 BINARY := terraform-provider-$(NAME)
 TEST ?= $$(go list ./... | grep -v 'vendor')
+# Tracked .go files only. gofmt walks paths, not modules, and would otherwise
+# descend into the agent worktrees under .claude/worktrees/ -- gitignored
+# checkouts of this same repo, whose in-progress code then fails everyone's
+# ci-fmt and pre-push hook. vet/lint/test use `go list ./...`, which stops at
+# those worktrees' own module boundaries and never had the problem.
+GOFILES := $(shell git ls-files --cached --others --exclude-standard '*.go' 2>/dev/null)
 
 # Schema code generation (HashiCorp Terraform plugin code generation tools).
 # Pinned for reproducible output. Orchestrated by `kgen schemas` (Go); see
@@ -110,7 +116,7 @@ status: ## Show provider version and service package count
 .PHONY: fmt
 fmt: ## Format Go code
 	@echo "$(BLUE)Formatting Go code...$(RESET)"
-	@gofmt -s -w .
+	@gofmt -s -w $(GOFILES)
 	@echo "$(GREEN)✓ Code formatted$(RESET)"
 
 .PHONY: vet
@@ -293,6 +299,24 @@ crud-force: ## Regenerate ALL CRUD output, overwriting existing files (use after
 import-manifest: ## Generate codegen/import_manifest.json (kgen import-manifest)
 	@go run ./cmd/kgen import-manifest
 
+# codegen/references.yaml is AUTHORED, not generated -- the attribute name does
+# not determine the target (payer_id is a billing source; portfolio_id is an AWS
+# id that must never be rewritten). There is nothing to regenerate, so this is a
+# check, not a build step: it fails naming any foreign-key-shaped attribute that
+# is in neither table, which is how a new resource's FK gets noticed.
+#
+# Already covered by ci-test (it runs ./internal/...); this target is the fast
+# way to ask the question on its own.
+.PHONY: references-check
+references-check: ## Fail if any foreign-key attribute is missing from codegen/references.yaml
+	@go test ./internal/kgen/references/ -run 'TestReferencesAreComplete|TestEveryTargetIsARealResource' -count=1
+	@echo "$(GREEN)✓ every foreign-key attribute is classified$(RESET)"
+
+.PHONY: field-audit
+field-audit: ## Rewrite codegen/unexposed_fields.yaml from the current tree
+	@go test ./internal/kgen/fieldaudit/ -update -count=1
+	@echo "$(GREEN)✓ codegen/unexposed_fields.yaml regenerated$(RESET)"
+
 .PHONY: generate
 generate: version-gen generate-schemas crud import-manifest ## Regenerate the full generatable surface
 
@@ -356,7 +380,11 @@ testacc: ## Run acceptance tests (requires KION_API_URL and credentials)
 sweep: ## Remove orphaned test resources (requires KION_API_URL and credentials)
 	@echo "$(RED)WARNING: This will destroy infrastructure. Use only in development accounts.$(RESET)"
 	@echo "$(YELLOW)Sweeping test resources...$(RESET)"
-	@TF_ACC=1 go test -v -sweep=all -timeout 30m ./internal/provider/...
+	@# internal/sweep is the only package with the resource.TestMain that runs
+	@# sweepers, and -sweep must follow the package list: go test stops parsing
+	@# packages at the first flag it does not know, so a trailing ./... would be
+	@# handed to the test binary and the ROOT package run instead.
+	@TF_ACC=1 go test -v -timeout 30m ./internal/sweep/... -sweep=all
 
 .PHONY: clean
 clean: ## Remove build artifacts (binary, release bin/, coverage files)
@@ -400,7 +428,7 @@ ci-acctest-config: ## Validate acceptance-test HCL against the provider schema (
 .PHONY: ci-fmt
 ci-fmt: ## Check code formatting (matches quality:fmt CI job)
 	@echo "$(BLUE)Checking formatting...$(RESET)"
-	@diff=$$(gofmt -s -d .); \
+	@diff=$$(gofmt -s -d $(GOFILES)); \
 	if [ -n "$$diff" ]; then \
 		echo "Code is not formatted. Run 'gofmt -s -w .'"; \
 		echo "$$diff"; \

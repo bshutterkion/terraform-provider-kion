@@ -76,6 +76,8 @@ The API key is read from --api-key or the KION_APIKEY environment variable.`,
 			"Hosted installs serve under /api (the default); set to \"\" only when hitting an app "+
 			"directly (e.g. on localhost), where the API is served at the root")
 
+	root.AddCommand(newRewriteRefsCmd())
+
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)

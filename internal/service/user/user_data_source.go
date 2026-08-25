@@ -37,6 +37,7 @@ var listObjectAttrTypes = map[string]attr.Type{
 	"last_name":  types.StringType,
 	"phone":      types.StringType,
 	"username":   types.StringType,
+	"enabled":    types.BoolType,
 }
 
 // NewUserDataSource returns a new instance of the data source.
@@ -110,6 +111,9 @@ func (d *userDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 							Computed: true,
 						},
 						"username": schema.StringAttribute{
+							Computed: true,
+						},
+						"enabled": schema.BoolAttribute{
 							Computed: true,
 						},
 					},
@@ -257,6 +261,7 @@ func userToRow(lbl generated.User) map[string]any {
 		"last_name":  lbl.LastName.Or(""),
 		"phone":      lbl.Phone.Or(""),
 		"username":   lbl.Username.Or(""),
+		"enabled":    lbl.Enabled.Or(false),
 	}
 	if lbl.ID.Set {
 		row["id"] = int64(lbl.ID.Value)
@@ -280,6 +285,7 @@ func buildUserList(ctx context.Context, items []generated.User) (types.List, dia
 			"last_name":  types.StringValue(lbl.LastName.Or("")),
 			"phone":      types.StringValue(lbl.Phone.Or("")),
 			"username":   types.StringValue(lbl.Username.Or("")),
+			"enabled":    types.BoolValue(lbl.Enabled.Or(false)),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags

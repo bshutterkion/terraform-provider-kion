@@ -18,8 +18,116 @@ kion-import --out imports.tf                   # generate
 
 terraform init
 terraform plan -generate-config-out=generated.tf
+
+kion-import rewrite-refs                       # literals -> references
 terraform apply
 ```
+
+## Rewrite the literal ids into references
+
+`terraform plan -generate-config-out` writes every foreign key as a bare
+integer, because Terraform has no way to know the value points at anything:
+
+```hcl
+resource "kion_project" "kion_project_9" {
+  ou_id = 11
+}
+```
+
+That is accurate for the install it came from, and it is a poor configuration.
+It does not express its own dependency graph, so `terraform destroy` followed by
+a re-apply will not order correctly and recreating an OU will not cascade. Point
+it at a **different** install and it is worse than poor: id 11 either does not
+exist or, silently, belongs to something else entirely.
+
+```sh
+kion-import rewrite-refs --imports imports.tf --generated generated.tf
+```
+
+```hcl
+resource "kion_project" "kion_project_9" {
+  ou_id = kion_ou.kion_ou_11.id
+}
+```
+
+Terraform now resolves the value from the id it actually created. **This is why
+moving a configuration between installs needs no id map** — the dependency graph
+is the id map, and it brings correct ordering and parallelism with it.
+
+Both files are required. `generated.tf` contains no ids (they are Computed, so
+`-generate-config-out` omits them), so the id-to-label index comes from the
+import blocks, where `to` and `id` sit together.
+
+Use `--dry-run` to see what would change, and `--out` to write elsewhere instead
+of rewriting in place. Running it twice is a no-op.
+
+### What is left alone, and why
+
+**Attributes that are not references.** Not every `*_id` points at a Kion
+record. `portfolio_id` is the portfolio's id *in AWS*; `account_type_id` is an
+enum; `car_external_id` is an external identifier. Rewriting one would aim a
+Terraform reference at a foreign id space. The full classification, with a
+reason for every entry, is [`codegen/references.yaml`](../codegen/references.yaml).
+
+**`parent_ou_id = 0`.** That means "top-level OU", not "the OU whose id is 0". A
+reference there would invent a parent.
+
+**Referents this configuration does not manage.** These are reported, never
+silently kept:
+
+```
+7 reference(s) left as literals -- their referent is not managed here:
+  kion_ou_cloud_access_role                3
+  kion_user                                4
+```
+
+That is the boundary of your configuration. Three ways to close it:
+
+1. **Import them too** — add the type to your `--include` and re-run. Usually
+   the right answer for Kion-managed resources.
+2. **A data source**, when the record already exists on the target and you want
+   to bind by name rather than manage it:
+   ```hcl
+   data "kion_user" "alice" { filter { ... } }
+   ```
+3. **A variable**, when the value differs per environment.
+
+Users, IDMS and stock permission schemes are the common cases — they come from
+an identity provider or ship with the install, so they are rarely yours to
+manage.
+
+**One side of a relation that is settable from both.** A user names its groups
+(`user_group_ids`) and a group names its users (`user_ids`). Both are genuine
+foreign keys, but rewriting both directions closes a loop, and Terraform refuses
+to plan a configuration containing one. Only the first direction offered becomes
+a reference; the other keeps its literal, and is reported separately:
+
+```
+103 reference(s) left as literals -- a reference would be a dependency cycle:
+  kion_user.user_group_ids                 45
+  kion_user_group.user_ids                 57
+  kion_user_group.viewer_user_ids          1
+```
+
+Nothing is missing here and there is nothing to import: the relation is already
+expressed, from the other end. The refusal is per id, so a list keeps every
+reference that was not part of a loop, and which direction wins is fixed by
+block order in the file — the same edge loses on every run.
+
+### Attributes the read cannot recover
+
+Import can only give a resource what its read returns. A couple of resources
+accept a value on create that no read — public or private — gives back, so it
+imports as `null` even though it was set:
+
+| resource | attribute | why |
+|---|---|---|
+| `kion_ou_cloud_access_role_exemption` | `reason` | the private read backing it (`/v1/ou/{id}/cloud-access-role-exemption`) omits `reason`, and no other endpoint returns it either |
+| `kion_project_cloud_access_role_exemption` | `reason` | same gap, on `/v1/project/{id}/cloud-access-role-exemption` |
+
+Both attributes are Optional+Computed, so nothing errors and `terraform plan`
+is clean — the value is just gone. If the reason recorded against an exemption
+matters to you, re-enter it by hand after import.
 
 ## Choose what to import
 
