@@ -18,8 +18,11 @@ const providerTypeName = "kion"
 
 // Generate generates acceptance test files for all registered resources and data sources.
 // If filterResource is non-empty, only that resource/data source is generated.
-// If sweepOnly is true, only sweep files are generated.
-func Generate(force bool, filterResource string, sweepOnly bool) error {
+// Sweepers are NOT written here: kgen crud resolves each resource's real list
+// and delete ops and emits internal/service/<n>/sweep.go. This generator used to
+// emit a registering stub that returned nil, which reported success to
+// `make sweep` while orphaned test-acc records piled up.
+func Generate(force bool, filterResource string) error {
 	projectRoot, err := findProjectRoot()
 	if err != nil {
 		return err
@@ -39,54 +42,35 @@ func Generate(force bool, filterResource string, sweepOnly bool) error {
 				continue
 			}
 
-			if sweepOnly {
-				if err := generateSweepFile(projectRoot, pkgName, typeName, force); err != nil {
-					return fmt.Errorf("generating sweep file for %s: %w", typeName, err)
-				}
-				generated++
-				continue
-			}
-
 			if err := generateResourceTest(projectRoot, pkgName, typeName, res, force); err != nil {
 				return fmt.Errorf("generating resource test for %s: %w", typeName, err)
-			}
-			if err := generateSweepFile(projectRoot, pkgName, typeName, force); err != nil {
-				return fmt.Errorf("generating sweep file for %s: %w", typeName, err)
 			}
 			generated++
 		}
 
-		if !sweepOnly {
-			for _, d := range pkg.DataSources(ctx) {
-				ds := d.Factory()
-				typeName := dataSourceTypeName(ctx, ds)
-				if filterResource != "" && typeName != filterResource {
-					continue
-				}
-
-				// Find matching resource for the data source config
-				var matchingResource fwresource.Resource
-				var matchingResTypeName string
-				for _, r := range pkg.Resources(ctx) {
-					res := r.Factory()
-					matchingResource = res
-					matchingResTypeName = resourceTypeName(ctx, res)
-					break
-				}
-
-				if err := generateDataSourceTest(projectRoot, pkgName, typeName, ds, matchingResource, matchingResTypeName, force); err != nil {
-					return fmt.Errorf("generating data source test for %s: %w", typeName, err)
-				}
-				generated++
+		for _, d := range pkg.DataSources(ctx) {
+			ds := d.Factory()
+			typeName := dataSourceTypeName(ctx, ds)
+			if filterResource != "" && typeName != filterResource {
+				continue
 			}
+
+			// Find matching resource for the data source config
+			var matchingResource fwresource.Resource
+			var matchingResTypeName string
+			for _, r := range pkg.Resources(ctx) {
+				res := r.Factory()
+				matchingResource = res
+				matchingResTypeName = resourceTypeName(ctx, res)
+				break
+			}
+
+			if err := generateDataSourceTest(projectRoot, pkgName, typeName, ds, matchingResource, matchingResTypeName, force); err != nil {
+				return fmt.Errorf("generating data source test for %s: %w", typeName, err)
+			}
+			generated++
 		}
 	}
-
-	// Generate the sweep entrypoint.
-	if err := generateSweepEntrypoint(projectRoot, pkgs, force); err != nil {
-		return fmt.Errorf("generating sweep entrypoint: %w", err)
-	}
-	generated++
 
 	if filterResource != "" && generated == 0 {
 		return fmt.Errorf("no resource or data source found matching %q", filterResource)

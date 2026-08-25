@@ -16,9 +16,6 @@ var entityCompoundTmpl string
 //go:embed datasource_compound.gtpl
 var dataSourceCompoundTmpl string
 
-//go:embed sweep_compound.gtpl
-var sweepCompoundTmpl string
-
 // archetype is a compound-key / parent-read declaration from
 // codegen/crud_archetypes.yaml, the shape the op-set and SDK AST cannot
 // express on their own (see the file's header comment).
@@ -50,6 +47,12 @@ type archetype struct {
 	ChildParam   string `yaml:"child_param"`   // SDK param naming the record id (update/delete)
 	RecordType   string `yaml:"record_type"`   // the list element struct, e.g. ProjectEnforcement
 	ResponseType string `yaml:"response_type"` // the read response struct, e.g. ProjectEnforcementResponse
+	// Sweeper (kind: entity): the data-source collection is parent-scoped, so it
+	// takes a required parent-id param the data source cannot supply. A sweeper
+	// can: it enumerates SweepParent's own collection first. Without these the
+	// resource gets no sweeper at all.
+	SweepParent      string `yaml:"sweep_parent"`       // parent resource name, e.g. "ou"
+	SweepParentParam string `yaml:"sweep_parent_param"` // list param taking the parent id, e.g. "ID"
 }
 
 const (
@@ -423,8 +426,4 @@ func renderCompoundEntity(d compoundData) ([]byte, error) {
 
 func renderCompoundDataSource(d compoundData) ([]byte, error) {
 	return execGoTemplate("datasource_compound", dataSourceCompoundTmpl, d, d.Pkg+"_data_source.go")
-}
-
-func renderCompoundSweep(d compoundData) ([]byte, error) {
-	return execGoTemplate("sweep_compound", sweepCompoundTmpl, d, "sweep.go")
 }

@@ -2,31 +2,9 @@
 
 package idms_open_id
 
-import (
-	"fmt"
-
-	"terraform-provider-kion/internal/conns"
-
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-)
-
-func init() {
-	resource.AddTestSweepers("kion_idms_open_id", &resource.Sweeper{
-		Name: "kion_idms_open_id",
-		F:    sweepIdmsOpenId,
-	})
-}
-
-func sweepIdmsOpenId(_ string) error {
-	conn, err := conns.SharedClient()
-	if err != nil {
-		return fmt.Errorf("getting shared client: %w", err)
-	}
-	_ = conn
-
-	// TODO: list kion_idms_open_id resources with the "test-acc" prefix and
-	// delete each.
-	// A real sweeper needs both a resolvable collection endpoint and a delete op;
-	// this resource is missing at least one (see the kgen crud run output).
-	return nil
-}
+// No acceptance-test sweeper is registered for kion_idms_open_id:
+// the API exposes neither a delete endpoint nor a resolvable collection endpoint.
+//
+// A registered sweeper that returned nil would report success to `make sweep`
+// while orphaned test-acc records accumulated, so none is registered at all.
+// Clean these up by hand, or fix the generator input that blocks enumeration.

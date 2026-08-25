@@ -3,12 +3,18 @@
 package ou_note
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"terraform-provider-kion/internal/conns"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
+
+const sweepPageSize = 100
 
 func init() {
 	resource.AddTestSweepers("kion_ou_note", &resource.Sweeper{
@@ -17,16 +23,84 @@ func init() {
 	})
 }
 
+// sweepOuNote walks every kion_ou, because the collection is
+// listable only under its parent. It reads GetOUNotes beneath each, then
+// deletes the records carrying the acceptance-test prefix via DeleteOUNote.
 func sweepOuNote(_ string) error {
 	conn, err := conns.SharedClient()
 	if err != nil {
 		return fmt.Errorf("getting shared client: %w", err)
 	}
-	_ = conn
+	ctx := context.Background()
 
-	// TODO: list kion_ou_note resources with the "test-acc" prefix and
-	// delete each via conn.Client.DeleteOUNote.
-	// A real sweeper needs both a resolvable collection endpoint and a delete op;
-	// this resource is missing at least one (see the kgen crud run output).
+	var ids []int64
+	parents, err := sweepOuNoteParentIDs(ctx, conn)
+	if err != nil {
+		return err
+	}
+	for _, parentID := range parents {
+		page := int64(1)
+		for {
+			out, err := conn.Client.GetOUNotes(ctx, generated.GetOUNotesParams{
+				ID:    parentID,
+				Page:  generated.NewOptInt64(page),
+				Count: generated.NewOptInt64(int64(sweepPageSize)),
+			})
+			if err != nil {
+				return fmt.Errorf("listing kion_ou_note: %w", err)
+			}
+			resp, ok := out.(*generated.OUNoteListResponse)
+			if !ok {
+				break
+			}
+			items := resp.Data
+			for _, item := range items {
+				if item.ID.Set && sweepOuNoteMatch(item) {
+					ids = append(ids, int64(item.ID.Value))
+				}
+			}
+			if len(items) == 0 {
+				break
+			}
+			page++
+		}
+	}
+
+	for _, id := range ids {
+		if _, err := conn.Client.DeleteOUNote(ctx, generated.DeleteOUNoteParams{ID: id}); err != nil {
+			return fmt.Errorf("deleting kion_ou_note (%d): %w", id, err)
+		}
+	}
 	return nil
+}
+
+func sweepOuNoteMatch(item generated.OUNote) bool {
+	for _, s := range []string{
+		item.Name.Or(""),
+		item.Text.Or(""),
+	} {
+		if strings.HasPrefix(s, "test-acc") {
+			return true
+		}
+	}
+	return false
+}
+
+// sweepOuNoteParentIDs lists every kion_ou id, which is what
+// GetOUNotes needs to reach the kion_ou_note records beneath one.
+func sweepOuNoteParentIDs(ctx context.Context, conn *conns.KionClient) ([]int64, error) {
+	var ids []int64
+	out, err := conn.Client.GetOUIndex(ctx, generated.GetOUIndexParams{})
+	if err != nil {
+		return nil, fmt.Errorf("listing kion_ou: %w", err)
+	}
+	if resp, ok := out.(*generated.OUListResponse); ok {
+		items := resp.Data
+		for _, item := range items {
+			if item.ID.Set {
+				ids = append(ids, int64(item.ID.Value))
+			}
+		}
+	}
+	return ids, nil
 }

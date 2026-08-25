@@ -162,6 +162,12 @@ type ResourceModel struct {
 	// block and fell back to id-only. Empty when List resolved (or when no
 	// collection read was declared at all).
 	ListDowngrade string
+	// SweepList and SweepParent serve the sweeper alone: a parent-scoped
+	// collection the data source cannot call (it has no parent id to pass) but a
+	// sweeper can, by enumerating the parents first. Both nil for a flat
+	// collection, where the sweeper reuses List.
+	SweepList     *listModel
+	SweepParent   *parentSweep
 	Gated         bool // resource is version-gated (emit RequireKionVersionInRange)
 	SchemaVersion int  // >0 when the resource migrates old SDKv2 state (bumps schema.Version)
 	// Asymmetric 2-param delete (e.g. compliance_control's
@@ -188,6 +194,15 @@ type ResourceModel struct {
 	Assocs []*assocMembershipBind
 	// Slice member syncs ([]int64 add/remove endpoints, e.g. user_group users).
 	SliceMembers []*sliceMemberBind
+}
+
+// sweepList is the collection the sweeper enumerates: the parent-scoped one
+// when the archetype declares it, otherwise the data source's own.
+func (rm ResourceModel) sweepList() *listModel {
+	if rm.SweepList != nil {
+		return rm.SweepList
+	}
+	return rm.List
 }
 
 // projectedFields is the model attribute set the data source and sweeper project

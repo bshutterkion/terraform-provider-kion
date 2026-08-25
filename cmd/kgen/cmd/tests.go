@@ -12,7 +12,6 @@ import (
 
 var (
 	testsFilterResource string
-	testsSweepOnly      bool
 	testsForce          bool
 )
 
@@ -27,15 +26,16 @@ Examples:
   kgen tests                           # Generate all missing test files
   kgen tests --resource kion_label     # Generate for one resource only
   kgen tests --force                   # Overwrite existing test files
-  kgen tests --sweep-only              # Only generate sweep files`,
+
+Sweepers are not written here; kgen crud emits them from each resource's
+resolved list and delete ops.`,
 	RunE: func(_ *cobra.Command, _ []string) error {
-		return tests.Generate(testsForce, testsFilterResource, testsSweepOnly)
+		return tests.Generate(testsForce, testsFilterResource)
 	},
 }
 
 func init() {
 	testsCmd.Flags().StringVar(&testsFilterResource, "resource", "", "generate only for a specific resource (e.g., kion_label)")
-	testsCmd.Flags().BoolVar(&testsSweepOnly, "sweep-only", false, "only generate sweep files")
 	testsCmd.Flags().BoolVarP(&testsForce, "force", "f", false, "force creation, overwriting existing files")
 	rootCmd.AddCommand(testsCmd)
 }
