@@ -20,7 +20,6 @@
       "read_shape": "generic",
       "readable": true,
       "list_path": "/v3/account-cache",
-      "name_field": "name",
       "import_id": {
         "format": "id"
       }
@@ -32,7 +31,6 @@
       "read_shape": "generic",
       "readable": true,
       "list_path": "/v3/account-linkages",
-      "name_field": "name",
       "import_id": {
         "format": "id"
       }
@@ -68,7 +66,6 @@
       "read_shape": "special",
       "readable": true,
       "list_path": "/v3/app-config",
-      "name_field": "name",
       "import_id": {
         "format": "id"
       }
@@ -125,13 +122,12 @@
       "tf_type": "kion_aws_resource_tag",
       "kind": "aws_resource_tag",
       "archetype": "no_read",
-      "read_shape": "none",
-      "readable": false,
-      "name_field": "name",
+      "read_shape": "generic",
+      "readable": true,
+      "list_path": "/v3/aws-resource-tag",
       "import_id": {
         "format": "id"
-      },
-      "reason": "crud_archetypes.yaml declares kind: no_read - no by-id GET and no listable collection"
+      }
     },
     {
       "tf_type": "kion_azure_account",
@@ -140,7 +136,6 @@
       "read_shape": "generic",
       "readable": true,
       "list_path": "/v3/account",
-      "name_field": "name",
       "import_id": {
         "format": "id"
       }
@@ -164,7 +159,6 @@
       "read_shape": "generic",
       "readable": true,
       "list_path": "/v3/azure-policy",
-      "name_field": "name",
       "import_id": {
         "format": "id"
       }
@@ -211,7 +205,6 @@
       "archetype": "entity",
       "read_shape": "parent_list",
       "readable": true,
-      "name_field": "name",
       "parent": {
         "kind": "ou",
         "list_path": "/v3/ou",
@@ -366,7 +359,6 @@
       "read_shape": "generic",
       "readable": true,
       "list_path": "/v3/account",
-      "name_field": "name",
       "import_id": {
         "format": "id"
       }
@@ -389,19 +381,18 @@
       "archetype": "cv_override",
       "read_shape": "none",
       "readable": false,
-      "name_field": "name",
       "import_id": {
         "format": "id"
       },
-      "reason": "/v3/account/{account_id}/custom-variable/{custom_variable_id} takes more than one id to reach -- not enumerable"
+      "reason": "/v3/account/{account_id}/custom-variable/{custom_variable_id} has a compound identity (account_id, custom_variable_id) -- both ids are needed to reach a record and neither can be discovered from the other, so it is not enumerable from a flat list even though the read itself exists"
     },
     {
       "tf_type": "kion_dashboard",
       "kind": "dashboard",
       "archetype": "raw_http",
-      "read_shape": "special",
+      "read_shape": "generic",
       "readable": true,
-      "list_path": "/beta/dashboard",
+      "list_path": "/v1/dashboards",
       "name_field": "name",
       "import_id": {
         "format": "id"
@@ -425,7 +416,6 @@
       "archetype": "parent_list",
       "read_shape": "parent_list",
       "readable": true,
-      "name_field": "name",
       "parent": {
         "kind": "funding_source",
         "list_path": "/v3/funding-source",
@@ -440,10 +430,15 @@
       "tf_type": "kion_funding_source_note",
       "kind": "funding_source_note",
       "archetype": "raw_http",
-      "read_shape": "special",
+      "read_shape": "parent_list",
       "readable": true,
-      "list_path": "/v2/funding-source-note",
       "name_field": "name",
+      "parent": {
+        "kind": "funding_source",
+        "list_path": "/v3/funding-source",
+        "child_path": "/v2/funding-source/{parent_id}/funding-source-note",
+        "parent_id_field": "funding_source_id"
+      },
       "import_id": {
         "format": "id"
       }
@@ -454,7 +449,6 @@
       "archetype": "association",
       "read_shape": "association",
       "readable": true,
-      "name_field": "name",
       "parent": {
         "kind": "funding_source",
         "list_path": "/v3/funding-source",
@@ -473,7 +467,6 @@
       "read_shape": "generic",
       "readable": true,
       "list_path": "/v3/account",
-      "name_field": "name",
       "import_id": {
         "format": "id"
       }
@@ -509,7 +502,6 @@
       "read_shape": "association",
       "readable": true,
       "list_path": "/v3/global/permission-mapping",
-      "name_field": "name",
       "import_id": {
         "format": "id",
         "key_field": "app_role_id"
@@ -545,7 +537,6 @@
       "archetype": "entity",
       "read_shape": "parent_list",
       "readable": true,
-      "name_field": "name",
       "parent": {
         "kind": "idms",
         "list_path": "/v3/idms",
@@ -579,7 +570,6 @@
       "archetype": "entity",
       "read_shape": "parent_list",
       "readable": true,
-      "name_field": "name",
       "parent": {
         "kind": "idms",
         "list_path": "/v3/idms",
@@ -596,7 +586,6 @@
       "archetype": "entity",
       "read_shape": "parent_list",
       "readable": true,
-      "name_field": "name",
       "parent": {
         "kind": "idms",
         "list_path": "/v3/idms",
@@ -614,7 +603,6 @@
       "read_shape": "generic",
       "readable": true,
       "list_path": "/v3/label",
-      "name_field": "name",
       "import_id": {
         "format": "id"
       }
@@ -647,13 +635,17 @@
       "tf_type": "kion_ou_cloud_access_role_exemption",
       "kind": "ou_cloud_access_role_exemption",
       "archetype": "no_read",
-      "read_shape": "none",
-      "readable": false,
-      "name_field": "name",
+      "read_shape": "parent_list",
+      "readable": true,
+      "parent": {
+        "kind": "ou",
+        "list_path": "/v3/ou",
+        "child_path": "/v1/ou/{parent_id}/cloud-access-role-exemption",
+        "parent_id_field": "ou_id"
+      },
       "import_id": {
         "format": "id"
-      },
-      "reason": "crud_archetypes.yaml declares kind: no_read - no by-id GET and no listable collection"
+      }
     },
     {
       "tf_type": "kion_ou_enforcement",
@@ -661,7 +653,6 @@
       "archetype": "parent_list",
       "read_shape": "parent_list",
       "readable": true,
-      "name_field": "name",
       "parent": {
         "kind": "ou",
         "list_path": "/v3/ou",
@@ -695,7 +686,6 @@
       "archetype": "association",
       "read_shape": "association",
       "readable": true,
-      "name_field": "name",
       "parent": {
         "kind": "ou",
         "list_path": "/v3/ou",
@@ -747,13 +737,17 @@
       "tf_type": "kion_project_cloud_access_role_exemption",
       "kind": "project_cloud_access_role_exemption",
       "archetype": "no_read",
-      "read_shape": "none",
-      "readable": false,
-      "name_field": "name",
+      "read_shape": "parent_list",
+      "readable": true,
+      "parent": {
+        "kind": "project",
+        "list_path": "/v3/project",
+        "child_path": "/v1/project/{parent_id}/cloud-access-role-exemption",
+        "parent_id_field": "project_id"
+      },
       "import_id": {
         "format": "id"
-      },
-      "reason": "crud_archetypes.yaml declares kind: no_read - no by-id GET and no listable collection"
+      }
     },
     {
       "tf_type": "kion_project_enforcement",
@@ -761,7 +755,6 @@
       "archetype": "parent_list",
       "read_shape": "parent_list",
       "readable": true,
-      "name_field": "name",
       "parent": {
         "kind": "project",
         "list_path": "/v3/project",
@@ -779,7 +772,6 @@
       "read_shape": "generic",
       "readable": true,
       "list_path": "/v3/project-line-item",
-      "name_field": "name",
       "import_id": {
         "format": "id"
       }
@@ -802,7 +794,6 @@
       "archetype": "association",
       "read_shape": "association",
       "readable": true,
-      "name_field": "name",
       "parent": {
         "kind": "project",
         "list_path": "/v3/project",
@@ -820,7 +811,6 @@
       "archetype": "entity",
       "read_shape": "parent_list",
       "readable": true,
-      "name_field": "name",
       "parent": {
         "kind": "idms",
         "list_path": "/v3/idms",
@@ -850,7 +840,6 @@
       "read_shape": "parent_list",
       "readable": true,
       "list_path": "/beta/scope",
-      "name_field": "name",
       "import_id": {
         "format": "id"
       }
@@ -886,7 +875,6 @@
       "read_shape": "generic",
       "readable": true,
       "list_path": "/v3/user",
-      "name_field": "name",
       "import_id": {
         "format": "id"
       }
