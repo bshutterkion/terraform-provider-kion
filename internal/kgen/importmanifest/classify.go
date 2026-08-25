@@ -21,8 +21,25 @@ func ListPathFrom(readPath string) string {
 func Classify(archetype string, readPath string, hasParent bool) (ReadShape, IDFormat, bool, string) {
 	switch archetype {
 	case "no_read":
-		return ShapeNone, FormatID, false,
-			"crud_archetypes.yaml declares kind: no_read - no by-id GET and no listable collection"
+		// "no_read" means no by-id GET, not "unreadable" -- e.g.
+		// kion_aws_resource_tag has no by-id read but IS listable at a flat
+		// collection endpoint (private_endpoints.yaml's list_read_only
+		// section). Build resolves readPath through the same four-source
+		// fallback chain it uses for every archetype (see Build's doc
+		// comment); it is not narrowed specially for no_read. In practice a
+		// no_read kind's generator_config.yaml resources/data_sources entries
+		// are typically empty -- internal/kgen/crud/noread.go builds a
+		// no_read resource's model from Create/Update/Delete only, so the
+		// CRUD generator never populates a read path for it there -- which is
+		// why a non-empty readPath reaching this branch usually came from
+		// list_read_only or, as a last resort, private_endpoints.yaml's own
+		// resources section. That is a fact about the input data, though, not
+		// a rule this function or Build enforces.
+		if ListPathFrom(readPath) == "" {
+			return ShapeNone, FormatID, false,
+				"crud_archetypes.yaml declares kind: no_read (no by-id GET) and no list-only or private read path was found either"
+		}
+		return ShapeGeneric, FormatID, true, ""
 	case "datasource_only":
 		return ShapeNone, FormatID, false,
 			"crud_archetypes.yaml declares kind: datasource_only - not a managed resource"

@@ -49,7 +49,12 @@ func TestClassifyArchetypes(t *testing.T) {
 		{"singleton", ShapeSpecial, FormatID, true, false},
 		{"raw_http", ShapeSpecial, FormatID, true, false},
 		{"cv_override", ShapeSpecial, FormatID, true, false},
-		{"no_read", ShapeNone, FormatID, false, false},
+		// no_read means "no by-id GET," not "unreadable" -- a non-empty
+		// readPath (as Build supplies whenever list_read_only or a private
+		// resource read path resolved one) makes it a flat list like any
+		// other archetype's default case. TestClassifyNoReadCarriesAReason
+		// covers the truly-unreadable (empty readPath) case.
+		{"no_read", ShapeGeneric, FormatID, true, false},
 		{"datasource_only", ShapeNone, FormatID, false, false},
 	}
 	for _, c := range cases {

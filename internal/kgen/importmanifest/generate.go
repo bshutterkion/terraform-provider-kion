@@ -35,8 +35,8 @@ type archetypeInfo struct {
 	ParentField string
 }
 
-// parentOverrides corrects three resources, verified against a real install,
-// where placeholder-based derivation picks a parent list that isn't actually
+// parentOverrides corrects resources, verified against a real install, where
+// placeholder-based derivation picks a parent list that isn't actually
 // listable:
 //
 //	/v4/idms/open-id                     -> 405 (not a listable collection)
@@ -51,6 +51,16 @@ type archetypeInfo struct {
 // create-shaped, not read-shaped, collection endpoints for its two
 // sub-resources), only the parent LIST is wrong. This table overrides just
 // Kind/ListPath/ParentIDField; ChildPath is the live-verified value.
+//
+// The two *_cloud_access_role_exemption entries have the same root cause: the
+// chosen read path resolves (via private_endpoints.yaml's resources: section,
+// since crud_archetypes.yaml declares both no_read) to the internal
+// /v1/ou/{id}/cloud-access-role-exemption and
+// /v1/project/{id}/cloud-access-role-exemption reads, so unaided
+// placeholder-based derivation would pick /v1/ou and /v1/project as the
+// parent list -- neither is the real, listable collection. /v3/ou and
+// /v3/project are (they are also the public API surface these resources'
+// own create/delete already use).
 var parentOverrides = map[string]Parent{
 	"kion_idms_open_id": {
 		Kind: "idms", ListPath: "/v3/idms",
@@ -63,6 +73,14 @@ var parentOverrides = map[string]Parent{
 	"kion_idms_open_id_group_association": {
 		Kind: "idms", ListPath: "/v3/idms",
 		ChildPath: "/v4/idms/open-id/{parent_id}/group-association", ParentIDField: "idms_id",
+	},
+	"kion_ou_cloud_access_role_exemption": {
+		Kind: "ou", ListPath: "/v3/ou",
+		ChildPath: "/v1/ou/{parent_id}/cloud-access-role-exemption", ParentIDField: "ou_id",
+	},
+	"kion_project_cloud_access_role_exemption": {
+		Kind: "project", ListPath: "/v3/project",
+		ChildPath: "/v1/project/{parent_id}/cloud-access-role-exemption", ParentIDField: "project_id",
 	},
 }
 
@@ -78,19 +96,61 @@ var multiParentOverrides = map[string][]Parent{
 	},
 }
 
+// explicitParentOverrides is parentOverrides' sibling for a resource whose
+// parent-scoped read appears in NEITHER generator_config.yaml NOR
+// private_endpoints.yaml -- there is nothing for placeholder-based derivation
+// to start from at all, unlike parentOverrides' idms_open_id family, which
+// derives a parent-scoped shape but picks the wrong (unlistable) parent list.
+// Verified live: kion_funding_source_note's create/read/update/delete are all
+// internal /v2, and unlike the note family's other two members (ou_note is
+// fully public; project_note is blended, both recorded in
+// private_endpoints.yaml), funding_source_note is absent from that file
+// entirely.
+var explicitParentOverrides = map[string]Parent{
+	"kion_funding_source_note": {
+		Kind: "funding_source", ListPath: "/v3/funding-source",
+		ChildPath: "/v2/funding-source/{parent_id}/funding-source-note", ParentIDField: "funding_source_id",
+	},
+}
+
+// explicitFlatListOverrides names a flat list endpoint verified live against a
+// real install that appears in neither generator_config.yaml nor
+// private_endpoints.yaml. kion_dashboard's public create is untyped
+// (private_endpoints.yaml records the by-id read at private /v1/dashboard/{id}
+// for that reason) but the plural collection, /v1/dashboards, returns every
+// dashboard fully typed and is not recorded anywhere in either codegen input.
+var explicitFlatListOverrides = map[string]string{
+	"kion_dashboard": "/v1/dashboards",
+}
+
 // Build assembles the manifest from already-loaded inputs. Pure: no I/O, so the
 // table-driven tests do not need a filesystem.
 //
-//	readPaths       kind -> by-id read path (generator_config.yaml resources:)
-//	dataSourcePaths kind -> list read path  (generator_config.yaml data_sources:)
-//	archetypes      kind -> archetype fields (crud_archetypes.yaml: kind, key_field, parent_field)
-//	tfTypes         every managed resource the provider serves (schema snapshot)
+//	readPaths           kind -> by-id read path (generator_config.yaml resources:)
+//	dataSourcePaths     kind -> list read path  (generator_config.yaml data_sources:)
+//	privateListPaths    kind -> flat list path  (private_endpoints.yaml list_read_only:)
+//	privateResourcePaths kind -> by-id read path (private_endpoints.yaml resources:)
+//	archetypes          kind -> archetype fields (crud_archetypes.yaml: kind, key_field, parent_field)
+//	tfTypes             every managed resource the provider serves (schema snapshot)
+//	hasNameAttr         tf_type -> whether the schema snapshot declares a top-level "name" attribute
 //
-// For each resource the CHOSEN PATH is the data source's read path when one
-// exists (it is the real collection endpoint) and the resource's by-id read
-// path otherwise -- generator_config.yaml records only a by-id read for every
-// resource, so that path is right for a flat list only when nothing follows
-// its "{id}"; a data source, when present, is authoritative.
+// For each resource the CHOSEN PATH is resolved in this order, taking the
+// first one that is non-empty:
+//
+//  1. privateListPaths[kind] -- private_endpoints.yaml's list_read_only:
+//     section. Highest priority: it is the one input that names a real,
+//     already-flat collection endpoint outright (e.g. kion_aws_resource_tag's
+//     /v3/aws-resource-tag), rather than a by-id read that still needs its
+//     trailing placeholder stripped.
+//  2. dataSourcePaths[kind] -- generator_config.yaml's data_sources: section.
+//     When present it is the real collection endpoint, authoritative over any
+//     by-id read.
+//  3. readPaths[kind] -- generator_config.yaml's resources: section (the by-id
+//     read every resource records).
+//  4. privateResourcePaths[kind] -- private_endpoints.yaml's resources:
+//     section, consulted last since generator_config.yaml already carries the
+//     resolved read for anything the CRUD generator itself reads by id; this
+//     only fires for a kind absent from generator_config.yaml entirely.
 //
 // The chosen path's placeholder count then drives shape/list-path/parent,
 // independent of archetype except where crud_archetypes.yaml fixes the shape
@@ -110,7 +170,7 @@ var multiParentOverrides = map[string][]Parent{
 //     enumerable -- neither id can be discovered without the other, so the
 //     resource is unreadable regardless of what its archetype would otherwise
 //     allow.
-func Build(readPaths, dataSourcePaths map[string]string, archetypes map[string]archetypeInfo, tfTypes []string) *Manifest {
+func Build(readPaths, dataSourcePaths, privateListPaths, privateResourcePaths map[string]string, archetypes map[string]archetypeInfo, tfTypes []string, hasNameAttr map[string]bool) *Manifest {
 	out := make([]Resource, 0, len(tfTypes))
 
 	for _, tfType := range tfTypes {
@@ -147,23 +207,31 @@ func Build(readPaths, dataSourcePaths map[string]string, archetypes map[string]a
 		// manifest exists to mirror that template.
 		hasParent := info.ParentField != ""
 
-		chosenPath := dataSourcePaths[lookupKind]
+		chosenPath := privateListPaths[lookupKind]
+		if chosenPath == "" {
+			chosenPath = dataSourcePaths[lookupKind]
+		}
 		if chosenPath == "" {
 			chosenPath = readPaths[lookupKind]
+		}
+		if chosenPath == "" {
+			chosenPath = privateResourcePaths[lookupKind]
 		}
 
 		r := Resource{
 			TFType:    tfType,
 			Kind:      kind,
 			Archetype: archetype,
-			NameField: "name",
+		}
+		if hasNameAttr[tfType] {
+			r.NameField = "name"
 		}
 
 		placeholders := strings.Count(chosenPath, "{")
 
 		switch {
-		case archetype == "no_read" || archetype == "datasource_only":
-			// Fixed regardless of path: neither has a readable collection.
+		case archetype == "datasource_only":
+			// Fixed regardless of path: never a readable collection.
 			r.ReadShape, r.ImportID.Format, r.Readable, r.Reason = Classify(archetype, chosenPath, hasParent)
 
 		case placeholders >= 2:
@@ -171,11 +239,14 @@ func Build(readPaths, dataSourcePaths map[string]string, archetypes map[string]a
 			// .../custom-variable/{custom_variable_id} under
 			// account/{account_id}) can't be enumerated from either id alone.
 			// This overrides even an archetype Classify would otherwise fix
-			// readable (cv_override).
+			// readable (cv_override). Note what this is NOT: the API does
+			// have a real read here (verified public,
+			// GET .../custom-variable/{custom_variable_id}) -- the resource's
+			// identity is simply compound, not missing.
 			r.ReadShape = ShapeNone
 			r.ImportID.Format = FormatID
 			r.Readable = false
-			r.Reason = fmt.Sprintf("%s takes more than one id to reach -- not enumerable", chosenPath)
+			r.Reason = fmt.Sprintf("%s has a compound identity (%s) -- both ids are needed to reach a record and neither can be discovered from the other, so it is not enumerable from a flat list even though the read itself exists", chosenPath, strings.Join(placeholderNames(chosenPath), ", "))
 
 		case placeholders == 1 && !isTrailingPlaceholder(chosenPath):
 			parent := parentFromPath(chosenPath)
@@ -246,6 +317,28 @@ func Build(readPaths, dataSourcePaths map[string]string, archetypes map[string]a
 			r.Reason = ""
 		}
 
+		// explicitParentOverrides/explicitFlatListOverrides: hand-verified
+		// paths present in neither generator_config.yaml nor
+		// private_endpoints.yaml. See their doc comments.
+		if ov, ok := explicitParentOverrides[tfType]; ok {
+			p := ov
+			r.Parent = &p
+			r.Parents = nil
+			r.ListPath = ""
+			r.ReadShape = ShapeParentList
+			r.Readable = true
+			r.Reason = ""
+		}
+
+		if listPath, ok := explicitFlatListOverrides[tfType]; ok {
+			r.Parent = nil
+			r.Parents = nil
+			r.ListPath = listPath
+			r.ReadShape = ShapeGeneric
+			r.Readable = true
+			r.Reason = ""
+		}
+
 		out = append(out, r)
 	}
 
@@ -266,6 +359,27 @@ func isTrailingPlaceholder(path string) bool {
 		return false
 	}
 	return open+closeRel+1 == len(path)
+}
+
+// placeholderNames returns every "{...}" placeholder name in path, in order,
+// e.g. "/v3/account/{account_id}/custom-variable/{custom_variable_id}" ->
+// ["account_id", "custom_variable_id"].
+func placeholderNames(path string) []string {
+	var names []string
+	rest := path
+	for {
+		open := strings.Index(rest, "{")
+		if open < 0 {
+			break
+		}
+		closeRel := strings.Index(rest[open:], "}")
+		if closeRel < 0 {
+			break
+		}
+		names = append(names, rest[open+1:open+closeRel])
+		rest = rest[open+closeRel+1:]
+	}
+	return names
 }
 
 // parentFromPath builds a Parent block from a chosen path containing exactly
@@ -304,16 +418,24 @@ func Generate(fsw kfs.FS, root string) (*Manifest, error) {
 	if err != nil {
 		return nil, err
 	}
+	privateListPaths, err := loadPrivateListReadOnlyPaths(fsw, filepath.Join(root, "codegen", "private_endpoints.yaml"))
+	if err != nil {
+		return nil, err
+	}
+	privateResourcePaths, err := loadPrivateResourceReadPaths(fsw, filepath.Join(root, "codegen", "private_endpoints.yaml"))
+	if err != nil {
+		return nil, err
+	}
 	archetypes, err := loadArchetypeKinds(fsw, filepath.Join(root, "codegen", "crud_archetypes.yaml"))
 	if err != nil {
 		return nil, err
 	}
-	tfTypes, err := loadTFTypes(fsw, filepath.Join(root, "codegen", "schema_snapshots", "new.json"))
+	tfTypes, hasNameAttr, err := loadTFTypes(fsw, filepath.Join(root, "codegen", "schema_snapshots", "new.json"))
 	if err != nil {
 		return nil, err
 	}
 
-	m := Build(readPaths, dataSourcePaths, archetypes, tfTypes)
+	m := Build(readPaths, dataSourcePaths, privateListPaths, privateResourcePaths, archetypes, tfTypes, hasNameAttr)
 	data, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return nil, err
@@ -405,25 +527,90 @@ func loadArchetypeKinds(fsw kfs.FS, path string) (map[string]archetypeInfo, erro
 	return out, nil
 }
 
-func loadTFTypes(fsw kfs.FS, path string) ([]string, error) {
+// loadTFTypes returns every managed resource tf_type in the schema snapshot,
+// plus hasNameAttr: tf_type -> whether that resource's schema declares a
+// top-level "name" attribute (any attribute type -- Build only needs its
+// presence, not its shape). NameField should name a real field the read
+// response can populate, and "name" is not universal: e.g.
+// kion_aws_resource_tag has no such attribute, so leaving it empty there (see
+// Build) is correct, not an oversight.
+func loadTFTypes(fsw kfs.FS, path string) ([]string, map[string]bool, error) {
+	raw, err := fsw.ReadFile(path)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	var doc struct {
+		ProviderSchemas map[string]struct {
+			ResourceSchemas map[string]struct {
+				Block struct {
+					Attributes map[string]json.RawMessage `json:"attributes"`
+				} `json:"block"`
+			} `json:"resource_schemas"`
+		} `json:"provider_schemas"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return nil, nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	var out []string
+	hasNameAttr := make(map[string]bool)
+	for _, provider := range doc.ProviderSchemas {
+		for tfType, schema := range provider.ResourceSchemas {
+			out = append(out, tfType)
+			_, hasNameAttr[tfType] = schema.Block.Attributes["name"]
+		}
+	}
+	sort.Strings(out)
+	return out, hasNameAttr, nil
+}
+
+// loadPrivateListReadOnlyPaths reads private_endpoints.yaml's list_read_only:
+// section -- kinds where the only read anywhere (public or private) is a flat
+// collection endpoint, no by-id GET at all. See Build's doc comment for why
+// this is consulted first.
+func loadPrivateListReadOnlyPaths(fsw kfs.FS, path string) (map[string]string, error) {
 	raw, err := fsw.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
 	var doc struct {
-		ProviderSchemas map[string]struct {
-			ResourceSchemas map[string]json.RawMessage `json:"resource_schemas"`
-		} `json:"provider_schemas"`
+		ListReadOnly map[string]struct {
+			Read struct {
+				Path string `yaml:"path"`
+			} `yaml:"read"`
+		} `yaml:"list_read_only"`
 	}
-	if err := json.Unmarshal(raw, &doc); err != nil {
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
-	var out []string
-	for _, provider := range doc.ProviderSchemas {
-		for tfType := range provider.ResourceSchemas {
-			out = append(out, tfType)
-		}
+	out := make(map[string]string, len(doc.ListReadOnly))
+	for kind, entry := range doc.ListReadOnly {
+		out[kind] = entry.Read.Path
 	}
-	sort.Strings(out)
+	return out, nil
+}
+
+// loadPrivateResourceReadPaths reads private_endpoints.yaml's resources:
+// section -- the real (often private v1/v2) by-id read for a resource whose
+// public spec lacks one. Same shape as loadReadPaths, one file over; see
+// Build's doc comment for why this is consulted last.
+func loadPrivateResourceReadPaths(fsw kfs.FS, path string) (map[string]string, error) {
+	raw, err := fsw.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	var doc struct {
+		Resources map[string]struct {
+			Read struct {
+				Path string `yaml:"path"`
+			} `yaml:"read"`
+		} `yaml:"resources"`
+	}
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	out := make(map[string]string, len(doc.Resources))
+	for kind, entry := range doc.Resources {
+		out[kind] = entry.Read.Path
+	}
 	return out, nil
 }

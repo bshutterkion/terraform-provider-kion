@@ -3,6 +3,7 @@ package kimport
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -36,6 +37,23 @@ func TestListDataEnvelope(t *testing.T) {
 	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v3/ou")
 	require.NoError(t, err)
 	assert.Len(t, got, 1)
+}
+
+// TestListNamedCollectionEnvelope is List's end-to-end counterpart to
+// TestUnwrapNamedCollectionEnvelope: a real /v1/dashboards response --
+// {"status":200,"data":{"dashboards":[...],"hidden_dashboard_count":0}}, with
+// a sibling scalar key alongside the array -- must come back as records
+// through the full HTTP round trip, not just the pure unwrap helper.
+func TestListNamedCollectionEnvelope(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprint(w, `{"status":200,"data":{"dashboards":[{"id":1},{"id":2},{"id":3},{"id":4}],"hidden_dashboard_count":0}}`)
+	}))
+	defer srv.Close()
+
+	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v1/dashboards")
+	require.NoError(t, err)
+	assert.Len(t, got, 4)
 }
 
 func TestListPaginatesItemsEnvelope(t *testing.T) {
@@ -97,6 +115,65 @@ func TestListErrorsOnNon2xx(t *testing.T) {
 	_, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v4/compliance/family")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "405")
+}
+
+// --- StatusError: a non-2xx response must be recoverable by errors.As, with
+// the same message text the old fmt.Errorf calls produced. ---
+
+func TestListErrorsOnNon2xxIsStatusError(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, `{"status":404,"message":"IDMS not found"}`)
+	}))
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v4/idms/open-id/1/access-rule")
+	require.Error(t, err)
+
+	var statusErr *StatusError
+	require.True(t, errors.As(err, &statusErr), "expected a *StatusError, got %T: %v", err, err)
+	assert.Equal(t, http.StatusNotFound, statusErr.Status)
+	assert.Equal(t,
+		`GET /v4/idms/open-id/1/access-rule: 404 Not Found: {"status":404,"message":"IDMS not found"}`,
+		err.Error(),
+	)
+}
+
+func TestListErrorsOnNon2xxNoBodyStillMatchesOldMessageShape(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}))
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v4/compliance/family")
+	require.Error(t, err)
+
+	var statusErr *StatusError
+	require.True(t, errors.As(err, &statusErr))
+	assert.Equal(t, http.StatusMethodNotAllowed, statusErr.Status)
+	assert.Equal(t, "GET /v4/compliance/family: 405 Method Not Allowed", err.Error())
+}
+
+func TestListPage2TransportErrorIsStatusErrorThroughPagingWrap(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("page") == "1" {
+			fmt.Fprint(w, `{"items":[{"id":1},{"id":2}],"total":5}`)
+			return
+		}
+		w.WriteHeader(http.StatusBadGateway)
+	}))
+	defer srv.Close()
+
+	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/beta/scope")
+	require.Error(t, err)
+	assert.Len(t, got, 2) // page 1 records are returned despite page 2 error
+
+	var statusErr *StatusError
+	require.True(t, errors.As(err, &statusErr), "expected a *StatusError through the paging wrap, got %T: %v", err, err)
+	assert.Equal(t, http.StatusBadGateway, statusErr.Status)
 }
 
 func TestListPage2TransportError(t *testing.T) {
@@ -230,6 +307,76 @@ func TestUnwrapGenuineSingleObjectDataStillOneRecord(t *testing.T) {
 	require.Len(t, records, 1)
 	assert.Equal(t, float64(1), records[0]["id"])
 	assert.Equal(t, "x", records[0]["name"])
+	assert.Equal(t, -1, total)
+}
+
+// TestUnwrapNamedCollectionEnvelope covers /v1/dashboards' real shape:
+// {"status":200,"data":{"dashboards":[{...}],"hidden_dashboard_count":0}} --
+// an array-valued key plus a sibling scalar. unwrap must recognize data as
+// having exactly one array-valued key and use that array as the records,
+// ignoring the scalar sibling, the same way it already recurses into an
+// {"items":[...]} nested envelope.
+func TestUnwrapNamedCollectionEnvelope(t *testing.T) {
+	t.Parallel()
+	records, total, err := unwrap(json.RawMessage(`{"status":200,"data":{"dashboards":[{"id":1,"name":"a"},{"id":2,"name":"b"}],"hidden_dashboard_count":0}}`))
+	require.NoError(t, err)
+	require.Len(t, records, 2)
+	assert.Equal(t, float64(1), records[0]["id"])
+	assert.Equal(t, "a", records[0]["name"])
+	assert.Equal(t, float64(2), records[1]["id"])
+	assert.Equal(t, -1, total)
+}
+
+// TestUnwrapNamedCollectionEnvelopeWithSeveralScalarSiblings extends the
+// real-shape case to several sibling scalar/object keys, not just one --
+// exactly one array-valued key must still be enough to identify the records,
+// regardless of how many non-array keys ride alongside it.
+func TestUnwrapNamedCollectionEnvelopeWithSeveralScalarSiblings(t *testing.T) {
+	t.Parallel()
+	records, total, err := unwrap(json.RawMessage(`{"status":200,"data":{"dashboards":[{"id":1}],"hidden_dashboard_count":0,"page":1,"meta":{"note":"x"}}}`))
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	assert.Equal(t, float64(1), records[0]["id"])
+	assert.Equal(t, -1, total)
+}
+
+// TestUnwrapNamedCollectionEnvelopeEmptyArray covers the empty-list case of
+// the same shape: {"data":{"dashboards":[],"hidden_dashboard_count":0}} must
+// yield zero records, not an error and not one bogus record.
+func TestUnwrapNamedCollectionEnvelopeEmptyArray(t *testing.T) {
+	t.Parallel()
+	records, _, err := unwrap(json.RawMessage(`{"status":200,"data":{"dashboards":[],"hidden_dashboard_count":0}}`))
+	require.NoError(t, err)
+	assert.Len(t, records, 0)
+}
+
+// TestUnwrapTwoArrayValuedKeysFallsThroughUnchanged is a regression guard:
+// two (or more) ARRAY-VALUED keys under data must NOT trigger the
+// named-collection shortcut -- it isn't unambiguous which array is the
+// record list, so this must fall through to the existing singleton-object
+// behavior instead of picking one arbitrarily. A sibling scalar key does not
+// count towards this -- see TestUnwrapNamedCollectionEnvelope.
+func TestUnwrapTwoArrayValuedKeysFallsThroughUnchanged(t *testing.T) {
+	t.Parallel()
+	records, total, err := unwrap(json.RawMessage(`{"status":200,"data":{"dashboards":[{"id":1}],"favorites":[{"id":2}]}}`))
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	// Falls through to the whole data object as one record, not either inner array.
+	assert.Contains(t, records[0], "dashboards")
+	assert.Contains(t, records[0], "favorites")
+	assert.Equal(t, -1, total)
+}
+
+// TestUnwrapSingleKeyNonArrayValueFallsThroughUnchanged is a regression
+// guard: a data object with zero array-valued keys (e.g. {"data":{"id":1}})
+// must not be treated as a named-collection envelope -- it must still come
+// back as one record via the existing singleton branch.
+func TestUnwrapSingleKeyNonArrayValueFallsThroughUnchanged(t *testing.T) {
+	t.Parallel()
+	records, total, err := unwrap(json.RawMessage(`{"status":200,"data":{"id":1}}`))
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	assert.Equal(t, float64(1), records[0]["id"])
 	assert.Equal(t, -1, total)
 }
 

@@ -30,6 +30,23 @@ type Lister interface {
 	List(ctx context.Context, path string) ([]map[string]any, error)
 }
 
+// StatusError is a non-2xx response. Callers need the code, not just the text:
+// a 404 from a child collection means the parent has none of that resource,
+// which is an expected answer, while a 502 is a real failure.
+type StatusError struct {
+	Path   string
+	Status int
+	Body   string // truncated snippet, may be empty
+}
+
+func (e *StatusError) Error() string {
+	line := fmt.Sprintf("%d %s", e.Status, http.StatusText(e.Status))
+	if e.Body != "" {
+		return fmt.Sprintf("GET %s: %s: %s", e.Path, line, e.Body)
+	}
+	return fmt.Sprintf("GET %s: %s", e.Path, line)
+}
+
 // Client is a minimal raw-HTTP Kion client.
 type Client struct {
 	baseURL string
@@ -98,10 +115,7 @@ func (c *Client) get(ctx context.Context, path string, page int) (json.RawMessag
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		bodySnippet := truncateBody(resp)
-		if bodySnippet != "" {
-			return nil, fmt.Errorf("GET %s: %s: %s", path, resp.Status, bodySnippet)
-		}
-		return nil, fmt.Errorf("GET %s: %s", path, resp.Status)
+		return nil, &StatusError{Path: path, Status: resp.StatusCode, Body: bodySnippet}
 	}
 	buf, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -214,6 +228,23 @@ func unwrap(body json.RawMessage) ([]map[string]any, int, error) {
 		if isNestedEnvelope(env.Data) {
 			return unwrap(env.Data)
 		}
+		// A named-collection envelope:
+		// {"status":200,"data":{"dashboards":[{...}],"hidden_dashboard_count":0}}.
+		// /v1/dashboards wraps its list under a descriptive key, alongside
+		// sibling scalar/object metadata, instead of using "items" or a bare
+		// array. Detect that shape structurally by counting the data object's
+		// keys whose value is itself a JSON array: exactly one such key means
+		// that array is the records and every other key (scalar or object) is
+		// metadata to ignore. Zero array-valued keys, or two or more, fall
+		// through unchanged to the singleton branch below, so a genuine
+		// single-object record (e.g. {"data":{"id":1,"name":"x"}}) is still
+		// returned as one record.
+		if arr, ok := soleArrayValue(env.Data); ok {
+			var records []map[string]any
+			if err := json.Unmarshal(arr, &records); err == nil {
+				return records, total, nil
+			}
+		}
 		// A singleton endpoint returns one object rather than a list.
 		var single map[string]any
 		if err := json.Unmarshal(env.Data, &single); err == nil {
@@ -248,6 +279,32 @@ func isNestedEnvelope(raw json.RawMessage) bool {
 	}
 	_, ok := obj["items"]
 	return ok
+}
+
+// soleArrayValue reports whether raw is a JSON object with exactly one
+// array-valued key -- regardless of how many other, non-array keys it also
+// has -- returning that array's raw bytes when so. Used to detect a
+// named-collection envelope like {"dashboards":[...],"hidden_count":0} that
+// wraps a list under a descriptive key, alongside sibling scalar/object
+// metadata, rather than using "items" or a bare array.
+func soleArrayValue(raw json.RawMessage) (json.RawMessage, bool) {
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return nil, false
+	}
+	var found json.RawMessage
+	arrayKeys := 0
+	for _, v := range obj {
+		trimmed := bytes.TrimLeft(v, " \t\r\n")
+		if len(trimmed) > 0 && trimmed[0] == '[' {
+			arrayKeys++
+			found = v
+		}
+	}
+	if arrayKeys != 1 {
+		return nil, false
+	}
+	return found, true
 }
 
 // List GETs path, unwrapping and paging as needed.
