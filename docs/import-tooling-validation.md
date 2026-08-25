@@ -1,22 +1,112 @@
 # kion-import: live validation
 
-Record of running `kion-import` against a real Kion installation. The collection
+Record of running `kion-import` against real Kion installations. The collection
 paths a parent-scoped or association resource reads through are authored in
 `codegen/config_overrides.yaml` rather than derived -- codegen records by-id
 reads, which those shapes have none of -- so they are unverified until a run like
 this exercises them. Re-run this after changing an archetype, a read path, or one
 of those entries.
 
-## Environment
+**Run it against more than one install.** Two claims in earlier versions of this
+document were properties of the single install they were measured on and read as
+properties of the provider: one understated a defect's reach, the other
+overstated it. Claims here are scoped to the installs that support them.
+
+## Environments
+
+The detailed sections below are a demo install at 3.16.3. The same build was
+probed against four more, read-only:
+
+| install | Kion version | records | ok | empty | error | unsupported |
+|---|---|---:|---:|---:|---:|---:|
+| demo A | 3.16.3 | 51,966 | 60 | 5 | **0** | 3 |
+| demo B | **3.15.10** | 43,896 | 56 | 9 | **0** | 3 |
+| QA | 3.16.3-dev | 11,955 | 47 | 16 | 2 | 3 |
+| local dev | dev | 9,077 | 42 | 21 | 2 | 3 |
+| production | 3.16.4 | 37,286 | 47 | 11 | 7 | 3 |
 
 | | |
 |---|---|
-| Install | a demo Kion installation (3.16.3); cost figures also sampled against two others |
-| Date | 2026-08-25, on `feat/import-custom-variable-override` @ f4ec800 |
+| Date | 2026-08-25, on `main` @ f4ec800 |
 | Manifest | `codegen/import_manifest.json`, 68 resource types |
-| Command | `kion-import --url https://kion.example.com --out imports.tf` |
+| Command | `kion-import --url https://kion.example.com --probe` |
 
-Credentials come from `--api-key` or `KION_APIKEY`; none are recorded here.
+Credentials come from `--api-key` or `KION_APIKEY`; none are recorded here. A
+local dev install serves its API at the root, so it needs `--api-prefix ""`.
+
+### Read that table by column, not by row
+
+**Record counts are properties of the install** and are not comparable between
+them. Only counts from the same install at two commits mean anything, and this
+document flags those where they appear.
+
+**Status columns are mostly properties of the tooling.** The exceptions are
+named below, and they are why this now covers five installs rather than one.
+
+### What holds on all five
+
+- **68 rows in, 68 results out, everywhere.** No resource is silently absent
+  from a report on any install.
+- **No unexplained failure anywhere.** Every non-`ok` row names a cause.
+- **The three `unsupported` rows are identical across all five**, and are
+  refusals by design: two alias types, and one compound identity. (Down from
+  four -- `custom_variable_override` moved out; see *A compound identity with a
+  plural sibling*.)
+- **No read-shape defect appeared on 3.15.10 that 3.16.x does not have.** Demo B
+  is a full Kion minor behind and produced zero errors. First evidence the read
+  shapes and version gates hold across 3.15.10 -> 3.16.4, and the negative
+  result worth having.
+
+### What varies
+
+**A scoped API key looks exactly like a broken read.** The production install
+accounts for 7 of the 11 errors across all installs, and 6 are `403 Insufficient
+permissions` -- on `aws_resource_tag`, `ou_cloud_access_role`,
+`project_cloud_access_role`, `funding_source_enforcement`, `ou_enforcement` and
+`project_cloud_access_role_exemption`. Nothing is wrong with those reads. Check
+a key's scope before filing a bug.
+
+**An `empty` is not evidence of anything.** The smaller installs report 21 and 16
+empties against demo A's 5; they simply hold less. `empty` means the collection
+responded and had no records.
+
+**Two findings recorded here as universal were demo-A-only:** the exemption
+collections "mixing kinds" (237 records of another kind -- every other install
+returns those collections empty), and `kion_ami`, `kion_category`,
+`kion_funding_source_note`, `kion_project_line_item` and `kion_service_catalog`
+having records at all. The kind filter is still correct and still necessary; the
+ratio is a property of that install's data.
+
+**One finding recorded as install-specific is universal** -- the next section.
+That is the mistake this table exists to prevent.
+
+### The IDMS group-association endpoint
+
+`GET /v3/idms/{id}/group-association` was recorded here as "server-side and
+specific to IDMS 1 on that install". It is neither.
+
+| install | version | result by IDMS |
+|---|---|---|
+| demo A | 3.16.3 | `id1(type1)=502`, `id3,16,17,18,19(type3)=200` |
+| demo B | 3.15.10 | `id1(type1)=502`, `id3(type2)=502`, `id2,4,9,11(type3)=200` |
+| QA | 3.16.3-dev | `id1(type1)=502`, `id2(type5)=502` |
+| production | 3.16.4 | `id1(type1)=502`, `id2(type3)=200` |
+| local dev | dev | `id1(type1)=` connection dropped |
+
+**Type 3 (SAML) returns 200 everywhere; every other type 502s everywhere** --
+four installs, three Kion versions, production included. `idms_type_id` is 1
+Internal Directory, 2 Active Directory, 3 SAML.
+
+The local dev install does not 502, it drops the connection. A 502 from a hosted
+install is a proxy rendering a backend that died, so that is likely the same
+fault without a proxy in front of it.
+
+`kion_idms_group_association` and `kion_saml_group_association` both enumerate
+through this endpoint, so an install whose IDMSes are not all SAML loses those
+parents. The QA install has no SAML IDMS at all, so both come back `error` there
+rather than caveated. The tooling behaves correctly: one bad parent does not sink
+the resource, and the failure is reported rather than swallowed. Tracked in #48;
+the fix is upstream.
 
 ## Result
 
