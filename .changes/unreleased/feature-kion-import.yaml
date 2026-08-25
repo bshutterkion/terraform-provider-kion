@@ -1,0 +1,3 @@
+kind: FEATURES
+body: "`kion-import` enumerates a live Kion installation into Terraform `import` blocks, so an existing environment can be brought under Terraform management. It reads the generated import manifest and walks every resource the provider supports, then emits a configuration you feed to `terraform plan -generate-config-out`. Resources it could not read are reported rather than omitted silently."
+time: 2026-08-24T23:28:26Z

@@ -21,3 +21,13 @@ import _ "embed"
 //
 //go:embed state_upgrades.yaml
 var StateUpgradesYAML []byte
+
+// ImportManifestJSON is codegen/import_manifest.json as of the build.
+//
+// Embedded for the same reason StateUpgradesYAML is: kion-import ships to
+// customers, and a repo-relative default path fails for anyone outside a clone.
+// Embedding also makes it impossible to pair a manifest with a kion-import
+// built from a different commit.
+//
+//go:embed import_manifest.json
+var ImportManifestJSON []byte
