@@ -1,3 +1,0 @@
-kind: NOTES
-body: "`kion_ou_cloud_access_role_exemption` and `kion_project_cloud_access_role_exemption` import with `reason = null` even when the exemption has one recorded: the private reads backing them (`/v1/{ou,project}/{id}/cloud-access-role-exemption`) never return `reason`, and no other endpoint, public or private, does either. This is now documented in `docs/IMPORTING.md` under \"Attributes the read cannot recover\" so operators know to re-enter it by hand. Closes #33."
-time: 2026-08-25T00:10:00Z

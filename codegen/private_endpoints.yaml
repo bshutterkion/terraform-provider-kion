@@ -253,10 +253,11 @@ resources:
   #     not its owner -- the record's own OUID is. Hence parent_json.
   #   * it mixes cloud RULE exemptions in with cloud ACCESS ROLE exemptions.
   #     Only 6 of those 22 were the latter. Hence `require`.
-  # `reason` is in the schema and in the create body but absent from the read
-  # payload, so it stays unreadable. Confirmed there is no other read, public
-  # or private, that carries it -- see docs/IMPORTING.md's "Attributes the
-  # read cannot recover" for the operator-facing note.
+  # `reason` is in the schema and in the create body and is never stored: no
+  # column on cloud_access_role_exemption, no field on the backend entity, and
+  # the /v3 controller never reads it off the request. Nothing to add to the
+  # read shape -- see docs/IMPORTING.md's "Attributes the API accepts and
+  # discards".
   ou_cloud_access_role_exemption:
     reason: no public read; internal list under the parent OU
     create: { method: POST,   path: "/v3/ou-cloud-access-role-exemption",      spec: public }
