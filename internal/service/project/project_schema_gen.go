@@ -187,7 +187,8 @@ func ProjectResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "List of user IDs who will own the project. Is required if no owner group IDs are listed.",
 			},
 			"permission_scheme_id": schema.Int64Attribute{
-				Required:            true,
+				Optional:            true,
+				Computed:            true,
 				Description:         "ID of the permission scheme applied to the project.",
 				MarkdownDescription: "ID of the permission scheme applied to the project.",
 			},

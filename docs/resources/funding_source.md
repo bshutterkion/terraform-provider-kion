@@ -15,17 +15,17 @@ Manages a Kion Funding Source.
 ```terraform
 resource "kion_funding_source" "example" {
   # Required
-  amount               = 0.0
-  end_datecode         = "example"
-  name                 = "example"
-  permission_scheme_id = 1
-  start_datecode       = "example"
+  amount         = 0.0
+  end_datecode   = "example"
+  name           = "example"
+  start_datecode = "example"
 
   # Optional
   # description          = "example"
   # ou_id                = 1
   # owner_user_group_ids = []
   # owner_user_ids       = []
+  # permission_scheme_id = 1
 }
 ```
 
@@ -37,7 +37,6 @@ resource "kion_funding_source" "example" {
 - `amount` (Number) Amount of the funding source.
 - `end_datecode` (String) The month this funding source stops being usable - this is exclusive of the date returned (YYYY-MM).
 - `name` (String) Name of the funding source in the application.
-- `permission_scheme_id` (Number) ID of the permission scheme applied to the funding source.
 - `start_datecode` (String) The month this funding source starts being usable (YYYY-MM).
 
 ### Optional
@@ -46,6 +45,7 @@ resource "kion_funding_source" "example" {
 - `ou_id` (Number) ID of the top level OU that will receive the funding from this funding source.
 - `owner_user_group_ids` (Set of Number) List of groups IDs who will own the funding source. Is required if no owner user IDs are listed.
 - `owner_user_ids` (Set of Number) List of user IDs who will own the funding source. Is required if no owner group IDs are listed.
+- `permission_scheme_id` (Number) ID of the permission scheme applied to the funding source.
 
 ### Read-Only
 

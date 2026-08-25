@@ -42,6 +42,7 @@ variable "owner_user_ids" {
 variable "permission_scheme_id" {
   description = "ID of the permission scheme applied to the funding source."
   type        = number
+  default     = null
 }
 
 variable "start_datecode" {

@@ -347,3 +347,39 @@ func TestOptNullTimeRoundTrip(t *testing.T) {
 	assert.False(t, flex.OptNullTimeFromFramework(types.StringValue("not-a-time")).Set)
 	assert.Equal(t, types.StringNull(), flex.OptNullTimeToFramework(generated.OptNullTime{}))
 }
+
+func TestDatecodeToFramework(t *testing.T) {
+	t.Parallel()
+	// The private reads return 202406 where the public schema validates
+	// ^\d{4}-(?:0[1-9]|1[0-2])$, so a plain decimal format could never satisfy
+	// the provider's own validator.
+	assert.Equal(t, "2024-06", flex.DatecodeToFramework(202406).ValueString())
+	assert.Equal(t, "2019-01", flex.DatecodeToFramework(201901).ValueString())
+	assert.Equal(t, "2024-12", flex.DatecodeToFramework(202412).ValueString())
+	// 0 is unset, not the year 0.
+	assert.True(t, flex.DatecodeToFramework(0).IsNull())
+	// Not a datecode: hand it back so the validator reports the real value
+	// rather than a shape we invented.
+	assert.Equal(t, "42", flex.DatecodeToFramework(42).ValueString())
+	assert.Equal(t, "202413", flex.DatecodeToFramework(202413).ValueString())
+}
+
+// TestSliceToFrameworkSetDedupes covers the API returning a member twice. A
+// types.Set rejects duplicates, so a faithful copy of the wire order made the
+// resource unimportable; three resources failed this way on a real install.
+func TestSliceToFrameworkSetDedupes(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	got, diags := flex.Uint64SliceToFrameworkSet(ctx, []uint64{9, 13361, 9, 16564, 13361})
+	assert.False(t, diags.HasError())
+	assert.Len(t, got.Elements(), 3)
+
+	strs, diags := flex.StringSliceToFrameworkSet(ctx, []string{"a", "b", "a"})
+	assert.False(t, diags.HasError())
+	assert.Len(t, strs.Elements(), 2)
+
+	// Nil still means null, not empty.
+	null, _ := flex.Uint64SliceToFrameworkSet(ctx, nil)
+	assert.True(t, null.IsNull())
+}

@@ -67,7 +67,8 @@ func AzureAccountResourceSchema(ctx context.Context) schema.Schema {
 				},
 			},
 			"subscription_uuid": schema.StringAttribute{
-				Required:            true,
+				Optional:            true,
+				Computed:            true,
 				Description:         "Azure Subscription UUID.",
 				MarkdownDescription: "Azure Subscription UUID.",
 			},

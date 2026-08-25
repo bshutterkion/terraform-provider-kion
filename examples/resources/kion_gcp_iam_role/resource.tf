@@ -1,7 +1,6 @@
 resource "kion_gcp_iam_role" "example" {
   # Required
-  name             = "example"
-  role_permissions = []
+  name = "example"
 
   # Optional
   # car_restricted_user_group_ids = []
@@ -11,4 +10,5 @@ resource "kion_gcp_iam_role" "example" {
   # owner_user_group_ids          = []
   # owner_user_ids                = []
   # role_denials                  = []
+  # role_permissions              = []
 }

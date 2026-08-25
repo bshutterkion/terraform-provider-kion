@@ -10,10 +10,9 @@ run "plan" {
   command = plan
 
   variables {
-    account_name      = "example"
-    payer_id          = 1
-    project_id        = 1
-    start_datecode    = "2026-01"
-    subscription_uuid = "example"
+    account_name   = "example"
+    payer_id       = 1
+    project_id     = 1
+    start_datecode = "2026-01"
   }
 }

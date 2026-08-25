@@ -64,7 +64,7 @@ func kindWire(kind string) (string, error) {
 		return "uint64", nil
 	case "string":
 		return "string", nil
-	case "int_string", "int":
+	case "int_string", "int", "datecode":
 		return "int64", nil
 	case "bool":
 		return "bool", nil
@@ -79,6 +79,9 @@ func kindConv(kind, expr string) (string, error) {
 		return "types.StringValue(strconv.FormatUint(" + expr + ", 10))", nil
 	case "int_string":
 		return "types.StringValue(strconv.FormatInt(" + expr + ", 10))", nil
+	case "datecode":
+		// YYYYMM on the wire, YYYY-MM in the schema. See flex.DatecodeToFramework.
+		return "flex.DatecodeToFramework(" + expr + ")", nil
 	case "string":
 		return "types.StringValue(" + expr + ")", nil
 	case "int":

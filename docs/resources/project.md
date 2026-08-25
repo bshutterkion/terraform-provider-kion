@@ -15,9 +15,8 @@ Manages a Kion Project.
 ```terraform
 resource "kion_project" "example" {
   # Required
-  name                 = "example"
-  ou_id                = 1
-  permission_scheme_id = 1
+  name  = "example"
+  ou_id = 1
 
   # Optional
   # archived             = false
@@ -44,6 +43,7 @@ resource "kion_project" "example" {
   # }
   # owner_user_group_ids = []
   # owner_user_ids       = []
+  # permission_scheme_id = 1
   # project_funding = {
   #   amount            = 0.0
   #   end_datecode      = "example"
@@ -61,7 +61,6 @@ resource "kion_project" "example" {
 
 - `name` (String) Name of the Project in the application.
 - `ou_id` (Number) ID of the OU containing the project.
-- `permission_scheme_id` (Number) ID of the permission scheme applied to the project.
 
 ### Optional
 
@@ -76,6 +75,7 @@ the account. Should be true unless using a custom module.
 - `move_ou_settings` (Attributes Set) Settings applied when moving the project between OUs. (see [below for nested schema](#nestedatt--move_ou_settings))
 - `owner_user_group_ids` (Set of Number) List of groups IDs who will own the project. Is required if no owner user IDs are listed.
 - `owner_user_ids` (Set of Number) List of user IDs who will own the project. Is required if no owner group IDs are listed.
+- `permission_scheme_id` (Number) ID of the permission scheme applied to the project.
 - `project_funding` (Attributes List) (see [below for nested schema](#nestedatt--project_funding))
 
 ### Read-Only

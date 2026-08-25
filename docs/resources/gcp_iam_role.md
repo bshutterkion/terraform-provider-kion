@@ -15,8 +15,7 @@ Manages a Kion Gcp Iam Role.
 ```terraform
 resource "kion_gcp_iam_role" "example" {
   # Required
-  name             = "example"
-  role_permissions = []
+  name = "example"
 
   # Optional
   # car_restricted_user_group_ids = []
@@ -26,6 +25,7 @@ resource "kion_gcp_iam_role" "example" {
   # owner_user_group_ids          = []
   # owner_user_ids                = []
   # role_denials                  = []
+  # role_permissions              = []
 }
 ```
 
@@ -35,7 +35,6 @@ resource "kion_gcp_iam_role" "example" {
 ### Required
 
 - `name` (String) Name of the GCP Role in the application.
-- `role_permissions` (Set of String) List of GCP Permissions to assign the role
 
 ### Optional
 
@@ -46,6 +45,7 @@ resource "kion_gcp_iam_role" "example" {
 - `owner_user_group_ids` (Set of Number) List of group IDs who will own the GCP Role. Is required if no owner user IDs are listed.
 - `owner_user_ids` (Set of Number) List of user IDs who will own the GCP Role. Is required if no owner group IDs are listed.
 - `role_denials` (Set of String) List of GCP Permissions to deny when applying this role. Wildcards are supported.
+- `role_permissions` (Set of String) List of GCP Permissions to assign the role
 
 ### Read-Only
 

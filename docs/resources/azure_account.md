@@ -15,16 +15,16 @@ Manages a Kion Azure Account.
 ```terraform
 resource "kion_azure_account" "example" {
   # Required
-  account_name      = "example"
-  payer_id          = 1
-  project_id        = 1
-  start_datecode    = "example"
-  subscription_uuid = "example"
+  account_name   = "example"
+  payer_id       = 1
+  project_id     = 1
+  start_datecode = "example"
 
   # Optional
   # account_alias        = "example"
   # account_type_id      = 1
   # skip_access_checking = false
+  # subscription_uuid    = "example"
 }
 ```
 
@@ -37,7 +37,6 @@ resource "kion_azure_account" "example" {
 - `payer_id` (Number) ID of the payer (aka Azure Tenant) where this subscription can be found
 - `project_id` (Number) ID of the project where the account is attached.
 - `start_datecode` (String) Date when the Azure subscription will begin submitting payments against a funding source (YYYY-MM)
-- `subscription_uuid` (String) Azure Subscription UUID.
 
 ### Optional
 
@@ -53,6 +52,7 @@ resource "kion_azure_account" "example" {
 12 - Azure CSP Government Resource Group
 Will default to 3 if not given.
 - `skip_access_checking` (Boolean) When true, the application does not perform periodic access validation. Default is false.
+- `subscription_uuid` (String) Azure Subscription UUID.
 
 ### Read-Only
 

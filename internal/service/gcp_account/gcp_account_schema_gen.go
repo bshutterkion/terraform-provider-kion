@@ -37,7 +37,8 @@ func GcpAccountResourceSchema(ctx context.Context) schema.Schema {
 				Default:             int64default.StaticInt64(15),
 			},
 			"google_cloud_project_id": schema.StringAttribute{
-				Required:            true,
+				Optional:            true,
+				Computed:            true,
 				Description:         "Google Cloud Project ID.\nCan be found in the project id field here: https://console.cloud.google.com/iam-admin/settings",
 				MarkdownDescription: "Google Cloud Project ID.\nCan be found in the project id field here: https://console.cloud.google.com/iam-admin/settings",
 			},

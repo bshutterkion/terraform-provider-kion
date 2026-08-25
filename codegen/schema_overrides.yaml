@@ -22,6 +22,17 @@
 #             - stringplanmodifier.UseStateForUnknown()
 
 resources:
+
+  # --- Required attributes the read cannot supply -------------------------
+  # A Required attribute must be recoverable from Read, or the resource can
+  # never be imported: `terraform plan -generate-config-out` writes config from
+  # Read, omits what Read returned as null, and validation then rejects the
+  # config the provider itself produced. Importing a real install hit this 181
+  # times across these five.
+  #
+  # They come from the spec's create-body `required` list, which is the wrong
+  # question: what a create needs and what a read returns are different sets.
+  # computed_optional keeps them settable while letting import populate them.
   # billing_source is blended: its schema is derived from the /v4/billing-source
   # LIST read (there is no public by-id GET), which leaks the list's sort query
   # params into the resource schema as Optional+Computed attrs that no CRUD op
@@ -563,6 +574,10 @@ resources:
     description: "Manages a Kion Project."
     # Add computed fields, labels, and the budget / move_ou_settings nested blocks.
     attributes:
+      permission_scheme_id:
+        # GET /v3/project/{id} returns archived, auto_pay, default_aws_region,
+        # description, id, name, ou_id. No permission scheme.
+        computed_optional_required: computed_optional
       archived:
         type: bool
         computed_optional_required: computed_optional
@@ -901,6 +916,9 @@ resources:
     description: "Manages a Kion App Api Key."
   azure_account:
     description: "Manages a Kion Azure Account."
+    attributes:
+      subscription_uuid:
+        computed_optional_required: computed_optional
   azure_arm_template:
     description: "Manages a Kion Azure Arm Template."
   azure_policy:
@@ -929,10 +947,22 @@ resources:
     description: "Manages a Kion Forecast Category."
   funding_source:
     description: "Manages a Kion Funding Source."
+    attributes:
+      permission_scheme_id:
+        # GET /v3/funding-source omits it entirely.
+        computed_optional_required: computed_optional
   gcp_account:
     description: "Creates or imports a Google Cloud Project and adds it to a Kion project or the Kion account cache. If create_mode is set to import, an existing project will be imported into Kion, otherwise if create_mode is set to create, a new GCP Project will be created.  If project_id is provided the account will be added to the corresponding project, otherwise the account will be added to the account cache. Once added, an account can be moved between projects or in and out of the account cache by changing the project_id.  When moving accounts between projects, use move_project_settings to control how financials will be treated between the old and new project. When importing an existing Kion account into terraform state (different from using terraform to import an existing GCP Project into Kion), you must use the account_id= or account_cache_id= ID prefix to indicate whether the ID is an account ID or a cached account ID. For example: terraform import kion_gcp_account.test-account account_id=123 terraform import kion_gcp_account.test-cached-account account_cache_id=321  NOTE: This resource requires Kion v3.8.4 or greater."
+    attributes:
+      google_cloud_project_id:
+        computed_optional_required: computed_optional
   gcp_iam_role:
     description: "Manages a Kion Gcp Iam Role."
+    attributes:
+      role_permissions:
+        # Returned for most roles but null for managed ones, so 27 of 1382
+        # failed to import.
+        computed_optional_required: computed_optional
   gcp_service_account:
     description: "Manages a Kion Gcp Service Account."
     attributes:

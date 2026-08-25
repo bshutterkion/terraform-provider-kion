@@ -41,4 +41,5 @@ variable "start_datecode" {
 variable "subscription_uuid" {
   description = "Azure Subscription UUID."
   type        = string
+  default     = null
 }

@@ -50,4 +50,5 @@ variable "role_denials" {
 variable "role_permissions" {
   description = "List of GCP Permissions to assign the role"
   type        = set(string)
+  default     = null
 }

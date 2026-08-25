@@ -100,15 +100,21 @@ func StringSliceToFramework(ctx context.Context, v []string) (types.List, diag.D
 }
 
 // StringSliceToFrameworkSet converts a []string to a types.Set of String.
-// Nil slices produce a null types.Set.
+// Nil slices produce a null types.Set. Repeats are collapsed; see the note on
+// Uint64SliceToFrameworkSet.
 func StringSliceToFrameworkSet(ctx context.Context, v []string) (types.Set, diag.Diagnostics) {
 	if v == nil {
 		return types.SetNull(types.StringType), nil
 	}
 
-	elems := make([]types.String, len(v))
-	for i, val := range v {
-		elems[i] = types.StringValue(val)
+	seen := make(map[string]bool, len(v))
+	elems := make([]types.String, 0, len(v))
+	for _, val := range v {
+		if seen[val] {
+			continue
+		}
+		seen[val] = true
+		elems = append(elems, types.StringValue(val))
 	}
 	return types.SetValueFrom(ctx, types.StringType, elems)
 }
@@ -133,13 +139,25 @@ func Uint64SliceFromFrameworkSet(ctx context.Context, v types.Set) ([]uint64, di
 
 // Uint64SliceToFrameworkSet converts a []uint64 to a types.Set (of int64).
 // A nil slice produces a null set.
+//
+// Repeats are collapsed. A types.Set rejects duplicate elements outright, and
+// the API does return them: importing a real install produced three "Duplicate
+// Set Element" failures on ids 13361, 9 and 16564. These attributes were lists
+// until association collections became sets, which is what made a repeat fatal
+// rather than merely odd. Collapsing here keeps the read faithful to set
+// semantics, where a member is present or not.
 func Uint64SliceToFrameworkSet(ctx context.Context, v []uint64) (types.Set, diag.Diagnostics) {
 	if v == nil {
 		return types.SetNull(types.Int64Type), nil
 	}
-	elems := make([]types.Int64, len(v))
-	for i, val := range v {
-		elems[i] = types.Int64Value(int64(val))
+	seen := make(map[uint64]bool, len(v))
+	elems := make([]types.Int64, 0, len(v))
+	for _, val := range v {
+		if seen[val] {
+			continue
+		}
+		seen[val] = true
+		elems = append(elems, types.Int64Value(int64(val)))
 	}
 	return types.SetValueFrom(ctx, types.Int64Type, elems)
 }

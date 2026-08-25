@@ -90,7 +90,7 @@ func (r *billing_source_awsResource) flatten(ctx context.Context, w billing_sour
 	m.Id = types.StringValue(strconv.FormatUint(w.Data.AwsPayer.Id, 10))
 	m.Name = types.StringValue(w.Data.AwsPayer.Name)
 	m.AwsAccountNumber = types.StringValue(w.Data.AwsPayer.AccountNumber)
-	m.BillingStartDate = types.StringValue(strconv.FormatInt(w.Data.AwsPayer.BillingStartDate, 10))
+	m.BillingStartDate = flex.DatecodeToFramework(w.Data.AwsPayer.BillingStartDate)
 	m.BucketAccessRole = types.StringValue(w.Data.AwsPayer.BucketAccessRole)
 	m.BillingRegion = types.StringValue(w.Data.AwsPayer.BillingRegion)
 	m.CurBucket = types.StringValue(w.Data.AwsPayer.BillingReportBucket)

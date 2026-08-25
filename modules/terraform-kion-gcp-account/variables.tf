@@ -20,6 +20,7 @@ variable "account_type_id" {
 variable "google_cloud_project_id" {
   description = "Google Cloud Project ID. Can be found in the project id field here: https://console.cloud.google.com/iam-admin/settings"
   type        = string
+  default     = null
 }
 
 variable "payer_id" {

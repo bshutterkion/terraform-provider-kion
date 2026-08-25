@@ -86,7 +86,7 @@ func (r *billing_source_ociResource) flatten(ctx context.Context, w billing_sour
 	var diags diag.Diagnostics
 	m.Id = types.StringValue(strconv.FormatUint(w.Data.OciBillingSource.Id, 10))
 	m.Name = types.StringValue(w.Data.OciBillingSource.Name)
-	m.BillingStartDate = types.StringValue(strconv.FormatInt(w.Data.OciBillingSource.BillingStartDate, 10))
+	m.BillingStartDate = flex.DatecodeToFramework(w.Data.OciBillingSource.BillingStartDate)
 	m.TenancyOcid = types.StringValue(w.Data.OciBillingSource.TenancyOcid)
 	m.UserOcid = types.StringValue(w.Data.OciBillingSource.UserOcid)
 	m.Region = types.StringValue(w.Data.OciBillingSource.Region)
