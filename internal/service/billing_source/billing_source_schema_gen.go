@@ -156,7 +156,7 @@ func BillingSourceResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "When true, will skip validating the connection to defined bucket.",
 			},
 		},
-		Description: "Manages a Kion custom billing source. Supply exactly one connection block — aws_connection or azure_connection — as Kion rejects a request carrying both.",
+		Description: "Manages a Kion custom billing source. Supply exactly one connection block, either aws_connection or azure_connection, as Kion rejects a request carrying both.",
 	}
 }
 

@@ -15,7 +15,7 @@ import (
 // HTTP helpers, so neither package's own tests could see it: resolveProviderConfig
 // correctly folded apipath into serverURL, Configure handed that to
 // KionClient.APIURL, and the raw helpers then appended a hardcoded "/api" of
-// their own — requesting /api/api/v1/payer/3 under a default configuration and
+// their own, requesting /api/api/v1/payer/3 under a default configuration and
 // ignoring apipath entirely. This test wires the two halves together the way
 // Configure does and asserts on the path the server actually receives.
 func TestRawHelpersHonorResolvedAPIPath(t *testing.T) {

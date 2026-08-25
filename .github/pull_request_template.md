@@ -23,7 +23,7 @@ Fixes #
 Required for user-facing changes; not required for docs, tests, or refactors
 with no behavior change.
 
-This repo uses changie. Run `make changelog-new` and answer the prompts — it
+This repo uses changie. Run `make changelog-new` and answer the prompts. It
 writes a YAML file under `.changes/unreleased/`. Commit that file with your
 change. Do not edit CHANGELOG.md by hand; it is generated at release time.
 
@@ -57,7 +57,7 @@ Preview what the next release notes would say: `make changelog-preview`
 - [ ] I have commented anything non-obvious, explaining *why* rather than *what*
 - [ ] Documentation is updated where behavior changed
 - [ ] Tests cover the fix or the new behavior
-- [ ] No internal paths, hostnames, or planning notes are included — this
+- [ ] No internal paths, hostnames, or planning notes are included. This
       repository is public (`scripts/check-no-internal-refs.sh` enforces this)
 
 ## For Code Generation Changes

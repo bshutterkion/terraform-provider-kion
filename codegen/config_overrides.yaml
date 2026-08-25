@@ -1,6 +1,6 @@
 # Hand-tuned generator-config entries that `kconfig gen` can't derive on its own
 # (non-standard operation names or paths). These are merged OVER the derived
-# config by `kconfig gen`/`check`, so they survive regeneration — no hand-editing
+# config by `kconfig gen`/`check`, so they survive regeneration. No hand-editing
 # the generated codegen/generator_config.yaml. Keep this small: genuine exceptions
 # only. Overridden verbs win; an overridden resource is no longer flagged heuristic.
 
@@ -21,7 +21,7 @@ resources:
       method: GET
     schema:
       # `message` is the PATCH response envelope's "User-friendly message.", not
-      # a setting — same family as status/record_id/data elsewhere in this file.
+      # a setting, same family as status/record_id/data elsewhere in this file.
       ignores: [status, record_id, data, message]
     update:
       path: /v3/app-config
@@ -50,8 +50,8 @@ resources:
       ignores: [status, record_id, data, count, page, sort_method, sort_order, big_query_export]
 
   billing_source_aws:
-    # AWS billing source. No update endpoint exists — the API has POST
-    # /v3/billing-source/aws and the shared DELETE, but no PATCH — so every
+    # AWS billing source. No update endpoint exists. The API has POST
+    # /v3/billing-source/aws and the shared DELETE, but no PATCH, so every
     # attribute is effectively replace-only. Read is the private /v1/payer/{id}
     # (declared in private_endpoints.yaml).
     create:
@@ -88,7 +88,7 @@ resources:
   billing_source_oci:
     # OCI billing source. kconfig gen cannot derive these: the create/update
     # paths are type-suffixed (/oci, /oci/{id}) while delete is the shared
-    # /v3/billing-source/{id}, and there is no public by-id read at all — the
+    # /v3/billing-source/{id}, and there is no public by-id read at all. The
     # read is the private /v1/payer/{id}, declared in private_endpoints.yaml.
     create:
       path: /v3/billing-source/oci
@@ -139,7 +139,7 @@ resources:
       path: /beta/scope/{id}
       method: GET
   account_linkage:
-    # Read/delete op names are GetSpecific/RemoveAccountLinkage — off-convention.
+    # Read/delete op names are GetSpecific/RemoveAccountLinkage, off-convention.
     read:
       path: /v3/account-linkages/{id}
       method: GET
@@ -147,7 +147,7 @@ resources:
       path: /v3/account-linkages/{id}
       method: DELETE
   category:
-    # Read/update/delete are Get/Update/DeleteCategoryByID — off-convention (not Get<Name>).
+    # Read/update/delete are Get/Update/DeleteCategoryByID, off-convention (not Get<Name>).
     create:
       path: /v3/category
       method: POST
@@ -161,7 +161,7 @@ resources:
       path: /v3/category/{id}
       method: DELETE
   azure_policy:
-    # Reads are GetAzurePolicyAll (list) / GetAzurePolicyByID — neither matches Get<Name>.
+    # Reads are GetAzurePolicyAll (list) / GetAzurePolicyByID; neither matches Get<Name>.
     create:
       path: /v3/azure-policy
       method: POST
@@ -218,7 +218,7 @@ resources:
   custom_variable_override:
     # Polymorphic (account/ou/project); account variant is representative.
     # Create is an upsert PUT; read shares the same sub-resource path.
-    # `value` is polymorphic/untyped — ignore it, re-express as value_* in
+    # `value` is polymorphic/untyped. Ignore it and re-express as value_* in
     # schema_overrides.yaml (like custom_variable's default_value).
     create:
       path: /v3/account/{account_id}/custom-variable/{custom_variable_id}
@@ -228,8 +228,8 @@ resources:
       method: GET
     ignores: [value]
   ou_permission_mapping:
-    # Mapping resource: no POST — created/updated via PATCH upsert; read is the index.
-    # `message` is the PATCH envelope's status field — drop it; real fields are
+    # Mapping resource: no POST. Created/updated via PATCH upsert; read is the index.
+    # `message` is the PATCH envelope's status field. Drop it; real fields are
     # re-expressed in schema_overrides.yaml.
     create:
       path: /v3/ou/{id}/permission-mapping
@@ -336,7 +336,7 @@ resources:
       method: DELETE
     ignores: [message]
   funding_source_permission_mapping:
-    # No POST — created/updated via PATCH upsert; read is the index.
+    # No POST. Created/updated via PATCH upsert; read is the index.
     create:
       path: /v3/funding-source/{id}/permission-mapping
       method: PATCH
@@ -574,11 +574,15 @@ data_sources:
       path: /v3/account
       method: GET
   custom_variable:
-    # Ignore the polymorphic default_value so the data source isn't dropped.
+    # Ignore the polymorphic default_value so the data source isn't dropped. The
+    # path is data.items.default_value: the list response nests records under
+    # items, and an ignore that does not match the path tfplugingen reports is
+    # never applied, so the data source was dropped anyway and its stale schema
+    # file survived unnoticed.
     read:
       path: /v3/custom-variable
       method: GET
-    ignores: [data.default_value]
+    ignores: [data.items.default_value]
   funding_source:
     read:
       path: /v3/funding-source

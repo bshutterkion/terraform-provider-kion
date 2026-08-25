@@ -5,7 +5,7 @@
 // customers: it rewrites a configuration written for the old provider, and it
 // needs this mapping to know what to rewrite. Defaulting to the repo-relative
 // path meant the very first documented command failed for anyone outside a
-// clone — `open codegen/state_upgrades.yaml: no such file or directory`.
+// clone, `open codegen/state_upgrades.yaml: no such file or directory`.
 //
 // Embedding also removes a whole class of error: the ruleset can no longer be
 // paired with a kmigrate built from a different commit. `--upgrades` remains as

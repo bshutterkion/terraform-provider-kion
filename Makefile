@@ -10,7 +10,7 @@
 SHELL := /bin/bash
 
 # Provider metadata.
-# The provider's version is its own — not Kion's, and not the spec's (see the
+# The provider's version is its own, not Kion's and not the spec's (see the
 # README's "Versioning and Releases"). A release IS a tag, so the tag is the
 # source of truth; an untagged tree is 0.0.0-dev. Override with VERSION=x.y.z.
 GIT_TAG := $(shell git describe --tags --match 'v[0-9]*' --abbrev=0 2>/dev/null)
@@ -30,6 +30,9 @@ TFPLUGINGEN_FRAMEWORK_VERSION := v0.4.1
 # which floats the doc format across machines and CI runs.
 TFPLUGINDOCS_VERSION := v0.25.0
 CHANGIE_VERSION := v1.21.1
+# Match the versions .github/workflows/ci.yml installs.
+TFDOCS_VERSION := v0.24.0
+GITLEAKS_VERSION := v8.30.1
 OPENAPI_SPEC := spec/openapi3.json
 GENERATOR_CONFIG := codegen/generator_config.yaml
 CODEGEN_RENAMES := codegen/renames.yaml
@@ -96,7 +99,7 @@ help: ## Display this help message
 .PHONY: version
 version: ## Display provider version (from the latest release tag)
 	@echo "$(BLUE)Provider Version:$(RESET) $(GREEN)$(VERSION)$(RESET)"
-	@echo "$(YELLOW)Source:$(RESET) $(if $(GIT_TAG),git tag $(GIT_TAG),no release tag yet — untagged tree)"
+	@echo "$(YELLOW)Source:$(RESET) $(if $(GIT_TAG),git tag $(GIT_TAG),no release tag yet, untagged tree)"
 
 .PHONY: status
 status: ## Show provider version and service package count
@@ -157,10 +160,8 @@ install-dev: build-dev ## Install debug build to local Terraform plugins directo
 	@cp $(BINARY) ~/.terraform.d/plugins/$(HOSTNAME)/$(NAMESPACE)/$(NAME)/$(VERSION)/$(OS_ARCH)/
 	@echo "$(GREEN)✓ Debug provider installed to: ~/.terraform.d/plugins/$(HOSTNAME)/$(NAMESPACE)/$(NAME)/$(VERSION)/$(OS_ARCH)/$(RESET)"
 
-# Was a hand-rolled cross-compile producing bare binaries under ./bin — no zips,
-# no checksums, nothing the Registry accepts, and named differently from what
-# actually ships. goreleaser is the one release path; this builds the real
-# artifact set locally without publishing.
+# goreleaser is the one release path. This builds the real artifact set locally
+# without publishing.
 .PHONY: release-snapshot
 release-snapshot: ## Build the full release artifact set locally (no publish)
 	@command -v goreleaser >/dev/null || (echo "$(RED)goreleaser not found: go install github.com/goreleaser/goreleaser/v2@latest$(RESET)" && exit 1)
@@ -168,20 +169,11 @@ release-snapshot: ## Build the full release artifact set locally (no publish)
 	@echo "$(GREEN)✓ Artifacts in ./dist$(RESET)"
 
 # Just the docs tool, so CI can install it without pulling the whole codegen
-# toolchain — and so the pinned version lives in exactly one place.
-#
-# GOTOOLCHAIN=auto because tfplugindocs v0.25.0 requires Go >= 1.25.8 while
-# go.mod pins 1.25.5, and actions/setup-go sets GOTOOLCHAIN=local — so CI failed
-# with "requires go >= 1.25.8 (running go 1.25.5; GOTOOLCHAIN=local)" while any
-# developer whose toolchain floats saw it install fine.
-#
-# Scoped to installing this one tool on purpose. The toolchain a tool needs to
-# BUILD ITSELF is the tool's business; the provider must keep compiling with the
-# version go.mod pins, which is what GOTOOLCHAIN=local is protecting. Setting it
-# job-wide in the workflow would give that protection away.
+# toolchain. No GOTOOLCHAIN=auto: go.mod's 1.25.13 clears tfplugindocs' 1.25.8
+# floor, so tools build under the same toolchain the provider does.
 .PHONY: install-tfplugindocs
 install-tfplugindocs: ## Install the pinned tfplugindocs
-	@GOTOOLCHAIN=auto go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@$(TFPLUGINDOCS_VERSION)
+	@go install github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs@$(TFPLUGINDOCS_VERSION)
 
 .PHONY: install-codegen-tools
 install-codegen-tools: ## Install pinned tfplugingen-openapi and tfplugingen-framework
@@ -226,7 +218,7 @@ refresh-spec: ## Copy the OpenAPI spec from the kion-sdk monorepo (override SDK_
 # has no copy until `make refresh-spec` fetches one.
 .PHONY: _spec-guard
 _spec-guard:
-	@test -f "$(OPENAPI_SPEC)" || (echo "$(RED)$(OPENAPI_SPEC) not found. It is a local codegen input, not committed — this repo ships the provider, not the spec. Run: make refresh-spec (set SDK_SPEC to a local SDK spec checkout)$(RESET)" && exit 1)
+	@test -f "$(OPENAPI_SPEC)" || (echo "$(RED)$(OPENAPI_SPEC) not found. It is a local codegen input, not committed. This repo ships the provider, not the spec. Run: make refresh-spec (set SDK_SPEC to a local SDK spec checkout)$(RESET)" && exit 1)
 
 .PHONY: generate-schemas
 generate-schemas: _spec-guard ## Generate resource/data-source schemas + schema tests (kgen schemas)
@@ -261,7 +253,7 @@ version-gen: ## Generate per-service <name>_version_gen.go version-gate declarat
 	@echo "$(GREEN)✓ Version gates generated$(RESET)"
 
 .PHONY: crud
-crud: ## Generate CRUD for resources with no files yet (skips existing — see crud-force)
+crud: ## Generate CRUD for resources with no files yet (skips existing; see crud-force)
 	@echo "$(BLUE)Generating CRUD...$(RESET)"
 	@go run ./cmd/kgen crud --config $(GENERATOR_CONFIG) --config-overrides $(CONFIG_OVERRIDES) --sdk $(SDK_DIR) --crud-overrides $(CRUD_OVERRIDES) --test-values $(TEST_VALUES) --version-support $(VERSION_SUPPORT)
 	@echo "$(GREEN)✓ CRUD generated$(RESET)"
@@ -271,7 +263,7 @@ crud: ## Generate CRUD for resources with no files yet (skips existing — see c
 # succeed while changing nothing, because kgen skips files that already exist.
 # That silently hid a state-upgrade bug: codegen/state_upgrades.yaml had gained a
 # rule that no generated upgrader carried, and no target regenerated them.
-# Generation is deterministic, so overwriting is safe — a clean `git diff` after
+# Generation is deterministic, so overwriting is safe. A clean `git diff` after
 # this is the expected result.
 .PHONY: crud-force
 crud-force: ## Regenerate ALL CRUD output, overwriting existing files (use after editing codegen/)
@@ -303,7 +295,7 @@ install-mockery: ## Install mockery (mock generator) at the pinned version
 
 .PHONY: generate-mocks
 generate-mocks: ## Regenerate testify mocks from interfaces (see .mockery.yaml)
-	@command -v mockery >/dev/null 2>&1 || { echo "mockery not found — run: make install-mockery"; exit 1; }
+	@command -v mockery >/dev/null 2>&1 || { echo "mockery not found. Run: make install-mockery"; exit 1; }
 	@mockery
 	@echo "$(GREEN)✓ mocks generated$(RESET)"
 
@@ -360,19 +352,27 @@ clean: ## Remove build artifacts (binary, release bin/, coverage files)
 
 #==============================================================================
 # CI/CD Targets
-# Local equivalents of .github/workflows/ci.yml's fmt/vet/lint/test-unit jobs
+#
+# `make ci` runs every ci.yml job that can run locally; CodeQL is GitHub-only.
+# Add a job to ci.yml, add its counterpart here.
 #==============================================================================
 
 .PHONY: ci
-ci: ci-fmt ci-vet ci-lint ci-test ci-acctest-config ## Run all CI checks locally (mirrors ci.yml's fmt/vet/lint/test-unit/acctest-config jobs)
+ci: ci-fmt ci-vet ci-lint ci-test ci-acctest-config ci-docs ci-modules ci-internal-refs ci-secrets ## Run every CI check that can run locally (all of ci.yml except CodeQL)
 	@echo ""
 	@echo "$(GREEN)All CI checks passed$(RESET)"
+	@echo "$(YELLOW)note: CodeQL runs only on GitHub and was not checked here.$(RESET)"
 
-# Acceptance tests only run against a live Kion, so nothing ever checked that
-# their config strings match the provider's schema. They did not: twelve carried
-# an `owner_users` block on resources whose schema declares `owner_user_ids`, and
-# two set a read-only `id`. This validates every one of them against a real
-# provider build, with no API call — see scripts/acctestconfig.
+.PHONY: ci-quick
+ci-quick: ci-fmt ci-vet ci-lint ci-test ## Fast subset for iterating: fmt/vet/lint/test, no drift gates
+	@echo ""
+	@echo "$(YELLOW)Not the full gate. Run 'make ci' before pushing.$(RESET)"
+
+# Acceptance tests only run against a live Kion, so nothing checked that their
+# config strings match the provider's schema. They did not: twelve carried an
+# `owner_users` block on resources whose schema declares `owner_user_ids`, and two
+# set a read-only `id`. Validates each one against a real provider build, with no
+# API call. See scripts/acctestconfig.
 .PHONY: ci-acctest-config
 ci-acctest-config: ## Validate acceptance-test HCL against the provider schema (matches acctest-config CI job)
 	@command -v terraform >/dev/null || (echo "$(RED)terraform is required for ci-acctest-config$(RESET)" && exit 1)
@@ -412,6 +412,49 @@ ci-test: ## Run unit tests with coverage (matches test:unit CI job)
 	@go tool cover -func=coverage.out
 	@echo "$(GREEN)✓ Tests OK$(RESET)"
 
+# Each installs its pinned tool first, so a missing binary is a slow run rather
+# than a skipped check that still prints a pass.
+.PHONY: ci-docs
+ci-docs: install-tfplugindocs ## Check docs/ and examples/ are not stale (matches docs CI job)
+	@echo "$(BLUE)Checking docs/ and examples/ are current...$(RESET)"
+	@$(MAKE) --no-print-directory docs-check
+
+.PHONY: ci-modules
+ci-modules: install-terraform-docs ## Check modules/ is not stale (matches the modules CI job's staleness gate)
+	@command -v terraform >/dev/null || (echo "$(RED)terraform is required for ci-modules$(RESET)" && exit 1)
+	@echo "$(BLUE)Checking modules/ is current...$(RESET)"
+	@$(MAKE) --no-print-directory modules-check
+
+.PHONY: ci-internal-refs
+ci-internal-refs: ## Check for internal-only references (matches internal-refs CI job)
+	@echo "$(BLUE)Checking for internal references...$(RESET)"
+	@bash scripts/check-no-internal-refs.sh
+	@echo "$(GREEN)✓ No internal references$(RESET)"
+
+# Scan the tracked tree at HEAD, exported so the walker never descends into .git.
+.PHONY: ci-secrets
+ci-secrets: install-gitleaks ## Scan the tracked tree for secrets (matches secrets CI job)
+	@echo "$(BLUE)Scanning for secrets...$(RESET)"
+	@scan=$$(mktemp -d); \
+	git archive --format=tar HEAD | tar -x -C "$$scan"; \
+	gitleaks dir "$$scan" --no-banner --redact=100 --exit-code 1; \
+	status=$$?; rm -rf "$$scan"; exit $$status
+	@echo "$(GREEN)✓ No secrets detected$(RESET)"
+
+.PHONY: install-terraform-docs
+install-terraform-docs: ## Install the pinned terraform-docs
+	@command -v terraform-docs >/dev/null && \
+	  [ "$$(terraform-docs version | awk '{print $$3}')" = "$(TFDOCS_VERSION)" ] || \
+	  go install github.com/terraform-docs/terraform-docs@$(TFDOCS_VERSION)
+
+# go install rather than the workflow's linux/x64 tarball. The module path is
+# still the pre-rename zricethezav one.
+.PHONY: install-gitleaks
+install-gitleaks: ## Install the pinned gitleaks
+	@command -v gitleaks >/dev/null && \
+	  [ "v$$(gitleaks version 2>/dev/null | tr -d 'v')" = "$(GITLEAKS_VERSION)" ] || \
+	  go install github.com/zricethezav/gitleaks/v8@$(GITLEAKS_VERSION)
+
 
 .PHONY: release-prepare
 release-prepare: ## Validate and batch the changelog: make release-prepare RELEASE_VERSION=1.0.0
@@ -437,14 +480,13 @@ modules: ## Generate the per-resource Terraform modules and their docs
 	@terraform fmt -recursive ./modules >/dev/null
 	@echo "$(GREEN)✓ modules/ regenerated$(RESET)"
 
-# docs/ and examples/ are generated but were, until now, the only generated
-# surfaces with no drift gate — README said so outright. That is how 1.0.1
-# shipped documenting `id` as required on 38 data sources whose schemas had
-# already made it optional: internal/service/ and modules/ were regenerated
-# because CI enforced them, docs/ and examples/ were not because nothing did.
+# docs/ and examples/ were the last generated trees with no drift gate. That is
+# how 1.0.1 shipped documenting `id` as required on 38 data sources whose schemas
+# had already made it optional: CI enforced internal/service/ and modules/, and
+# nothing enforced these two.
 #
-# `make docs` writes in place (unlike modules-check's scratch directory), so the
-# check is: regenerate, then ask git whether anything moved.
+# `make docs` writes in place, unlike modules-check's scratch directory, so the
+# check is to regenerate and then ask git whether anything moved.
 .PHONY: docs-check
 docs-check: ## Fail if docs/ or examples/ differ from freshly generated output
 	@command -v tfplugindocs >/dev/null || (echo "$(RED)tfplugindocs not found: make install-tfplugindocs$(RESET)" && exit 1)

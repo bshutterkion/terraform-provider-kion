@@ -23,7 +23,7 @@ type rawReadData struct {
 	Method string     // "RawGet"
 	Path   string     // "/v1/app-role/{id}"
 	IDGo   string     // model id field GoName
-	Fields []rawField // flat scalar wire fields (excludes id) — flat reads only
+	Fields []rawField // flat scalar wire fields (excludes id). Flat reads only
 	// Nested reads (declared read_shape): the generator emits WireStructGo and a
 	// flatten(ctx, w, m) diag.Diagnostics body rather than the flat wire machinery.
 	Nested       bool
@@ -103,7 +103,7 @@ func (g *generator) resolveBlended(name string, ops resOps, idx sdkIndex, pe raw
 	}
 	rm.Create = *create
 
-	// Typed public update/delete — only when that op is NOT private.
+	// Typed public update/delete. Only when that op is NOT private.
 	if !isRawOp(pe.Update) {
 		if rm.Update, err = resolveOp("update", ops.Update, idx); err != nil {
 			return entityData{}, fmt.Errorf("%s update: %w", name, err)

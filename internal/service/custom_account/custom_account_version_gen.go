@@ -22,7 +22,7 @@ var attrMinKionVersion = map[string]conns.KionVersion{}
 var _ resource.ResourceWithModifyPlan = &custom_accountResource{}
 
 // ModifyPlan reports an unsupported Kion version during plan. The CRUD methods
-// gate too, but they run at apply — by which point the practitioner has already
+// gate too, but they run at apply, by which point the practitioner has already
 // been told the change is going ahead.
 //
 // A destroy plan is exempt: refusing it would strand the resource in state with

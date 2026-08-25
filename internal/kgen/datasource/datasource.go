@@ -76,7 +76,7 @@ func Create(dsName, snakeName string, comments, force, tags bool) error {
 		return fmt.Errorf("writing datasource template: %w", err)
 	}
 
-	// No acceptance test is written here — see the note in resource.Create.
+	// No acceptance test is written here, see the note in resource.Create.
 	// `make tests-gen` produces schema-aware data-source tests once the schema exists.
 
 	wf := fmt.Sprintf("%s_%s.html.markdown", servicePackage, snakeName)

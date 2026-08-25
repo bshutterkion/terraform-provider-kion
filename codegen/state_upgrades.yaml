@@ -48,7 +48,7 @@ resources:
   # tags is the one map→object-list change in the whole surface: the old
   # kion_aws_cloudformation_template took `tags = { k = v }` (map(string)), the
   # new cft takes a list of { tag_key, tag_value }. Both halves of the migration
-  # read this one rule — the state upgrader explodes the old map, kmigrate
+  # read this one rule. The state upgrader explodes the old map, kmigrate
   # rewrites the config expression.
   kion_cft:
     old_type: kion_aws_cloudformation_template
@@ -172,6 +172,6 @@ resources:
     rename:
       name: account_name
 
-  # NOTE deferred (bespoke archetypes — their model/receiver names differ from the
+  # NOTE deferred (bespoke archetypes, whose model/receiver names differ from the
   # entity convention the upgrade generator assumes): kion_aws_account (id_int),
   # kion_app_config, kion_custom_variable_override.

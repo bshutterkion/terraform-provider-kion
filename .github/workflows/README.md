@@ -20,8 +20,8 @@ require the single `ci` check.
 | `docs` | `docs/` and `examples/` are not stale | `make docs-check` |
 | `acctest-config` | acceptance-test HCL matches the provider schema | `make ci-acctest-config` |
 | `internal-refs` | no internal paths/hostnames in tracked files | `scripts/check-no-internal-refs.sh` |
-| `secrets` | credential scan over the tree | — |
-| `codeql` | GitHub CodeQL analysis for Go | — |
+| `secrets` | credential scan over the tree | `make ci-secrets` |
+| `codeql` | GitHub CodeQL analysis for Go | GitHub only |
 
 `make ci` runs the first four plus `acctest-config` locally. The Lefthook pre-push hook runs it
 before every push, so CI should rarely be the first place a failure appears.
@@ -39,7 +39,7 @@ hand-editing the output.
 ### `internal-refs`
 
 This repository is public and takes outside contributions. The check blocks
-internal source paths, hostnames, and planning notes from being published —
+internal source paths, hostnames, and planning notes from being published.
 they are not secrets, but they leak detail nobody outside can act on, and once
 pushed they exist in every fork. The pattern list and the rationale for each
 entry live in `scripts/check-no-internal-refs.sh`.
@@ -52,7 +52,7 @@ Runs GoReleaser (config: `.goreleaser.yml`), which cross-compiles the provider,
 signs the checksum manifest with GPG, and attaches the artifacts to a GitHub
 release in the layout the Terraform Registry expects.
 
-**Required secrets** — the workflow will fail without them:
+**Required secrets.** The workflow fails without them:
 
 | Secret | Purpose |
 |---|---|
@@ -70,7 +70,7 @@ is the cheap way to check a GoReleaser change before tagging.
 
 ## Changing a workflow
 
-Validate before pushing — a broken workflow file is only reported after it is
+Validate before pushing. A broken workflow file is only reported after it is
 on the default branch:
 
 ```bash

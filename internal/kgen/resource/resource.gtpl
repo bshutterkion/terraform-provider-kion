@@ -90,10 +90,10 @@ func (r *{{ .ResourceLowerCamel }}Resource) Metadata(_ context.Context, req reso
 // * Do not add a blank line between attributes.
 //
 // Attribute basics:
-// Required: true,    — the user must provide a value
-// Optional: true,    — the user can configure or omit a value
-// Computed: true,    — read-only, provider sets the value
-// Optional + Computed — provider or user can provide a value
+// Required: true     the user must provide a value
+// Optional: true     the user can configure or omit a value
+// Computed: true     read-only, the provider sets the value
+// Optional + Computed. Provider or user can provide a value
 //
 // For more about schema options, visit
 // https://developer.hashicorp.com/terraform/plugin/framework/handling-data/schemas?page=schemas
@@ -203,7 +203,7 @@ func (r *{{ .ResourceLowerCamel }}Resource) ImportState(ctx context.Context, req
 //   }
 {{- end }}
 func flatten{{ .Resource }}(apiObject any, _ *{{ .ResourceLowerCamel }}ResourceModel) diag.Diagnostics {
-	// TODO: implement — type-switch the response and map SDK fields to model fields
+	// TODO: implement, type-switch the response and map SDK fields to model fields
 	_ = apiObject
 	return nil
 }

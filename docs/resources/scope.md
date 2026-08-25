@@ -3,12 +3,12 @@
 page_title: "kion_scope Resource - kion"
 subcategory: ""
 description: |-
-  
+  Manages a Kion Scope.
 ---
 
 # kion_scope (Resource)
 
-
+Manages a Kion Scope.
 
 ## Example Usage
 

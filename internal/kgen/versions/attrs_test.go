@@ -9,7 +9,7 @@ import (
 )
 
 func TestPruneRedundant_dropsAtOrBelowResourceMin(t *testing.T) {
-	// Every field of a 3.14-only resource is trivially "3.14+" — the resource
+	// Every field of a 3.14-only resource is trivially "3.14+", the resource
 	// gate already refuses those, so reporting them again is one cause twice.
 	mins := map[string]string{
 		"account_alias": "3.14.0",

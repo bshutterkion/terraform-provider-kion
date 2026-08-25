@@ -59,7 +59,7 @@ type entityData struct {
 	ResConst, ResName  string
 	TypeName           string // "kion_<name>"
 	IDGo, SDKAlias     string
-	IDParamType        string // "int64" | "uint64" — the read/update/delete param id Go type
+	IDParamType        string // "int64" | "uint64". The read/update/delete param id Go type
 	Gated              bool   // emit RequireKionVersionInRange in Create
 	SchemaVersion      int    // >0 bumps resp.Schema.Version (state migration)
 	CreateMethod       string
@@ -132,7 +132,7 @@ type entityData struct {
 	HasIDProj      bool // id-projection flattens present
 	// Blended resources (rendered by blended.gtpl, never entity.gtpl) mix typed
 	// public ops with raw private ops. These fields are zero for pure-typed
-	// resources, so entity.gtpl — which never references them — is unaffected.
+	// resources, so entity.gtpl, which never references them. Is unaffected.
 	Blended   bool
 	RawRead   *rawReadData  // always set for a blended resource (read is private)
 	RawUpdate *rawWriteData // set when update is private (else typed via Update*)
@@ -222,7 +222,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		d.CreateParentField = rm.CreateParentField
 		d.CreateParentCast = rm.CreateParentCast
 	} else if rm.Create.Method.ParamsType != "" && !strings.Contains(rm.Create.Method.Path, qsPathMarker) {
-		// Params struct with no discriminator and no parent id — its fields are
+		// Params struct with no discriminator and no parent id. Its fields are
 		// ordinary query parameters the resource does not set. The SDK signature
 		// still requires the struct, so pass it empty.
 		d.CreateParams = rm.Create.Method.ParamsType
@@ -415,7 +415,7 @@ func idParamName(p *Struct) (name, goType string, err error) {
 		return "", "", fmt.Errorf("op has no params struct")
 	}
 	// The record id is the single required int64/uint64 field. Extra optional
-	// (Opt*) params — e.g. a query filter like PolicyType/Inherited — are omitted
+	// (Opt*) params, e.g. a query filter like PolicyType/Inherited, are omitted
 	// (left zero). A second REQUIRED param means a genuine parent+child op the
 	// entity path can't source, so refuse.
 	var ids []Field
@@ -424,7 +424,7 @@ func idParamName(p *Struct) (name, goType string, err error) {
 		case f.Type == "int64" || f.Type == "uint64":
 			ids = append(ids, f)
 		case strings.HasPrefix(f.Type, "Opt"):
-			// optional query param — omitted in the call
+			// optional query param, omitted in the call
 		default:
 			return "", "", fmt.Errorf("required non-id param %q has type %q", f.GoName, f.Type)
 		}
@@ -462,7 +462,7 @@ func idOptKind(t string) (opt, ok bool) {
 // respBinds maps response-payload fields to model fields, special-casing id.
 // prefix is the Go access path to the fields (v.Data.Value. for an Opt envelope,
 // v.Data. for a pointer envelope, or v.Data.Value.<Wrapper>.Value. for a record
-// nested under a wrapper sub-object). Results are NOT sorted here — the caller
+// nested under a wrapper sub-object). Results are NOT sorted here, the caller
 // merges top-level + wrapper binds and sorts once.
 func respBinds(fields []Field, byTF map[string]ModelField, idTF, prefix string, skip map[string]bool) ([]respBind, []sliceRespBind, error) {
 	var out []respBind

@@ -111,7 +111,7 @@ func (d *{{ .DataSourceLowerCamel }}DataSource) Read(_ context.Context, _ dataso
 // See the resource template for examples of type-switching.
 {{- end }}
 func flatten{{ .DataSource }}DataSource(apiObject any, _ *{{ .DataSourceLowerCamel }}DataSourceModel) diag.Diagnostics {
-	// TODO: implement — type-switch the response and map SDK fields to model fields
+	// TODO: implement, type-switch the response and map SDK fields to model fields
 	_ = apiObject
 	return nil
 }

@@ -30,7 +30,7 @@ type readShapeSub struct {
 	// configured value on every plan, forever.
 	//
 	// A write-only field is omitted from the wire struct entirely and, on
-	// flatten, carries the prior model value through instead of a wire value —
+	// flatten, carries the prior model value through instead of a wire value,
 	// so state keeps what the practitioner configured. It still appears in the
 	// schema and is still sent on create/update.
 	//
@@ -232,8 +232,8 @@ func buildNestedFlatten(s readShape, byTF map[string]ModelField) (string, error)
 		base := "w.Data." + goPath(o.From)
 		fmt.Fprintf(&b, "%sVal, %sValDiags := New%s(%s{}.AttributeTypes(ctx), map[string]attr.Value{\n", mf.GoName, mf.GoName, o.ValueType, o.ValueType)
 		for _, sub := range o.Subs {
-			// Every sub-attr must appear in the map — the Value constructor
-			// requires the full attribute set — so a write-only sub carries the
+			// Every sub-attr must appear in the map, the Value constructor
+			// requires the full attribute set. So a write-only sub carries the
 			// prior model value through rather than being skipped.
 			if sub.WriteOnly {
 				fmt.Fprintf(&b, "%q: m.%s.%s,\n", sub.TF, mf.GoName, pascalCase(sub.TF))

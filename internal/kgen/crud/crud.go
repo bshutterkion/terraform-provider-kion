@@ -154,7 +154,7 @@ func (g *generator) generate(opts Options) (int, error) {
 			continue
 		}
 		if flagged[name] {
-			fmt.Fprintf(os.Stderr, "kgen crud: skip %s — flagged for review in generator_config.yaml\n", name)
+			fmt.Fprintf(os.Stderr, "kgen crud: skip %s, flagged for review in generator_config.yaml\n", name)
 			continue
 		}
 		var arch *archetype
@@ -163,12 +163,12 @@ func (g *generator) generate(opts Options) (int, error) {
 		}
 		n, err := g.generateResource(root, name, resources[name], dataSources[name], idx, tvPath, gated[name], arch, opts.Force)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "kgen crud: skip %s — %v\n", name, err)
+			fmt.Fprintf(os.Stderr, "kgen crud: skip %s: %v\n", name, err)
 			continue
 		}
 		// Emit the state upgrader for any resource that migrates old SDKv2 state.
 		if err := g.emitUpgrade(name, opts.Force); err != nil {
-			fmt.Fprintf(os.Stderr, "kgen crud: %s upgrader — %v\n", name, err)
+			fmt.Fprintf(os.Stderr, "kgen crud: %s upgrader: %v\n", name, err)
 		}
 		written += n
 	}
@@ -177,14 +177,14 @@ func (g *generator) generate(opts Options) (int, error) {
 
 // reportDowngrades prints the aggregated downgrade report. Every entry means a
 // data source that SHOULD accept `filter` blocks (the config maps a collection
-// read for it) instead demands a required `id` — which silently breaks
+// read for it) instead demands a required `id`, which silently breaks
 // configurations carried over from the SDKv2 provider. Under strict it is an
 // error, so the set cannot grow unnoticed.
 func (g *generator) reportDowngrades(strict bool) error {
 	if len(g.downgrades) == 0 {
 		return nil
 	}
-	fmt.Fprintf(os.Stderr, "\n!! kgen crud: %d DATA SOURCE(S) DOWNGRADED to id-only — each lost its `filter` block\n", len(g.downgrades))
+	fmt.Fprintf(os.Stderr, "\n!! kgen crud: %d DATA SOURCE(S) DOWNGRADED to id-only. Each lost its `filter` block\n", len(g.downgrades))
 	fmt.Fprintf(os.Stderr, "!! and now REQUIRES `id`, which breaks configurations written for the old provider.\n")
 	for _, d := range g.downgrades {
 		fmt.Fprintf(os.Stderr, "!!   kion_%s: %s\n", d.Resource, d.Reason)
@@ -351,7 +351,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		return 0, err
 	}
 	if sweepNote != "" {
-		fmt.Fprintf(os.Stderr, "kgen crud: %s — real sweeper failed (%v); using stub\n", name, sweepNote)
+		fmt.Fprintf(os.Stderr, "kgen crud: %s: real sweeper failed (%v); using stub\n", name, sweepNote)
 	}
 
 	files := []genFile{
@@ -378,7 +378,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 			genFile{filepath.Join(dir, name+"_data_source_test.go"), dsTest},
 		)
 	} else {
-		fmt.Fprintf(os.Stderr, "kgen crud: %s — no test_values entry; skipping acceptance tests\n", name)
+		fmt.Fprintf(os.Stderr, "kgen crud: %s: no test_values entry; skipping acceptance tests\n", name)
 	}
 
 	for _, f := range files {
@@ -422,7 +422,7 @@ func (g *generator) generateCompound(dir, name string, ops resOps, idx sdkIndex,
 		{filepath.Join(dir, name+"_data_source.go"), dataSourceGo},
 		{filepath.Join(dir, "sweep.go"), sweepGo},
 	}
-	fmt.Fprintf(os.Stderr, "kgen crud: %s — compound archetype; acceptance tests skipped (need a parent FK fixture)\n", name)
+	fmt.Fprintf(os.Stderr, "kgen crud: %s: compound archetype; acceptance tests skipped (need a parent FK fixture)\n", name)
 	for _, f := range files {
 		if err := g.writeFile(f.path, f.data, force); err != nil {
 			return 0, err

@@ -102,7 +102,7 @@ func TestRewriteFile_readOnlyDrops(t *testing.T) {
 // Customers generate ownership blocks from a variable far more often than they
 // write them out, so the projection has to collapse the whole
 // dynamic/for_each/content construct into one for expression over the same
-// for_each — there is no `dynamic` for an attribute.
+// for_each. There is no `dynamic` for an attribute.
 func TestRewriteFile_dynamicBlocks(t *testing.T) {
 	ups := map[string]Transform{
 		"kion_user_group": {
@@ -162,7 +162,7 @@ resource "kion_ou" "mixed" {
 		// The straight case: for_each carries straight through.
 		"owner_user_ids = [for owner_users in var.owner_user_ids : owner_users]",
 		"owner_user_group_ids = [for owner_groups in var.owner_user_group_ids : owner_groups]",
-		// A custom iterator, and a body reading .key — which needs the
+		// A custom iterator, and a body reading .key, which needs the
 		// two-variable for form.
 		"owner_user_ids = concat([5], [for o_key, o in local.extra : o + o_key])",
 	} {
@@ -214,7 +214,7 @@ func TestRewriteFile_dynamicBlockToListAttr(t *testing.T) {
 }
 
 // TestRewriteFile_dynamicUnconvertible asserts kmigrate reports rather than
-// mangles a dynamic block it cannot read — a missing content field leaves the
+// mangles a dynamic block it cannot read. A missing content field leaves the
 // block alone and surfaces as a manual follow-up.
 func TestRewriteFile_dynamicUnconvertible(t *testing.T) {
 	ups := map[string]Transform{
@@ -300,7 +300,7 @@ func TestRewriteFile_dynamicMalformed(t *testing.T) {
 
 // TestRewriteFile_mapToObjectList covers the cft tags rewrite: a map(string)
 // attribute became a list of { tag_key, tag_value } objects, so the value itself
-// has to be restructured — a literal map entry by entry, anything else as a for
+// has to be restructured, a literal map entry by entry, anything else as a for
 // expression over the same value.
 func TestRewriteFile_mapToObjectList(t *testing.T) {
 	src := `resource "kion_aws_cloudformation_template" "literal" {
@@ -417,8 +417,8 @@ resource "kion_azure_account" "prod" {
 // version pin. Found against a real configuration produced by the import tool:
 // every resource migrated correctly, but the constraint still demanded the OLD
 // provider, so `terraform init` resolved 0.3.34 and every rewrite kmigrate had
-// just made became invalid config. A real tree has one of these per directory —
-// eight in the case that surfaced it — so leaving it to the practitioner means
+// just made became invalid config. A real tree has one of these per directory,
+// eight in the case that surfaced it, so leaving it to the practitioner means
 // leaving them to find all of them.
 func TestRewriteFile_providerConstraint(t *testing.T) {
 	src := `terraform {

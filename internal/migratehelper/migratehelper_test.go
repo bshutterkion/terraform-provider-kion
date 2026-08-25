@@ -27,7 +27,7 @@ func TestProjectIDs(t *testing.T) {
 	eq(t, ProjectIDs(json.RawMessage(`[{"id":5},{"id":6}]`), "id"), `[5,6]`)
 	// Single element.
 	eq(t, ProjectIDs(json.RawMessage(`[{"id":9}]`), "id"), `[9]`)
-	// Empty list projects to an empty list, NOT null — an explicitly-empty
+	// Empty list projects to an empty list, NOT null, an explicitly-empty
 	// membership set must survive as [] so it round-trips.
 	eq(t, ProjectIDs(json.RawMessage(`[]`), "id"), `[]`)
 	// Absent / null source → null (added attr the provider will repopulate).
@@ -65,7 +65,7 @@ func TestStringToNum(t *testing.T) {
 	eq(t, StringToNum(json.RawMessage(`"42"`)), `42`)
 	// Already a number passes through.
 	eq(t, StringToNum(json.RawMessage(`42`)), `42`)
-	// Empty string → null (not 0 — the value was effectively unset).
+	// Empty string → null (not 0. The value was effectively unset).
 	eq(t, StringToNum(json.RawMessage(`""`)), `null`)
 	// Absent / null → null.
 	eq(t, StringToNum(nil), `null`)
@@ -94,7 +94,7 @@ func TestMapToObjectList(t *testing.T) {
 	// Multiple entries come out in sorted key order, deterministically.
 	eq(t, MapToObjectList(json.RawMessage(`{"team":"platform","env":"prod"}`), "tag_key", "tag_value"),
 		`[{"tag_key":"env","tag_value":"prod"},{"tag_key":"team","tag_value":"platform"}]`)
-	// An empty map explodes to an empty list, NOT null — an explicitly-empty tag
+	// An empty map explodes to an empty list, NOT null, an explicitly-empty tag
 	// set must survive as [] so it round-trips.
 	eq(t, MapToObjectList(json.RawMessage(`{}`), "tag_key", "tag_value"), `[]`)
 	// Absent / null → null (the provider's next Read repopulates).
@@ -119,7 +119,7 @@ func TestMapToObjectList_idempotent(t *testing.T) {
 }
 
 // TestMapToObjectList_sortedOrderMatchesOldState: cty serializes a map's keys in
-// sorted order, so sorted output is the order the old state itself recorded —
+// sorted order, so sorted output is the order the old state itself recorded,
 // the upgrade introduces no spurious reordering.
 func TestMapToObjectList_sortedOrderMatchesOldState(t *testing.T) {
 	// What Terraform would have written for map(string) tags.

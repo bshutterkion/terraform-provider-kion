@@ -25,7 +25,7 @@ func TestRawGet_ReturnsBodyAndAuth(t *testing.T) {
 		got = req
 		return respJSON(http.StatusOK, `{"data":1}`), nil
 	})
-	// APIURL is the API root as Configure resolves it — base URL + apipath.
+	// APIURL is the API root as Configure resolves it, base URL + apipath.
 	c := &conns.KionClient{APIURL: "https://kion.example.com/api/", HTTPClient: doer, APIKey: "k"}
 	body, err := c.RawGet(t.Context(), "/beta/dashboard/7")
 	require.NoError(t, err)

@@ -3,7 +3,7 @@ package migrate
 import "sort"
 
 // Delta is the old→new attribute-level change set for one resource type. Renames
-// cannot be auto-detected (they are semantic) — they surface here as a Dropped
+// cannot be auto-detected (they are semantic), they surface here as a Dropped
 // old name + an Added new name, and are resolved in codegen/state_upgrades.yaml.
 type Delta struct {
 	TypeChanged   []string // attr present in both but its type/kind changed
@@ -13,7 +13,7 @@ type Delta struct {
 }
 
 // sameShape reports whether two attributes have the same migration-relevant
-// shape — container kind, type, and block nesting. It deliberately ignores the
+// shape, container kind, type, and block nesting. It deliberately ignores the
 // optional/required/computed flags, which change constantly across a major
 // version but do not, on their own, require a state upgrader.
 func sameShape(a, b Attr) bool {

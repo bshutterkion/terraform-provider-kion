@@ -278,7 +278,7 @@ func {{.Pkg}}RecordIDs(apiObject any) map[int64]bool {
 }
 
 // new{{.Pascal}}ID returns the id of the child record present in apiObject but
-// absent from existing — the record just created. ok is false unless exactly
+// absent from existing. The record just created. ok is false unless exactly
 // one such record is found.
 func new{{.Pascal}}ID(apiObject any, existing map[int64]bool) (int64, bool) {
 	var found int64

@@ -39,7 +39,7 @@ func checkOne(w *errWriter, r Resolved) int {
 	}
 	conf := ""
 	if r.LowConfidence {
-		conf = "  [LOW CONFIDENCE — verify the type]"
+		conf = "  [LOW CONFIDENCE: verify the type]"
 	}
 	w.Fprintf("  SDK type: generated.%s (overlap %d/%d)%s\n", r.SDKType, r.Overlap, len(r.Model.Fields), conf)
 	for _, p := range r.Pairs {
@@ -81,10 +81,10 @@ func genOne(w *errWriter, r Resolved) int {
 		switch {
 		case p.Nested:
 			todos++
-			w.Fprintf("\t// TODO(nested): m.%s = ... (SDK %s) — nested object, needs a nested converter\n", p.Model.GoName, p.SDK.GoType)
+			w.Fprintf("\t// TODO(nested): m.%s = ... (SDK %s): nested object, needs a nested converter\n", p.Model.GoName, p.SDK.GoType)
 		case !p.HaveFlex:
 			todos++
-			w.Fprintf("\t// TODO(flex): m.%s = flex.%s(in.%s) — converter does not exist yet\n", p.Model.GoName, p.FlexFn, p.SDK.GoName)
+			w.Fprintf("\t// TODO(flex): m.%s = flex.%s(in.%s): converter does not exist yet\n", p.Model.GoName, p.FlexFn, p.SDK.GoName)
 		default:
 			w.Fprintf("\tm.%s = flex.%s(in.%s)\n", p.Model.GoName, p.FlexFn, p.SDK.GoName)
 		}

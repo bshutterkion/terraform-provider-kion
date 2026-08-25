@@ -31,7 +31,7 @@ func RequireMinKionVersion(meta *conns.KionClient, minVer conns.KionVersion, typ
 //	}
 //
 // A zero-value minVer or maxVer (conns.KionVersion{}) means "unbounded" on that
-// side — an endpoint introduced in 3.16 and still current passes maxVer as the
+// side, an endpoint introduced in 3.16 and still current passes maxVer as the
 // zero value; one dropped after 3.13 passes minVer 3.12 and maxVer 3.13.
 //
 // Behavior:
@@ -108,7 +108,7 @@ func describeRange(minVer, maxVer conns.KionVersion, hasMin, hasMax bool) string
 // problem.
 //
 // It reads the raw plan rather than typed attributes so one helper covers every
-// attribute type. Unset attributes are ignored — only what is actually being
+// attribute type. Unset attributes are ignored. Only what is actually being
 // sent can be rejected.
 func RequireAttrKionVersions(meta *conns.KionClient, plan tfsdk.Plan, mins map[string]conns.KionVersion, typeName string) diag.Diagnostics {
 	var diags diag.Diagnostics
@@ -144,7 +144,7 @@ func RequireAttrKionVersions(meta *conns.KionClient, plan tfsdk.Plan, mins map[s
 			"Attribute not supported by this Kion version",
 			fmt.Sprintf(
 				"%s.%s requires Kion %s or newer; this instance reports %s. "+
-					"Remove the attribute or upgrade Kion — sending it would be silently ignored by the API.",
+					"Remove the attribute or upgrade Kion; sending it would be silently ignored by the API.",
 				typeName, name, want, meta.Version,
 			),
 		)

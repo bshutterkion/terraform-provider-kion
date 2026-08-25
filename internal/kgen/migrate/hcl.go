@@ -35,7 +35,7 @@ var AttrsToObject = map[string]objFold{
 }
 
 // RequiredAdditions lists attributes the new schema requires that the old schema
-// had no equivalent for. These are not renames — the rewrite handles those — so
+// had no equivalent for. These are not renames, the rewrite handles those, so
 // there is no old value to carry over and kmigrate cannot supply one. It reports
 // the blocks that need them instead, which is the difference between a config
 // that fails `terraform plan` with "Missing required argument" and one the
@@ -61,9 +61,9 @@ var RequiredAdditions = map[string][]string{
 // Both spellings of a repeatable block are handled: the literal block and the
 // `dynamic "name" { for_each = … content { … } }` that generates it. An attribute
 // has no dynamic form, so a dynamic block collapses into a for expression over
-// the same for_each — `dynamic "owner_users" { for_each = var.ids; content { id =
+// the same for_each, `dynamic "owner_users" { for_each = var.ids; content { id =
 // owner_users.value } }` becomes `owner_user_ids = [for owner_users in var.ids :
-// owner_users]` — and a resource mixing both spellings gets a concat.
+// owner_users]`, and a resource mixing both spellings gets a concat.
 //
 // The third return is manual follow-ups: things the new schema demands that no
 // rewrite can produce. They are kept apart from changes so the CLI does not count
@@ -136,7 +136,7 @@ func RewriteNamedFile(name string, src []byte, ups map[string]Transform) ([]byte
 			if body.GetAttribute(dropA) != nil {
 				body.RemoveAttribute(dropA)
 				changes = append(changes, fmt.Sprintf(
-					"%s.%s: dropped %s — read-only in the new schema", rtype, rname, dropA))
+					"%s.%s: dropped %s: read-only in the new schema", rtype, rname, dropA))
 			}
 		}
 
@@ -186,7 +186,7 @@ func RewriteNamedFile(name string, src []byte, ups map[string]Transform) ([]byte
 				consumed = append(consumed, b)
 			}
 			for _, s := range stuck {
-				actions = append(actions, fmt.Sprintf("%s.%s: %s — convert it to %s = [...] by hand", rtype, rname, s, newA))
+				actions = append(actions, fmt.Sprintf("%s.%s: %s. Convert it to %s = [...] by hand", rtype, rname, s, newA))
 			}
 			if len(chunks) == 0 {
 				continue
@@ -223,7 +223,7 @@ func RewriteNamedFile(name string, src []byte, ups map[string]Transform) ([]byte
 					}
 					if err != nil {
 						actions = append(actions, fmt.Sprintf(
-							"%s.%s: dynamic %q: %v — convert it to %s = [{…}] by hand", rtype, rname, blkName, err, blkName))
+							"%s.%s: dynamic %q: %v. Convert it to %s = [{…}] by hand", rtype, rname, blkName, err, blkName))
 						continue
 					}
 					chunks = append(chunks, listChunk{toks: toks, isList: true})
@@ -265,7 +265,7 @@ func RewriteNamedFile(name string, src []byte, ups map[string]Transform) ([]byte
 			switch {
 			case err != nil:
 				actions = append(actions, fmt.Sprintf(
-					"%s.%s: %s — rewrite it as a list of { %s, %s } objects by hand",
+					"%s.%s: %s. Rewrite it as a list of { %s, %s } objects by hand",
 					rtype, rname, err, fold.KeyField, fold.ValField))
 			case toks == nil: // already a list; nothing to do
 			default:
@@ -311,7 +311,7 @@ func RewriteNamedFile(name string, src []byte, ups map[string]Transform) ([]byte
 		}
 		if len(missing) > 0 {
 			actions = append(actions, fmt.Sprintf(
-				"%s.%s: add %v — required by the new schema, and kmigrate has no value to supply",
+				"%s.%s: add %v: required by the new schema, and kmigrate has no value to supply",
 				rtype, rname, missing))
 		}
 	}
@@ -344,8 +344,8 @@ func blockBodyToObject(b *hclwrite.Block) hclwrite.Tokens {
 
 // collectSources returns the blocks in body that hold values for the old
 // repeatable block `name`: the literal `name { … }` blocks plus the
-// `dynamic "name" { … }` blocks that generated them. Customers write both — a
-// static block for a fixed owner, a dynamic one for a variable list — and a
+// `dynamic "name" { … }` blocks that generated them. Customers write both, a
+// static block for a fixed owner, a dynamic one for a variable list, and a
 // resource can carry a mix of the two.
 func collectSources(body *hclwrite.Body, name string) []*hclwrite.Block {
 	var out []*hclwrite.Block
@@ -361,14 +361,14 @@ func collectSources(body *hclwrite.Body, name string) []*hclwrite.Block {
 // The new schema has no `dynamic` equivalent for an attribute, so the whole
 // construct collapses into one for expression over the same for_each.
 type dynBlock struct {
-	iter    string          // iterator name — the label unless `iterator` overrides it
+	iter    string          // iterator name, the label unless `iterator` overrides it
 	forEach hclwrite.Tokens // the for_each expression, verbatim
 	content *hclwrite.Block
 }
 
 // parseDynamic recognizes a `dynamic` block and pulls out the parts the rewrite
 // needs. It returns nil for anything that is not a dynamic block; a dynamic block
-// whose shape cannot be converted faithfully still parses, and check() says why —
+// whose shape cannot be converted faithfully still parses, and check() says why,
 // so the caller can tell "not a dynamic block" from "a dynamic block I must hand
 // back to the practitioner".
 func parseDynamic(b *hclwrite.Block) *dynBlock {
@@ -429,7 +429,7 @@ func (d *dynBlock) check() error {
 // elem is the per-iteration expression with the block's iterator references
 // resolved to the loop variable(s). The two-variable form is used only when the
 // body reads `.key`, which for a list for_each is the index and for a map the
-// key — the same meaning the for expression gives it.
+// key, the same meaning the for expression gives it.
 //
 // The result is round-tripped through the HCL parser, so a rewrite that would not
 // parse is reported as an error rather than written to a customer's file.
@@ -450,7 +450,7 @@ func (d *dynBlock) forExpr(elem hclwrite.Tokens) (hclwrite.Tokens, error) {
 // substIterator rewrites `<iter>.value` → valVar and `<iter>.key` → keyVar in an
 // expression, which is what turns a dynamic block's content into the body of a
 // for expression. It reports whether `.key` was used. A qualified reference
-// (`foo.<iter>.value`) is left alone — only the iterator's own root matches.
+// (`foo.<iter>.value`) is left alone, only the iterator's own root matches.
 func substIterator(toks hclwrite.Tokens, iter, keyVar, valVar string) (hclwrite.Tokens, bool) {
 	out := make(hclwrite.Tokens, 0, len(toks))
 	usedKey := false
@@ -482,8 +482,8 @@ func substIterator(toks hclwrite.Tokens, iter, keyVar, valVar string) (hclwrite.
 
 // mapToObjectList turns a map-valued expression into the list of two-field
 // objects the new schema wants. A literal map is expanded entry by entry, which
-// is what a practitioner would have written; anything else — a variable, a
-// merge(), a locals lookup — becomes a for expression over the same value, which
+// is what a practitioner would have written; anything else, a variable, a
+// merge(), a locals lookup. Becomes a for expression over the same value, which
 // is correct without needing to know what it evaluates to.
 //
 // It returns (nil, nil) when the expression is already a list, so re-running
@@ -635,7 +635,7 @@ const NewProviderConstraint = ">= 1.0.0"
 // Without this kmigrate produced configuration that could not init: it rewrote
 // every resource to the new schema while leaving the constraint pinned to the
 // old provider. The migration guide asks the practitioner to bump it by hand and
-// shows a single block — but a real configuration has one per directory (the
+// shows a single block. But a real configuration has one per directory (the
 // import tool emits eight), so doing it by hand means finding all of them.
 //
 // Matched on the `source` inside the object rather than the attribute name, so a

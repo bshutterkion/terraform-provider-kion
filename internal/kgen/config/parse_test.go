@@ -80,7 +80,7 @@ func (r *Resource) Delete() { conn.DeleteLabel() }
 func (d *DataSource) Read() { conn.GetLabel() }
 `), 0o600))
 
-	// empty: a service dir with no matching <name>.go — parseGo returns nil, so
+	// empty: a service dir with no matching <name>.go. ParseGo returns nil, so
 	// the CRUD slices stay empty (exercises the nil-file branch).
 	require.NoError(t, os.MkdirAll(filepath.Join(root, "empty"), 0o755))
 

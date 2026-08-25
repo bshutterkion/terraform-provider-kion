@@ -54,7 +54,7 @@ type cfgFile struct {
 }
 
 // heuristicLine matches a resource key annotated for review, e.g.
-// "  guessed:  # heuristic — verify". Such resources are not safe to generate
+// "  guessed:  # heuristic, verify". Such resources are not safe to generate
 // until a human verifies their ops, so the loader flags them for skipping.
 var heuristicLine = regexp.MustCompile(`(?m)^\s{2}([A-Za-z0-9_]+):\s*#\s*(heuristic|INCOMPLETE)`)
 
@@ -224,8 +224,8 @@ func wrapperSliceElem(typeName string, idx sdkIndex) (elem string, nilAware, ok 
 //
 // The items slice may sit one level down (shape A: Data wraps a struct holding
 // Items) or be the Data field itself (shape B: Data is []Elem). Its element
-// must be a type the single read also yields — either the read payload or the
-// payload's record-wrapper sub-object — so one field mapping serves both the
+// must be a type the single read also yields. Either the read payload or the
+// payload's record-wrapper sub-object, so one field mapping serves both the
 // by-id and the by-filter mode.
 func resolveList(ref *opRef, idx sdkIndex, read OpModel) (*listModel, error) {
 	if ref == nil {
@@ -323,7 +323,7 @@ func resolveList(ref *opRef, idx sdkIndex, read OpModel) (*listModel, error) {
 
 	// Pagination is optional: many Kion index endpoints return the whole
 	// collection in one response and take no Page/Count at all. What is NOT
-	// optional is being able to call the op blind — a required param the data
+	// optional is being able to call the op blind, a required param the data
 	// source has no value for (e.g. the parent id of a nested collection) makes
 	// the endpoint unusable here.
 	if lm.Params != nil {
@@ -428,7 +428,7 @@ func resolveEnvelope(resultType string, idx sdkIndex) (respType, payload string,
 
 // resolveResource assembles a ResourceModel for the entity archetype. ds is the
 // data-source op-set; when its list op resolves, rm.List is populated for the
-// dual-mode data source and real sweeper (nil otherwise — a logged degradation).
+// dual-mode data source and real sweeper (nil otherwise, a logged degradation).
 func resolveResource(name string, ops resOps, ds dsOps, idx sdkIndex, model []ModelField) (ResourceModel, error) {
 	pascal := pascalCase(name)
 	rm := ResourceModel{Name: name, Pascal: pascal, Model: pascal + "Model"}
@@ -490,7 +490,7 @@ func detectRecordWrapper(read *OpModel, idField ModelField, fields []ModelField,
 		byTF[f.TFSDK] = f
 	}
 	// How many model attributes the TOP-LEVEL payload already provides. A wrapper
-	// is only the record holder when it covers MORE than the top level does —
+	// is only the record holder when it covers MORE than the top level does,
 	// otherwise a mere sub-record (e.g. scope's active_criteria_record, which has
 	// id+criteria) would be mistaken for the wrapper and duplicate the id.
 	topMatched := 0
@@ -535,13 +535,13 @@ func detectRecordWrapper(read *OpModel, idField ModelField, fields []ModelField,
 // nestedRecordWrapper finds the record wrapper when the MODEL nests the record
 // rather than flattening it: the read payload carries no top-level id, and
 // exactly one of its fields is a model OBJECT attribute (a tfplugingen
-// <Pascal>Value type) whose SDK struct does carry the id — e.g.
+// <Pascal>Value type) whose SDK struct does carry the id, e.g.
 // AzurePolicyAugmented.azure_policy -> AzurePolicyDefinition.id.
 //
 // detectRecordWrapper's field-count test is blind to this case twice over: the
 // wrapper's json-name IS a model attribute (so the "nested Value attribute"
 // guard skips it), and none of the record's fields are TOP-LEVEL model
-// attributes either — they are sub-attributes of that object attribute, so the
+// attributes either. They are sub-attributes of that object attribute, so the
 // count is 0. Without this the payload looks id-less and the data source
 // degrades to id-only.
 //

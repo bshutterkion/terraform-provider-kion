@@ -1,7 +1,7 @@
 //go:build kgendocs
 
 // The tests command imports internal/provider (→ every service package), so it is
-// behind the `kgendocs` build tag — see examples.go. Build with `-tags kgendocs`.
+// behind the `kgendocs` build tag, see examples.go. Build with `-tags kgendocs`.
 package cmd
 
 import (

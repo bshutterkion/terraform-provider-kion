@@ -21,7 +21,7 @@ const rawKind = "raw_http"
 type rawOp struct {
 	Method string `yaml:"method"`
 	Path   string `yaml:"path"`
-	Spec   string `yaml:"spec"` // "public" | "private" — blended archetype renders private ops raw
+	Spec   string `yaml:"spec"` // "public" | "private", blended archetype renders private ops raw
 }
 
 type rawResourceOps struct {
