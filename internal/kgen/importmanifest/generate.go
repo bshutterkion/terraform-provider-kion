@@ -100,6 +100,31 @@ var parentOverrides = map[string]Parent{
 	},
 }
 
+// importStateSplits reports whether an archetype's generated ImportState parses
+// "<parent>/<key>" rather than a bare id.
+//
+// This is the one fact that decides whether a resource may carry a compound
+// import id, and it lived in two places that disagreed. Classify guarded on
+// parent_list and compound_key_parent_read; the parentOverrides block below set
+// the compound format unconditionally, on the assumption that having a parent
+// implied a splitting ImportState. It does not: idms_open_id,
+// idms_open_id_access_rule and idms_open_id_group_association are entity
+// archetypes reached through a parent, and entity.gtpl emits an id-only
+// ImportState. They were handed "28/2", Read parsed the whole string as an
+// integer, -generate-config-out wrote no configuration for them, and
+// `terraform apply` then failed the entire import with "Configuration for
+// import target does not exist".
+//
+// no_read is in the list because its template does split -- which is why the
+// two exemption resources, also reached by override, have always worked.
+func importStateSplits(archetype string) bool {
+	switch archetype {
+	case "parent_list", "compound_key_parent_read", "no_read", "association":
+		return true
+	}
+	return false
+}
+
 // requireValidOverrides records the discriminator for collections that mix
 // resource kinds; see Resource.RequireValidField. Both exemption endpoints
 // return cloud RULE exemptions alongside cloud ACCESS ROLE exemptions, and only
@@ -332,7 +357,7 @@ func Build(readPaths, dataSourcePaths, privateListPaths, privateResourcePaths ma
 				// 405s. Handing those "<parent>/<id>" made Read parse the whole
 				// string as an integer, which is 652 of the 667 "Invalid ID"
 				// failures a verification run produced.
-				if archetype == "parent_list" || archetype == "compound_key_parent_read" {
+				if importStateSplits(archetype) {
 					r.ImportID.Format = FormatParentSlashKey
 					if r.ImportID.KeyField == "" {
 						r.ImportID.KeyField = "id"
@@ -393,9 +418,15 @@ func Build(readPaths, dataSourcePaths, privateListPaths, privateResourcePaths ma
 			// with hasParent false and returned the plain id, but the resource's
 			// ImportState splits on "/". A bare id leaves the parent zero and
 			// every read misses.
-			r.ImportID.Format = FormatParentSlashKey
-			if r.ImportID.KeyField == "" {
-				r.ImportID.KeyField = "id"
+			// Only when the ImportState actually splits; see importStateSplits.
+			// An entity reached through a parent still gets an id-only
+			// ImportState, and handing it a compound id makes the resource
+			// unimportable outright.
+			if importStateSplits(archetype) {
+				r.ImportID.Format = FormatParentSlashKey
+				if r.ImportID.KeyField == "" {
+					r.ImportID.KeyField = "id"
+				}
 			}
 		}
 
