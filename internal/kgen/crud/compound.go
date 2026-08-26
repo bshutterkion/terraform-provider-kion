@@ -320,7 +320,15 @@ func resolveCompound(name string, ops resOps, idx sdkIndex, arch archetype, mode
 			return d, fmt.Errorf("%s: record %s has no field for model %q", name, elem, mf.TFSDK)
 		}
 		if jsonField[mf.TFSDK] {
-			d.Flattens = append(d.Flattens, bind{ModelGo: mf.GoName, Expr: "jsontypes.NewNormalizedValue(string(rec." + rf.GoName + "))"})
+			// flex.NormalizedToFramework, not jsontypes.NewNormalizedValue:
+			// the value has to be canonicalised on the way in. Semantic
+			// equality is not consulted when a generated configuration is
+			// planned, so the API's own spacing compared against the compact,
+			// sorted JSON `jsonencode({…})` produces reported a change on
+			// every record carrying JSON -- 9 kion_scope_criteria on one
+			// install, updating nothing. See flex.canonicalJSON, which the
+			// entity path already goes through.
+			d.Flattens = append(d.Flattens, bind{ModelGo: mf.GoName, Expr: "flex.NormalizedToFramework(rec." + rf.GoName + ")"})
 			continue
 		}
 		conv, ok := flattenConverter(rf)

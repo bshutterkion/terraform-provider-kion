@@ -13,7 +13,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	{{if .NeedsJx}}"github.com/go-faster/jx"
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	{{end}}{{.SDKAlias}} "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
 	"terraform-provider-kion/internal/errs"
