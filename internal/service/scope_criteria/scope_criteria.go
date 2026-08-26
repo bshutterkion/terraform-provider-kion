@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/go-faster/jx"
-	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -287,7 +286,7 @@ func newScopeCriteriaID(apiObject any, existing map[int64]bool) (int64, bool) {
 // flattenScopeCriteria maps a child record onto the model (excluding the parent id
 // and composite id, which the caller sets).
 func flattenScopeCriteria(rec generated.ScopeCriteriaRecord, model *ScopeCriteriaModel) {
-	model.Criteria = jsontypes.NewNormalizedValue(string(rec.Criteria))
+	model.Criteria = flex.NormalizedToFramework(rec.Criteria)
 	model.CriteriaId = flex.OptUint64ToFramework(rec.ID)
 	model.EndMonth = flex.OptUint64ToFramework(rec.EndMonth)
 	model.StartMonth = flex.OptUint64ToFramework(rec.StartMonth)
