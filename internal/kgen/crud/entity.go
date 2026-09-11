@@ -64,14 +64,14 @@ type entityData struct {
 	Gated              bool   // emit RequireKionVersionInRange in Create
 	// AtLeastOneOf are attributes the API requires at least one of. Emitted as
 	// a resource-level ConfigValidator so the failure lands at plan time.
-	AtLeastOneOf []string
-	SchemaVersion      int    // >0 bumps resp.Schema.Version (state migration)
-	CreateMethod       string
-	CreateBodyOpt      string
-	CreateBody         string
-	CreateBodyPtr      bool
-	CreateBinds        []fieldBind
-	CreateSliceBinds   []sliceBind
+	AtLeastOneOf     []string
+	SchemaVersion    int // >0 bumps resp.Schema.Version (state migration)
+	CreateMethod     string
+	CreateBodyOpt    string
+	CreateBody       string
+	CreateBodyPtr    bool
+	CreateBinds      []fieldBind
+	CreateSliceBinds []sliceBind
 	// Literal query-string discriminator params (ogen's __qs__ factory-create
 	// routes, e.g. POST /v3/account/__qs__/account-type/google-cloud): the create
 	// call takes a params struct whose single field is a compile-time constant

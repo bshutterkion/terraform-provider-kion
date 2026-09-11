@@ -11,9 +11,9 @@ import (
 // ConfigValidatorsPath is the authored list of cross-field API constraints.
 const ConfigValidatorsPath = "codegen/config_validators.yaml"
 
-// A constraint the API enforces across two or more attributes, which an
-// attribute-level schema cannot express: "required" is per-attribute, and
-// neither of an either-or pair is required on its own.
+// ConfigValidator is a constraint the API enforces across two or more
+// attributes, which an attribute-level schema cannot express: "required" is
+// per-attribute, and neither of an either-or pair is required on its own.
 //
 // Authored rather than derived. The OpenAPI spec carries almost no constraints
 // (3 enums, 16 patterns, 5 maxLength across 474 schemas), so the source is the

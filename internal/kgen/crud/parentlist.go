@@ -23,6 +23,7 @@ type parentListData struct {
 	ResConst, ResName, TypeName, SDKAlias           string
 	IDGo                                            string
 	Gated                                           bool
+	AtLeastOneOf                                    []string
 	ParentIDGo, ParentIDTF, ParentParam, ChildParam string
 	// ParentCast/ChildCast are non-empty (e.g. "uint64") when the SDK params
 	// field is not int64, so the int64 model/record ids must be converted.
@@ -82,7 +83,7 @@ func (g *generator) resolveParentList(name string, ops resOps, idx sdkIndex, arc
 	d := parentListData{
 		Pkg: name, Pascal: pascal, Model: pascal + "Model", SDKAlias: "generated",
 		ResConst: "ResName" + pascal, ResName: pascal + " Resource", TypeName: "kion_" + name,
-		Gated: gated, RecordType: arch.RecordType, ResponseType: arch.ResponseType,
+		Gated: gated, AtLeastOneOf: g.configValidators.For(name), RecordType: arch.RecordType, ResponseType: arch.ResponseType,
 		ParentParam: arch.ParentParam, ChildParam: arch.ChildParam,
 	}
 	if arch.RecordType == "" || arch.ResponseType == "" || arch.ParentParam == "" || arch.ChildParam == "" {

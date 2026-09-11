@@ -71,8 +71,8 @@ type generator struct {
 	// configValidators is codegen/config_validators.yaml: cross-field API
 	// constraints an attribute-level schema cannot express.
 	configValidators ConfigValidatorPolicy
-	downgrades  []downgrade    // data sources that lost their filter block this run
-	dropped     []droppedField // fields a list data source could not project this run
+	downgrades       []downgrade    // data sources that lost their filter block this run
+	dropped          []droppedField // fields a list data source could not project this run
 	// dataSources is the generator_config `data_sources` op-set, needed to reach
 	// a resource OTHER than the one being generated: a parent-scoped sweeper
 	// enumerates its parent's collection.
