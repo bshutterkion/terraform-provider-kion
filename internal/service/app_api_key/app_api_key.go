@@ -93,6 +93,11 @@ func (r *app_api_keyResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -172,6 +177,11 @@ func (r *app_api_keyResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 
 	resp.Diagnostics.Append(flattenAppApiKey(readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

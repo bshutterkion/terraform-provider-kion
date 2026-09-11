@@ -197,6 +197,11 @@ func (r *billing_sourceResource) Create(ctx context.Context, req resource.Create
 		resp.Diagnostics.Append(r.flatten(ctx, w, &plan)...)
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -304,6 +309,11 @@ func (r *billing_sourceResource) Update(ctx context.Context, req resource.Update
 	if found {
 		resp.Diagnostics.Append(r.flatten(ctx, w, &plan)...)
 	}
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

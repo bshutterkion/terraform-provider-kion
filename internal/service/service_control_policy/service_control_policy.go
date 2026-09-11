@@ -98,6 +98,11 @@ func (r *service_control_policyResource) Create(ctx context.Context, req resourc
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -176,6 +181,11 @@ func (r *service_control_policyResource) Update(ctx context.Context, req resourc
 	}
 
 	resp.Diagnostics.Append(flattenServiceControlPolicy(ctx, readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

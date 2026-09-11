@@ -100,6 +100,11 @@ func (r *service_catalogResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -181,6 +186,11 @@ func (r *service_catalogResource) Update(ctx context.Context, req resource.Updat
 	}
 
 	resp.Diagnostics.Append(flattenServiceCatalog(ctx, readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

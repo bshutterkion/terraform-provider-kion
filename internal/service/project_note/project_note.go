@@ -153,6 +153,11 @@ func (r *project_noteResource) Create(ctx context.Context, req resource.CreateRe
 		r.flatten(w, &plan)
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -210,6 +215,11 @@ func (r *project_noteResource) Update(ctx context.Context, req resource.UpdateRe
 	if found {
 		r.flatten(w, &plan)
 	}
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

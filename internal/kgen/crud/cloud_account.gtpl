@@ -347,6 +347,11 @@ func (r *{{.Recv}}Resource) Create(ctx context.Context, req resource.CreateReque
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -510,6 +515,11 @@ func (r *{{.Recv}}Resource) Update(ctx context.Context, req resource.UpdateReque
 	plan.Location = types.StringValue(currentLocation)
 
 	resp.Diagnostics.Append(r.readIntoModel(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

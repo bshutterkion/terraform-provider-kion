@@ -90,6 +90,11 @@ func (r *idms_open_id_access_ruleResource) Create(ctx context.Context, req resou
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -171,6 +176,11 @@ func (r *idms_open_id_access_ruleResource) Update(ctx context.Context, req resou
 	}
 
 	resp.Diagnostics.Append(flattenIdmsOpenIdAccessRule(readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

@@ -142,6 +142,11 @@ func (r *ou_enforcementResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 	flattenOuEnforcement(ctx, rec, &plan)
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -228,6 +233,11 @@ func (r *ou_enforcementResource) Update(ctx context.Context, req resource.Update
 	if found {
 		flattenOuEnforcement(ctx, rec, &plan)
 	}
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

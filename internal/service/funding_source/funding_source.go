@@ -102,6 +102,11 @@ func (r *funding_sourceResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -183,6 +188,11 @@ func (r *funding_sourceResource) Update(ctx context.Context, req resource.Update
 	}
 
 	resp.Diagnostics.Append(flattenFundingSource(readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

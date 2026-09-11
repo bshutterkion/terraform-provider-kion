@@ -102,6 +102,11 @@ func (r *billing_ruleResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -200,6 +205,11 @@ func (r *billing_ruleResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	resp.Diagnostics.Append(flattenBillingRule(readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

@@ -16,8 +16,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"terraform-provider-kion/internal/conns"
-	{{if .UsesFlex}}"terraform-provider-kion/internal/flex"
-	{{end}}"terraform-provider-kion/internal/framework"
+	"terraform-provider-kion/internal/flex"
+	"terraform-provider-kion/internal/framework"
 )
 
 const {{.ResConst}} = "{{.ResName}}"
@@ -132,6 +132,11 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 	} else {
 		plan.{{.IDGo}} = types.StringValue(strconv.FormatInt(created.RecordID, 10))
 	}
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -201,6 +206,11 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	if found {
 		r.flatten(w, &plan)
 	}
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 {{else}}

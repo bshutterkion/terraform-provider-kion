@@ -114,6 +114,11 @@ func (r *compliance_checkResource) Create(ctx context.Context, req resource.Crea
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -207,6 +212,11 @@ func (r *compliance_checkResource) Update(ctx context.Context, req resource.Upda
 	}
 
 	resp.Diagnostics.Append(flattenComplianceCheck(ctx, readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

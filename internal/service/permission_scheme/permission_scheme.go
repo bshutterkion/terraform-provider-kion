@@ -116,7 +116,12 @@ func (r *permission_schemeResource) Create(ctx context.Context, req resource.Cre
 
 	var roles []generated.AppRolePermission
 	var rolesSrc []RolesValue
-	resp.Diagnostics.Append(plan.Roles.ElementsAs(ctx, &rolesSrc, false)...)
+	// Guarded like the flex slice helpers: ElementsAs cannot convert a null or
+	// unknown collection into a concrete slice, and an Optional+Computed
+	// attribute the config omits is unknown at create.
+	if !plan.Roles.IsNull() && !plan.Roles.IsUnknown() {
+		resp.Diagnostics.Append(plan.Roles.ElementsAs(ctx, &rolesSrc, false)...)
+	}
 	for _, elem := range rolesSrc {
 		roles = append(roles, generated.AppRolePermission{
 			PermissionID: flex.NilUint64FromFramework(elem.PermissionId),
@@ -155,6 +160,11 @@ func (r *permission_schemeResource) Create(ctx context.Context, req resource.Cre
 	}
 	if found {
 		resp.Diagnostics.Append(r.flatten(ctx, w, &plan)...)
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
@@ -221,6 +231,11 @@ func (r *permission_schemeResource) Update(ctx context.Context, req resource.Upd
 	if found {
 		resp.Diagnostics.Append(r.flatten(ctx, w, &plan)...)
 	}
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

@@ -76,6 +76,11 @@ func (r *project_cloud_access_role_exemptionResource) Create(ctx context.Context
 	// No read endpoint exists; the plan holds every writable field, so it is the
 	// full post-create state.
 	plan.Id = types.StringValue(strconv.FormatInt(id, 10))
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

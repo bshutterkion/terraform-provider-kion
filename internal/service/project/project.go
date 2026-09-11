@@ -58,7 +58,12 @@ func (r *projectResource) Create(ctx context.Context, req resource.CreateRequest
 
 	var projectFunding []generated.ProjectFundingCreate
 	var projectFundingSrc []ProjectFundingValue
-	resp.Diagnostics.Append(plan.ProjectFunding.ElementsAs(ctx, &projectFundingSrc, false)...)
+	// Guarded like the flex slice helpers: ElementsAs cannot convert a null or
+	// unknown collection into a concrete slice, and an Optional+Computed
+	// attribute the config omits is unknown at create.
+	if !plan.ProjectFunding.IsNull() && !plan.ProjectFunding.IsUnknown() {
+		resp.Diagnostics.Append(plan.ProjectFunding.ElementsAs(ctx, &projectFundingSrc, false)...)
+	}
 	for _, elem := range projectFundingSrc {
 		projectFunding = append(projectFunding, generated.ProjectFundingCreate{
 			Amount:          flex.OptFloat64FromFramework(elem.Amount),
@@ -113,6 +118,11 @@ func (r *projectResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	resp.Diagnostics.Append(flattenProject(readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -198,6 +208,11 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 
 	resp.Diagnostics.Append(flattenProject(readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

@@ -75,7 +75,12 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 	}
 	{{end}}{{end}}{{range .CreateArrBinds}}var {{.Var}} []{{$.SDKAlias}}.{{.ElemType}}
 	var {{.Var}}Src []{{.ValueType}}
-	resp.Diagnostics.Append(plan.{{.ModelGo}}.ElementsAs(ctx, &{{.Var}}Src, false)...)
+	// Guarded like the flex slice helpers: ElementsAs cannot convert a null or
+	// unknown collection into a concrete slice, and an Optional+Computed
+	// attribute the config omits is unknown at create.
+	if !plan.{{.ModelGo}}.IsNull() && !plan.{{.ModelGo}}.IsUnknown() {
+		resp.Diagnostics.Append(plan.{{.ModelGo}}.ElementsAs(ctx, &{{.Var}}Src, false)...)
+	}
 	for _, elem := range {{.Var}}Src {
 		{{.Var}} = append({{.Var}}, {{$.SDKAlias}}.{{.ElemType}}{
 			{{- range .Subs}}
@@ -161,6 +166,11 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -234,7 +244,12 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	}
 	{{end}}{{range .UpdateArrBinds}}var {{.Var}} []{{$.SDKAlias}}.{{.ElemType}}
 	var {{.Var}}Src []{{.ValueType}}
-	resp.Diagnostics.Append(plan.{{.ModelGo}}.ElementsAs(ctx, &{{.Var}}Src, false)...)
+	// Guarded like the flex slice helpers: ElementsAs cannot convert a null or
+	// unknown collection into a concrete slice, and an Optional+Computed
+	// attribute the config omits is unknown at create.
+	if !plan.{{.ModelGo}}.IsNull() && !plan.{{.ModelGo}}.IsUnknown() {
+		resp.Diagnostics.Append(plan.{{.ModelGo}}.ElementsAs(ctx, &{{.Var}}Src, false)...)
+	}
 	for _, elem := range {{.Var}}Src {
 		{{.Var}} = append({{.Var}}, {{$.SDKAlias}}.{{.ElemType}}{
 			{{- range .Subs}}
@@ -389,6 +404,11 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	}
 
 	resp.Diagnostics.Append(flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj}}ctx, {{end}}readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

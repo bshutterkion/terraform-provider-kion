@@ -71,7 +71,7 @@ func TestAccKionCft_update(t *testing.T) {
 
 func testAccCftConfigBasic(rName string) string {
 	return fmt.Sprintf(`
-resource "kion_aws_cloudformation_template" "test" {
+resource "kion_cft" "test" {
   name           = %[1]q
   description    = "test-acc CFT"
   regions        = ["us-east-1"]
@@ -92,7 +92,7 @@ resource "kion_aws_cloudformation_template" "test" {
 
 func testAccCftConfigUpdate(rName string) string {
 	return fmt.Sprintf(`
-resource "kion_aws_cloudformation_template" "test" {
+resource "kion_cft" "test" {
   name           = %[1]q
   description    = "test-acc CFT updated"
   regions        = ["us-east-1"]

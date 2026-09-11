@@ -100,6 +100,11 @@ func (r *customVariableOverrideResource) Create(ctx context.Context, req resourc
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -158,6 +163,11 @@ func (r *customVariableOverrideResource) Update(ctx context.Context, req resourc
 
 	readDiags := readOverrideIntoModel(ctx, conn, &plan)
 	resp.Diagnostics.Append(readDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

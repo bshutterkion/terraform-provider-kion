@@ -148,7 +148,12 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 	}
 	{{end}}{{end}}{{range .CreateArrBinds}}var {{.Var}} []{{$.SDKAlias}}.{{.ElemType}}
 	var {{.Var}}Src []{{.ValueType}}
-	resp.Diagnostics.Append(plan.{{.ModelGo}}.ElementsAs(ctx, &{{.Var}}Src, false)...)
+	// Guarded like the flex slice helpers: ElementsAs cannot convert a null or
+	// unknown collection into a concrete slice, and an Optional+Computed
+	// attribute the config omits is unknown at create.
+	if !plan.{{.ModelGo}}.IsNull() && !plan.{{.ModelGo}}.IsUnknown() {
+		resp.Diagnostics.Append(plan.{{.ModelGo}}.ElementsAs(ctx, &{{.Var}}Src, false)...)
+	}
 	for _, elem := range {{.Var}}Src {
 		{{.Var}} = append({{.Var}}, {{$.SDKAlias}}.{{.ElemType}}{
 			{{- range .Subs}}
@@ -232,6 +237,11 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		{{if .RawRead.Nested}}resp.Diagnostics.Append(r.flatten(ctx, w, &plan)...){{else}}r.flatten(w, &plan){{end}}
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -301,6 +311,11 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	if found {
 		{{if .RawRead.Nested}}resp.Diagnostics.Append(r.flatten(ctx, w, &plan)...){{else}}r.flatten(w, &plan){{end}}
 	}
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 {{else if .HasUpdate}}
@@ -331,7 +346,12 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	}
 	{{end}}{{end}}{{range .UpdateArrBinds}}var {{.Var}} []{{$.SDKAlias}}.{{.ElemType}}
 	var {{.Var}}Src []{{.ValueType}}
-	resp.Diagnostics.Append(plan.{{.ModelGo}}.ElementsAs(ctx, &{{.Var}}Src, false)...)
+	// Guarded like the flex slice helpers: ElementsAs cannot convert a null or
+	// unknown collection into a concrete slice, and an Optional+Computed
+	// attribute the config omits is unknown at create.
+	if !plan.{{.ModelGo}}.IsNull() && !plan.{{.ModelGo}}.IsUnknown() {
+		resp.Diagnostics.Append(plan.{{.ModelGo}}.ElementsAs(ctx, &{{.Var}}Src, false)...)
+	}
 	for _, elem := range {{.Var}}Src {
 		{{.Var}} = append({{.Var}}, {{$.SDKAlias}}.{{.ElemType}}{
 			{{- range .Subs}}
@@ -402,6 +422,11 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	if found {
 		{{if .RawRead.Nested}}resp.Diagnostics.Append(r.flatten(ctx, w, &plan)...){{else}}r.flatten(w, &plan){{end}}
 	}
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 {{else}}

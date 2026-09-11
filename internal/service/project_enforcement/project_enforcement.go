@@ -155,6 +155,11 @@ func (r *project_enforcementResource) Create(ctx context.Context, req resource.C
 		return
 	}
 	flattenProjectEnforcement(ctx, rec, &plan)
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -243,6 +248,11 @@ func (r *project_enforcementResource) Update(ctx context.Context, req resource.U
 	if found {
 		flattenProjectEnforcement(ctx, rec, &plan)
 	}
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
