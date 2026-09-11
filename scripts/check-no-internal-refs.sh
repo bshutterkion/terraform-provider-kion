@@ -85,6 +85,33 @@ if paths=$(git ls-files | grep -E "$forbidden_paths"); then
   fail=1
 fi
 
+# Commit MESSAGES are published too, and nothing above looks at them: the
+# greps match tracked file contents and paths. That gap let 24 lines of backend
+# source paths, internal environment names and production entity counts reach a
+# public history, where the only remedy is rewriting published commits. Checked
+# here so it fails before the push instead.
+#
+# Scans the commits being pushed. INTERNAL_REF_COMMIT_RANGE overrides the range;
+# an unset upstream (a brand-new branch) falls back to the default branch.
+if [ "${INTERNAL_REF_SKIP_COMMITS:-0}" != "1" ]; then
+  range="${INTERNAL_REF_COMMIT_RANGE:-}"
+  if [ -z "$range" ]; then
+    base=$(git rev-parse --verify --quiet origin/main || git rev-parse --verify --quiet main || true)
+    [ -n "$base" ] && range="$base..HEAD"
+  fi
+  if [ -n "$range" ] && msgs=$(git log --format='%H %s%n%b' "$range" 2>/dev/null) && [ -n "$msgs" ]; then
+    for p in "${patterns[@]}"; do
+      if hits=$(printf '%s\n' "$msgs" | grep -nE "$p"); then
+        echo "✗ internal reference in a commit message, matched /$p/:" >&2
+        printf '%s\n' "$hits" | head -10 | sed 's/^/    /' >&2
+        echo "    (amend or reword before pushing: a published message cannot be" >&2
+        echo "     fixed without rewriting history)" >&2
+        fail=1
+      fi
+    done
+  fi
+fi
+
 if [ "$fail" -ne 0 ]; then
   cat >&2 <<'EOF'
 
