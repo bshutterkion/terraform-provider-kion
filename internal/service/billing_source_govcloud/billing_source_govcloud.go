@@ -107,7 +107,7 @@ func (r *billing_source_govcloudResource) Read(ctx context.Context, req resource
 		return
 	}
 
-	idInt, err := strconv.ParseUint(state.Id.ValueString(), 10, 64)
+	idInt, err := strconv.ParseUint(state.Id.ValueString(), 10, 63)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
@@ -141,6 +141,12 @@ func (r *billing_source_govcloudResource) Update(ctx context.Context, req resour
 		return
 	}
 
+	idInt, err := strconv.ParseUint(plan.Id.ValueString(), 10, 63)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := &generated.BillingSourceGovcloud{
 		AWSAccountNumber:       flex.OptStringFromFramework(plan.AwsAccountNumber),
 		AccountCreationEnabled: flex.OptNilBoolFromFramework(plan.AccountCreationEnabled),
@@ -148,12 +154,6 @@ func (r *billing_source_govcloudResource) Update(ctx context.Context, req resour
 		Name:                   flex.OptStringFromFramework(plan.Name),
 		PayerID:                flex.OptNilUint64FromFramework(plan.PayerId),
 		ServiceExternalID:      flex.OptStringFromFramework(plan.ServiceExternalId),
-	}
-
-	idInt, err := strconv.ParseUint(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchBillingSourceUpdateGovcloudInfo(ctx, input, generated.PatchBillingSourceUpdateGovcloudInfoParams{ID: idInt})
@@ -197,7 +197,7 @@ func (r *billing_source_govcloudResource) Delete(ctx context.Context, req resour
 		return
 	}
 
-	idInt, err := strconv.ParseUint(state.Id.ValueString(), 10, 64)
+	idInt, err := strconv.ParseUint(state.Id.ValueString(), 10, 63)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return

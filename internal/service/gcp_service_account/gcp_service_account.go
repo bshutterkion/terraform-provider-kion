@@ -145,6 +145,12 @@ func (r *gcp_service_accountResource) Update(ctx context.Context, req resource.U
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := &generated.GoogleCloudServiceAccountUpdate{
 		Description:             flex.OptStringFromFramework(plan.Description),
 		DisplayName:             flex.OptStringFromFramework(plan.DisplayName),
@@ -152,12 +158,6 @@ func (r *gcp_service_accountResource) Update(ctx context.Context, req resource.U
 		Name:                    flex.OptStringFromFramework(plan.Name),
 		OAuthClientID:           flex.OptStringFromFramework(plan.OauthClientId),
 		OAuthClientSecret:       flex.OptStringFromFramework(plan.OauthClientSecret),
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchServiceAccount(ctx, input, generated.PatchServiceAccountParams{ID: idInt})

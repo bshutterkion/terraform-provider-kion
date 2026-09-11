@@ -132,11 +132,18 @@ func (g *generator) resolveBlended(name string, ops resOps, idx sdkIndex, pe raw
 	for _, mf := range model {
 		byTF[mf.TFSDK] = mf
 	}
-	if rm.CreateNested, err = resolveNested(g.src, schemaGen, rm.Create.Body, byTF, idx, pe.NoGuard); err != nil {
+	if rm.CreateNested, err = resolveNested(g.src, schemaGen, rm.Create.Body, byTF, idx, nestedOpts{NoGuard: pe.NoGuard}); err != nil {
 		return entityData{}, fmt.Errorf("%s create nested: %w", name, err)
 	}
 	if rm.Update != nil {
-		if rm.UpdateNested, err = resolveNested(g.src, schemaGen, rm.Update.Body, byTF, idx, pe.NoGuard); err != nil {
+		// The private read's declared shape doubles as the write shape: a body
+		// array that the read explodes into flat model rows has to be regrouped
+		// on the way out. See implodeBind.
+		opts := nestedOpts{NoGuard: pe.NoGuard, IDAttr: rm.IDField.TFSDK, IDVar: "idInt"}
+		if pe.ReadShape != nil {
+			opts.Implode = pe.ReadShape.Explode
+		}
+		if rm.UpdateNested, err = resolveNested(g.src, schemaGen, rm.Update.Body, byTF, idx, opts); err != nil {
 			return entityData{}, fmt.Errorf("%s update nested: %w", name, err)
 		}
 	}
@@ -161,6 +168,7 @@ func (g *generator) resolveBlended(name string, ops resOps, idx sdkIndex, pe raw
 				break
 			}
 		}
+		d.IDParseBits = idParseBits(d.IDParamType)
 	}
 
 	// Raw private read: a declared nested shape (read_shape) when the wire isn't

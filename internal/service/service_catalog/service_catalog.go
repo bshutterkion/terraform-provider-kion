@@ -151,6 +151,12 @@ func (r *service_catalogResource) Update(ctx context.Context, req resource.Updat
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := &generated.ServiceCatalogPortfolioUpdate{
 		AccountID:   flex.OptNilUint64FromFramework(plan.AccountId),
 		Description: flex.OptStringFromFramework(plan.Description),
@@ -158,12 +164,6 @@ func (r *service_catalogResource) Update(ctx context.Context, req resource.Updat
 		PortfolioID: flex.OptStringFromFramework(plan.PortfolioId),
 		Region:      flex.OptStringFromFramework(plan.Region),
 		TagOption:   flex.OptNilBoolFromFramework(plan.TagOption),
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchServiceCatalogPortfolio(ctx, input, generated.PatchServiceCatalogPortfolioParams{ID: idInt})

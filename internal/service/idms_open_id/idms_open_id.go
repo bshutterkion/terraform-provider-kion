@@ -172,6 +172,12 @@ func (r *idms_open_idResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	scopes, scopesDiags := flex.StringSliceFromFrameworkSet(ctx, plan.Scopes)
 	resp.Diagnostics.Append(scopesDiags...)
 	if resp.Diagnostics.HasError() {
@@ -193,12 +199,6 @@ func (r *idms_open_idResource) Update(ctx context.Context, req resource.UpdateRe
 			Scopes:                generated.OptNilStringArray{Value: scopes, Set: true},
 		},
 		Set: true,
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchOpenID(ctx, input, generated.PatchOpenIDParams{ID: idInt})

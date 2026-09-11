@@ -144,17 +144,17 @@ func (r *app_api_keyResource) Update(ctx context.Context, req resource.UpdateReq
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := generated.OptAppAPIKeyName{
 		Value: generated.AppAPIKeyName{
 			Name: flex.StringValueFromFramework(plan.Name),
 		},
 		Set: true,
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchAppAPIKey(ctx, input, generated.PatchAppAPIKeyParams{ID: idInt})

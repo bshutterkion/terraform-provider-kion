@@ -157,16 +157,16 @@ func (r *custom_accountResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
-	input := &generated.AccountUpdatable{
-		AccountAlias:  flex.OptStringFromFramework(plan.AccountAlias),
-		AccountName:   flex.OptStringFromFramework(plan.AccountName),
-		StartDatecode: flex.OptStringFromFramework(plan.StartDatecode),
-	}
-
 	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
+	}
+
+	input := &generated.AccountUpdatable{
+		AccountAlias:  flex.OptStringFromFramework(plan.AccountAlias),
+		AccountName:   flex.OptStringFromFramework(plan.AccountName),
+		StartDatecode: flex.OptStringFromFramework(plan.StartDatecode),
 	}
 
 	out, err := conn.PatchAccount(ctx, input, generated.PatchAccountParams{ID: idInt})

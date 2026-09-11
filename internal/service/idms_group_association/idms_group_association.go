@@ -143,6 +143,12 @@ func (r *idms_group_associationResource) Update(ctx context.Context, req resourc
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := generated.OptUpdateSAMLGroupAssociation{
 		Value: generated.UpdateSAMLGroupAssociation{
 			AssertionName:  flex.OptStringFromFramework(plan.AssertionName),
@@ -151,12 +157,6 @@ func (r *idms_group_associationResource) Update(ctx context.Context, req resourc
 			UserGroupID:    flex.OptNilUint64FromFramework(plan.UserGroupId),
 		},
 		Set: true,
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchIDMSGroupAssociation(ctx, input, generated.PatchIDMSGroupAssociationParams{ID: idInt})

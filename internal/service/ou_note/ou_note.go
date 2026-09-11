@@ -154,15 +154,15 @@ func (r *ou_noteResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
-	input := &generated.OUNoteUpdate{
-		Name: flex.OptStringFromFramework(plan.Name),
-		Text: flex.OptStringFromFramework(plan.Text),
-	}
-
 	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
+	}
+
+	input := &generated.OUNoteUpdate{
+		Name: flex.OptStringFromFramework(plan.Name),
+		Text: flex.OptStringFromFramework(plan.Text),
 	}
 
 	out, err := conn.PatchOUNote(ctx, input, generated.PatchOUNoteParams{ID: idInt})

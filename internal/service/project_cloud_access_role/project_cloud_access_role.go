@@ -196,6 +196,12 @@ func (r *project_cloud_access_roleResource) Update(ctx context.Context, req reso
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	var aWSSessionTags []generated.AWSSessionTag
 	var aWSSessionTagsSrc []AwsSessionTagsValue
 	// Guarded like the flex slice helpers: ElementsAs cannot convert a null or
@@ -229,12 +235,6 @@ func (r *project_cloud_access_roleResource) Update(ctx context.Context, req reso
 		WebAccess:                 flex.OptNilBoolFromFramework(plan.WebAccess),
 		CloudProviderIds:          generated.OptNilUint64Array{Value: cloudProviderIds, Set: true},
 		AWSSessionTags:            generated.OptNilAWSSessionTagArray{Value: aWSSessionTags, Set: true},
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchProjectCloudAccessRole(ctx, input, generated.PatchProjectCloudAccessRoleParams{ID: idInt})

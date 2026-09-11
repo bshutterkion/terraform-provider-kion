@@ -4,10 +4,13 @@
 package custom_variable
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
+	"github.com/go-faster/jx"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -56,6 +59,12 @@ func (r *custom_variableResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
+	defaultValue, defaultValueDiags := buildDefaultValue(ctx, &plan)
+	resp.Diagnostics.Append(defaultValueDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserGroupIds)
 	resp.Diagnostics.Append(ownerUserGroupIdsDiags...)
 	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserIds)
@@ -75,6 +84,7 @@ func (r *custom_variableResource) Create(ctx context.Context, req resource.Creat
 			ValueValidationRegex:   flex.OptStringFromFramework(plan.ValueValidationRegex),
 			OwnerUserGroupIds:      generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
 			OwnerUserIds:           generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
+			DefaultValue:           defaultValue,
 		},
 		Set: true,
 	}
@@ -156,6 +166,18 @@ func (r *custom_variableResource) Update(ctx context.Context, req resource.Updat
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
+	defaultValue, defaultValueDiags := buildDefaultValue(ctx, &plan)
+	resp.Diagnostics.Append(defaultValueDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserGroupIds)
 	resp.Diagnostics.Append(ownerUserGroupIdsDiags...)
 	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserIds)
@@ -173,14 +195,9 @@ func (r *custom_variableResource) Update(ctx context.Context, req resource.Updat
 			ValueValidationRegex:   flex.OptStringFromFramework(plan.ValueValidationRegex),
 			OwnerUserGroupIds:      generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
 			OwnerUserIds:           generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
+			DefaultValue:           defaultValue,
 		},
 		Set: true,
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.UpdateGlobalCustomVariable(ctx, input, generated.UpdateGlobalCustomVariableParams{CustomVariableID: idInt})
@@ -269,9 +286,129 @@ func flattenCustomVariable(ctx context.Context, apiObject any, model *CustomVari
 			ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceToFrameworkSet(ctx, v.Data.Value.OwnerUserIds.Value)
 			diags.Append(ownerUserIdsDiags...)
 			model.OwnerUserIds = ownerUserIds
+			diags.Append(flattenDefaultValue(ctx, v.Data.Value.DefaultValue, model)...)
 		}
 		return diags
 	default:
 		return errs.ResponseDiagnostics("reading "+ResNameCustomVariable, apiObject)
 	}
+}
+
+// buildDefaultValue collapses the typed default_value_* attributes onto the single
+// polymorphic default_value the API takes. The spec leaves default_value untyped, so the
+// schema splits it into typed variants; exactly one of them is the value.
+func buildDefaultValue(ctx context.Context, plan *CustomVariableModel) (jx.Raw, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	stringSet := !plan.DefaultValueString.IsNull() && !plan.DefaultValueString.IsUnknown()
+	listSet := !plan.DefaultValueList.IsNull() && !plan.DefaultValueList.IsUnknown()
+	mapSet := !plan.DefaultValueMap.IsNull() && !plan.DefaultValueMap.IsUnknown()
+
+	set := 0
+	if stringSet {
+		set++
+	}
+	if listSet {
+		set++
+	}
+	if mapSet {
+		set++
+	}
+	if set > 1 {
+		diags.AddError(
+			fmt.Sprintf("building %s default_value", ResNameCustomVariable),
+			"only one of default_value_string, default_value_list, or default_value_map may be set",
+		)
+		return nil, diags
+	}
+	if set == 0 {
+		diags.AddError(
+			fmt.Sprintf("building %s default_value", ResNameCustomVariable),
+			"one of default_value_string, default_value_list, or default_value_map must be set",
+		)
+		return nil, diags
+	}
+
+	switch {
+	case stringSet:
+		b, err := json.Marshal(plan.DefaultValueString.ValueString())
+		if err != nil {
+			diags.AddError(fmt.Sprintf("building %s default_value", ResNameCustomVariable), err.Error())
+			return nil, diags
+		}
+		return jx.Raw(b), diags
+	case listSet:
+		items, d := flex.StringSliceFromFramework(ctx, plan.DefaultValueList)
+		diags.Append(d...)
+		if diags.HasError() {
+			return nil, diags
+		}
+		if items == nil {
+			items = []string{}
+		}
+		b, err := json.Marshal(items)
+		if err != nil {
+			diags.AddError(fmt.Sprintf("building %s default_value", ResNameCustomVariable), err.Error())
+			return nil, diags
+		}
+		return jx.Raw(b), diags
+	case mapSet:
+		var elems map[string]string
+		diags.Append(plan.DefaultValueMap.ElementsAs(ctx, &elems, false)...)
+		if diags.HasError() {
+			return nil, diags
+		}
+		if elems == nil {
+			elems = map[string]string{}
+		}
+		b, err := json.Marshal(elems)
+		if err != nil {
+			diags.AddError(fmt.Sprintf("building %s default_value", ResNameCustomVariable), err.Error())
+			return nil, diags
+		}
+		return jx.Raw(b), diags
+	}
+
+	return nil, diags
+}
+
+// flattenDefaultValue takes the polymorphic default_value the API returns back apart into the
+// typed attributes the schema exposes, so what was sent comes back on refresh
+// and import. The JSON says which variant it is: an array is the list, an
+// object the map, anything else the string.
+func flattenDefaultValue(ctx context.Context, raw jx.Raw, model *CustomVariableModel) diag.Diagnostics {
+	var diags diag.Diagnostics
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || string(trimmed) == "null" {
+		return diags
+	}
+
+	switch trimmed[0] {
+	case '[':
+		var items []string
+		if err := json.Unmarshal(trimmed, &items); err != nil {
+			diags.AddError(fmt.Sprintf("reading %s default_value", ResNameCustomVariable), err.Error())
+			return diags
+		}
+		list, d := types.ListValueFrom(ctx, types.StringType, items)
+		diags.Append(d...)
+		model.DefaultValueList = list
+	case '{':
+		var elems map[string]string
+		if err := json.Unmarshal(trimmed, &elems); err != nil {
+			diags.AddError(fmt.Sprintf("reading %s default_value", ResNameCustomVariable), err.Error())
+			return diags
+		}
+		m, d := types.MapValueFrom(ctx, types.StringType, elems)
+		diags.Append(d...)
+		model.DefaultValueMap = m
+	default:
+		var s string
+		if err := json.Unmarshal(trimmed, &s); err != nil {
+			diags.AddError(fmt.Sprintf("reading %s default_value", ResNameCustomVariable), err.Error())
+			return diags
+		}
+		model.DefaultValueString = types.StringValue(s)
+	}
+
+	return diags
 }

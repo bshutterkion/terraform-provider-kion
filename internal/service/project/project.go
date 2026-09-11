@@ -173,6 +173,12 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := &generated.ProjectUpdate{
 		Archived:           flex.OptNilBoolFromFramework(plan.Archived),
 		AutoPay:            flex.OptNilBoolFromFramework(plan.AutoPay),
@@ -180,12 +186,6 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 		Description:        flex.OptStringFromFramework(plan.Description),
 		Name:               flex.OptStringFromFramework(plan.Name),
 		PermissionSchemeID: flex.OptNilInt64FromFramework(plan.PermissionSchemeId),
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchProject(ctx, input, generated.PatchProjectParams{ID: idInt})

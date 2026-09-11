@@ -163,17 +163,17 @@ func (r *azure_policyResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := &generated.AzurePolicyDefinitionUpdate{
 		Description: flex.OptStringFromFramework(plan.AzurePolicy.Description),
 		Name:        flex.OptStringFromFramework(plan.AzurePolicy.Name),
 		Parameters:  flex.OptStringFromFramework(plan.AzurePolicy.Parameters),
 		Policy:      flex.OptStringFromFramework(plan.AzurePolicy.Policy),
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchAzurePolicy(ctx, input, generated.PatchAzurePolicyParams{ID: idInt})

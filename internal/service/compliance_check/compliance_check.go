@@ -165,6 +165,12 @@ func (r *compliance_checkResource) Update(ctx context.Context, req resource.Upda
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	regions, regionsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.Regions)
 	resp.Diagnostics.Append(regionsDiags...)
 	if resp.Diagnostics.HasError() {
@@ -184,12 +190,6 @@ func (r *compliance_checkResource) Update(ctx context.Context, req resource.Upda
 		Name:                  flex.OptStringFromFramework(plan.Name),
 		SeverityTypeID:        flex.OptNilUint64FromFramework(plan.SeverityTypeId),
 		Regions:               regions,
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchComplianceCheck(ctx, input, generated.PatchComplianceCheckParams{ID: idInt})

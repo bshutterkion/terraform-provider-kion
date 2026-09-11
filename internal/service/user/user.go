@@ -157,6 +157,12 @@ func (r *userResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := generated.OptUserUpdatable{
 		Value: generated.UserUpdatable{
 			Email:     flex.OptStringFromFramework(plan.Email),
@@ -167,12 +173,6 @@ func (r *userResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			Username:  flex.OptStringFromFramework(plan.Username),
 		},
 		Set: true,
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchUser(ctx, input, generated.PatchUserParams{ID: idInt})

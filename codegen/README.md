@@ -41,6 +41,7 @@ nothing, and one drifted for months before anyone noticed.
 | `renames.yaml` | no | Attribute renames, applied before schema overrides |
 | `crud_archetypes.yaml` | no | Which CRUD shape each resource uses |
 | `private_endpoints.yaml` | no | Endpoints absent from the public spec, served over raw HTTP |
+| `unbound_attributes.yaml` | **yes**, by `make bind-audit` | Ratchet over attributes no request sends. See "Nothing may be dropped in silence" |
 | `memberships.yaml`, `state_upgrades.yaml`, `test_values.yaml`, `version_support.yaml` | mixed | See the header comment in each |
 
 **Never hand-edit `generator_config.yaml`.** It is regenerated from the service
@@ -65,6 +66,46 @@ no longer generated in any meaningful sense. Both were broken before this was
 written: five entries existed only by hand, and regenerating dropped `count` and
 `page` from `billing_source`'s ignores, which fails schema validation because
 `count` is a reserved Terraform root attribute name.
+
+## Nothing may be dropped in silence
+
+Request bodies are assembled by matching SDK fields to model fields by
+json/tfsdk name. Until recently, a field that matched nothing was skipped
+without a word — in either direction. That is invisible to `build`, `vet`,
+`lint` and the unit tests, because the result is a struct literal that compiles
+and type-checks. It is also the shape of two shipped bugs:
+
+- `custom_variable` split one polymorphic `default_value` into three typed
+  attributes, matched none of them, and sent a create body with no default value
+  in it (#61).
+- `permission_scheme`'s update body nests `app_policy`/`permission_roles` while
+  the model is flat, so nothing matched and the provider sent `{}` (#64).
+
+`make bind-check` (`internal/kgen/bindaudit`, run by `ci-test`) fails when a
+settable attribute is read by neither the resource's `Create` nor its `Update`.
+It reads the **generated output**, not the spec, so bespoke and hand-written
+bodies are audited by the same rule and it runs without `spec/openapi3.json`.
+Pre-existing debt lives in `unbound_attributes.yaml`, a ratchet: adding an entry
+is a reviewed act and an entry that stops reproducing fails the test too.
+
+Three derivations exist so that shapes like the two above map instead of being
+dropped, and none needs a declaration of its own:
+
+- **Object wrap** — a body field that is a struct the model does not mirror,
+  whose sub-fields *are* the model's top-level attributes (`app_policy`). The
+  inverse of the existing `FlatSubs`.
+- **Implode** — a body array that a declared `read_shape` explode already
+  describes; writing regroups the flat model rows the read exploded. Inverting
+  the read shape means the two cannot drift apart.
+- **Polymorphic raw value** — a `jx.Raw` body field the schema re-expresses as
+  `<name>_string` / `<name>_list` / `<name>_map`. The generator emits a builder
+  that takes exactly one of them, and a flattener that takes the value back
+  apart on read so it survives refresh and import.
+
+An attribute an update genuinely cannot change belongs under `RequiresReplace`,
+which removes it from the update side of the audit for the right reason. The
+provider barely uses it today; most `:update` entries in the baseline are that
+choice never having been made.
 
 ## Derivation guesses, and sometimes guesses wrong
 

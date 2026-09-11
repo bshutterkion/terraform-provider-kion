@@ -203,12 +203,47 @@ func (r *permission_schemeResource) Update(ctx context.Context, req resource.Upd
 		return
 	}
 
-	input := &generated.PermissionSchemeUpdateRequest{}
-
-	idInt, err := strconv.ParseUint(plan.Id.ValueString(), 10, 64)
+	idInt, err := strconv.ParseUint(plan.Id.ValueString(), 10, 63)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
+	}
+
+	appPolicy := generated.PermissionSchemeToUpdate{
+		ID:   uint64(idInt),
+		Name: flex.OptStringFromFramework(plan.Name),
+		Type: flex.OptStringFromFramework(plan.Type),
+	}
+	var permissionRoles []generated.AppRoleArrayPermission
+	var permissionRolesSrc []RolesValue
+	if !plan.Roles.IsNull() && !plan.Roles.IsUnknown() {
+		resp.Diagnostics.Append(plan.Roles.ElementsAs(ctx, &permissionRolesSrc, false)...)
+	}
+	// The model holds one row per pair; the API takes one entry per key
+	// carrying every member. Regroup, keeping first-seen key order so an
+	// unchanged configuration re-sends an unchanged body.
+	permissionRolesOrder := make([]int64, 0, len(permissionRolesSrc))
+	permissionRolesMembers := make(map[int64][]uint64, len(permissionRolesSrc))
+	for _, elem := range permissionRolesSrc {
+		k := elem.PermissionId.ValueInt64()
+		if _, seen := permissionRolesMembers[k]; !seen {
+			permissionRolesOrder = append(permissionRolesOrder, k)
+		}
+		permissionRolesMembers[k] = append(permissionRolesMembers[k], uint64(elem.RoleId.ValueInt64()))
+	}
+	for _, k := range permissionRolesOrder {
+		permissionRoles = append(permissionRoles, generated.AppRoleArrayPermission{
+			PermissionID: flex.NilUint64FromFramework(types.Int64Value(k)),
+			RoleIds:      permissionRolesMembers[k],
+		})
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	input := &generated.PermissionSchemeUpdateRequest{
+		AppPolicy:       generated.OptPermissionSchemeToUpdate{Value: appPolicy, Set: true},
+		PermissionRoles: generated.OptNilAppRoleArrayPermissionArray{Value: permissionRoles, Set: true},
 	}
 
 	out, err := conn.UpdatePermissionScheme(ctx, input, generated.UpdatePermissionSchemeParams{ID: idInt})
@@ -248,7 +283,7 @@ func (r *permission_schemeResource) Delete(ctx context.Context, req resource.Del
 		return
 	}
 
-	idInt, err := strconv.ParseUint(state.Id.ValueString(), 10, 64)
+	idInt, err := strconv.ParseUint(state.Id.ValueString(), 10, 63)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return

@@ -161,6 +161,12 @@ func (r *gcp_iam_roleResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	ownerUserGroupIds, ownerUserGroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserGroupIds)
 	resp.Diagnostics.Append(ownerUserGroupIdsDiags...)
 	ownerUserIds, ownerUserIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserIds)
@@ -181,12 +187,6 @@ func (r *gcp_iam_roleResource) Update(ctx context.Context, req resource.UpdateRe
 		OwnerUserIds:       generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
 		RoleDenials:        generated.OptNilStringArray{Value: roleDenials, Set: true},
 		RolePermissions:    generated.OptNilStringArray{Value: rolePermissions, Set: true},
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchGCPRole(ctx, input, generated.PatchGCPRoleParams{ID: idInt})
