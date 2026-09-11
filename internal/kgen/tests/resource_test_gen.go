@@ -32,6 +32,7 @@ func buildResourceTestFile(pkgName, typeName, snake, pascal string, s rsschema.S
 	hasName := hasNameField(requiredAttrs)
 	meta := GetMeta(typeName)
 	hasSDK := meta != nil && meta.SDKGetMethod != ""
+	hasRaw := !hasSDK && metaHasRawCollection(meta)
 	needsRName := hasName || metaHasFormatVerbs(meta)
 
 	var b strings.Builder
@@ -40,12 +41,18 @@ func buildResourceTestFile(pkgName, typeName, snake, pascal string, s rsschema.S
 	fmt.Fprintf(&b, "package %s_test\n\n", pkgName)
 	b.WriteString("import (\n")
 	b.WriteString("\t\"context\"\n")
+	if hasRaw {
+		b.WriteString("\t\"encoding/json\"\n")
+	}
 	b.WriteString("\t\"fmt\"\n")
 	if metaNeedsEnv(meta) {
 		b.WriteString("\t\"os\"\n")
 	}
-	if hasSDK {
+	if hasSDK || hasRaw {
 		b.WriteString("\t\"strconv\"\n")
+	}
+	if hasRaw && meta.RawCollectionParentField != "" {
+		b.WriteString("\t\"strings\"\n")
 	}
 	b.WriteString("\t\"testing\"\n")
 	b.WriteString("\n")
@@ -53,6 +60,12 @@ func buildResourceTestFile(pkgName, typeName, snake, pascal string, s rsschema.S
 	b.WriteString("\t\"github.com/hashicorp/terraform-plugin-testing/terraform\"\n")
 	b.WriteString("\n")
 	b.WriteString("\t\"terraform-provider-kion/internal/acctest\"\n")
+	if hasRaw {
+		b.WriteString("\t\"terraform-provider-kion/internal/conns\"\n")
+		if meta.RawCollectionDiscriminator != "" {
+			b.WriteString("\t\"terraform-provider-kion/internal/flex\"\n")
+		}
+	}
 	if hasSDK {
 		b.WriteString("\t\"terraform-provider-kion/internal/errs\"\n")
 		b.WriteString("\n")
@@ -106,6 +119,9 @@ func buildResourceTestFile(pkgName, typeName, snake, pascal string, s rsschema.S
 	if hasUpdate {
 		writeUpdateTest(&b, pascal, typeName, needsRName, meta)
 	}
+
+	// rawLookup<Name>, when the record is only visible through a collection
+	buildRawLookupFunc(&b, pascal, meta, hasRaw)
 
 	// testAccCheck<Name>Exists
 	buildExistsFunc(&b, pascal, typeName, meta)
@@ -248,9 +264,120 @@ func writeEnvSkips(b *strings.Builder, meta *ResourceMeta) {
 	}
 }
 
+// metaHasRawCollection reports whether the resource is read back through a
+// private collection rather than a single-record SDK get.
+func metaHasRawCollection(meta *ResourceMeta) bool {
+	return meta != nil && meta.RawCollectionPath != ""
+}
+
+// rawLookupArgs is the argument list the generated rawLookup<Name> takes: the
+// parent id first when the collection is parent-scoped, then the record id.
+func rawLookupArgs(meta *ResourceMeta) string {
+	if meta.RawCollectionParentField != "" {
+		return "parentID, id string"
+	}
+	return "id string"
+}
+
+// buildRawLookupFunc emits rawLookup<Name>, which answers whether the private
+// collection the resource is read through still holds a given id. It is what
+// the Exists and Destroy checks call for a resource with no single-record GET,
+// replacing a TODO stub that returned nil however the API had behaved.
+func buildRawLookupFunc(b *strings.Builder, pascal string, meta *ResourceMeta, hasRaw bool) {
+	if !hasRaw {
+		return
+	}
+
+	fmt.Fprintf(b, "// rawLookup%s reports whether the private collection this resource is read\n", pascal)
+	b.WriteString("// through still holds the given id. There is no single-record GET, so the\n")
+	b.WriteString("// collection is the only way to see the record.\n")
+	fmt.Fprintf(b, "func rawLookup%s(%s) (bool, error) {\n", pascal, rawLookupArgs(meta))
+	b.WriteString("\tconn, err := acctest.SharedClient()\n")
+	b.WriteString("\tif err != nil {\n")
+	b.WriteString("\t\treturn false, fmt.Errorf(\"getting shared client: %w\", err)\n")
+	b.WriteString("\t}\n\n")
+	b.WriteString("\twant, err := strconv.ParseInt(id, 10, 64)\n")
+	b.WriteString("\tif err != nil {\n")
+	b.WriteString("\t\treturn false, fmt.Errorf(\"parsing ID %q: %w\", id, err)\n")
+	b.WriteString("\t}\n\n")
+	if meta.RawCollectionParentField != "" {
+		fmt.Fprintf(b, "\tpath := strings.Replace(%q, \"{parent}\", parentID, 1)\n", meta.RawCollectionPath)
+	} else {
+		fmt.Fprintf(b, "\tpath := %q\n", meta.RawCollectionPath)
+	}
+	b.WriteString("\tbody, err := conn.RawGet(context.Background(), path)\n")
+	b.WriteString("\tif err != nil {\n")
+	b.WriteString("\t\tif conns.IsRawNotFound(err) {\n")
+	b.WriteString("\t\t\treturn false, nil\n")
+	b.WriteString("\t\t}\n")
+	b.WriteString("\t\treturn false, fmt.Errorf(\"reading %s: %w\", path, err)\n")
+	b.WriteString("\t}\n\n")
+	b.WriteString("\tvar env struct {\n")
+	b.WriteString("\t\tData []struct {\n")
+	// Field widths are padded to what gofmt would produce: the generator writes
+	// the file verbatim, so a misaligned struct tag is a gofmt failure in CI.
+	if meta.RawCollectionDiscriminator != "" {
+		b.WriteString("\t\t\tID   int64         `json:\"id\"`\n")
+		fmt.Fprintf(b, "\t\t\tKind *flex.NullInt `json:%q`\n", meta.RawCollectionDiscriminator)
+	} else {
+		b.WriteString("\t\t\tID int64 `json:\"id\"`\n")
+	}
+	b.WriteString("\t\t} `json:\"data\"`\n")
+	b.WriteString("\t}\n")
+	b.WriteString("\tif err := json.Unmarshal(body, &env); err != nil {\n")
+	b.WriteString("\t\treturn false, fmt.Errorf(\"decoding %s: %w\", path, err)\n")
+	b.WriteString("\t}\n\n")
+	b.WriteString("\tfor _, rec := range env.Data {\n")
+	b.WriteString("\t\tif rec.ID != want {\n")
+	b.WriteString("\t\t\tcontinue\n")
+	b.WriteString("\t\t}\n")
+	if meta.RawCollectionDiscriminator != "" {
+		b.WriteString("\t\t// The collection mixes in a neighboring kind's records; only those\n")
+		fmt.Fprintf(b, "\t\t// carrying a valid %s are this resource.\n", meta.RawCollectionDiscriminator)
+		b.WriteString("\t\tif rec.Kind == nil || !rec.Kind.Valid {\n")
+		b.WriteString("\t\t\tcontinue\n")
+		b.WriteString("\t\t}\n")
+	}
+	b.WriteString("\t\treturn true, nil\n")
+	b.WriteString("\t}\n")
+	b.WriteString("\treturn false, nil\n")
+	b.WriteString("}\n\n")
+}
+
+// rawLookupCall renders the call to rawLookup<Name> for a state resource held
+// in the variable rs.
+func rawLookupCall(pascal string, meta *ResourceMeta) string {
+	if meta.RawCollectionParentField != "" {
+		return fmt.Sprintf("rawLookup%s(rs.Primary.Attributes[%q], rs.Primary.ID)", pascal, meta.RawCollectionParentField)
+	}
+	return fmt.Sprintf("rawLookup%s(rs.Primary.ID)", pascal)
+}
+
 // buildExistsFunc generates the testAccCheck<Name>Exists function.
 // When SDK metadata is available, it produces a real API call; otherwise a TODO stub.
 func buildExistsFunc(b *strings.Builder, pascal, typeName string, meta *ResourceMeta) {
+	if meta != nil && meta.SDKGetMethod == "" && meta.RawCollectionPath != "" {
+		fmt.Fprintf(b, "func testAccCheck%sExists(_ context.Context, name string) resource.TestCheckFunc {\n", pascal)
+		b.WriteString("\treturn func(s *terraform.State) error {\n")
+		b.WriteString("\t\trs, ok := s.RootModule().Resources[name]\n")
+		b.WriteString("\t\tif !ok {\n")
+		b.WriteString("\t\t\treturn fmt.Errorf(\"not found: %s\", name)\n")
+		b.WriteString("\t\t}\n")
+		b.WriteString("\t\tif rs.Primary.ID == \"\" {\n")
+		b.WriteString("\t\t\treturn fmt.Errorf(\"no ID set for %s\", name)\n")
+		b.WriteString("\t\t}\n\n")
+		fmt.Fprintf(b, "\t\tfound, err := %s\n", rawLookupCall(pascal, meta))
+		b.WriteString("\t\tif err != nil {\n")
+		b.WriteString("\t\t\treturn err\n")
+		b.WriteString("\t\t}\n")
+		b.WriteString("\t\tif !found {\n")
+		fmt.Fprintf(b, "\t\t\treturn fmt.Errorf(\"%s (%%s) not found\", rs.Primary.ID)\n", typeName)
+		b.WriteString("\t\t}\n\n")
+		b.WriteString("\t\treturn nil\n")
+		b.WriteString("\t}\n")
+		b.WriteString("}\n\n")
+		return
+	}
 	if meta != nil && meta.SDKGetMethod != "" {
 		fmt.Fprintf(b, "func testAccCheck%sExists(_ context.Context, name string) resource.TestCheckFunc {\n", pascal)
 		b.WriteString("\treturn func(s *terraform.State) error {\n")
@@ -301,6 +428,26 @@ func buildExistsFunc(b *strings.Builder, pascal, typeName string, meta *Resource
 // buildDestroyFunc generates the testAccCheck<Name>Destroy function.
 // When SDK metadata is available, it produces a real API call; otherwise a TODO stub.
 func buildDestroyFunc(b *strings.Builder, pascal, typeName string, meta *ResourceMeta) {
+	if meta != nil && meta.SDKGetMethod == "" && meta.RawCollectionPath != "" {
+		fmt.Fprintf(b, "func testAccCheck%sDestroy(_ context.Context) resource.TestCheckFunc {\n", pascal)
+		b.WriteString("\treturn func(s *terraform.State) error {\n")
+		b.WriteString("\t\tfor _, rs := range s.RootModule().Resources {\n")
+		fmt.Fprintf(b, "\t\t\tif rs.Type != %q {\n", typeName)
+		b.WriteString("\t\t\t\tcontinue\n")
+		b.WriteString("\t\t\t}\n\n")
+		fmt.Fprintf(b, "\t\t\tfound, err := %s\n", rawLookupCall(pascal, meta))
+		b.WriteString("\t\t\tif err != nil {\n")
+		b.WriteString("\t\t\t\treturn err\n")
+		b.WriteString("\t\t\t}\n")
+		b.WriteString("\t\t\tif found {\n")
+		fmt.Fprintf(b, "\t\t\t\treturn fmt.Errorf(\"%s (%%s) still exists\", rs.Primary.ID)\n", typeName)
+		b.WriteString("\t\t\t}\n")
+		b.WriteString("\t\t}\n\n")
+		b.WriteString("\t\treturn nil\n")
+		b.WriteString("\t}\n")
+		b.WriteString("}\n\n")
+		return
+	}
 	if meta != nil && meta.SDKGetMethod != "" {
 		fmt.Fprintf(b, "func testAccCheck%sDestroy(_ context.Context) resource.TestCheckFunc {\n", pascal)
 		b.WriteString("\treturn func(s *terraform.State) error {\n")
@@ -731,6 +878,14 @@ func metaHasFormatVerbs(meta *ResourceMeta) bool {
 			if strings.Contains(v, "%[1]") {
 				return true
 			}
+		}
+	}
+	// ExtraHCLBlocks are emitted into the same string. A resource whose every
+	// attribute is Optional carries its only values here, so a verb left
+	// unscanned reached the config as the literal text "%[1]s".
+	for _, line := range meta.ExtraHCLBlocks {
+		if strings.Contains(line, "%[1]") {
+			return true
 		}
 	}
 	return false

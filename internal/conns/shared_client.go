@@ -76,7 +76,19 @@ func buildSharedClient() (*KionClient, error) {
 
 	// APIURL must be the API root, matching what the provider's Configure
 	// stores, so the raw helpers and the SDK agree on where the API lives.
-	return &KionClient{Client: sdkClient, APIURL: serverURL}, nil
+	//
+	// The credentials and HTTP client are carried too: rawRequest reads them off
+	// the struct rather than going through the SDK's security source, so a
+	// client built without them sends no Authorization header and every raw call
+	// answers 401 -- which is the only way to check a resource whose read is a
+	// private collection.
+	return &KionClient{
+		Client:     sdkClient,
+		APIURL:     serverURL,
+		HTTPClient: kion.BuildHTTPClient(skipVerify, 0),
+		APIKey:     apiKey,
+		AuthToken:  authToken,
+	}, nil
 }
 
 // sharedServerURL applies the provider's own apipath rule: default "/api",

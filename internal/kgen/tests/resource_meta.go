@@ -61,6 +61,26 @@ type ResourceMeta struct {
 	// file. Use it to name the open defect a test is expected to surface, so a
 	// red test reads as a recorded finding rather than an unexplained failure.
 	KnownIssues []string
+
+	// RawCollectionPath is the private collection a resource with no
+	// single-record GET is read through — the same path its own Read uses. The
+	// Exists and Destroy checks fetch it and look for the record's id. Without
+	// it such a resource got a TODO stub that asserted nothing, which reports
+	// green whether or not the API ever saw the record.
+	//
+	// "{parent}" in the path is replaced with RawCollectionParentField's value.
+	RawCollectionPath string
+
+	// RawCollectionParentField names the state attribute whose value fills
+	// "{parent}" in RawCollectionPath.
+	RawCollectionParentField string
+
+	// RawCollectionDiscriminator names a SQL-null-wrapped field a record must
+	// carry non-null to be of this resource's kind. The cloud access role
+	// exemption collections return a neighboring kind's records alongside
+	// their own, so an id match alone can see a record that is not the one
+	// under test.
+	RawCollectionDiscriminator string
 }
 
 // EnvRequirement is an environment variable a test needs, and why.
@@ -180,7 +200,7 @@ var registry = map[string]ResourceMeta{
 			{
 				TypeName:     "kion_idms",
 				RefName:      "test_idms",
-				Fields:       map[string]string{"name": `"test-acc-idms-%[1]s"`, "idms_type_id": "1", "password_expiration": "0"},
+				Fields:       map[string]string{"name": `"test-acc-idms-%[1]s"`, "idms_type_id": "1", "password_expiration": "90"},
 				RefAttribute: "id",
 				TargetField:  "idms_id",
 			},
@@ -615,6 +635,159 @@ var registry = map[string]ResourceMeta{
 		TypeName: "kion_ou_cloud_access_role",
 		FieldOverrides: map[string]FieldValue{
 			"name": {Basic: `%[1]q`, Update: `%[1]q`},
+		},
+	},
+	"kion_compliance_control": {
+		TypeName:        "kion_compliance_control",
+		SDKGetMethod:    "GetComplianceControl",
+		SDKGetParams:    "generated.GetComplianceControlParams{ID: id}",
+		SDKDeleteMethod: "DeleteComplianceControl",
+		SDKDeleteParams: "generated.DeleteComplianceControlParams{ID: id}",
+		KnownIssues: []string{
+			"#77 program_id is Required but no flatten assigns it, so an imported " +
+				"control carries none and ImportStateVerify fails. It is also never " +
+				"sent on create: DELETE /v4/compliance/program/{id}/control/{controlID} " +
+				"is the only thing that reads it. Left failing on purpose.",
+			"#78 arm_template_definition_ids = [] comes back null, because the API " +
+				"stores an empty array as null and flattenComplianceControl uses " +
+				"flex.Uint64SliceToFrameworkSet rather than the OrEmpty variant #67 " +
+				"added. The _update apply is rejected as an inconsistent result. " +
+				"Left failing on purpose.",
+		},
+		// POST /v4/compliance/control answers "Compliance Family ID is required"
+		// despite the schema marking compliance_family_id optional, and a family
+		// only exists under a program: program -> family -> control.
+		Dependencies: []Dependency{
+			{
+				TypeName:     "kion_compliance_program",
+				RefName:      "test_program",
+				Fields:       map[string]string{"name": `"test-acc-program-%[1]s"`, "version": `"1.0"`},
+				RefAttribute: "id",
+				TargetField:  "program_id",
+			},
+			{
+				TypeName: "kion_compliance_family",
+				RefName:  "test_family",
+				Fields: map[string]string{
+					"name":                  `"test-acc-family-%[1]s"`,
+					"compliance_program_id": "kion_compliance_program.test_program.id",
+				},
+				RefAttribute: "id",
+				TargetField:  "compliance_family_id",
+			},
+		},
+		// program_id is the only Required attribute; everything identifying the
+		// control is Optional, so it has to be written here or the config posts
+		// a nameless record.
+		// control_number is likewise rejected as required despite being optional
+		// in the schema.
+		ExtraHCLBlocks: []string{
+			`name = %[1]q`,
+			`description = "test-acc control"`,
+			`control_number = 1`,
+			`severity = "low"`,
+			`title = "test-acc control title"`,
+		},
+	},
+	// No single-record GET: the read is a whole-collection fetch over raw HTTP,
+	// so the Exists and Destroy checks go through RawCollectionPath rather than
+	// the SDK.
+	"kion_aws_resource_tag": {
+		TypeName:          "kion_aws_resource_tag",
+		RawCollectionPath: "/v3/aws-resource-tag",
+		// Update answers "cannot be updated in place; changes force replacement".
+		NoUpdate: true,
+		// Every attribute is Optional+Computed, so nothing is emitted without this.
+		ExtraHCLBlocks: []string{
+			`resource_key = "test-acc-%[1]s"`,
+			`resource_value = "test-acc-value"`,
+		},
+	},
+	"kion_ou_cloud_access_role_exemption": {
+		TypeName:                   "kion_ou_cloud_access_role_exemption",
+		ImportIDParentField:        "ou_id",
+		RawCollectionPath:          "/v1/ou/{parent}/cloud-access-role-exemption",
+		RawCollectionParentField:   "ou_id",
+		RawCollectionDiscriminator: "ou_cloud_access_role_id",
+		NoUpdate:                   true,
+		KnownIssues: []string{
+			"#80 a created exemption is absent from every collection on a 3.16 " +
+				"install — GET /v1/ou/{id}/cloud-access-role-exemption returns [] for a " +
+				"record that POST just returned a record_id for and that DELETE removes " +
+				"cleanly. Read therefore drops the resource from state on every refresh. " +
+				"The existence check reads the same collection Read does, deliberately. " +
+				"Left failing on purpose.",
+		},
+		Dependencies: []Dependency{
+			{
+				TypeName: "kion_ou",
+				RefName:  "test_ou",
+				Fields: map[string]string{
+					"name":                 `"test-acc-ou-%[1]s"`,
+					"parent_ou_id":         "0",
+					"permission_scheme_id": "2",
+					"owner_user_ids":       "[1]",
+				},
+				RefAttribute: "id",
+				TargetField:  "ou_id",
+			},
+			{
+				TypeName: "kion_ou_cloud_access_role",
+				RefName:  "test_car",
+				Fields: map[string]string{
+					"name":  `"test-acc-car-%[1]s"`,
+					"ou_id": "kion_ou.test_ou.id",
+				},
+				RefAttribute: "id",
+				TargetField:  "ou_cloud_access_role_id",
+			},
+		},
+		ExtraHCLBlocks: []string{
+			`reason = "test-acc exemption"`,
+		},
+	},
+	// kion_user's Delete is a no-op (#79), so the destroy check would normally
+	// find the user still there. It passes only because the test stands up its
+	// own kion_idms and destroying an IDMS cascades to its users; a user created
+	// against a pre-existing IDMS leaks. Do not replace the IDMS dependency with
+	// a fixed idms_id without reading #79 first.
+	"kion_user": {
+		TypeName:     "kion_user",
+		SDKGetMethod: "GetUser",
+		SDKGetParams: "generated.GetUserParams{ID: id}",
+		Dependencies: []Dependency{
+			{
+				TypeName:     "kion_idms",
+				RefName:      "test_idms",
+				Fields:       map[string]string{"name": `"test-acc-idms-%[1]s"`, "idms_type_id": "1", "password_expiration": "90"},
+				RefAttribute: "id",
+				TargetField:  "idms_id",
+			},
+		},
+		FieldOverrides: map[string]FieldValue{
+			"username":   {Basic: `%[1]q`, Update: `%[1]q`},
+			"email":      {Basic: `"%[1]s@example.com"`, Update: `"%[1]s@example.com"`},
+			"first_name": {Basic: `"Test"`, Update: `"Tested"`},
+			"last_name":  {Basic: `"Acc"`, Update: `"Accer"`},
+		},
+	},
+	"kion_webhook": {
+		TypeName:     "kion_webhook",
+		SDKGetMethod: "GetWebhook",
+		SDKGetParams: "generated.GetWebhookParams{ID: id}",
+		KnownIssues: []string{
+			"#79 Delete is a no-op that warns \"no delete endpoint\", so every webhook " +
+				"Terraform creates survives destroy and CheckDestroy fails. " +
+				"DELETE /v1/webhook/{id} does exist and does delete. Left failing on purpose.",
+		},
+		FieldOverrides: map[string]FieldValue{
+			"name":               {Basic: `%[1]q`, Update: `%[1]q`},
+			"callout_url":        {Basic: `"https://example.com/test-acc"`, Update: `"https://example.com/test-acc-upd"`},
+			"timeout_in_seconds": {Basic: "30", Update: "60"},
+		},
+		ExtraHCLBlocks: []string{
+			"owner_user_ids = [1]",
+			`request_method = "POST"`,
 		},
 	},
 	"kion_project": {
