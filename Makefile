@@ -58,7 +58,7 @@ SDK_VERSION ?= v3_16
 # refresh-spec reads the kion-sdk MONOREPO, not the published mirror: mirrors are
 # customer-facing and ship only the client, never spec/. Needed to regenerate
 # schemas; building and testing work from the committed generated code alone.
-SDK_SPEC ?= ../../kion-sdk/kion-sdk-monorepo/spec/$(SDK_VERSION)/openapi3.json
+SDK_SPEC ?= ../kion-sdk/spec/$(SDK_VERSION)/openapi3.json
 # Root of the sibling SDK module (holds generated/<v>/oas_client_gen.go per
 # support version); used by `make version-support`.
 SDK_DIR ?= ../kion-sdk-go
