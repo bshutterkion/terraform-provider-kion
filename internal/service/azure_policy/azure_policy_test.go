@@ -18,7 +18,13 @@ func TestAccKionAzurePolicy_basic(t *testing.T) {
 	resourceName := "kion_azure_policy.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck: func() {
+			acctest.PreCheck(t)
+			// Creating either resource makes Kion validate against a live
+			// Azure connection; without one the API answers 500, which is an
+			// install that cannot run the test rather than a provider defect.
+			acctest.RequireEnv(t, "KION_ACC_AZURE_PAYER_ID", "the ID of an Azure billing source on the target Kion")
+		},
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
@@ -45,7 +51,13 @@ func TestAccKionAzurePolicy_update(t *testing.T) {
 	resourceName := "kion_azure_policy.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck: func() {
+			acctest.PreCheck(t)
+			// Creating either resource makes Kion validate against a live
+			// Azure connection; without one the API answers 500, which is an
+			// install that cannot run the test rather than a provider defect.
+			acctest.RequireEnv(t, "KION_ACC_AZURE_PAYER_ID", "the ID of an Azure billing source on the target Kion")
+		},
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{

@@ -3,12 +3,16 @@ package ou_note_test
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"terraform-provider-kion/internal/acctest"
+	"terraform-provider-kion/internal/errs"
+
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
 
 func TestAccKionOuNote_basic(t *testing.T) {
@@ -91,42 +95,104 @@ func testAccCheckOuNoteExists(_ context.Context, name string) resource.TestCheck
 		if rs.Primary.ID == "" {
 			return fmt.Errorf("no ID set for %s", name)
 		}
-		// TODO: Call SDK to verify the resource exists.
+		conn, err := acctest.SharedClient()
+		if err != nil {
+			return fmt.Errorf("getting shared client: %w", err)
+		}
+
+		id, err := strconv.ParseInt(rs.Primary.ID, 10, 64)
+		if err != nil {
+			return fmt.Errorf("parsing ID: %w", err)
+		}
+
+		ctx := context.Background()
+		out, err := conn.Client.GetOUNote(ctx, generated.GetOUNoteParams{ID: id})
+		if err != nil {
+			return fmt.Errorf("reading kion_ou_note (%d): %w", id, err)
+		}
+		if errs.IsNotFound(out) {
+			return fmt.Errorf("kion_ou_note (%d) not found", id)
+		}
+
 		return nil
 	}
 }
 
 func testAccCheckOuNoteDestroy(_ context.Context) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
+		conn, err := acctest.SharedClient()
+		if err != nil {
+			return fmt.Errorf("getting shared client: %w", err)
+		}
+
 		for _, rs := range s.RootModule().Resources {
 			if rs.Type != "kion_ou_note" {
 				continue
 			}
-			// TODO: Call SDK to verify the resource no longer exists.
-			// Return nil if 404, return error if still exists.
+
+			id, err := strconv.ParseInt(rs.Primary.ID, 10, 64)
+			if err != nil {
+				return fmt.Errorf("parsing ID: %w", err)
+			}
+
+			ctx := context.Background()
+			out, err := conn.Client.GetOUNote(ctx, generated.GetOUNoteParams{ID: id})
+			if errs.IsNotFound(out) {
+				continue
+			}
+			if err != nil {
+				return fmt.Errorf("reading kion_ou_note (%d): %w", id, err)
+			}
+
+			return fmt.Errorf("kion_ou_note (%d) still exists", id)
 		}
+
 		return nil
 	}
 }
 
 func testAccOuNoteConfig_basic(rName string) string {
 	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
+}
+
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
+}
+
 resource "kion_ou_note" "test" {
   create_user_id = 1
-  name = %[1]q
-  ou_id = 1
-  text = "test-acc-value"
+  name           = %[1]q
+  ou_id          = kion_ou.test_ou.id
+  text           = "test-acc-value"
 }
 `, rName)
 }
 
 func testAccOuNoteConfig_update(rName string) string {
 	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
+}
+
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
+}
+
 resource "kion_ou_note" "test" {
-  create_user_id = 2
-  name = %[1]q
-  ou_id = 2
-  text = "test-acc-updated"
+  create_user_id = 1
+  name           = %[1]q
+  ou_id          = kion_ou.test_ou.id
+  text           = "test-acc-updated"
 }
 `, rName)
 }
