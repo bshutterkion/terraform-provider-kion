@@ -379,10 +379,14 @@ test: ## Run unit tests
 	@go test -v -count=1 -parallel=4 ./internal/...
 
 .PHONY: testacc
+# ./internal/service/..., not ./internal/provider/...: every TestAcc lives in a
+# service package. internal/provider has none, so this target used to exit 0
+# having run nothing at all -- which is how 90 acceptance tests went unrun
+# without anybody seeing a failure.
 testacc: ## Run acceptance tests (requires KION_API_URL and credentials)
 	@echo "$(BLUE)Running acceptance tests...$(RESET)"
 	@echo "$(YELLOW)⚠️  This will create real infrastructure!$(RESET)"
-	@TF_ACC=1 go test -v -count=1 -parallel=4 -timeout 120m ./internal/provider/...
+	@TF_ACC=1 go test -v -count=1 -parallel=4 -timeout 120m ./internal/service/...
 
 .PHONY: sweep
 sweep: ## Remove orphaned test resources (requires KION_API_URL and credentials)
