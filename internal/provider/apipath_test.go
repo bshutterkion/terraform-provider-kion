@@ -1,62 +1,65 @@
 package provider
 
 import (
-	"net/http"
-	"net/http/httptest"
+	"maps"
 	"testing"
 
-	"terraform-provider-kion/internal/conns"
-
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// The apipath bug lived in the seam between resolveProviderConfig and the raw
-// HTTP helpers, so neither package's own tests could see it: resolveProviderConfig
-// correctly folded apipath into serverURL, Configure handed that to
-// KionClient.APIURL, and the raw helpers then appended a hardcoded "/api" of
-// their own, requesting /api/api/v1/payer/3 under a default configuration and
-// ignoring apipath entirely. This test wires the two halves together the way
-// Configure does and asserts on the path the server actually receives.
-func TestRawHelpersHonorResolvedAPIPath(t *testing.T) {
+// The acceptance tests configure the provider entirely from the environment and
+// write no provider block, so without KION_APIPATH they cannot reach an install
+// that serves its API at the root -- every request goes to /api and 404s.
+//
+// "set but empty" is the case that matters and the one os.Getenv cannot express
+// on its own: it selects the root, where unset keeps the "/api" default.
+func TestResolveProviderConfig_APIPath(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name     string
-		apipath  types.String
-		wantPath string
+	base := map[string]string{"KION_API_URL": "http://localhost:8081", "KION_API_KEY": "k"}
+
+	cases := []struct {
+		name    string
+		env     map[string]string
+		apipath types.String
+		want    string
 	}{
-		{"default", types.StringNull(), "/api/v1/payer/3"},
-		{"emptied", types.StringValue(""), "/v1/payer/3"},
-		{"custom", types.StringValue("/custom"), "/custom/v1/payer/3"},
+		{"unset keeps /api", nil, types.StringNull(), "http://localhost:8081/api"},
+		{
+			"set empty selects root",
+			map[string]string{"KION_APIPATH__isset": "1", "KION_APIPATH": ""},
+			types.StringNull(),
+			"http://localhost:8081",
+		},
+		{
+			"set non-empty is used",
+			map[string]string{"KION_APIPATH__isset": "1", "KION_APIPATH": "/gateway"},
+			types.StringNull(),
+			"http://localhost:8081/gateway",
+		},
+		// An explicit provider block still wins over the environment, matching
+		// every other attribute's precedence.
+		{
+			"config beats env",
+			map[string]string{"KION_APIPATH__isset": "1", "KION_APIPATH": "/gateway"},
+			types.StringValue(""),
+			"http://localhost:8081",
+		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			var gotPath string
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				gotPath = r.URL.Path
-				w.WriteHeader(http.StatusOK)
-				if _, werr := w.Write([]byte(`{}`)); werr != nil {
-					t.Errorf("writing response: %v", werr)
-				}
-			}))
-			defer srv.Close()
-
-			resolved, diags := resolveProviderConfig(kionProviderModel{
-				APIURL:  types.StringValue(srv.URL),
-				APIKey:  types.StringValue("k"),
-				Apipath: tt.apipath,
-			}, env(nil))
-			require.False(t, diags.HasError(), "unexpected diagnostics: %v", diags)
-
-			// Built exactly as Configure builds it.
-			c := &conns.KionClient{APIURL: resolved.serverURL, APIKey: "k", HTTPClient: srv.Client()}
-			_, err := c.RawGet(t.Context(), "/v1/payer/3")
-			require.NoError(t, err)
-			require.Equal(t, tt.wantPath, gotPath)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			env := map[string]string{}
+			maps.Copy(env, base)
+			maps.Copy(env, tc.env)
+			got, diags := resolveProviderConfig(
+				kionProviderModel{Apipath: tc.apipath},
+				func(k string) string { return env[k] },
+			)
+			require.False(t, diags.HasError(), "%v", diags)
+			assert.Equal(t, tc.want, got.serverURL)
 		})
 	}
 }

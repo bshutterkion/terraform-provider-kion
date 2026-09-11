@@ -98,7 +98,7 @@ func (p *kionProvider) Configure(ctx context.Context, req provider.ConfigureRequ
 	// Resolve and validate the configuration (new names > deprecated aliases >
 	// environment variables). Extracted into a helper so the resolution logic is
 	// unit-testable without the framework plumbing or a live API.
-	resolved, diags := resolveProviderConfig(config, os.Getenv)
+	resolved, diags := resolveProviderConfig(config, osGetenv)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -165,6 +165,27 @@ func (p *kionProvider) Configure(ctx context.Context, req provider.ConfigureRequ
 	// Make the client available to resources and data sources
 	resp.ResourceData = kionClient
 	resp.DataSourceData = kionClient
+}
+
+// envAPIPath is the API path override; envAPIPathSet is the companion key
+// os.Getenv cannot express. An empty KION_APIPATH is a real choice -- "serve at
+// the root" -- and os.Getenv returns "" for that and for unset alike, so
+// osGetenv answers envAPIPathSet with "1" when the variable is present at all.
+const (
+	envAPIPath    = "KION_APIPATH"
+	envAPIPathSet = "KION_APIPATH__isset"
+)
+
+// osGetenv adapts os.Getenv to the injected getenv seam, answering the
+// synthetic envAPIPathSet key from os.LookupEnv.
+func osGetenv(key string) string {
+	if key == envAPIPathSet {
+		if _, ok := os.LookupEnv(envAPIPath); ok {
+			return "1"
+		}
+		return ""
+	}
+	return os.Getenv(key)
 }
 
 // resolvedConfig holds the effective provider configuration after resolving
@@ -237,9 +258,20 @@ func resolveProviderConfig(config kionProviderModel, getenv func(string) string)
 	// Resolve the API path. The old provider supported `apipath = ""` to disable
 	// the default "/api" suffix (used for local development where the API is
 	// mounted at the root). Default to "/api" to match the kion-sdk-go behavior.
+	//
+	// KION_APIPATH exists for the acceptance tests, which configure the provider
+	// entirely from the environment and write no provider block -- so without it
+	// they cannot reach an install serving at the root, and every test 404s.
+	//
+	// An empty value is meaningful here rather than absent, which is why this
+	// reads the sentinel "" through lookupEnv semantics: KION_APIPATH= (set,
+	// empty) selects the root, while leaving it unset keeps "/api".
 	apiPath := "/api"
-	if !config.Apipath.IsNull() && !config.Apipath.IsUnknown() {
+	switch {
+	case !config.Apipath.IsNull() && !config.Apipath.IsUnknown():
 		apiPath = config.Apipath.ValueString()
+	case getenv(envAPIPathSet) != "":
+		apiPath = getenv(envAPIPath)
 	}
 
 	// Build the full server URL by joining the base URL with the API path.
