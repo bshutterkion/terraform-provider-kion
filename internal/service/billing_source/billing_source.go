@@ -248,6 +248,12 @@ func (r *billing_sourceResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
+	idInt, err := strconv.ParseUint(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	aWSConnection := generated.CustomBillingSourceAWSConnectionUpdate{
 		AccountNumber:    flex.OptStringFromFramework(plan.AwsConnection.AccountNumber),
 		BucketAccessRole: flex.OptStringFromFramework(plan.AwsConnection.BucketAccessRole),
@@ -281,12 +287,6 @@ func (r *billing_sourceResource) Update(ctx context.Context, req resource.Update
 		SkipValidation:   flex.OptNilBoolFromFramework(plan.SkipValidation),
 		AWSConnection:    aWSConnectionOpt,
 		AzureConnection:  azureConnectionOpt,
-	}
-
-	idInt, err := strconv.ParseUint(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchCustomBillingSource(ctx, input, generated.PatchCustomBillingSourceParams{ID: idInt})

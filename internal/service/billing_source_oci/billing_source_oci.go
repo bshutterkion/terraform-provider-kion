@@ -185,6 +185,12 @@ func (r *billing_source_ociResource) Update(ctx context.Context, req resource.Up
 		return
 	}
 
+	idInt, err := strconv.ParseUint(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := &generated.OCIBillingSourceUpdateWithValidation{
 		AccountTypeID:         flex.OptNilUint64FromFramework(plan.AccountTypeId),
 		BillingStartDate:      flex.OptStringFromFramework(plan.BillingStartDate),
@@ -198,12 +204,6 @@ func (r *billing_source_ociResource) Update(ctx context.Context, req resource.Up
 		UseFocusReports:       flex.OptNilBoolFromFramework(plan.UseFocusReports),
 		UseProprietaryReports: flex.OptNilBoolFromFramework(plan.UseProprietaryReports),
 		UserOcid:              flex.OptStringFromFramework(plan.UserOcid),
-	}
-
-	idInt, err := strconv.ParseUint(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchOCIBillingSource(ctx, input, generated.PatchOCIBillingSourceParams{ID: idInt})

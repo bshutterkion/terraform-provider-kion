@@ -141,6 +141,12 @@ func (r *idms_open_id_access_ruleResource) Update(ctx context.Context, req resou
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := generated.OptOpenIDAccessRuleUpdate{
 		Value: generated.OpenIDAccessRuleUpdate{
 			AssertionName:           flex.OptStringFromFramework(plan.AssertionName),
@@ -148,12 +154,6 @@ func (r *idms_open_id_access_ruleResource) Update(ctx context.Context, req resou
 			CloudtamerAccessLevelID: flex.OptNilUint64FromFramework(plan.CloudtamerAccessLevelId),
 		},
 		Set: true,
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchOpenIDAccessRule(ctx, input, generated.PatchOpenIDAccessRuleParams{ID: idInt})

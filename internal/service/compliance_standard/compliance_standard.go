@@ -159,15 +159,15 @@ func (r *compliance_standardResource) Update(ctx context.Context, req resource.U
 		return
 	}
 
-	input := &generated.ComplianceStandardUpdate{
-		Description: flex.OptStringFromFramework(plan.Description),
-		Name:        flex.OptStringFromFramework(plan.Name),
-	}
-
 	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
+	}
+
+	input := &generated.ComplianceStandardUpdate{
+		Description: flex.OptStringFromFramework(plan.Description),
+		Name:        flex.OptStringFromFramework(plan.Name),
 	}
 
 	out, err := conn.PatchComplianceStandard(ctx, input, generated.PatchComplianceStandardParams{ID: idInt})

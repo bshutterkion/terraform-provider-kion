@@ -157,17 +157,17 @@ func (r *iam_policyResource) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := &generated.IAMPolicyUpdate{
 		CarRestricted: flex.OptNilBoolFromFramework(plan.CarRestricted),
 		Description:   flex.OptStringFromFramework(plan.Description),
 		Name:          flex.OptStringFromFramework(plan.Name),
 		Policy:        flex.OptStringFromFramework(plan.Policy),
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchIAMPolicy(ctx, input, generated.PatchIAMPolicyParams{ID: idInt})

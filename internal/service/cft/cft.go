@@ -172,6 +172,12 @@ func (r *cftResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	var tags []generated.AWSStackTag
 	var tagsSrc []TagsValue
 	// Guarded like the flex slice helpers: ElementsAs cannot convert a null or
@@ -202,12 +208,6 @@ func (r *cftResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		TerminationProtection: flex.OptNilBoolFromFramework(plan.TerminationProtection),
 		Regions:               regions,
 		Tags:                  generated.OptNilAWSStackTagArray{Value: tags, Set: true},
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchCFT(ctx, input, generated.PatchCFTParams{ID: idInt})

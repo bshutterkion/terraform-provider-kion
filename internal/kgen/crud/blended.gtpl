@@ -334,6 +334,12 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
+	idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(plan.{{.IDGo}}.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	{{range .UpdateObjBinds}}{{.Var}} := {{$.SDKAlias}}.{{.SDKType}}{
 		{{- range .Subs}}
 		{{.SDKField}}: {{.Expr}},
@@ -359,6 +365,33 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 			{{- end}}
 		})
 	}
+	{{end}}{{with .UpdateImplode}}var {{.Var}} []{{$.SDKAlias}}.{{.ElemType}}
+	var {{.Var}}Src []{{.ValueType}}
+	if !plan.{{.ModelGo}}.IsNull() && !plan.{{.ModelGo}}.IsUnknown() {
+		resp.Diagnostics.Append(plan.{{.ModelGo}}.ElementsAs(ctx, &{{.Var}}Src, false)...)
+	}
+	// The model holds one row per pair; the API takes one entry per key
+	// carrying every member. Regroup, keeping first-seen key order so an
+	// unchanged configuration re-sends an unchanged body.
+	{{.Var}}Order := make([]int64, 0, len({{.Var}}Src))
+	{{.Var}}Members := make(map[int64][]{{.MemberGo}}, len({{.Var}}Src))
+	for _, elem := range {{.Var}}Src {
+		k := elem.{{.KeyValue}}.ValueInt64()
+		if _, seen := {{.Var}}Members[k]; !seen {
+			{{.Var}}Order = append({{.Var}}Order, k)
+		}
+		{{.Var}}Members[k] = append({{.Var}}Members[k], {{.MemberGo}}(elem.{{.MemberValue}}.ValueInt64()))
+	}
+	for _, k := range {{.Var}}Order {
+		{{.Var}} = append({{.Var}}, {{$.SDKAlias}}.{{.ElemType}}{
+			{{.KeySDK}}: {{.KeyConv}},
+			{{.MemberSDK}}: {{.Var}}Members[k],
+		})
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	{{end}}{{if or .UpdateSliceBinds .UpdateArrBinds}}{{range .UpdateSliceBinds}}{{.Var}}, {{.Var}}Diags := {{.Func}}(ctx, plan.{{.ModelGo}})
 	resp.Diagnostics.Append({{.Var}}Diags...)
 	{{end}}if resp.Diagnostics.HasError() {
@@ -378,6 +411,9 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 		{{- range .UpdateArrBinds}}
 		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
 		{{- end}}
+		{{- with .UpdateImplode}}
+		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+		{{- end}}
 	}{{else}}{{.SDKAlias}}.{{.UpdateBodyOpt}}{
 		Value: {{.SDKAlias}}.{{.UpdateBody}}{
 			{{- range .UpdateBinds}}
@@ -392,15 +428,12 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 			{{- range .UpdateArrBinds}}
 			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
 			{{- end}}
+			{{- with .UpdateImplode}}
+			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+			{{- end}}
 		},
 		Set: true,
 	}{{end}}
-
-	idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(plan.{{.IDGo}}.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
-	}
 
 	out, err := conn.{{.UpdateMethod}}(ctx, input, {{.SDKAlias}}.{{.UpdateParams}}{ {{.UpdateIDParam}}: idInt})
 	if err != nil {

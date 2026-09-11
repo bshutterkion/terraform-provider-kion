@@ -119,18 +119,25 @@ type entityData struct {
 	NoRead bool
 	// Nested-object binds (expand build preludes for create/update bodies,
 	// flatten build preludes for the read payload).
-	CreateObjBinds []objBind
-	CreateArrBinds []arrBind
-	CreateFlatSubs []objSub
-	UpdateObjBinds []objBind
-	UpdateArrBinds []arrBind
-	UpdateFlatSubs []objSub
-	RespObjFlats   []objFlat
-	RespArrFlats   []arrFlat
-	RespIDProjs    []idProjFlat
-	RespObjIDProjs []objIDProjFlat
-	HasNestedFlat  bool // obj/arr flattens present (drives the attr import)
-	HasIDProj      bool // id-projection flattens present
+	CreateObjBinds  []objBind
+	CreateArrBinds  []arrBind
+	CreateFlatSubs  []objSub
+	CreateRawValues []rawValueBind
+	// RawValueHelpers is the create+update union: the build<Field> helper each
+	// bind calls is emitted once per resource.
+	RawValueHelpers []rawValueBind
+	UpdateObjBinds  []objBind
+	UpdateArrBinds  []arrBind
+	UpdateFlatSubs  []objSub
+	UpdateImplode   *implodeBind
+	UpdateRawValues []rawValueBind
+	RespObjFlats    []objFlat
+	RespArrFlats    []arrFlat
+	RespIDProjs     []idProjFlat
+	RespObjIDProjs  []objIDProjFlat
+	HasNestedFlat   bool // obj/arr flattens present (drives the attr import)
+	HasIDProj       bool // id-projection flattens present
+	RespRawValues   []rawValueFlat
 	// Blended resources (rendered by blended.gtpl, never entity.gtpl) mix typed
 	// public ops with raw private ops. These fields are zero for pure-typed
 	// resources, so entity.gtpl, which never references them. Is unaffected.
@@ -277,6 +284,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		return d, fmt.Errorf("%s create: %w", rm.Name, err)
 	}
 	d.CreateObjBinds, d.CreateArrBinds, d.CreateFlatSubs = rm.CreateNested.Objs, rm.CreateNested.Arrs, rm.CreateNested.FlatSubs
+	d.CreateRawValues = rm.CreateNested.RawValues
 	if !d.NoRead {
 		if d.ReadIDParam, d.IDParamType, err = idParamName(rm.Read.Params); err != nil {
 			return d, fmt.Errorf("%s read: %w", rm.Name, err)
@@ -302,6 +310,8 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 			return d, fmt.Errorf("%s update: %w", rm.Name, err)
 		}
 		d.UpdateObjBinds, d.UpdateArrBinds, d.UpdateFlatSubs = rm.UpdateNested.Objs, rm.UpdateNested.Arrs, rm.UpdateNested.FlatSubs
+		d.UpdateImplode = rm.UpdateNested.Implode
+		d.UpdateRawValues = rm.UpdateNested.RawValues
 		var upType string
 		if d.UpdateIDParam, upType, err = idParamName(rm.Update.Params); err != nil {
 			return d, fmt.Errorf("%s update: %w", rm.Name, err)
@@ -380,7 +390,9 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		d.HasIDProj = len(d.RespIDProjs) > 0 || len(d.RespObjIDProjs) > 0
 		d.HasRespSlices = len(d.RespSliceBinds) > 0
 		d.RespDataPtr = rm.Read.RespDataPtr
+		d.RespRawValues = resolveRawValueFlats(rm.Read.RespFields, byTF, topPrefix, mergeRawValues(rm.CreateNested.RawValues, rm.UpdateNested.RawValues))
 	}
+	d.RawValueHelpers = mergeRawValues(d.CreateRawValues, d.UpdateRawValues)
 	return d, nil
 }
 

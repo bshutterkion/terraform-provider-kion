@@ -171,6 +171,12 @@ func (r *compliance_controlResource) Update(ctx context.Context, req resource.Up
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	aWSCloudformationPolicyIds, aWSCloudformationPolicyIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.AwsCloudformationPolicyIds)
 	resp.Diagnostics.Append(aWSCloudformationPolicyIdsDiags...)
 	armTemplateDefinitionIds, armTemplateDefinitionIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.ArmTemplateDefinitionIds)
@@ -200,12 +206,6 @@ func (r *compliance_controlResource) Update(ctx context.Context, req resource.Up
 		CloudProviderPolicyIds:     generated.OptNilUint64Array{Value: cloudProviderPolicyIds, Set: true},
 		ComplianceCheckIds:         generated.OptNilUint64Array{Value: complianceCheckIds, Set: true},
 		ComplianceLevels:           generated.OptNilUint64Array{Value: complianceLevels, Set: true},
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.UpdateComplianceControl(ctx, input, generated.UpdateComplianceControlParams{ID: idInt})

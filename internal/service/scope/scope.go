@@ -162,17 +162,17 @@ func (r *scopeResource) Update(ctx context.Context, req resource.UpdateRequest, 
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := &generated.ScopeUpdate{
 		Alias:       flex.OptStringFromFramework(plan.Alias),
 		Description: flex.OptStringFromFramework(plan.Description),
 		Name:        flex.OptStringFromFramework(plan.Name),
 		ProjectID:   flex.OptNilUint64FromFramework(plan.ProjectId),
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchScope(ctx, input, generated.PatchScopeParams{ID: idInt})

@@ -48,11 +48,37 @@ type arrBind struct {
 	Subs      []objSub
 }
 
+// implodeBind regroups a flat model list into the grouped array a write body
+// takes: the inverse of a read_shape explode. The read declares that the API
+// returns {permission_id, role_ids[]} and the model stores one row per
+// (permission_id, role_id) pair; writing has to put the pairs back together.
+//
+// Without this the body field matched no model attribute, so it was skipped in
+// silence -- which, for permission_scheme, left the entire update body empty.
+type implodeBind struct {
+	SDKField  string // "PermissionRoles"
+	Var       string // "permissionRoles"
+	ModelGo   string // model list attr, "Roles"
+	ElemType  string // "AppRoleArrayPermission"
+	ValueType string // "RolesValue"
+	Wrap      string // "OptNilAppRoleArrayPermissionArray" ("" for a bare []T)
+
+	KeySDK   string // element key field, "PermissionID"
+	KeyValue string // Value-type sub-field holding the key, "PermissionId"
+	KeyConv  string // key expression built from the loop var k, e.g. "flex.NilUint64FromFramework(types.Int64Value(k))"
+
+	MemberSDK   string // element slice field, "RoleIds"
+	MemberValue string // Value-type sub-field holding one member, "RoleId"
+	MemberGo    string // slice element Go type, "uint64"
+}
+
 // nestedFieldSet is the set of body json-names handled as nested (so bodyBinds
 // skips them).
 type nestedResult struct {
-	Objs []objBind
-	Arrs []arrBind
+	Objs      []objBind
+	Arrs      []arrBind
+	Implode   *implodeBind
+	RawValues []rawValueBind
 	// FlatSubs are body scalar fields with no top-level model attribute that map
 	// to a sub-field of a nested model Value type, the inverse of Objs. This
 	// covers a flat update body (e.g. AzurePolicyDefinitionUpdate{description,
@@ -167,16 +193,43 @@ func valueTypeExists(src Source, schemaGen, valueType string) bool {
 	return err == nil
 }
 
+// nestedOpts carries what the nested resolver needs beyond the body itself.
+type nestedOpts struct {
+	// NoGuard disables the "alternatives, not companions" guard on a body with
+	// more than one optional nested object.
+	NoGuard bool
+	// IDAttr is the model's id attribute tfsdk name, and IDVar the local holding
+	// the parsed record id. Together they source an `id` sub-field of a wrapped
+	// object. Empty on create, where the record has no id yet.
+	IDAttr string
+	IDVar  string
+	// Implode inverts a declared read_shape explode; nil where none applies.
+	Implode *readShapeExplode
+}
+
 // resolveNested finds nested-object and object-array fields in a request body
 // and builds their expand binds, reading the model's tfplugingen Value type
 // sub-fields (via src) and the SDK struct sub-fields (via idx).
-func resolveNested(src Source, schemaGen string, body *Struct, byTF map[string]ModelField, idx sdkIndex, noGuard bool) (nestedResult, error) {
+func resolveNested(src Source, schemaGen string, body *Struct, byTF map[string]ModelField, idx sdkIndex, opts nestedOpts) (nestedResult, error) {
 	res := nestedResult{Names: map[string]bool{}}
 	if body == nil {
 		return res, nil
 	}
+	res.RawValues = resolveRawValues(body, byTF)
+	for _, rv := range res.RawValues {
+		res.Names[rv.Attr] = true
+	}
 	subIdx := nestedSubIndex(src, schemaGen, byTF)
 	for _, f := range body.Fields {
+		if opts.Implode != nil && f.JSONName == opts.Implode.From {
+			ib, err := resolveImplode(src, schemaGen, f, byTF, idx, *opts.Implode)
+			if err != nil {
+				return res, fmt.Errorf("implode field %q: %w", f.JSONName, err)
+			}
+			res.Implode = ib
+			res.Names[f.JSONName] = true
+			continue
+		}
 		mf, ok := byTF[f.JSONName]
 		if !ok {
 			// Not a top-level model attribute. If it names a sub-field of a
@@ -190,6 +243,15 @@ func resolveNested(src Source, schemaGen string, body *Struct, byTF map[string]M
 					})
 					res.Names[f.JSONName] = true
 				}
+				continue
+			}
+			// Or it is a nested object whose OWN sub-fields are the model's
+			// top-level attributes: a nested body over a flat model, the mirror
+			// of FlatSubs. PermissionSchemeUpdateRequest.app_policy wraps id,
+			// name and type this way, and matching nothing left the body empty.
+			if ob, isWrap := wrapObject(src, schemaGen, f, byTF, idx, opts); isWrap {
+				res.Objs = append(res.Objs, ob)
+				res.Names[f.JSONName] = true
 			}
 			continue
 		}
@@ -244,7 +306,7 @@ func resolveNested(src Source, schemaGen string, body *Struct, byTF map[string]M
 	}
 	// Multiple optional nested objects in one body are alternatives, not
 	// companions, send only the configured one. See objBind.Guard.
-	if len(res.Objs) > 1 && !noGuard {
+	if len(res.Objs) > 1 && !opts.NoGuard {
 		for i := range res.Objs {
 			if res.Objs[i].OptType != "" {
 				res.Objs[i].Guard = true
@@ -252,6 +314,166 @@ func resolveNested(src Source, schemaGen string, body *Struct, byTF map[string]M
 		}
 	}
 	return res, nil
+}
+
+// wrapObject builds the bind for a body field that is a struct the model does
+// not mirror, whose sub-fields ARE the model's top-level attributes.
+//
+// It reports false for anything else, including a struct the model nests under
+// an attribute of the same name (resolveNested's ordinary object path owns
+// that) and a struct none of whose sub-fields the model names -- a server-owned
+// object the resource has no business filling in.
+func wrapObject(src Source, schemaGen string, f Field, byTF map[string]ModelField, idx sdkIndex, opts nestedOpts) (objBind, bool) {
+	base := trimOptWrappers(f.Type)
+	bs, isStruct := idx.structs[base]
+	if !isStruct || len(bs.Fields) == 0 {
+		return objBind{}, false
+	}
+	if valueTypeExists(src, schemaGen, pascalCase(f.JSONName)+"Value") {
+		return objBind{}, false // a tfplugingen nested attribute whose model attr is merely missing
+	}
+
+	var subs []objSub
+	modelSourced := 0
+	for _, sf := range bs.Fields {
+		if opts.IDAttr != "" && sf.JSONName == opts.IDAttr {
+			if expr, ok := idSubExpr(sf.Type, opts.IDVar); ok {
+				subs = append(subs, objSub{SDKField: sf.GoName, Expr: expr})
+			}
+			continue
+		}
+		mf, ok := byTF[sf.JSONName]
+		if !ok {
+			continue // left zero: the model does not carry it
+		}
+		conv, ok := expandConverter(sf)
+		if !ok {
+			continue // no one-level converter; leaving it zero beats refusing the resource
+		}
+		subs = append(subs, objSub{SDKField: sf.GoName, Expr: conv + "(plan." + mf.GoName + ")"})
+		modelSourced++
+	}
+	if modelSourced == 0 {
+		return objBind{}, false
+	}
+
+	optType := ""
+	if strings.HasPrefix(f.Type, "Opt") {
+		optType = f.Type
+	}
+	return objBind{
+		SDKField: f.GoName, Var: lowerFirst(f.GoName), SDKType: base,
+		OptType: optType, Ptr: f.Ptr, Subs: subs,
+	}, true
+}
+
+// idSubExpr sources a wrapped object's id sub-field from the already-parsed
+// record id. The conversion is written out unconditionally because the local's
+// own type follows the op's params (int64 or uint64) and either converts.
+func idSubExpr(sdkType, idVar string) (string, bool) {
+	if idVar == "" {
+		return "", false
+	}
+	switch sdkType {
+	case "uint64", "int64":
+		return sdkType + "(" + idVar + ")", true
+	case "OptUint64":
+		return "generated.OptUint64{Value: uint64(" + idVar + "), Set: true}", true
+	case "OptInt64":
+		return "generated.OptInt64{Value: int64(" + idVar + "), Set: true}", true
+	}
+	return "", false
+}
+
+// trimOptWrappers strips the ogen optional/nullable prefixes from a type name.
+func trimOptWrappers(t string) string {
+	t = strings.TrimPrefix(t, "*")
+	for _, p := range []string{"OptNilPointer", "OptPointer", "OptNil", "Opt", "Nil"} {
+		if strings.HasPrefix(t, p) && len(t) > len(p) {
+			return t[len(p):]
+		}
+	}
+	return t
+}
+
+// resolveImplode builds the regrouping bind for a write-body array that is the
+// inverse of a declared read_shape explode.
+//
+// Everything it needs is already authored in the read shape -- which model attr
+// holds the exploded rows, which element field is the group key, which is the
+// member -- so inverting it needs no second declaration, and the two cannot
+// drift apart.
+func resolveImplode(src Source, schemaGen string, f Field, byTF map[string]ModelField, idx sdkIndex, ex readShapeExplode) (*implodeBind, error) {
+	elem, _, isSlice := wrapperSliceElem(f.Type, idx)
+	if !isSlice {
+		return nil, fmt.Errorf("body field is %q, not an array", f.Type)
+	}
+	es, isStruct := idx.structs[elem]
+	if !isStruct {
+		return nil, fmt.Errorf("array element %q is not an SDK struct", elem)
+	}
+	mf, ok := byTF[ex.TF]
+	if !ok {
+		return nil, fmt.Errorf("read_shape explode attr %q is not in the model", ex.TF)
+	}
+	if len(ex.Carry) != 1 {
+		return nil, fmt.Errorf("expected exactly one carried key, got %d", len(ex.Carry))
+	}
+
+	valFields, err := src.ModelFields(schemaGen, ex.ValueType)
+	if err != nil {
+		return nil, fmt.Errorf("reading %s: %w", ex.ValueType, err)
+	}
+	valByTF := map[string]ModelField{}
+	for _, vf := range valFields {
+		valByTF[vf.TFSDK] = vf
+	}
+	keyVal, ok := valByTF[ex.Carry[0].TF]
+	if !ok {
+		return nil, fmt.Errorf("%s has no sub-attribute %q", ex.ValueType, ex.Carry[0].TF)
+	}
+	memberVal, ok := valByTF[ex.Each.TF]
+	if !ok {
+		return nil, fmt.Errorf("%s has no sub-attribute %q", ex.ValueType, ex.Each.TF)
+	}
+
+	keySDK, ok := fieldByJSON(es, ex.Carry[0].From)
+	if !ok {
+		return nil, fmt.Errorf("%s has no field %q", elem, ex.Carry[0].From)
+	}
+	memberSDK, ok := fieldByJSON(es, ex.Each.From)
+	if !ok {
+		return nil, fmt.Errorf("%s has no field %q", elem, ex.Each.From)
+	}
+	memberGo, isMemberSlice := sliceElem(memberSDK.Type)
+	if !isMemberSlice || (memberGo != "uint64" && memberGo != "int64") {
+		return nil, fmt.Errorf("member field %q is %q; expected []uint64 or []int64", ex.Each.From, memberSDK.Type)
+	}
+	keyConv, ok := expandConverter(keySDK)
+	if !ok {
+		return nil, fmt.Errorf("key field %q has unsupported type %q", ex.Carry[0].From, keySDK.Type)
+	}
+
+	wrap := ""
+	if strings.HasPrefix(f.Type, "Opt") {
+		wrap = f.Type
+	}
+	return &implodeBind{
+		SDKField: f.GoName, Var: lowerFirst(f.GoName), ModelGo: mf.GoName,
+		ElemType: elem, ValueType: ex.ValueType, Wrap: wrap,
+		KeySDK: keySDK.GoName, KeyValue: keyVal.GoName,
+		KeyConv:   keyConv + "(types.Int64Value(k))",
+		MemberSDK: memberSDK.GoName, MemberValue: memberVal.GoName, MemberGo: memberGo,
+	}, nil
+}
+
+func fieldByJSON(s Struct, jsonName string) (Field, bool) {
+	for _, f := range s.Fields {
+		if f.JSONName == jsonName {
+			return f, true
+		}
+	}
+	return Field{}, false
 }
 
 // flatSub is one sub-attribute of a nested object on the flatten (read) side:

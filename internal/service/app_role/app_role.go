@@ -170,14 +170,14 @@ func (r *app_roleResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	input := &generated.AppRoleUpdate{
-		Name: flex.OptStringFromFramework(plan.Name),
-	}
-
 	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
+	}
+
+	input := &generated.AppRoleUpdate{
+		Name: flex.OptStringFromFramework(plan.Name),
 	}
 
 	out, err := conn.PatchAppRole(ctx, input, generated.PatchAppRoleParams{ID: idInt})

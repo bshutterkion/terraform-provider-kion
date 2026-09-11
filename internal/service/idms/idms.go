@@ -141,6 +141,12 @@ func (r *idmsResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := generated.OptIDMSUpdatable{
 		Value: generated.IDMSUpdatable{
 			IdmsTypeID:         flex.OptNilUint64FromFramework(plan.IdmsTypeId),
@@ -148,12 +154,6 @@ func (r *idmsResource) Update(ctx context.Context, req resource.UpdateRequest, r
 			PasswordExpiration: flex.OptInt64FromFramework(plan.PasswordExpiration),
 		},
 		Set: true,
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchIDMS(ctx, input, generated.PatchIDMSParams{ID: idInt})

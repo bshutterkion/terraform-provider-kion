@@ -158,6 +158,12 @@ func (r *amiResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := &generated.AMIUpdate{
 		AWSAmiID:                flex.StringValueFromFramework(plan.AwsAmiId),
 		AccountID:               flex.NilUint64FromFramework(plan.AccountId),
@@ -172,12 +178,6 @@ func (r *amiResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		Region:                  flex.StringValueFromFramework(plan.Region),
 		SyncDeprecation:         flex.OptNilBoolFromFramework(plan.SyncDeprecation),
 		SyncTags:                flex.OptNilBoolFromFramework(plan.SyncTags),
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchAMI(ctx, input, generated.PatchAMIParams{ID: idInt})

@@ -163,6 +163,12 @@ func (r *billing_ruleResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	billingSourceIds, billingSourceIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.BillingSourceIds)
 	resp.Diagnostics.Append(billingSourceIdsDiags...)
 	if resp.Diagnostics.HasError() {
@@ -177,12 +183,6 @@ func (r *billing_ruleResource) Update(ctx context.Context, req resource.UpdateRe
 		RuleValue:        flex.OptFloat64FromFramework(plan.RuleValue),
 		StartMonth:       flex.OptInt64FromFramework(plan.StartMonth),
 		BillingSourceIds: generated.OptNilUint64Array{Value: billingSourceIds, Set: true},
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchBillingRule(ctx, input, generated.PatchBillingRuleParams{ID: idInt})

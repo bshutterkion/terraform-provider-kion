@@ -153,18 +153,18 @@ func (r *azure_arm_templateResource) Update(ctx context.Context, req resource.Up
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := &generated.AzureARMTemplateDefinitionUpdate{
 		DeploymentMode:     flex.Uint64FromFramework(plan.DeploymentMode),
 		Description:        flex.OptStringFromFramework(plan.Description),
 		Name:               flex.StringValueFromFramework(plan.Name),
 		Template:           flex.StringValueFromFramework(plan.Template),
 		TemplateParameters: flex.OptStringFromFramework(plan.TemplateParameters),
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchARMTemplate(ctx, input, generated.PatchARMTemplateParams{ID: idInt})

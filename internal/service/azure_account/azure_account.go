@@ -144,17 +144,17 @@ func (r *azure_accountResource) Update(ctx context.Context, req resource.UpdateR
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := &generated.AccountUpdatable{
 		AccountAlias:       flex.OptStringFromFramework(plan.AccountAlias),
 		AccountName:        flex.OptStringFromFramework(plan.AccountName),
 		SkipAccessChecking: flex.OptNilBoolFromFramework(plan.SkipAccessChecking),
 		StartDatecode:      flex.OptStringFromFramework(plan.StartDatecode),
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchAccount(ctx, input, generated.PatchAccountParams{ID: idInt})

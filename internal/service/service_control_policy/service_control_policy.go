@@ -149,16 +149,16 @@ func (r *service_control_policyResource) Update(ctx context.Context, req resourc
 		return
 	}
 
-	input := &generated.ServiceControlPolicyUpdate{
-		Description: flex.OptStringFromFramework(plan.Description),
-		Name:        flex.OptStringFromFramework(plan.Name),
-		Policy:      flex.OptStringFromFramework(plan.Policy),
-	}
-
 	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
+	}
+
+	input := &generated.ServiceControlPolicyUpdate{
+		Description: flex.OptStringFromFramework(plan.Description),
+		Name:        flex.OptStringFromFramework(plan.Name),
+		Policy:      flex.OptStringFromFramework(plan.Policy),
 	}
 
 	out, err := conn.PatchServiceControlPolicy(ctx, input, generated.PatchServiceControlPolicyParams{ID: idInt})

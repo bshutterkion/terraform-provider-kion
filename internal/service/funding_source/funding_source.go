@@ -153,6 +153,12 @@ func (r *funding_sourceResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := &generated.FundingSource{
 		Amount:        flex.OptFloat64FromFramework(plan.Amount),
 		Description:   flex.OptStringFromFramework(plan.Description),
@@ -160,12 +166,6 @@ func (r *funding_sourceResource) Update(ctx context.Context, req resource.Update
 		Name:          flex.OptStringFromFramework(plan.Name),
 		OuID:          flex.OptNilUint64FromFramework(plan.OuId),
 		StartDatecode: flex.OptStringFromFramework(plan.StartDatecode),
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchFundingSource(ctx, input, generated.PatchFundingSourceParams{ID: idInt})

@@ -325,6 +325,20 @@ field-audit: ## Rewrite codegen/unexposed_fields.yaml from the current tree
 	@go test ./internal/kgen/fieldaudit/ -update -count=1
 	@echo "$(GREEN)✓ codegen/unexposed_fields.yaml regenerated$(RESET)"
 
+# A settable attribute no request reads is input the provider accepts and
+# discards -- the failure behind #61 and #64, which nothing else catches: it
+# compiles, vets, lints and unit-tests clean. Like references-check, this is
+# already covered by ci-test; the target is the fast way to ask on its own.
+.PHONY: bind-check
+bind-check: ## Fail if a settable attribute is never read by Create or Update
+	@go test ./internal/kgen/bindaudit/ -count=1
+	@echo "$(GREEN)✓ no newly dropped request attributes$(RESET)"
+
+.PHONY: bind-audit
+bind-audit: ## Rewrite codegen/unbound_attributes.yaml from the current tree
+	@go test ./internal/kgen/bindaudit/ -update -count=1
+	@echo "$(GREEN)✓ codegen/unbound_attributes.yaml regenerated$(RESET)"
+
 .PHONY: generate
 generate: version-gen generate-schemas crud import-manifest ## Regenerate the full generatable surface
 
