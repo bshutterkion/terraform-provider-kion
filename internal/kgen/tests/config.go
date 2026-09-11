@@ -7,13 +7,19 @@ package tests
 //
 // Per release branch, this is pinned to the matching SDK sub-package:
 //
-//	main              → kion-sdk-go/generated/v3_15 (newest supported)
+//	main              → kion-sdk-go/generated/v3_16 (newest supported)
+//	release-3.16.x    → kion-sdk-go/generated/v3_16
 //	release-3.15.x    → kion-sdk-go/generated/v3_15
 //	release-3.14.x    → kion-sdk-go/generated/v3_14
 //	release-3.13.x    → kion-sdk-go/generated/v3_13
 //	release-3.12.x    → kion-sdk-go/generated/v3_12
 //
+// It must match what internal/conns builds its *generated.Client from: an
+// emitted test passes `generated.<Op>Params` to `conn.Client.<Op>`, so a
+// sub-package mismatch is a compile error in every generated test that has an
+// SDKGetMethod. This was pinned to v3_15 while the provider moved to v3_16.
+//
 // NOTE: hand-written imports elsewhere in the provider still need their
 // import lines updated on each branch (bulk sed); this constant only
 // affects what kgen WRITES when scaffolding new test files.
-const SDKImportPath = "github.com/kionsoftware/kion-sdk-go/generated/v3_15"
+const SDKImportPath = "github.com/kionsoftware/kion-sdk-go/generated/v3_16"

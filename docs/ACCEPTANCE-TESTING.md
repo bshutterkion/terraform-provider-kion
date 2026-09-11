@@ -1,7 +1,7 @@
 # Running the acceptance tests
 
-The provider has 90 acceptance tests across 61 service packages. They are the
-only thing that exercises `Create`, `Update`, `Delete` and `ImportState`:
+The provider has acceptance tests across 47 of its 72 service packages. They are
+the only thing that exercises `Create`, `Update`, `Delete` and `ImportState`:
 everything in `ci.yml` is compile-, lint- or read-level, and `acctest-config`
 only checks that the test HCL matches the schema without applying any of it.
 
@@ -61,11 +61,62 @@ that Environment and a run against a protected install needs approval before
 anything is written. The workflow sweeps before and after, including on
 cancellation.
 
+## Tests that are red on purpose
+
+A generated test file can carry a `Known issues this test is expected to
+surface:` header naming an open defect. That comes from `KnownIssues` in
+`internal/kgen/tests/resource_meta.go`, and it means the red is a recorded
+finding rather than an unexplained failure — do not "fix" such a test by
+loosening its assertions. As of this document:
+
+| package | issue |
+|---|---|
+| `funding_source` | #68 `owner_user_ids` / `permission_scheme_id` dropped on read |
+| `budget` | #69 `amount` dropped on read |
+| `ou_enforcement`, `funding_source_enforcement` | #70 `cloud_rule_id` dropped on read |
+| `funding_source_note` | #71 every note is created with id 0 |
+
+## Writing a new one
+
+Prefer generating: add an entry to the registry in
+`internal/kgen/tests/resource_meta.go` and run
+`go run -tags kgendocs ./cmd/kgen tests --force --resource kion_<name>`.
+Beyond the SDK get/delete methods and per-field values, the registry carries:
+
+- `Dependencies` — resources the config stands up first. A dependency's
+  `TargetField` is emitted as a reference even when the field is Required.
+- `RequiredEnv` — a `KION_ACC_*` variable the test cannot run without, with the
+  reason. Emits a skip guard in every test function, including the data
+  source's. **Guards only**: the value is not threaded into the HCL.
+- `ImportIDParentField` — for the `parent_list` and `association` archetypes,
+  whose `ImportState` parses `"<parent>/<id>"` rather than a bare id.
+- `NoUpdate` — suppresses the `_update` test for a resource whose `Update`
+  answers "cannot be updated in place".
+- `KnownIssues` — the header described above.
+
+Hand-write instead when the config must interpolate an install-specific id
+(`internal/service/billing_rule` and `internal/service/idms_group_association`
+are the precedents). `kgen tests` skips existing files unless given `--force`,
+so a hand-written test survives regeneration.
+
+JSON-valued attributes must be written through `jsonencode(...)`, not as a raw
+string literal. Reads canonicalise JSON to the compact, key-sorted form
+`jsonencode` emits (see `codegen/schema_overrides.yaml`), so a hand-ordered
+literal comes back reordered and the apply fails with "Provider produced
+inconsistent result after apply".
+
 ## Known gaps
 
 - `make testacc` used to target `./internal/provider/...`, which contains no
   acceptance tests, so it exited 0 having run nothing. It now targets
   `./internal/service/...`.
-- No environment in the current estate has been confirmed safe to write to, so
-  as of this document **the tests have still never run**. The wiring is
-  complete; the target is not chosen.
+- The five `billing_source*` packages still have no acceptance test. Every one
+  of them needs real cloud credentials, and no install available so far has a
+  billing source of any kind (`/v4/billing-source` and `/v1/payer` both return
+  empty, and `discover-acc-env.py` reports `KION_ACC_BILLING_SOURCE_ID`,
+  `KION_ACC_PAYER_ID` and `KION_ACC_AZURE_PAYER_ID` all unavailable). Tests that
+  could only ever be observed skipping would repeat the pattern #63 exists to
+  stop, so they were deliberately not written.
+- `POST /v3/azure-role` returns 500 for every payload on an install with no
+  Azure billing source — raw `curl` reproduces it, so it is the API rather than
+  the provider. `kion_azure_role`'s test gates on `KION_ACC_AZURE_PAYER_ID`.

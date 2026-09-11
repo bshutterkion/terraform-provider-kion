@@ -1,0 +1,135 @@
+// Known issues this test is expected to surface:
+//   #69 amount is Optional+Computed and no flatten assigns it, so ImportStateVerify fails. Create expands it into per-month data rows that flattenBudget ignores. Left failing on purpose.
+
+package budget_test
+
+import (
+	"context"
+	"fmt"
+	"strconv"
+	"testing"
+
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
+
+	"terraform-provider-kion/internal/acctest"
+	"terraform-provider-kion/internal/errs"
+
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+)
+
+func TestAccKionBudget_basic(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping long-running test in short mode")
+	}
+
+	ctx := acctest.Context(t)
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	resourceName := "kion_budget.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckBudgetDestroy(ctx),
+		Steps: []resource.TestStep{
+			{
+				Config: testAccBudgetConfig_basic(rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					testAccCheckBudgetExists(ctx, resourceName),
+					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttrSet(resourceName, "end_datecode"),
+					resource.TestCheckResourceAttrSet(resourceName, "start_datecode"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func testAccCheckBudgetExists(_ context.Context, name string) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		rs, ok := s.RootModule().Resources[name]
+		if !ok {
+			return fmt.Errorf("not found: %s", name)
+		}
+		if rs.Primary.ID == "" {
+			return fmt.Errorf("no ID set for %s", name)
+		}
+
+		conn, err := acctest.SharedClient()
+		if err != nil {
+			return fmt.Errorf("getting shared client: %w", err)
+		}
+
+		id, err := strconv.ParseInt(rs.Primary.ID, 10, 64)
+		if err != nil {
+			return fmt.Errorf("parsing ID: %w", err)
+		}
+
+		ctx := context.Background()
+		out, err := conn.Client.GetBudget(ctx, generated.GetBudgetParams{ID: id})
+		if err != nil {
+			return fmt.Errorf("reading kion_budget (%d): %w", id, err)
+		}
+		if errs.IsNotFound(out) {
+			return fmt.Errorf("kion_budget (%d) not found", id)
+		}
+
+		return nil
+	}
+}
+
+func testAccCheckBudgetDestroy(_ context.Context) resource.TestCheckFunc {
+	return func(s *terraform.State) error {
+		conn, err := acctest.SharedClient()
+		if err != nil {
+			return fmt.Errorf("getting shared client: %w", err)
+		}
+
+		for _, rs := range s.RootModule().Resources {
+			if rs.Type != "kion_budget" {
+				continue
+			}
+
+			id, err := strconv.ParseInt(rs.Primary.ID, 10, 64)
+			if err != nil {
+				return fmt.Errorf("parsing ID: %w", err)
+			}
+
+			ctx := context.Background()
+			out, err := conn.Client.GetBudget(ctx, generated.GetBudgetParams{ID: id})
+			if errs.IsNotFound(out) {
+				continue
+			}
+			if err != nil {
+				return fmt.Errorf("reading kion_budget (%d): %w", id, err)
+			}
+
+			return fmt.Errorf("kion_budget (%d) still exists", id)
+		}
+
+		return nil
+	}
+}
+
+func testAccBudgetConfig_basic(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_ou" "test_ou" {
+  name = "test-acc-ou-%[1]s"
+  owner_user_ids = [1]
+  parent_ou_id = 0
+  permission_scheme_id = 2
+}
+
+resource "kion_budget" "test" {
+  end_datecode = "2026-12"
+  start_datecode = "2026-01"
+  ou_id = kion_ou.test_ou.id
+  amount = 1000
+}
+`, rName)
+}
