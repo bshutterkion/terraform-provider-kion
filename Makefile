@@ -58,7 +58,7 @@ SDK_VERSION ?= v3_16
 # refresh-spec reads the kion-sdk MONOREPO, not the published mirror: mirrors are
 # customer-facing and ship only the client, never spec/. Needed to regenerate
 # schemas; building and testing work from the committed generated code alone.
-SDK_SPEC ?= ../kion-sdk/spec/$(SDK_VERSION)/openapi3.json
+SDK_SPEC ?= ../../kion-sdk/kion-sdk-monorepo/spec/$(SDK_VERSION)/openapi3.json
 # Root of the sibling SDK module (holds generated/<v>/oas_client_gen.go per
 # support version); used by `make version-support`.
 SDK_DIR ?= ../kion-sdk-go
@@ -223,7 +223,7 @@ changelog-release: ## Cut a release section: make changelog-release RELEASE_VERS
 .PHONY: refresh-spec
 refresh-spec: ## Copy the OpenAPI spec from the kion-sdk monorepo (override SDK_SPEC=<path>)
 	@echo "$(BLUE)Refreshing $(OPENAPI_SPEC) from $(SDK_SPEC)...$(RESET)"
-	@test -f "$(SDK_SPEC)" || (echo "$(RED)Spec not found at $(SDK_SPEC). Set SDK_SPEC to a local SDK spec checkout.$(RESET)"; exit 1)/openapi3.json$(RESET)" && exit 1)
+	@test -f "$(SDK_SPEC)" || (echo "$(RED)Spec not found at $(SDK_SPEC). Set SDK_SPEC to a local SDK spec checkout.$(RESET)"; exit 1)
 	@mkdir -p "$(dir $(OPENAPI_SPEC))"
 	@cp "$(SDK_SPEC)" "$(OPENAPI_SPEC)"
 	@echo "$(GREEN)✓ $(OPENAPI_SPEC) updated$(RESET)"

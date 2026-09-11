@@ -67,6 +67,10 @@ type generator struct {
 	// data source must withhold. Loaded once per run alongside the other
 	// codegen inputs above.
 	fieldPolicy FieldPolicy
+
+	// configValidators is codegen/config_validators.yaml: cross-field API
+	// constraints an attribute-level schema cannot express.
+	configValidators ConfigValidatorPolicy
 	downgrades  []downgrade    // data sources that lost their filter block this run
 	dropped     []droppedField // fields a list data source could not project this run
 	// dataSources is the generator_config `data_sources` op-set, needed to reach
@@ -97,6 +101,12 @@ func (g *generator) generate(opts Options) (int, error) {
 		return 0, err
 	}
 	g.fieldPolicy = policy
+
+	cv, err := LoadConfigValidators(root)
+	if err != nil {
+		return 0, err
+	}
+	g.configValidators = cv
 
 	cfgPath := opts.Config
 	if cfgPath == "" {
@@ -398,6 +408,8 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 			rm.SliceMembers = append(rm.SliceMembers, s)
 		}
 	}
+
+	rm.AtLeastOneOf = g.configValidators.For(name)
 
 	resourceGo, err := renderEntity(rm)
 	if err != nil {

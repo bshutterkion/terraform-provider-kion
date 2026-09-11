@@ -143,6 +143,9 @@ type ResourceModel struct {
 	// collection; see parentread.go.
 	ParentRead *parentReadData
 	Name       string       // snake, e.g. "label"
+	// AtLeastOneOf are attributes codegen/config_validators.yaml says the API
+	// requires at least one of, emitted as a resource-level ConfigValidator.
+	AtLeastOneOf []string
 	Pascal     string       // "Label"
 	Model      string       // model type, e.g. "LabelModel"
 	IDField    ModelField   // the tfsdk:"id" model field
