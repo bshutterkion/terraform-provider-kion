@@ -156,6 +156,18 @@ var datasourceOnlyTemplates = map[string]string{
 	"gcp_regions": gcpRegionsDSTmpl,
 }
 
+//go:embed project.gtpl
+var projectResourceTmpl string
+
+// resourceTemplates maps the `resource_template` name on an entity archetype to
+// the verbatim body that replaces the derived <name>.go. Unlike a bespoke kind
+// this keeps the resource in generator_config's `resources` list, so its schema,
+// data source, sweeper and acceptance tests are still derived; only the CRUD
+// body is hand-authored. See archetype.ResourceTemplate.
+var resourceTemplates = map[string]string{
+	"project": projectResourceTmpl,
+}
+
 // isBespokeKind reports whether a kind is emitted from verbatim per-resource
 // templates rather than derived from the SDK op-set. Bespoke resources may be
 // declared only in crud_archetypes.yaml (absent from generator_config

@@ -41,6 +41,13 @@ type KionClient struct {
 	// VersionDetected is false if detection failed (Version is then zero).
 	Version         KionVersion
 	VersionDetected bool
+
+	// BudgetMode is whether the instance funds projects with budgets rather
+	// than spend plans, read from GET /v3/app-config at Configure time by
+	// DetectFinancialMode. FinancialModeDetected is false if that read failed,
+	// which it may for a token without the global settings permission.
+	BudgetMode            bool
+	FinancialModeDetected bool
 }
 
 // RawDelete performs a raw HTTP DELETE against the Kion API for endpoints not

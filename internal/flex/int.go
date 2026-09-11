@@ -39,6 +39,22 @@ func OptUint64FromFramework(v types.Int64) generated.OptUint64 {
 	return generated.OptUint64{Value: uint64(v.ValueInt64()), Set: true}
 }
 
+// OptUint64FromFrameworkFloat64 converts a types.Float64 to an OptUint64.
+// Null or unknown values produce an unset OptUint64. It exists for an attribute
+// the schema types as a number while the API takes a whole count -- a project
+// budget total, in dollars -- so a fractional value truncates toward zero
+// rather than being refused, and a negative one clamps to 0.
+func OptUint64FromFrameworkFloat64(v types.Float64) generated.OptUint64 {
+	if v.IsNull() || v.IsUnknown() {
+		return generated.OptUint64{}
+	}
+	f := v.ValueFloat64()
+	if f < 0 {
+		f = 0
+	}
+	return generated.OptUint64{Value: uint64(f), Set: true}
+}
+
 // --- Flatten: SDK → TF ---
 
 // Int64ToFramework converts a Go int64 to a types.Int64.

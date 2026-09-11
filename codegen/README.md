@@ -126,9 +126,36 @@ reproducible.
 - `ou_permission_mapping` and `project_permission_mapping` create and update
   through the same PATCH upsert, and derivation attributes that one PATCH to
   create alone. Without a pinned `update` they become create-and-replace only.
+- `project` calls two create ops, one per financial mode, so derivation would
+  pick whichever appears first in the source and the schema would follow it.
+  Only `/v3/project/with-spend-plan` may drive it: its body is `ProjectCreate`,
+  carrying `project_funding`, where `/v3/project/with-budget`'s carries `budget`
+  instead. One schema serves both modes, so it needs `project_funding` from the
+  derivation and `budget` from `schema_overrides.yaml`.
 
 Check a derived path before trusting it: it must exist in the spec with a GET,
 and it must be the collection rather than the by-id route.
+
+## A verbatim resource body
+
+`crud_archetypes.yaml` entries of `kind: entity` may carry
+`resource_template: <name>`, which replaces the derived `<name>.go` with a
+verbatim template registered in `resourceTemplates`
+(`internal/kgen/crud/bespoke.go`). Unlike a bespoke *kind*, the resource stays in
+`generator_config.yaml`'s `resources` list, so its schema, data source, sweeper
+and acceptance tests are still derived; only the CRUD body is hand-authored.
+
+It is for a resource whose control flow the entity archetype cannot express while
+everything else about it is ordinary. `project` is the only one: create has to
+choose `POST /v3/project/with-budget` or `POST /v3/project/with-spend-plan` on
+the install's financial mode, because each endpoint refuses the other mode before
+it parses the body, so no payload can satisfy the wrong one. (`POST /v3/project`,
+which the derived body used, is the deprecated spend-plan-only alias and is
+unusable on a budget-mode install — the portal's own swagger comment says so.)
+
+Reach for it last. A verbatim body stops tracking schema and SDK changes, which
+is the cost every bespoke archetype pays; take it only when a declared tweak
+cannot do the job.
 
 ## What derivation cannot see
 

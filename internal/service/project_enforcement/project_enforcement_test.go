@@ -5,9 +5,23 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"terraform-provider-kion/internal/acctest"
 )
+
+// testAccProjectEnforcementImportID builds the "project_id/id" import id the
+// resource's ImportState requires: an enforcement has no by-id GET, so it is
+// addressed through its parent project.
+func testAccProjectEnforcementImportID(name string) resource.ImportStateIdFunc {
+	return func(s *terraform.State) (string, error) {
+		rs, ok := s.RootModule().Resources[name]
+		if !ok {
+			return "", fmt.Errorf("not found: %s", name)
+		}
+		return fmt.Sprintf("%s/%s", rs.Primary.Attributes["project_id"], rs.Primary.ID), nil
+	}
+}
 
 func TestAccKionProjectEnforcement_basic(t *testing.T) {
 	if testing.Short() {
@@ -30,6 +44,7 @@ func TestAccKionProjectEnforcement_basic(t *testing.T) {
 			{
 				ResourceName:      resourceName,
 				ImportState:       true,
+				ImportStateIdFunc: testAccProjectEnforcementImportID(resourceName),
 				ImportStateVerify: true,
 			},
 		},
@@ -63,6 +78,7 @@ func TestAccKionProjectEnforcement_update(t *testing.T) {
 			{
 				ResourceName:      resourceName,
 				ImportState:       true,
+				ImportStateIdFunc: testAccProjectEnforcementImportID(resourceName),
 				ImportStateVerify: true,
 			},
 		},

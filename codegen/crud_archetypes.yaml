@@ -158,6 +158,17 @@ billing_source_aws:
 billing_source_gcp:
   kind: blended
 
+# Verbatim resource body (internal/kgen/crud/project.gtpl); schema, data source,
+# sweeper and acceptance tests stay derived. Create has to pick between
+# POST /v3/project/with-budget and POST /v3/project/with-spend-plan on the
+# install's financial mode, because each refuses the other mode before it parses
+# the body -- control flow the entity archetype has no way to express (#66).
+# POST /v3/project, which the derived body used, is the deprecated spend-plan-only
+# alias and is unusable on a budget-mode install.
+project:
+  kind: entity
+  resource_template: project
+
 # Parent-scoped resource with no by-id GET: the read lists enforcements under the
 # project and finds by id; every op takes the project id, update/delete also the
 # enforcement id. Create returns a CreatedResponse.
