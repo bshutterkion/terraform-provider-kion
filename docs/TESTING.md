@@ -131,7 +131,7 @@ while orphaned `test-acc` records piled up, which is worse than having none.
 
 | Resource | Why |
 |---|---|
-| `kion_service_catalog`, `kion_user`, `kion_webhook` | no delete endpoint, so orphans cannot be removed |
+| `kion_service_catalog`, `kion_user`, `kion_webhook` | no delete endpoint, so orphans cannot be removed — **but see #79**: `DELETE /v1/user/{id}` and `DELETE /v1/webhook/{id}` both exist and work, so those two rows are wrong and both types should gain a real delete and a sweeper. `kion_service_catalog` genuinely has none (405 on `/v3`, 404 on `/v1`) |
 | `kion_idms_open_id` | neither a delete endpoint nor a resolvable collection |
 | `kion_aws_resource_tag`, `kion_ou_cloud_access_role_exemption`, `kion_project_cloud_access_role_exemption` | no read, so no collection to enumerate |
 | `kion_billing_source_govcloud`, `kion_budget`, `kion_idms_open_id_access_rule`, `kion_idms_open_id_group_association` | the configured collection endpoint is a by-id read, not a list |
