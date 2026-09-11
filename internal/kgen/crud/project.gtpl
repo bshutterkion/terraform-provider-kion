@@ -12,7 +12,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/types"
+	{{if .AtLeastOneOf}}"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	{{end}}	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
 	"terraform-provider-kion/internal/conns"
@@ -27,6 +28,9 @@ var (
 	_ resource.Resource                = &projectResource{}
 	_ resource.ResourceWithConfigure   = &projectResource{}
 	_ resource.ResourceWithImportState = &projectResource{}
+{{- if .AtLeastOneOf}}
+	_ resource.ResourceWithConfigValidators = &projectResource{}
+{{- end}}
 )
 
 // NewProjectResource returns a new instance of the resource.
@@ -42,6 +46,20 @@ func (r *projectResource) Metadata(_ context.Context, req resource.MetadataReque
 	resp.TypeName = req.ProviderTypeName + "_project"
 }
 
+{{if .AtLeastOneOf}}// ConfigValidators expresses a constraint the API enforces across attributes,
+// which the schema cannot: neither attribute is Required on its own, so without
+// this the configuration reaches the API and comes back as a validation error
+// naming the request field rather than the Terraform attribute.
+func (r *projectResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		resourcevalidator.AtLeastOneOf(
+{{- range .AtLeastOneOf}}
+			path.MatchRoot("{{.}}"),
+{{- end}}
+		),
+	}
+}
+{{end}}
 func (r *projectResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	// Schema is generated from the OpenAPI spec (project_schema_gen.go); the
 	// bits the spec can't express come from codegen/schema_overrides.yaml.

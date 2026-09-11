@@ -428,7 +428,11 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		if !ok {
 			return 0, fmt.Errorf("%s: resource_template %q is not registered in resourceTemplates", name, entityArch.ResourceTemplate)
 		}
-		if resourceGo, err = execGoTemplate(name+":"+name+".go", tmpl, nil, name+".go"); err != nil {
+		// A verbatim body still needs the cross-field constraints: they are
+		// authored per resource, not derived, so a hand-written template would
+		// otherwise silently drop the validator the declaration promises.
+		tmplData := struct{ AtLeastOneOf []string }{AtLeastOneOf: rm.AtLeastOneOf}
+		if resourceGo, err = execGoTemplate(name+":"+name+".go", tmpl, tmplData, name+".go"); err != nil {
 			return 0, err
 		}
 	}
