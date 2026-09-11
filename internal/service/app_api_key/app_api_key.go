@@ -158,7 +158,10 @@ func (r *app_api_keyResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 
 	out, err := conn.PatchAppAPIKey(ctx, input, generated.PatchAppAPIKeyParams{ID: idInt})
-	if err != nil {
+	// A 2xx the spec does not declare arrives as a decode error even though the
+	// write landed; the read-back below is the authority on state either way.
+	// See errs.IsUndeclaredSuccess.
+	if err != nil && !errs.IsUndeclaredSuccess(err) {
 		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameAppApiKey, idInt), err.Error())
 		return
 	}

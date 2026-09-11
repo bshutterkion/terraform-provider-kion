@@ -151,7 +151,10 @@ func (r *categoryResource) Update(ctx context.Context, req resource.UpdateReques
 	}
 
 	out, err := conn.UpdateCategoryByID(ctx, input, generated.UpdateCategoryByIDParams{ID: idInt})
-	if err != nil {
+	// A 2xx the spec does not declare arrives as a decode error even though the
+	// write landed; the read-back below is the authority on state either way.
+	// See errs.IsUndeclaredSuccess.
+	if err != nil && !errs.IsUndeclaredSuccess(err) {
 		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameCategory, idInt), err.Error())
 		return
 	}

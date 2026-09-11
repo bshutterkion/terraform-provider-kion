@@ -13,6 +13,7 @@ require (
 	github.com/hashicorp/terraform-plugin-testing v1.14.0
 	github.com/kionsoftware/kion-sdk-go v0.0.0
 	github.com/spf13/cobra v1.10.2
+	github.com/zclconf/go-cty v1.17.0
 )
 
 require (
@@ -25,7 +26,7 @@ require (
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
-	github.com/ogen-go/ogen v1.20.1 // indirect
+	github.com/ogen-go/ogen v1.20.1
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
@@ -93,7 +94,6 @@ require (
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
-	github.com/zclconf/go-cty v1.17.0 // indirect
 	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/mod v0.33.0 // indirect
 	golang.org/x/net v0.51.0 // indirect

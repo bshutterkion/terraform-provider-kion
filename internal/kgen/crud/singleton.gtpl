@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
+	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
 )
@@ -160,7 +161,10 @@ func (r *appConfigResource) apply(ctx context.Context, model *appConfigResourceM
 		body.SupportedAWSRegions = generated.OptNilStringArray{Value: regions, Set: true}
 	}
 
-	if _, err := conn.PatchAppConfig(ctx, body); err != nil {
+	// A 2xx the spec does not declare arrives as a decode error even though the
+	// write landed; the read-back below is the authority on state either way.
+	// See errs.IsUndeclaredSuccess.
+	if _, err := conn.PatchAppConfig(ctx, body); err != nil && !errs.IsUndeclaredSuccess(err) {
 		diags.AddError(fmt.Sprintf("updating %s", ResNameAppConfig), err.Error())
 		return diags
 	}
