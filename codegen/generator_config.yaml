@@ -780,7 +780,7 @@ resources:
       ignores: [status, record_id, data]
   project:
     create:
-      path: /v3/project
+      path: /v3/project/with-spend-plan
       method: POST
     read:
       path: /v3/project/{id}
@@ -1372,4 +1372,4 @@ data_sources:
     schema:
       ignores: [status, record_id]
 
-# summary: 70 generatable (28 implemented, 42 stub), 0 incomplete; 64 data sources
+# summary: 70 generatable (27 implemented, 43 stub), 0 incomplete; 64 data sources

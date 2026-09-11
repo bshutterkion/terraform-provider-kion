@@ -183,7 +183,10 @@ func (r *azure_roleResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 
 	out, err := conn.PatchAzureRole(ctx, input, generated.PatchAzureRoleParams{ID: idInt})
-	if err != nil {
+	// A 2xx the spec does not declare arrives as a decode error even though the
+	// write landed; the read-back below is the authority on state either way.
+	// See errs.IsUndeclaredSuccess.
+	if err != nil && !errs.IsUndeclaredSuccess(err) {
 		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameAzureRole, idInt), err.Error())
 		return
 	}

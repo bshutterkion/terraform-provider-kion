@@ -64,6 +64,14 @@ type archetype struct {
 	// resource gets no sweeper at all.
 	SweepParent      string `yaml:"sweep_parent"`       // parent resource name, e.g. "ou"
 	SweepParentParam string `yaml:"sweep_parent_param"` // list param taking the parent id, e.g. "ID"
+	// ResourceTemplate (kind: entity) names a verbatim template in
+	// resourceTemplates that replaces the derived <name>.go. Everything else the
+	// entity path produces -- data source, sweeper, acceptance tests -- stays
+	// derived, and so does the schema. It exists for a resource whose CRUD
+	// control flow the entity archetype cannot express while the rest of it is
+	// perfectly ordinary; project, which dispatches create on the install's
+	// financial mode, is the only one.
+	ResourceTemplate string `yaml:"resource_template"`
 }
 
 // sumFromDecl declares one rebuilt-by-summing model attribute: which attribute,

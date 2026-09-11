@@ -159,7 +159,10 @@ func (r *idms_open_id_group_associationResource) Update(ctx context.Context, req
 	}
 
 	out, err := conn.PatchOpenIDGroupAssociation(ctx, input, generated.PatchOpenIDGroupAssociationParams{ID: idInt})
-	if err != nil {
+	// A 2xx the spec does not declare arrives as a decode error even though the
+	// write landed; the read-back below is the authority on state either way.
+	// See errs.IsUndeclaredSuccess.
+	if err != nil && !errs.IsUndeclaredSuccess(err) {
 		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameIdmsOpenIdGroupAssociation, idInt), err.Error())
 		return
 	}

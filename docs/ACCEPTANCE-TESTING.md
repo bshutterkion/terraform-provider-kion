@@ -1,6 +1,6 @@
 # Running the acceptance tests
 
-The provider has acceptance tests across 47 of its 72 service packages. They are
+The provider has acceptance tests across 54 of its 72 service packages. They are
 the only thing that exercises `Create`, `Update`, `Delete` and `ImportState`:
 everything in `ci.yml` is compile-, lint- or read-level, and `acctest-config`
 only checks that the test HCL matches the schema without applying any of it.
@@ -75,6 +75,9 @@ loosening its assertions. As of this document:
 | `budget` | #69 `amount` dropped on read |
 | `ou_enforcement`, `funding_source_enforcement` | #70 `cloud_rule_id` dropped on read |
 | `funding_source_note` | #71 every note is created with id 0 |
+| `compliance_control` | #77 `program_id` dropped on read, #78 an empty Set comes back null |
+| `webhook` | #79 `Delete` is a no-op although `DELETE /v1/webhook/{id}` works |
+| `ou_cloud_access_role_exemption` | #80 a created exemption is in no collection, so `Read` never finds it |
 
 ## Writing a new one
 
@@ -93,6 +96,14 @@ Beyond the SDK get/delete methods and per-field values, the registry carries:
 - `NoUpdate` — suppresses the `_update` test for a resource whose `Update`
   answers "cannot be updated in place".
 - `KnownIssues` — the header described above.
+- `RawCollectionPath` (with optional `RawCollectionParentField` and
+  `RawCollectionDiscriminator`) — for a resource with **no single-record GET**,
+  whose read is a whole-collection fetch over raw HTTP. The Exists and Destroy
+  checks then read the same private collection the resource's own `Read` does.
+  Without it those checks were `// TODO` stubs that returned `nil`, so the test
+  reported green whether or not the API had ever seen the record — worse than no
+  test at all. `kion_aws_resource_tag` and
+  `kion_ou_cloud_access_role_exemption` use it.
 
 Hand-write instead when the config must interpolate an install-specific id
 (`internal/service/billing_rule` and `internal/service/idms_group_association`
@@ -120,3 +131,23 @@ inconsistent result after apply".
 - `POST /v3/azure-role` returns 500 for every payload on an install with no
   Azure billing source — raw `curl` reproduces it, so it is the API rather than
   the provider. `kion_azure_role`'s test gates on `KION_ACC_AZURE_PAYER_ID`.
+
+## The 18 packages that still have none, and why
+
+`accounthelper` is a helper package with no resource. For the other 17 the
+reason is a prerequisite the test cannot manufacture, not an oversight — each
+was established against a live install rather than assumed.
+
+| packages | why |
+|---|---|
+| `billing_source`, `billing_source_aws`, `billing_source_gcp`, `billing_source_govcloud`, `billing_source_oci` | real cloud credentials; see the note above |
+| `gcp_account` | `payer_id` (a billing source) **and** `project_id`, so it is blocked twice over: on the billing-source gap and on #66 |
+| `project_note`, `project_line_item`, `project_cloud_access_role_exemption` | need a `kion_project`, which #66 makes uncreatable on a budget-mode install |
+| `scope`, `dashboard` | `GET /v3/scope` and `GET /v3/dashboard` both 404 on 3.16 |
+| `scope_criteria` | a compound-key sub-resource of `kion_scope`, so it inherits that 404 |
+| `service_catalog` | `POST /v3/service-catalog` requires `PortfolioID` and `Region` — a real AWS Service Catalog portfolio, which no test can invent. It also has no delete: `DELETE /v3/service-catalog/{id}` is 405 and `/v1/…` is 404, unlike `kion_webhook` (#79) |
+| `idms_open_id`, `idms_open_id_access_rule`, `idms_open_id_group_association` | `kion_idms_open_id` has neither a delete endpoint nor a resolvable collection; `DELETE` is 404 on `/v1`, `/v2` and `/v3` |
+| `app_role` | not reached by this pass; still open under #63 |
+
+A test whose only observable behaviour would be a skip repeats the pattern #63
+exists to stop, so none of these got a placeholder.

@@ -215,6 +215,18 @@ resources:
     read:
       path: /v3/project/{id}/enforcement
       method: GET
+  project:
+    # Create makes two calls, one per financial mode (see crud_archetypes.yaml),
+    # so derivation would pick whichever appears first in the source and the
+    # schema would follow it. Only with-spend-plan may drive the schema: its body
+    # is ProjectCreate, which carries project_funding, while with-budget's
+    # ProjectCreateWithBudgets carries budget instead. The provider serves both
+    # modes from one schema, so it needs project_funding from here and budget
+    # from schema_overrides.yaml. Pinned so a source reordering cannot silently
+    # drop project_funding from the schema.
+    create:
+      path: /v3/project/with-spend-plan
+      method: POST
   custom_variable_override:
     # Polymorphic (account/ou/project); account variant is representative.
     # Create is an upsert PUT; read shares the same sub-resource path.

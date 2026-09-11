@@ -1,0 +1,66 @@
+package compliance_control_test
+
+import (
+	"fmt"
+	"testing"
+
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+
+	"terraform-provider-kion/internal/acctest"
+)
+
+func TestAccKionComplianceControlDataSource_basic(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping long-running test in short mode")
+	}
+
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	dataSourceName := "data.kion_compliance_control.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccComplianceControlDataSourceConfig_basic(rName),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
+					resource.TestCheckResourceAttrSet(dataSourceName, "compliance_family_id"),
+					resource.TestCheckResourceAttrSet(dataSourceName, "control_number"),
+					resource.TestCheckResourceAttrSet(dataSourceName, "description"),
+					resource.TestCheckResourceAttrSet(dataSourceName, "name"),
+					resource.TestCheckResourceAttrSet(dataSourceName, "severity"),
+					resource.TestCheckResourceAttrSet(dataSourceName, "title"),
+				),
+			},
+		},
+	})
+}
+
+func testAccComplianceControlDataSourceConfig_basic(rName string) string {
+	return fmt.Sprintf(`
+resource "kion_compliance_program" "test_program" {
+  name = "test-acc-program-%[1]s"
+  version = "1.0"
+}
+
+resource "kion_compliance_family" "test_family" {
+  compliance_program_id = kion_compliance_program.test_program.id
+  name = "test-acc-family-%[1]s"
+}
+
+resource "kion_compliance_control" "test" {
+  program_id = kion_compliance_program.test_program.id
+  compliance_family_id = kion_compliance_family.test_family.id
+  name = %[1]q
+  description = "test-acc control"
+  control_number = 1
+  severity = "low"
+  title = "test-acc control title"
+}
+
+data "kion_compliance_control" "test" {
+  id = kion_compliance_control.test.id
+}
+`, rName)
+}
