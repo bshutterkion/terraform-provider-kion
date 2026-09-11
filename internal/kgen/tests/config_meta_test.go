@@ -71,10 +71,12 @@ func TestGetMeta_TableKnown(t *testing.T) {
 			wantHasOverride: true,
 		},
 		{
-			// kion_category intentionally has no single-get endpoint.
+			// kion_category reads by id through GetCategoryByID; the entry
+			// carried only a delete method, so its Exists/Destroy checks were
+			// generated as TODO stubs that verified nothing.
 			typeName:        "kion_category",
-			wantGetMethod:   "",
-			wantGetParams:   "",
+			wantGetMethod:   "GetCategoryByID",
+			wantGetParams:   "generated.GetCategoryByIDParams{ID: id}",
 			wantDeleteMeth:  "DeleteCategoryByID",
 			wantHasOverride: true,
 		},

@@ -170,11 +170,11 @@ func TestUpdateTestValueWithMeta(t *testing.T) {
 		t.Errorf("updateTestValueWithMeta(color) = %q, want %q", got, `"#ff0000"`)
 	}
 
-	// idms password_expiration has no update; should use basic
+	// idms_type_id has no update value; should fall back to basic
 	idmsMeta := GetMeta("kion_idms")
-	got = updateTestValueWithMeta(attrInfo{name: "password_expiration", attrType: "int64"}, false, idmsMeta)
-	if got != "0" {
-		t.Errorf("updateTestValueWithMeta(password_expiration) = %q, want %q", got, "0")
+	got = updateTestValueWithMeta(attrInfo{name: "idms_type_id", attrType: "int64"}, false, idmsMeta)
+	if got != "1" {
+		t.Errorf("updateTestValueWithMeta(idms_type_id) = %q, want %q", got, "1")
 	}
 }
 
@@ -197,9 +197,10 @@ func TestBuildBasicConfig_WithDependencies(t *testing.T) {
 		t.Error("expected permission_scheme_id reference in config")
 	}
 
-	// Should contain owner_users block
-	if !strings.Contains(config, "owner_users { id = 1 }") {
-		t.Error("expected owner_users block in config")
+	// kion_ou's schema declares owner_user_ids as a Set, not the old SDKv2
+	// provider's owner_users block.
+	if !strings.Contains(config, "owner_user_ids = [1]") {
+		t.Error("expected owner_user_ids attribute in config")
 	}
 
 	// parent_ou_id should use the override value

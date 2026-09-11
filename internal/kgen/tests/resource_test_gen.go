@@ -36,10 +36,14 @@ func buildResourceTestFile(pkgName, typeName, snake, pascal string, s rsschema.S
 
 	var b strings.Builder
 
+	writeKnownIssues(&b, meta)
 	fmt.Fprintf(&b, "package %s_test\n\n", pkgName)
 	b.WriteString("import (\n")
 	b.WriteString("\t\"context\"\n")
 	b.WriteString("\t\"fmt\"\n")
+	if metaNeedsEnv(meta) {
+		b.WriteString("\t\"os\"\n")
+	}
 	if hasSDK {
 		b.WriteString("\t\"strconv\"\n")
 	}
@@ -62,6 +66,7 @@ func buildResourceTestFile(pkgName, typeName, snake, pascal string, s rsschema.S
 	b.WriteString("\tif testing.Short() {\n")
 	b.WriteString("\t\tt.Skip(\"skipping long-running test in short mode\")\n")
 	b.WriteString("\t}\n\n")
+	writeEnvSkips(&b, meta)
 	b.WriteString("\tctx := acctest.Context(t)\n")
 	if needsRName {
 		b.WriteString("\trName := acctest.RandomWithPrefix(acctest.ResourcePrefix)\n")
@@ -91,60 +96,16 @@ func buildResourceTestFile(pkgName, typeName, snake, pascal string, s rsschema.S
 	}
 	b.WriteString("\t\t\t\t),\n")
 	b.WriteString("\t\t\t},\n")
-	b.WriteString("\t\t\t{\n")
-	b.WriteString("\t\t\t\tResourceName:      resourceName,\n")
-	b.WriteString("\t\t\t\tImportState:       true,\n")
-	b.WriteString("\t\t\t\tImportStateVerify: true,\n")
-	b.WriteString("\t\t\t},\n")
+	writeImportStep(&b, meta)
 	b.WriteString("\t\t},\n")
 	b.WriteString("\t})\n")
 	b.WriteString("}\n\n")
 
 	// TestAccKion<Name>_update
-	fmt.Fprintf(&b, "func TestAccKion%s_update(t *testing.T) {\n", pascal)
-	b.WriteString("\tif testing.Short() {\n")
-	b.WriteString("\t\tt.Skip(\"skipping long-running test in short mode\")\n")
-	b.WriteString("\t}\n\n")
-	b.WriteString("\tctx := acctest.Context(t)\n")
-	if needsRName {
-		b.WriteString("\trName := acctest.RandomWithPrefix(acctest.ResourcePrefix)\n")
+	hasUpdate := meta == nil || !meta.NoUpdate
+	if hasUpdate {
+		writeUpdateTest(&b, pascal, typeName, needsRName, meta)
 	}
-	fmt.Fprintf(&b, "\tresourceName := %q\n\n", typeName+".test")
-	b.WriteString("\tresource.Test(t, resource.TestCase{\n")
-	b.WriteString("\t\tPreCheck:                 func() { acctest.PreCheck(t) },\n")
-	b.WriteString("\t\tProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,\n")
-	fmt.Fprintf(&b, "\t\tCheckDestroy:             testAccCheck%sDestroy(ctx),\n", pascal)
-	b.WriteString("\t\tSteps: []resource.TestStep{\n")
-	b.WriteString("\t\t\t{\n")
-	if needsRName {
-		fmt.Fprintf(&b, "\t\t\t\tConfig: testAcc%sConfig_basic(rName),\n", pascal)
-	} else {
-		fmt.Fprintf(&b, "\t\t\t\tConfig: testAcc%sConfig_basic(),\n", pascal)
-	}
-	b.WriteString("\t\t\t\tCheck: resource.ComposeAggregateTestCheckFunc(\n")
-	fmt.Fprintf(&b, "\t\t\t\t\ttestAccCheck%sExists(ctx, resourceName),\n", pascal)
-	b.WriteString("\t\t\t\t\tresource.TestCheckResourceAttrSet(resourceName, \"id\"),\n")
-	b.WriteString("\t\t\t\t),\n")
-	b.WriteString("\t\t\t},\n")
-	b.WriteString("\t\t\t{\n")
-	if needsRName {
-		fmt.Fprintf(&b, "\t\t\t\tConfig: testAcc%sConfig_update(rName),\n", pascal)
-	} else {
-		fmt.Fprintf(&b, "\t\t\t\tConfig: testAcc%sConfig_update(),\n", pascal)
-	}
-	b.WriteString("\t\t\t\tCheck: resource.ComposeAggregateTestCheckFunc(\n")
-	fmt.Fprintf(&b, "\t\t\t\t\ttestAccCheck%sExists(ctx, resourceName),\n", pascal)
-	b.WriteString("\t\t\t\t\tresource.TestCheckResourceAttrSet(resourceName, \"id\"),\n")
-	b.WriteString("\t\t\t\t),\n")
-	b.WriteString("\t\t\t},\n")
-	b.WriteString("\t\t\t{\n")
-	b.WriteString("\t\t\t\tResourceName:      resourceName,\n")
-	b.WriteString("\t\t\t\tImportState:       true,\n")
-	b.WriteString("\t\t\t\tImportStateVerify: true,\n")
-	b.WriteString("\t\t\t},\n")
-	b.WriteString("\t\t},\n")
-	b.WriteString("\t})\n")
-	b.WriteString("}\n\n")
 
 	// testAccCheck<Name>Exists
 	buildExistsFunc(&b, pascal, typeName, meta)
@@ -165,7 +126,12 @@ func buildResourceTestFile(pkgName, typeName, snake, pascal string, s rsschema.S
 		b.WriteString(basicConfig)
 		b.WriteString("`\n")
 	}
-	b.WriteString("}\n\n")
+	b.WriteString("}\n")
+
+	if !hasUpdate {
+		return b.String()
+	}
+	b.WriteString("\n")
 
 	// testAcc<Name>Config_update
 	updateConfig := buildUpdateConfig(typeName, requiredAttrs, s, needsRName, meta)
@@ -183,6 +149,103 @@ func buildResourceTestFile(pkgName, typeName, snake, pascal string, s rsschema.S
 	b.WriteString("}\n")
 
 	return b.String()
+}
+
+// writeUpdateTest emits TestAccKion<Name>_update: create, change, re-check,
+// then import.
+func writeUpdateTest(b *strings.Builder, pascal, typeName string, needsRName bool, meta *ResourceMeta) {
+	fmt.Fprintf(b, "func TestAccKion%s_update(t *testing.T) {\n", pascal)
+	b.WriteString("\tif testing.Short() {\n")
+	b.WriteString("\t\tt.Skip(\"skipping long-running test in short mode\")\n")
+	b.WriteString("\t}\n\n")
+	writeEnvSkips(b, meta)
+	b.WriteString("\tctx := acctest.Context(t)\n")
+	if needsRName {
+		b.WriteString("\trName := acctest.RandomWithPrefix(acctest.ResourcePrefix)\n")
+	}
+	fmt.Fprintf(b, "\tresourceName := %q\n\n", typeName+".test")
+	b.WriteString("\tresource.Test(t, resource.TestCase{\n")
+	b.WriteString("\t\tPreCheck:                 func() { acctest.PreCheck(t) },\n")
+	b.WriteString("\t\tProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,\n")
+	fmt.Fprintf(b, "\t\tCheckDestroy:             testAccCheck%sDestroy(ctx),\n", pascal)
+	b.WriteString("\t\tSteps: []resource.TestStep{\n")
+	b.WriteString("\t\t\t{\n")
+	if needsRName {
+		fmt.Fprintf(b, "\t\t\t\tConfig: testAcc%sConfig_basic(rName),\n", pascal)
+	} else {
+		fmt.Fprintf(b, "\t\t\t\tConfig: testAcc%sConfig_basic(),\n", pascal)
+	}
+	b.WriteString("\t\t\t\tCheck: resource.ComposeAggregateTestCheckFunc(\n")
+	fmt.Fprintf(b, "\t\t\t\t\ttestAccCheck%sExists(ctx, resourceName),\n", pascal)
+	b.WriteString("\t\t\t\t\tresource.TestCheckResourceAttrSet(resourceName, \"id\"),\n")
+	b.WriteString("\t\t\t\t),\n")
+	b.WriteString("\t\t\t},\n")
+	b.WriteString("\t\t\t{\n")
+	if needsRName {
+		fmt.Fprintf(b, "\t\t\t\tConfig: testAcc%sConfig_update(rName),\n", pascal)
+	} else {
+		fmt.Fprintf(b, "\t\t\t\tConfig: testAcc%sConfig_update(),\n", pascal)
+	}
+	b.WriteString("\t\t\t\tCheck: resource.ComposeAggregateTestCheckFunc(\n")
+	fmt.Fprintf(b, "\t\t\t\t\ttestAccCheck%sExists(ctx, resourceName),\n", pascal)
+	b.WriteString("\t\t\t\t\tresource.TestCheckResourceAttrSet(resourceName, \"id\"),\n")
+	b.WriteString("\t\t\t\t),\n")
+	b.WriteString("\t\t\t},\n")
+	writeImportStep(b, meta)
+	b.WriteString("\t\t},\n")
+	b.WriteString("\t})\n")
+	b.WriteString("}\n\n")
+}
+
+// writeImportStep emits the ImportState test step. A resource whose
+// ImportState parses "<parent>/<id>" gets an ImportStateIdFunc that rebuilds
+// that form from state; everything else imports by its bare id.
+func writeImportStep(b *strings.Builder, meta *ResourceMeta) {
+	b.WriteString("\t\t\t{\n")
+	b.WriteString("\t\t\t\tResourceName:      resourceName,\n")
+	b.WriteString("\t\t\t\tImportState:       true,\n")
+	b.WriteString("\t\t\t\tImportStateVerify: true,\n")
+	if meta != nil && meta.ImportIDParentField != "" {
+		b.WriteString("\t\t\t\tImportStateIdFunc: func(s *terraform.State) (string, error) {\n")
+		b.WriteString("\t\t\t\t\trs, ok := s.RootModule().Resources[resourceName]\n")
+		b.WriteString("\t\t\t\t\tif !ok {\n")
+		b.WriteString("\t\t\t\t\t\treturn \"\", fmt.Errorf(\"not found: %s\", resourceName)\n")
+		b.WriteString("\t\t\t\t\t}\n")
+		fmt.Fprintf(b, "\t\t\t\t\treturn rs.Primary.Attributes[%q] + \"/\" + rs.Primary.ID, nil\n", meta.ImportIDParentField)
+		b.WriteString("\t\t\t\t},\n")
+	}
+	b.WriteString("\t\t\t},\n")
+}
+
+// metaNeedsEnv reports whether the generated file reads os.Getenv.
+func metaNeedsEnv(meta *ResourceMeta) bool {
+	return meta != nil && len(meta.RequiredEnv) > 0
+}
+
+// writeKnownIssues emits the registry's KnownIssues as a file header comment,
+// so a test that is red on purpose says which defect it is holding open.
+func writeKnownIssues(b *strings.Builder, meta *ResourceMeta) {
+	if meta == nil || len(meta.KnownIssues) == 0 {
+		return
+	}
+	b.WriteString("// Known issues this test is expected to surface:\n")
+	for _, issue := range meta.KnownIssues {
+		fmt.Fprintf(b, "//   %s\n", issue)
+	}
+	b.WriteString("\n")
+}
+
+// writeEnvSkips emits one skip guard per required environment variable. A
+// missing id is reported as SKIP naming the variable, never as a pass.
+func writeEnvSkips(b *strings.Builder, meta *ResourceMeta) {
+	if meta == nil {
+		return
+	}
+	for _, e := range meta.RequiredEnv {
+		fmt.Fprintf(b, "\tif os.Getenv(%q) == \"\" {\n", e.Name)
+		fmt.Fprintf(b, "\t\tt.Skip(%q)\n", e.Name+" must be set to "+e.Reason)
+		b.WriteString("\t}\n\n")
+	}
 }
 
 // buildExistsFunc generates the testAccCheck<Name>Exists function.
@@ -333,7 +396,12 @@ func buildBasicConfig(typeName string, requiredAttrs []attrInfo, hasName bool, m
 
 	fmt.Fprintf(&b, "resource %q %q {\n", typeName, "test")
 
+	deps := depByTargetField(meta)
 	for _, attr := range requiredAttrs {
+		if ref, ok := deps[attr.name]; ok {
+			fmt.Fprintf(&b, "  %s = %s\n", attr.name, ref)
+			continue
+		}
 		val := basicTestValueWithMeta(attr, hasName, meta)
 		fmt.Fprintf(&b, "  %s = %s\n", attr.name, val)
 	}
@@ -341,7 +409,7 @@ func buildBasicConfig(typeName string, requiredAttrs []attrInfo, hasName bool, m
 	// Write dependency references (fields that reference other resources)
 	if meta != nil {
 		for _, dep := range meta.Dependencies {
-			// Only write if not already in required attrs
+			// Required target fields were emitted as references above.
 			if !attrInList(dep.TargetField, requiredAttrs) {
 				fmt.Fprintf(&b, "  %s = %s.%s.%s\n", dep.TargetField, dep.TypeName, dep.RefName, dep.RefAttribute)
 			}
@@ -354,6 +422,22 @@ func buildBasicConfig(typeName string, requiredAttrs []attrInfo, hasName bool, m
 
 	b.WriteString("}\n")
 	return b.String()
+}
+
+// depByTargetField maps each dependency's target field to the HCL reference
+// that resolves it. A target field that is also Required used to be skipped
+// here and filled from basicTestValue instead, so the dependency resource was
+// created and then never referenced: kion_compliance_family pointed its
+// required compliance_program_id at a hard-coded 1 and create returned 404.
+func depByTargetField(meta *ResourceMeta) map[string]string {
+	if meta == nil {
+		return nil
+	}
+	out := make(map[string]string, len(meta.Dependencies))
+	for _, dep := range meta.Dependencies {
+		out[dep.TargetField] = fmt.Sprintf("%s.%s.%s", dep.TypeName, dep.RefName, dep.RefAttribute)
+	}
+	return out
 }
 
 func buildUpdateConfig(typeName string, requiredAttrs []attrInfo, s rsschema.Schema, hasName bool, meta *ResourceMeta) string {
@@ -373,13 +457,21 @@ func buildUpdateConfig(typeName string, requiredAttrs []attrInfo, s rsschema.Sch
 
 	fmt.Fprintf(&b, "resource %q %q {\n", typeName, "test")
 
+	deps := depByTargetField(meta)
 	for _, attr := range requiredAttrs {
+		if ref, ok := deps[attr.name]; ok {
+			fmt.Fprintf(&b, "  %s = %s\n", attr.name, ref)
+			continue
+		}
 		val := updateTestValueWithMeta(attr, hasName, meta)
 		fmt.Fprintf(&b, "  %s = %s\n", attr.name, val)
 	}
 
-	// Add one optional attr if available
-	optionalAttr := firstOptionalAttr(s)
+	// Add one optional attr, so the update step actually changes something.
+	// It must be one nothing else in this block already writes: picking a
+	// dependency's target field or an ExtraHCLBlocks line emits the attribute
+	// twice and Terraform rejects the config with "Attribute redefined".
+	optionalAttr := firstOptionalAttr(s, alreadyWritten(meta))
 	if optionalAttr != nil {
 		val := updateTestValue(*optionalAttr, false)
 		fmt.Fprintf(&b, "  %s = %s\n", optionalAttr.name, val)
@@ -478,9 +570,31 @@ func isNameLikeField(name string) bool {
 	return name == "name" || strings.HasSuffix(name, "_name") || name == "key" || name == "title"
 }
 
-func firstOptionalAttr(s rsschema.Schema) *attrInfo {
+// alreadyWritten returns the attribute names the resource block emits from the
+// registry: each dependency's target field, and the left-hand side of each
+// ExtraHCLBlocks line.
+func alreadyWritten(meta *ResourceMeta) map[string]bool {
+	out := map[string]bool{}
+	if meta == nil {
+		return out
+	}
+	for _, dep := range meta.Dependencies {
+		out[dep.TargetField] = true
+	}
+	for _, line := range meta.ExtraHCLBlocks {
+		if lhs, _, ok := strings.Cut(line, "="); ok {
+			out[strings.TrimSpace(lhs)] = true
+		}
+	}
+	return out
+}
+
+func firstOptionalAttr(s rsschema.Schema, skip map[string]bool) *attrInfo {
 	names := sortedKeys(s.Attributes)
 	for _, name := range names {
+		if skip[name] {
+			continue
+		}
 		attr := s.Attributes[name]
 		if isResourceComputedOnly(attr) {
 			continue

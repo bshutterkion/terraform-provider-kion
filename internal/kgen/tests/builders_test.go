@@ -103,12 +103,20 @@ func TestBuildDataSourceTestFile_WithMatchingResource(t *testing.T) {
 		// Data source reads back the resource by id.
 		"data \"kion_label\" \"test\" {",
 		"id = kion_label.test.id",
-		// Computed attribute checks.
-		`resource.TestCheckResourceAttrSet(dataSourceName, "color")`,
+		// "name" is Required on the resource, so the config sets it and the
+		// data source must return it.
+		`resource.TestCheckResourceAttrSet(dataSourceName, "name")`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("data source test file missing %q", want)
 		}
+	}
+
+	// "color" is Optional on the resource and the generated config never sets
+	// it, so asserting the data source returns it would fail for reasons that
+	// say nothing about the data source.
+	if strings.Contains(out, `resource.TestCheckResourceAttrSet(dataSourceName, "color")`) {
+		t.Error("data source test asserts an attribute the config does not set")
 	}
 }
 
@@ -192,13 +200,20 @@ func TestFirstOptionalAttr(t *testing.T) {
 			"beta":  rsschema.BoolAttribute{Optional: true},
 		},
 	}
-	got := firstOptionalAttr(s)
+	got := firstOptionalAttr(s, nil)
 	if got == nil {
 		t.Fatal("firstOptionalAttr returned nil, want an attr")
 	}
 	// "beta" sorts before "zeta".
 	if got.name != "beta" {
 		t.Errorf("firstOptionalAttr = %q, want %q", got.name, "beta")
+	}
+
+	// An attribute the resource block already writes is passed over, or it
+	// would be emitted twice and Terraform would reject "Attribute redefined".
+	got = firstOptionalAttr(s, map[string]bool{"beta": true})
+	if got == nil || got.name != "zeta" {
+		t.Errorf("firstOptionalAttr(skip beta) = %+v, want zeta", got)
 	}
 
 	// A schema with no optional attrs returns nil.
@@ -208,8 +223,32 @@ func TestFirstOptionalAttr(t *testing.T) {
 			"name": rsschema.StringAttribute{Required: true},
 		},
 	}
-	if got := firstOptionalAttr(noOpt); got != nil {
+	if got := firstOptionalAttr(noOpt, nil); got != nil {
 		t.Errorf("firstOptionalAttr(noOpt) = %+v, want nil", got)
+	}
+}
+
+// TestAlreadyWritten covers the skip set the update config builds from the
+// registry: dependency target fields and ExtraHCLBlocks left-hand sides.
+func TestAlreadyWritten(t *testing.T) {
+	t.Parallel()
+
+	meta := &ResourceMeta{
+		Dependencies:   []Dependency{{TargetField: "funding_source_id"}},
+		ExtraHCLBlocks: []string{"owner_user_ids = [1]", `name = "test-acc"`},
+	}
+	got := alreadyWritten(meta)
+
+	for _, want := range []string{"funding_source_id", "owner_user_ids", "name"} {
+		if !got[want] {
+			t.Errorf("alreadyWritten missing %q, got %v", want, got)
+		}
+	}
+	if got["text"] {
+		t.Errorf("alreadyWritten claims an attribute nothing writes: %v", got)
+	}
+	if len(alreadyWritten(nil)) != 0 {
+		t.Error("alreadyWritten(nil) should be empty")
 	}
 }
 

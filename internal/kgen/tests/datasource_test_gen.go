@@ -49,6 +49,9 @@ func buildDataSourceTestFile(pkgName, typeName, _, pascal string, s dsschema.Sch
 	if needsFmt {
 		b.WriteString("\t\"fmt\"\n")
 	}
+	if metaNeedsEnv(resMeta) {
+		b.WriteString("\t\"os\"\n")
+	}
 	b.WriteString("\t\"testing\"\n")
 	b.WriteString("\n")
 	b.WriteString("\t\"github.com/hashicorp/terraform-plugin-testing/helper/resource\"\n")
@@ -61,6 +64,9 @@ func buildDataSourceTestFile(pkgName, typeName, _, pascal string, s dsschema.Sch
 	b.WriteString("\tif testing.Short() {\n")
 	b.WriteString("\t\tt.Skip(\"skipping long-running test in short mode\")\n")
 	b.WriteString("\t}\n\n")
+	// The data source test stands the resource up first, so it inherits the
+	// resource's environment preconditions.
+	writeEnvSkips(&b, resMeta)
 	if needsFmt {
 		b.WriteString("\trName := acctest.RandomWithPrefix(acctest.ResourcePrefix)\n")
 	}
@@ -78,7 +84,12 @@ func buildDataSourceTestFile(pkgName, typeName, _, pascal string, s dsschema.Sch
 	b.WriteString("\t\t\t\tCheck: resource.ComposeAggregateTestCheckFunc(\n")
 	b.WriteString("\t\t\t\t\tresource.TestCheckResourceAttrSet(dataSourceName, \"id\"),\n")
 
-	// Add checks for computed data source attributes
+	// Assert only on attributes the prerequisite resource config actually sets.
+	// Asserting every computed attribute fails on any optional field the config
+	// leaves unset (kion_funding_source: description, ou_id), which says nothing
+	// about the data source. An attribute the config DOES set and the data
+	// source fails to return is still caught.
+	configured := configuredAttrNames(resourceTypeName, resSchema)
 	dsAttrNames := sortedDSKeys(s.Attributes)
 	for _, name := range dsAttrNames {
 		if name == "id" {
@@ -86,6 +97,9 @@ func buildDataSourceTestFile(pkgName, typeName, _, pascal string, s dsschema.Sch
 		}
 		attr := s.Attributes[name]
 		if !isDSComputedOnly(attr) {
+			continue
+		}
+		if len(configured) > 0 && !configured[name] {
 			continue
 		}
 		fmt.Fprintf(&b, "\t\t\t\t\tresource.TestCheckResourceAttrSet(dataSourceName, %q),\n", name)
@@ -126,7 +140,12 @@ func buildDataSourceTestFile(pkgName, typeName, _, pascal string, s dsschema.Sch
 
 		// Resource prerequisite
 		fmt.Fprintf(&b, "resource %q %q {\n", resourceTypeName, "test")
+		deps := depByTargetField(meta)
 		for _, attr := range requiredAttrs {
+			if ref, ok := deps[attr.name]; ok {
+				fmt.Fprintf(&b, "  %s = %s\n", attr.name, ref)
+				continue
+			}
 			val := basicTestValueWithMeta(attr, dsNeedsRName, meta)
 			fmt.Fprintf(&b, "  %s = %s\n", attr.name, val)
 		}
@@ -167,6 +186,34 @@ func buildDataSourceTestFile(pkgName, typeName, _, pascal string, s dsschema.Sch
 	b.WriteString("}\n")
 
 	return b.String()
+}
+
+// configuredAttrNames returns the attributes the generated prerequisite
+// resource config assigns: every required attribute, plus the left-hand side of
+// each ExtraHCLBlocks line and each dependency's target field. An empty result
+// means there is no prerequisite resource, and the caller falls back to
+// asserting everything.
+func configuredAttrNames(resourceTypeName string, resSchema *rsschema.Schema) map[string]bool {
+	if resourceTypeName == "" || resSchema == nil {
+		return nil
+	}
+	out := map[string]bool{}
+	for _, a := range getRequiredResourceAttrs(*resSchema) {
+		out[a.name] = true
+	}
+	meta := GetMeta(resourceTypeName)
+	if meta == nil {
+		return out
+	}
+	for _, dep := range meta.Dependencies {
+		out[dep.TargetField] = true
+	}
+	for _, line := range meta.ExtraHCLBlocks {
+		if lhs, _, ok := strings.Cut(line, "="); ok {
+			out[strings.TrimSpace(lhs)] = true
+		}
+	}
+	return out
 }
 
 func hasNameAttrInResourceSchema(s *rsschema.Schema) bool {
