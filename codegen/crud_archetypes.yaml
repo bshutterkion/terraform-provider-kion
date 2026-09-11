@@ -43,6 +43,29 @@ ou_cloud_access_role_exemption:
 project_cloud_access_role_exemption:
   kind: no_read
 
+# POST /v3/budget takes a single amount and the server expands it into one data
+# row per month between start_datecode and end_datecode (exclusive), with the
+# amount distributed across them and the remainder landing in the last row. The
+# read returns those rows and no amount at all, so summing them is the only way
+# amount survives a refresh or an import (#69). Verified on a live 3.16 install:
+# amount 1000 over 2026-01..2026-12 comes back as 10 x 90.91 + 90.90 = 1000.00.
+budget:
+  kind: entity
+  sum_from:
+    - tf: amount
+      from: data
+      field: amount
+
+# GET /v3/funding-source/{id} returns neither the owners nor the permission
+# scheme, both of which the create body takes and one of which it requires, so
+# an imported funding source produced a configuration that could not be applied
+# (#68). Both are readable elsewhere -- the owners from the permission mapping's
+# owner-role row, the scheme from the private /v2 route behind the UI's
+# permissions tab -- which is what funding_source_read.gtpl does.
+funding_source:
+  kind: entity
+  read_companion: readFundingSourceExtras
+
 compliance_control:
   kind: entity
   # DELETE /v4/compliance/program/{id}/control/{controlID}: controlID is the

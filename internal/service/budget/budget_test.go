@@ -1,6 +1,3 @@
-// Known issues this test is expected to surface:
-//   #69 amount is Optional+Computed and no flatten assigns it, so ImportStateVerify fails. Create expands it into per-month data rows that flattenBudget ignores. Left failing on purpose.
-
 package budget_test
 
 import (

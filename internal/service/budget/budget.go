@@ -6,6 +6,7 @@ package budget
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -189,6 +190,16 @@ func flattenBudget(apiObject any, model *BudgetModel) diag.Diagnostics {
 			model.OuId = flex.OptNilUint64ToFramework(v.Data.Value.Config.Value.OuID)
 			model.ProjectId = flex.OptNilUint64ToFramework(v.Data.Value.Config.Value.ProjectID)
 			model.StartDatecode = flex.OptStringToFramework(v.Data.Value.Config.Value.StartDatecode)
+			// The write took one Amount and the server expanded it across the
+			// rows below, which are all the read returns. An absent array is left
+			// alone: "not reported" is not "zero", and zeroing breaks apply.
+			if len(v.Data.Value.Data.Value) > 0 {
+				var amountSum float64
+				for _, elem := range v.Data.Value.Data.Value {
+					amountSum += elem.Amount.Value
+				}
+				model.Amount = types.Int64Value(int64(math.Round(amountSum)))
+			}
 		}
 		return nil
 	default:

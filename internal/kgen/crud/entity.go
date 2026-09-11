@@ -136,9 +136,13 @@ type entityData struct {
 	RespArrFlats    []arrFlat
 	RespIDProjs     []idProjFlat
 	RespObjIDProjs  []objIDProjFlat
-	HasNestedFlat   bool // obj/arr flattens present (drives the attr import)
-	HasIDProj       bool // id-projection flattens present
-	RespRawValues   []rawValueFlat
+	RespSums        []sumFlat // scalars rebuilt by summing an expanded array
+	// ReadCompanion is a hand-authored function called after every flatten, for
+	// attributes the by-id read does not return at all (see archetype).
+	ReadCompanion string
+	HasNestedFlat bool // obj/arr flattens present (drives the attr import)
+	HasIDProj     bool // id-projection flattens present
+	RespRawValues []rawValueFlat
 	// Blended resources (rendered by blended.gtpl, never entity.gtpl) mix typed
 	// public ops with raw private ops. These fields are zero for pure-typed
 	// resources, so entity.gtpl, which never references them. Is unaffected.
@@ -216,6 +220,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		RespType:      rm.Read.RespType,
 		Gated:         rm.Gated,
 		SchemaVersion: rm.SchemaVersion,
+		ReadCompanion: rm.ReadCompanion,
 	}
 
 	if rm.Create.Body == nil {
@@ -387,6 +392,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		slices.SortFunc(d.RespSliceBinds, func(a, b sliceRespBind) int { return cmp.Compare(a.ModelGo, b.ModelGo) })
 		d.RespObjFlats, d.RespArrFlats, d.RespIDProjs = rm.ReadNested.Objs, rm.ReadNested.Arrs, rm.ReadNested.IDProjs
 		d.RespObjIDProjs = rm.ReadNested.ObjIDProjs
+		d.RespSums = rm.ReadSums
 		d.HasNestedFlat = len(d.RespObjFlats) > 0 || len(d.RespArrFlats) > 0
 		d.HasIDProj = len(d.RespIDProjs) > 0 || len(d.RespObjIDProjs) > 0
 		d.HasRespSlices = len(d.RespSliceBinds) > 0

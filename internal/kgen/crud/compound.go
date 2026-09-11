@@ -47,12 +47,31 @@ type archetype struct {
 	ChildParam   string `yaml:"child_param"`   // SDK param naming the record id (update/delete)
 	RecordType   string `yaml:"record_type"`   // the list element struct, e.g. ProjectEnforcement
 	ResponseType string `yaml:"response_type"` // the read response struct, e.g. ProjectEnforcementResponse
+	// Collapse (kind: entity): a scalar the write expands into an array the read
+	// returns in its place, rebuilt by summing one field of that array. See
+	// sumFlat; kion_budget's amount is the case it exists for.
+	SumFrom []sumFromDecl `yaml:"sum_from"`
+	// Read companion (kind: entity): a hand-authored function, registered in
+	// companionsByName and emitted beside the resource, called after every
+	// flatten to fill in attributes the by-id read does not return at all
+	// because they live behind other endpoints (kion_funding_source's owners and
+	// permission scheme). Which endpoints those are, and how to read an
+	// attribute back out of them, is knowledge no spec carries.
+	ReadCompanion string `yaml:"read_companion"`
 	// Sweeper (kind: entity): the data-source collection is parent-scoped, so it
 	// takes a required parent-id param the data source cannot supply. A sweeper
 	// can: it enumerates SweepParent's own collection first. Without these the
 	// resource gets no sweeper at all.
 	SweepParent      string `yaml:"sweep_parent"`       // parent resource name, e.g. "ou"
 	SweepParentParam string `yaml:"sweep_parent_param"` // list param taking the parent id, e.g. "ID"
+}
+
+// sumFromDecl declares one rebuilt-by-summing model attribute: which attribute,
+// which read-payload array, and which element field adds up to it.
+type sumFromDecl struct {
+	TF    string `yaml:"tf"`    // model attribute, "amount"
+	From  string `yaml:"from"`  // read payload array field, "data"
+	Field string `yaml:"field"` // element field to sum, "amount"
 }
 
 const (

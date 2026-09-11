@@ -102,6 +102,11 @@ func (r *funding_sourceResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
+	resp.Diagnostics.Append(readFundingSourceExtras(ctx, r.Meta(), id, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -137,6 +142,11 @@ func (r *funding_sourceResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	resp.Diagnostics.Append(flattenFundingSource(out, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(readFundingSourceExtras(ctx, r.Meta(), idInt, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -188,6 +198,11 @@ func (r *funding_sourceResource) Update(ctx context.Context, req resource.Update
 	}
 
 	resp.Diagnostics.Append(flattenFundingSource(readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(readFundingSourceExtras(ctx, r.Meta(), idInt, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
