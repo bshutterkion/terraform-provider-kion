@@ -17,7 +17,7 @@ import (
 // which is worse than a clean failure.
 //
 // Four PATCH operations are in that position today. Each annotates its response
-// in the portal as `201: OKResponse`, which is self-contradictory (OKResponse is
+// in the API spec as `201: OKResponse`, which is self-contradictory (OKResponse is
 // the 200 model) and the server duly answers 200:
 //
 //	PatchAppConfig, PatchAppRole, PatchOUCloudAccessRole, PatchProjectCloudAccessRole
