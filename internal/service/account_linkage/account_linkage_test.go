@@ -11,11 +11,22 @@ import (
 	"terraform-provider-kion/internal/acctest"
 )
 
+// payerEnv describes KION_ACC_PAYER_ID for the skip message. A linkage row
+// carries a foreign key to `payer`, so on an install with no billing source
+// every create fails on the constraint itself:
+//
+//	Cannot add or update a child row: a foreign key constraint fails
+//	(`cloudtamer`.`user_azure_object_id`, CONSTRAINT `f_payer_id` …)
+//
+// That is an install that cannot run the test, not a provider defect (#62).
+const payerEnv = "the ID of a billing source on the target Kion; a linkage row references one by foreign key"
+
 func TestAccKionAccountLinkage_basic(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	payerID := acctest.RequireEnv(t, "KION_ACC_PAYER_ID", payerEnv)
 	ctx := acctest.Context(t)
 	resourceName := "kion_account_linkage.test"
 
@@ -25,7 +36,7 @@ func TestAccKionAccountLinkage_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckAccountLinkageDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAccountLinkageConfig_basic(),
+				Config: testAccAccountLinkageConfig_basic(payerID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAccountLinkageExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -49,6 +60,7 @@ func TestAccKionAccountLinkage_update(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
+	payerID := acctest.RequireEnv(t, "KION_ACC_PAYER_ID", payerEnv)
 	ctx := acctest.Context(t)
 	resourceName := "kion_account_linkage.test"
 
@@ -58,14 +70,14 @@ func TestAccKionAccountLinkage_update(t *testing.T) {
 		CheckDestroy:             testAccCheckAccountLinkageDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAccountLinkageConfig_basic(),
+				Config: testAccAccountLinkageConfig_basic(payerID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAccountLinkageExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
 			},
 			{
-				Config: testAccAccountLinkageConfig_update(),
+				Config: testAccAccountLinkageConfig_update(payerID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAccountLinkageExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -107,24 +119,27 @@ func testAccCheckAccountLinkageDestroy(_ context.Context) resource.TestCheckFunc
 	}
 }
 
-func testAccAccountLinkageConfig_basic() string {
-	return `
+func testAccAccountLinkageConfig_basic(payerID string) string {
+	return fmt.Sprintf(`
 resource "kion_account_linkage" "test" {
   azure_object_id = "test-acc-value"
   azure_principal_name = "test-acc-value"
-  payer_id = 1
+  payer_id = %[1]s
   user_id = 1
 }
-`
+`, payerID)
 }
 
-func testAccAccountLinkageConfig_update() string {
-	return `
+// The update step changes the Azure identity rather than payer_id or user_id:
+// both name records the install has to already hold, and only one of each is
+// known to exist.
+func testAccAccountLinkageConfig_update(payerID string) string {
+	return fmt.Sprintf(`
 resource "kion_account_linkage" "test" {
   azure_object_id = "test-acc-updated"
   azure_principal_name = "test-acc-updated"
-  payer_id = 2
-  user_id = 2
+  payer_id = %[1]s
+  user_id = 1
 }
-`
+`, payerID)
 }

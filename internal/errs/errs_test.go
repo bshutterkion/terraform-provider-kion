@@ -30,6 +30,45 @@ func TestCreatedID_MissingRecordID(t *testing.T) {
 	assert.Contains(t, diags.Errors()[0].Summary(), "Missing Record ID")
 }
 
+// An explicit record_id of 0 passes IsSet but is never a real Kion id; taking
+// it would leave a resource in state that can never be refreshed or deleted.
+func TestCreatedID_ZeroRecordID(t *testing.T) {
+	t.Parallel()
+
+	res := &generated.CreatedResponse{RecordID: generated.NewOptUint64(0)}
+	_, diags := errs.CreatedID(res)
+
+	require.True(t, diags.HasError())
+	assert.Contains(t, diags.Errors()[0].Summary(), "Missing Record ID")
+}
+
+func TestRawCreatedID(t *testing.T) {
+	t.Parallel()
+
+	id, diags := errs.RawCreatedID(42)
+	require.False(t, diags.HasError())
+	assert.Equal(t, int64(42), id)
+}
+
+// The funding_source_note leak (#71): the create response carries no record_id
+// at all, so the hand-rolled envelope decodes 0 with no error.
+func TestRawCreatedID_Zero(t *testing.T) {
+	t.Parallel()
+
+	id, diags := errs.RawCreatedID(0)
+	require.True(t, diags.HasError())
+	assert.Zero(t, id)
+	assert.Contains(t, diags.Errors()[0].Summary(), "Missing Record ID")
+	assert.Contains(t, diags.Errors()[0].Detail(), "Terraform cannot manage it")
+}
+
+func TestRawCreatedID_Negative(t *testing.T) {
+	t.Parallel()
+
+	_, diags := errs.RawCreatedID(-1)
+	require.True(t, diags.HasError())
+}
+
 func TestCreatedID_ErrorResponseType(t *testing.T) {
 	t.Parallel()
 

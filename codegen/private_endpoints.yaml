@@ -81,6 +81,14 @@ resources:
     read:   { method: GET,    path: "/v2/funding-source-note/{id}", spec: private }
     update: { method: PATCH,  path: "/v2/funding-source-note/{id}", spec: private }
     delete: { method: DELETE, path: "/v2/funding-source-note/{id}", spec: private }
+    # POST /v2/funding-source-note answers {"status":201,"data":""} -- no
+    # record_id anywhere in the body, unlike the public v3 creates the archetype
+    # was modeled on. The id is recovered from the parent collection instead
+    # (#71); without this every apply left a note in Kion that Terraform had
+    # recorded as id 0 and could never refresh or delete.
+    create_id:
+      list_path: "/v2/funding-source/{parent_id}/funding-source-note"
+      parent_tf: funding_source_id
 
   # Blended. Public v3 create/update/delete; the by-id read is private /v2
   # (/v2/app-policy) because the public v3 GetByID omits the roles mapping. The

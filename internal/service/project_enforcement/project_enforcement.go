@@ -88,6 +88,11 @@ func flattenProjectEnforcement(ctx context.Context, rec generated.ProjectEnforce
 	} else {
 		model.CloudRuleId = types.Int64Null()
 	}
+	if rec.Service.Set {
+		model.ServiceId = types.Int64Value(int64(rec.Service.Value.ID.Value))
+	} else {
+		model.ServiceId = types.Int64Null()
+	}
 	notificationEmails, _ := flex.StringSliceToFrameworkSet(ctx, rec.NotificationEmails.Value)
 	model.NotificationEmails = notificationEmails
 	userGroupIds, _ := flex.Uint64SliceToFrameworkSet(ctx, rec.UserGroupIds.Value)

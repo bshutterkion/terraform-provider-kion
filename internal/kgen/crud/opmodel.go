@@ -188,6 +188,12 @@ type ResourceModel struct {
 	CreateNested nestedResult
 	UpdateNested nestedResult
 	ReadNested   nestedFlatResult
+	// Scalars the read returns only as an expanded array, rebuilt by summing it
+	// (declared by the archetype's sum_from).
+	ReadSums []sumFlat
+	// ReadCompanion is a hand-authored function called after every flatten to
+	// read attributes the by-id GET does not return (archetype read_companion).
+	ReadCompanion string
 	// Owner association synced on Update via paired add/remove endpoints.
 	Owners *ownerMembershipBind
 	// Bulk association syncs (each a struct body of id-lists via one add/remove pair).

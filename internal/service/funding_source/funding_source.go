@@ -102,6 +102,11 @@ func (r *funding_sourceResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
+	resp.Diagnostics.Append(readFundingSourceExtras(ctx, r.Meta(), id, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -141,6 +146,11 @@ func (r *funding_sourceResource) Read(ctx context.Context, req resource.ReadRequ
 		return
 	}
 
+	resp.Diagnostics.Append(readFundingSourceExtras(ctx, r.Meta(), idInt, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -169,7 +179,10 @@ func (r *funding_sourceResource) Update(ctx context.Context, req resource.Update
 	}
 
 	out, err := conn.PatchFundingSource(ctx, input, generated.PatchFundingSourceParams{ID: idInt})
-	if err != nil {
+	// A 2xx the spec does not declare arrives as a decode error even though the
+	// write landed; the read-back below is the authority on state either way.
+	// See errs.IsUndeclaredSuccess.
+	if err != nil && !errs.IsUndeclaredSuccess(err) {
 		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameFundingSource, idInt), err.Error())
 		return
 	}
@@ -188,6 +201,11 @@ func (r *funding_sourceResource) Update(ctx context.Context, req resource.Update
 	}
 
 	resp.Diagnostics.Append(flattenFundingSource(readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(readFundingSourceExtras(ctx, r.Meta(), idInt, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

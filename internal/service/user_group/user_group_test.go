@@ -69,12 +69,17 @@ func TestAccKionUserGroup_update(t *testing.T) {
 	})
 }
 
+// owner_user_ids is not decoration: POST /v3/user-group answers "Field
+// validation for 'OwnerUserIDs' failed on the 'atLeastOneFieldPresent' tag"
+// unless one of owner_user_ids / owner_user_group_ids is present. The schema
+// marks both Optional, which is true of each alone but not of the pair (#62).
 func testAccUserGroupConfigBasic(rName string) string {
 	return fmt.Sprintf(`
 resource "kion_user_group" "test" {
-  idms_id     = 1
-  name        = %[1]q
-  description = "test-acc user group"
+  idms_id        = 1
+  name           = %[1]q
+  description    = "test-acc user group"
+  owner_user_ids = [1]
 }
 `, rName)
 }
@@ -82,9 +87,10 @@ resource "kion_user_group" "test" {
 func testAccUserGroupConfigUpdate(rName string) string {
 	return fmt.Sprintf(`
 resource "kion_user_group" "test" {
-  idms_id     = 1
-  name        = %[1]q
-  description = "test-acc user group updated"
+  idms_id        = 1
+  name           = %[1]q
+  description    = "test-acc user group updated"
+  owner_user_ids = [1]
 }
 `, rName)
 }

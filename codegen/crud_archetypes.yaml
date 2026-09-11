@@ -43,6 +43,29 @@ ou_cloud_access_role_exemption:
 project_cloud_access_role_exemption:
   kind: no_read
 
+# POST /v3/budget takes a single amount and the server expands it into one data
+# row per month between start_datecode and end_datecode (exclusive), with the
+# amount distributed across them and the remainder landing in the last row. The
+# read returns those rows and no amount at all, so summing them is the only way
+# amount survives a refresh or an import (#69). Verified on a live 3.16 install:
+# amount 1000 over 2026-01..2026-12 comes back as 10 x 90.91 + 90.90 = 1000.00.
+budget:
+  kind: entity
+  sum_from:
+    - tf: amount
+      from: data
+      field: amount
+
+# GET /v3/funding-source/{id} returns neither the owners nor the permission
+# scheme, both of which the create body takes and one of which it requires, so
+# an imported funding source produced a configuration that could not be applied
+# (#68). Both are readable elsewhere -- the owners from the permission mapping's
+# owner-role row, the scheme from the private /v2 route behind the UI's
+# permissions tab -- which is what funding_source_read.gtpl does.
+funding_source:
+  kind: entity
+  read_companion: readFundingSourceExtras
+
 compliance_control:
   kind: entity
   # DELETE /v4/compliance/program/{id}/control/{controlID}: controlID is the
@@ -157,6 +180,17 @@ billing_source_aws:
 # public by-id read. The private /v1/payer read nests under gcp_billing_account.
 billing_source_gcp:
   kind: blended
+
+# Verbatim resource body (internal/kgen/crud/project.gtpl); schema, data source,
+# sweeper and acceptance tests stay derived. Create has to pick between
+# POST /v3/project/with-budget and POST /v3/project/with-spend-plan on the
+# install's financial mode, because each refuses the other mode before it parses
+# the body -- control flow the entity archetype has no way to express (#66).
+# POST /v3/project, which the derived body used, is the deprecated spend-plan-only
+# alias and is unusable on a budget-mode install.
+project:
+  kind: entity
+  resource_template: project
 
 # Parent-scoped resource with no by-id GET: the read lists enforcements under the
 # project and finds by id; every op takes the project id, update/delete also the

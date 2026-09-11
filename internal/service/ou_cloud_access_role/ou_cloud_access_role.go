@@ -225,7 +225,10 @@ func (r *ou_cloud_access_roleResource) Update(ctx context.Context, req resource.
 	}
 
 	out, err := conn.PatchOUCloudAccessRole(ctx, input, generated.PatchOUCloudAccessRoleParams{ID: idInt})
-	if err != nil {
+	// A 2xx the spec does not declare arrives as a decode error even though the
+	// write landed; the read-back below is the authority on state either way.
+	// See errs.IsUndeclaredSuccess.
+	if err != nil && !errs.IsUndeclaredSuccess(err) {
 		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameOuCloudAccessRole, idInt), err.Error())
 		return
 	}
@@ -409,6 +412,11 @@ func flattenOuCloudAccessRole(ctx context.Context, apiObject any, model *OuCloud
 				model.AwsIamPermissionsBoundary = types.Int64Value(int64(v.Data.Value.AWSIamPermissionsBoundary.Value.ID.Value))
 			} else {
 				model.AwsIamPermissionsBoundary = types.Int64Null()
+			}
+			if v.Data.Value.Ou.Set {
+				model.OuId = types.Int64Value(int64(v.Data.Value.Ou.Value.ID.Value))
+			} else {
+				model.OuId = types.Int64Null()
 			}
 		}
 		return diags

@@ -528,6 +528,22 @@ type objIDProjFlat struct {
 	Opt     bool   // the object field is Opt/OptNil (guard on .Set, else Int64Null)
 }
 
+// sumFlat rebuilds a scalar model attribute by summing one field of a response
+// array, the inverse of a write the server expands.
+//
+// kion_budget is the case it exists for: POST /v3/budget takes a single amount
+// and creates one data row per month with it distributed across them, so the
+// read returns the rows and no amount at all. Nothing in the payload or the
+// spec says the rows add back up to what was sent, which is why this is
+// declared in crud_archetypes.yaml rather than derived.
+type sumFlat struct {
+	ModelGo  string // "Amount"
+	Var      string // "amountSum"
+	SrcPath  string // "v.Data.Value.Data.Value" (the []Elem to iterate)
+	ElemExpr string // per-element float64 expression, "elem.Amount.Value"
+	Round    bool   // model attr is Int64: round the float sum rather than truncate
+}
+
 type nestedFlatResult struct {
 	Objs       []objFlat
 	Arrs       []arrFlat
@@ -541,6 +557,18 @@ type nestedFlatResult struct {
 // (owner_user_groups -> owner_user_group_ids, owner_users -> owner_user_ids).
 func idArrayRename(jsonName string) string {
 	return strings.TrimSuffix(jsonName, "s") + "_ids"
+}
+
+// idObjectRename maps a payload single-object json-name to the model's scalar
+// id attribute name (cloud_rule -> cloud_rule_id, service -> service_id).
+//
+// The write takes an id; the read returns the whole record. Where the SDK
+// happens to name the response field cloud_rule_id anyway (ProjectEnforcement
+// does, for the same OptCloudRule) the names already match and this is not
+// reached -- which is exactly why project_enforcement unwrapped its cloud rule
+// while ou_enforcement and funding_source_enforcement silently dropped theirs.
+func idObjectRename(jsonName string) string {
+	return jsonName + "_id"
 }
 
 // collKind maps a model field Go type to its collection kind ("List"/"Set"),
@@ -593,6 +621,14 @@ func resolveNestedFlatten(src Source, schemaGen string, fields []Field, byTF map
 			// (create takes owner_user_group_ids; read returns owner_user_groups).
 			if _, _, isSlice := wrapperSliceElem(f.Type, idx); isSlice {
 				if rmf, rok := byTF[idArrayRename(f.JSONName)]; rok {
+					mf, ok = rmf, true
+				}
+			} else if renamed := idObjectRename(f.JSONName); !hasJSONFieldNamed(fields, renamed) {
+				// Or a payload object `foo` maps to the model's scalar `foo_id`
+				// (create takes cloud_rule_id; read returns the cloud rule). Skipped
+				// when the payload carries a flat `foo_id` of its own, which owns
+				// that attribute through the ordinary scalar path.
+				if rmf, rok := byTF[renamed]; rok {
 					mf, ok = rmf, true
 				}
 			}
@@ -705,6 +741,83 @@ func flatSubs(src Source, schemaGen, valueType string, sdkStruct Struct, prefix 
 		subs = append(subs, flatSub{TF: sf.JSONName, Expr: conv + "(" + prefix + "." + sf.GoName + ")"})
 	}
 	return subs, nil
+}
+
+// resolveSumFlats builds the sum binds declared by an archetype's sum_from,
+// resolving each against the read payload's array field and the model attribute
+// it rebuilds. Every declaration must resolve: a stale one would leave the
+// attribute dropped again, which is the class of bug this exists to fix.
+func resolveSumFlats(decls []sumFromDecl, fields []Field, byTF map[string]ModelField, idx sdkIndex, prefix string) ([]sumFlat, error) {
+	var out []sumFlat
+	for _, d := range decls {
+		mf, ok := byTF[d.TF]
+		if !ok {
+			return nil, fmt.Errorf("sum_from tf %q is not a model attribute", d.TF)
+		}
+		if mf.Type != "types.Int64" && mf.Type != "types.Float64" {
+			return nil, fmt.Errorf("sum_from tf %q is %s; expected types.Int64 or types.Float64", d.TF, mf.Type)
+		}
+		src, ok := fieldByJSONName(fields, d.From)
+		if !ok {
+			return nil, fmt.Errorf("sum_from from %q is not a field of the read payload", d.From)
+		}
+		elem, _, isSlice := wrapperSliceElem(src.Type, idx)
+		if !isSlice {
+			return nil, fmt.Errorf("sum_from from %q is %q, not an array", d.From, src.Type)
+		}
+		es, isStruct := idx.structs[elem]
+		if !isStruct {
+			return nil, fmt.Errorf("sum_from from %q element %q is not an SDK struct", d.From, elem)
+		}
+		ef, ok := fieldByJSON(es, d.Field)
+		if !ok {
+			return nil, fmt.Errorf("sum_from field %q is not a field of %s", d.Field, elem)
+		}
+		expr, ok := sumElemExpr(ef)
+		if !ok {
+			return nil, fmt.Errorf("sum_from field %q has unsupported type %q", d.Field, ef.Type)
+		}
+		srcPath := prefix + src.GoName
+		if strings.HasPrefix(src.Type, "Opt") {
+			srcPath += ".Value"
+		}
+		out = append(out, sumFlat{
+			ModelGo: mf.GoName, Var: lowerFirst(mf.GoName) + "Sum", SrcPath: srcPath,
+			ElemExpr: expr, Round: mf.Type == "types.Int64",
+		})
+	}
+	return out, nil
+}
+
+// fieldByJSONName is fieldByJSON over a bare field slice.
+func fieldByJSONName(fields []Field, jsonName string) (Field, bool) {
+	for _, f := range fields {
+		if f.JSONName == jsonName {
+			return f, true
+		}
+	}
+	return Field{}, false
+}
+
+// hasJSONFieldNamed reports whether fields carries a field with that json name.
+func hasJSONFieldNamed(fields []Field, jsonName string) bool {
+	_, ok := fieldByJSONName(fields, jsonName)
+	return ok
+}
+
+// sumElemExpr builds the per-element float64 expression for a summable field.
+func sumElemExpr(f Field) (string, bool) {
+	switch f.Type {
+	case "float64":
+		return "elem." + f.GoName, true
+	case "int64", "uint64":
+		return "float64(elem." + f.GoName + ")", true
+	case "OptFloat64", "OptNilFloat64":
+		return "elem." + f.GoName + ".Value", true
+	case "OptInt64", "OptNilInt64", "OptUint64", "OptNilUint64":
+		return "float64(elem." + f.GoName + ".Value)", true
+	}
+	return "", false
 }
 
 // nestedSubs maps a nested struct's SDK sub-fields to expand expressions reading

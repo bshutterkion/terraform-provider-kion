@@ -167,7 +167,10 @@ func (r *project_line_itemResource) Update(ctx context.Context, req resource.Upd
 	}
 
 	out, err := conn.PatchProjectLineItem(ctx, input, generated.PatchProjectLineItemParams{ID: idInt})
-	if err != nil {
+	// A 2xx the spec does not declare arrives as a decode error even though the
+	// write landed; the read-back below is the authority on state either way.
+	// See errs.IsUndeclaredSuccess.
+	if err != nil && !errs.IsUndeclaredSuccess(err) {
 		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameProjectLineItem, idInt), err.Error())
 		return
 	}

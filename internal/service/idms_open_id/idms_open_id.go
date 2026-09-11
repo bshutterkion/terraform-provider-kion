@@ -202,7 +202,10 @@ func (r *idms_open_idResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	out, err := conn.PatchOpenID(ctx, input, generated.PatchOpenIDParams{ID: idInt})
-	if err != nil {
+	// A 2xx the spec does not declare arrives as a decode error even though the
+	// write landed; the read-back below is the authority on state either way.
+	// See errs.IsUndeclaredSuccess.
+	if err != nil && !errs.IsUndeclaredSuccess(err) {
 		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameIdmsOpenId, idInt), err.Error())
 		return
 	}

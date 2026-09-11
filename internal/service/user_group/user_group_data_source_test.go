@@ -34,9 +34,10 @@ func TestAccKionUserGroupDataSource_basic(t *testing.T) {
 func testAccUserGroupDataSourceConfigBasic(rName string) string {
 	return fmt.Sprintf(`
 resource "kion_user_group" "test" {
-  idms_id     = 1
-  name        = %[1]q
-  description = "test-acc user group"
+  idms_id        = 1
+  name           = %[1]q
+  description    = "test-acc user group"
+  owner_user_ids = [1]
 }
 
 data "kion_user_group" "test" {

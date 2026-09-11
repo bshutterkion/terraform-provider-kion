@@ -77,11 +77,10 @@ func buildSharedClient() (*KionClient, error) {
 	// APIURL must be the API root, matching what the provider's Configure
 	// stores, so the raw helpers and the SDK agree on where the API lives.
 	//
-	// The credentials and HTTP client are carried too: rawRequest reads them off
-	// the struct rather than going through the SDK's security source, so a
-	// client built without them sends no Authorization header and every raw call
-	// answers 401 -- which is the only way to check a resource whose read is a
-	// private collection.
+	// The credentials are carried separately because the raw helpers build
+	// their own requests and read them from these fields, not from the SDK's
+	// security source. Leaving them empty made every raw call from a test or
+	// sweeper unauthenticated -- a 401 that reads like the record is gone.
 	return &KionClient{
 		Client:     sdkClient,
 		APIURL:     serverURL,

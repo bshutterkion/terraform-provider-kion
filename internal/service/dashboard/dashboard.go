@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"terraform-provider-kion/internal/conns"
+	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
 )
@@ -46,7 +47,8 @@ func (r *dashboardResource) Schema(ctx context.Context, _ resource.SchemaRequest
 }
 
 // dashboardWire is the JSON body/record shape (keys are the schema attribute
-// names). Kion wraps reads in {"data": …} and returns {"record_id": …} on create.
+// names). Kion wraps reads in {"data": …}, and most creates answer
+// {"record_id": …} -- but not all of them, which is what create_id is for.
 type dashboardWire struct {
 	ID              int64            `json:"id,omitempty"`
 	Config          *flex.JSONString `json:"config,omitempty"`
@@ -132,16 +134,31 @@ func (r *dashboardResource) Create(ctx context.Context, req resource.CreateReque
 		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameDashboard), fmt.Sprintf("decoding response: %s", err))
 		return
 	}
+	recordID := created.RecordID
+	// An id that decodes to zero is not a fallback to write to state: the record
+	// exists in Kion and nothing addressed as id 0 can ever refresh or delete it.
+	recordID, idDiags := errs.RawCreatedID(recordID)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	w, found, err := r.read(ctx, created.RecordID)
+	w, found, err := r.read(ctx, recordID)
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("reading %s after create", ResNameDashboard), err.Error())
 		return
 	}
+	plan.Id = types.StringValue(strconv.FormatInt(recordID, 10))
 	if found {
 		r.flatten(w, &plan)
 	} else {
-		plan.Id = types.StringValue(strconv.FormatInt(created.RecordID, 10))
+		// The id is server-issued and validated, so it goes to state anyway:
+		// dropping it would orphan a record that exists. The next refresh either
+		// reconciles the attributes or removes the resource cleanly.
+		resp.Diagnostics.AddWarning(
+			fmt.Sprintf("Created %s could not be read back", ResNameDashboard),
+			fmt.Sprintf("record %d was created but is not readable yet; state records the planned values until the next refresh", recordID),
+		)
 	}
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {

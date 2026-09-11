@@ -209,6 +209,14 @@ var registry = map[string]ResourceMeta{
 			"name":        {Basic: `%[1]q`, Update: `%[1]q`},
 			"description": {Basic: `"test-acc group"`, Update: `"test-acc group updated"`},
 		},
+		// POST /v3/user-group requires one of owner_user_ids /
+		// owner_user_group_ids: without either it answers "Field validation for
+		// 'OwnerUserIDs' failed on the 'atLeastOneFieldPresent' tag". The schema
+		// marks both Optional, which is true of each alone but not of the pair,
+		// so the constraint has to be met by the fixture (#62).
+		ExtraHCLBlocks: []string{
+			"owner_user_ids = [1]",
+		},
 	},
 	"kion_ou": {
 		TypeName:        "kion_ou",
@@ -466,11 +474,6 @@ var registry = map[string]ResourceMeta{
 		SDKDeleteMethod: "DeleteBudget",
 		SDKDeleteParams: "generated.DeleteBudgetParams{ID: id}",
 		NoUpdate:        true,
-		KnownIssues: []string{
-			"#69 amount is Optional+Computed and no flatten assigns it, so " +
-				"ImportStateVerify fails. Create expands it into per-month data rows " +
-				"that flattenBudget ignores. Left failing on purpose.",
-		},
 		// POST /v3/budget answers "project ID or OU ID is required", so the
 		// test brings its own OU rather than assuming the install has one.
 		Dependencies: []Dependency{
@@ -503,12 +506,6 @@ var registry = map[string]ResourceMeta{
 		SDKGetParams:    "generated.GetFundingSourceParams{ID: id}",
 		SDKDeleteMethod: "DeleteFundingSource",
 		SDKDeleteParams: "generated.DeleteFundingSourceParams{ID: id}",
-		KnownIssues: []string{
-			"#68 owner_user_ids and permission_scheme_id are dropped on read, so " +
-				"ImportStateVerify fails. GET /v3/funding-source/{id} returns neither; " +
-				"the owners live at /v3/funding-source/{id}/permission-mapping, which " +
-				"Read never calls. Left failing on purpose.",
-		},
 		FieldOverrides: map[string]FieldValue{
 			"name":           {Basic: `%[1]q`, Update: `%[1]q`},
 			"description":    {Basic: `"test-acc funding source"`, Update: `"test-acc funding source updated"`},
@@ -620,6 +617,18 @@ var registry = map[string]ResourceMeta{
 		},
 		FieldOverrides: map[string]FieldValue{
 			"name": {Basic: `%[1]q`, Update: `%[1]q`},
+		},
+	},
+	// Tests are HAND-WRITTEN (internal/service/account_linkage). A linkage row
+	// carries a foreign key to `payer`, so without a billing source the create
+	// fails on the constraint rather than on anything the provider did (#62).
+	// The test interpolates KION_ACC_PAYER_ID into its HCL, which RequiredEnv
+	// cannot do; the entry records the requirement so a regeneration does not
+	// drop the gate silently.
+	"kion_account_linkage": {
+		TypeName: "kion_account_linkage",
+		RequiredEnv: []EnvRequirement{
+			{Name: "KION_ACC_PAYER_ID", Reason: "a billing source on this install; a linkage row references one by foreign key"},
 		},
 	},
 	// Tests are HAND-WRITTEN (internal/service/idms_group_association). A group
@@ -866,11 +875,6 @@ var registry = map[string]ResourceMeta{
 	"kion_funding_source_enforcement": {
 		TypeName:            "kion_funding_source_enforcement",
 		ImportIDParentField: "funding_source_id",
-		KnownIssues: []string{
-			"#70 cloud_rule_id is dropped on read (the record carries the cloud rule " +
-				"as a nested object and flatten never unwraps it), so the _update " +
-				"test's ImportStateVerify fails. Left failing on purpose.",
-		},
 		Dependencies: []Dependency{
 			{
 				TypeName: "kion_funding_source",
@@ -901,11 +905,6 @@ var registry = map[string]ResourceMeta{
 	"kion_ou_enforcement": {
 		TypeName:            "kion_ou_enforcement",
 		ImportIDParentField: "ou_id",
-		KnownIssues: []string{
-			"#70 cloud_rule_id and service_id are dropped on read (the record carries " +
-				"both as nested objects and flatten never unwraps them), so the _update " +
-				"test's ImportStateVerify fails. Left failing on purpose.",
-		},
 		Dependencies: []Dependency{
 			{
 				TypeName: "kion_ou",

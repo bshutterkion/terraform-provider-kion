@@ -79,6 +79,8 @@ var (
 	projectEnforcementDSTmpl string
 	//go:embed project_note_ds.gtpl
 	projectNoteDSTmpl string
+	//go:embed funding_source_read.gtpl
+	fundingSourceReadTmpl string
 	//go:embed cft_alias.gtpl
 	cftAliasTmpl string
 	//go:embed iam_policy_alias.gtpl
@@ -113,6 +115,10 @@ func init() {
 		},
 		"project_enforcement": {
 			{projectEnforcementDSTmpl, "project_enforcement_data_source.go"},
+		},
+		// The read_companion the funding_source archetype names; see #68.
+		"funding_source": {
+			{fundingSourceReadTmpl, "funding_source_read.go"},
 		},
 		"project_note": {
 			{projectNoteDSTmpl, "project_note_data_source.go"},
@@ -154,6 +160,18 @@ const (
 // source template.
 var datasourceOnlyTemplates = map[string]string{
 	"gcp_regions": gcpRegionsDSTmpl,
+}
+
+//go:embed project.gtpl
+var projectResourceTmpl string
+
+// resourceTemplates maps the `resource_template` name on an entity archetype to
+// the verbatim body that replaces the derived <name>.go. Unlike a bespoke kind
+// this keeps the resource in generator_config's `resources` list, so its schema,
+// data source, sweeper and acceptance tests are still derived; only the CRUD
+// body is hand-authored. See archetype.ResourceTemplate.
+var resourceTemplates = map[string]string{
+	"project": projectResourceTmpl,
 }
 
 // isBespokeKind reports whether a kind is emitted from verbatim per-resource

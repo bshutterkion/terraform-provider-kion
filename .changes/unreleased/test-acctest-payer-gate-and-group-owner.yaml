@@ -1,0 +1,3 @@
+kind: NOTES
+body: "Two more acceptance tests stop failing for reasons that are not the provider's. `kion_account_linkage` skips unless `KION_ACC_PAYER_ID` names a billing source: a linkage row carries a foreign key to `payer`, so on an install with none the create fails on the database constraint. `kion_user_group`'s fixtures now set `owner_user_ids`, which `POST /v3/user-group` requires -- the schema marks `owner_user_ids` and `owner_user_group_ids` Optional, which is true of each alone but not of the pair. The shared acceptance-test client also carries its credential onto the raw-HTTP helpers, which had been sending unauthenticated requests that 401 and read like a deleted record."
+time: 2026-09-11T21:41:00Z

@@ -43,6 +43,9 @@ type rawResourceOps struct {
 	// ParentRead gives a no_read resource a real read over a private
 	// collection; see parentread.go.
 	ParentRead *parentRead `yaml:"parent_read"`
+	// CreateID declares where to recover the id of a record whose create
+	// response does not carry one; see createID.
+	CreateID *createID `yaml:"create_id"`
 	// NoGuard disables the "multiple optional nested objects are alternatives"
 	// heuristic (see objBind.Guard). Set it for a body whose optional nested
 	// objects are genuine companions, where sending only the configured one
@@ -66,6 +69,54 @@ func loadPrivateEndpoints(path string) (map[string]rawResourceOps, error) {
 		return nil, fmt.Errorf("parsing private endpoints %s: %w", path, err)
 	}
 	return f.Resources, nil
+}
+
+// createID declares how to recover the id of a record whose create response
+// does not report one.
+//
+// The raw-http create decodes {"record_id": …} because that is what the public
+// v3 endpoints the archetype was modeled on return. Some private endpoints do
+// not: POST /v2/funding-source-note answers {"status":201,"data":""}, the id
+// decodes as zero, and every apply used to write "0" into state for a note that
+// really exists and can never be addressed again (#71).
+//
+// The id is then found by difference over the parent collection — the same
+// before/after diff the compound_key_parent_read archetype does for a create
+// that returns the parent. Declared in codegen/private_endpoints.yaml.
+type createID struct {
+	// ListPath is the collection holding the new record. It must contain
+	// "{parent_id}": a collection scoped to the parent keeps the diff narrow,
+	// and every raw create that needs this has a parent. An unscoped list would
+	// be a wider race for no gain, so it is refused rather than supported blind.
+	ListPath string `yaml:"list_path"`
+
+	// ParentTF is the model attribute holding that parent id, e.g.
+	// funding_source_id.
+	ParentTF string `yaml:"parent_tf"`
+}
+
+// createIDData is the template payload for a declared create_id.
+type createIDData struct {
+	ListPath string
+	ParentGo string
+}
+
+// buildCreateID validates a create_id declaration against the model.
+func buildCreateID(pkg string, c createID, byTF map[string]ModelField) (*createIDData, error) {
+	if !strings.Contains(c.ListPath, "{parent_id}") {
+		return nil, fmt.Errorf("%s create_id: list_path %q must contain {parent_id}", pkg, c.ListPath)
+	}
+	if c.ParentTF == "" {
+		return nil, fmt.Errorf("%s create_id: parent_tf is required, naming the model attribute holding the parent id", pkg)
+	}
+	mf, ok := byTF[c.ParentTF]
+	if !ok {
+		return nil, fmt.Errorf("%s create_id: parent_tf %q is not a model attribute", pkg, c.ParentTF)
+	}
+	if mf.Type != "types.Int64" {
+		return nil, fmt.Errorf("%s create_id: parent_tf %q must be a types.Int64 attribute, got %q", pkg, c.ParentTF, mf.Type)
+	}
+	return &createIDData{ListPath: c.ListPath, ParentGo: mf.GoName}, nil
 }
 
 // rawField binds one model field to its JSON wire representation.
@@ -93,6 +144,8 @@ type rawData struct {
 
 	Fields   []rawField // non-id
 	UsesFlex bool       // a read_kinds override retyped a field to flex.Null*
+
+	CreateID *createIDData // nil unless the create response carries no id
 }
 
 // rawVerb maps an HTTP method to the conns raw verb name.
@@ -162,6 +215,15 @@ func resolveRaw(name string, ops rawResourceOps, model []ModelField) (rawData, e
 	}
 	if d.IDGo == "" {
 		return d, fmt.Errorf("%s: model %s has no tfsdk:%q field", name, d.Model, "id")
+	}
+	if ops.CreateID != nil {
+		byTF := make(map[string]ModelField, len(model))
+		for _, mf := range model {
+			byTF[mf.TFSDK] = mf
+		}
+		if d.CreateID, err = buildCreateID(name, *ops.CreateID, byTF); err != nil {
+			return d, err
+		}
 	}
 	return d, nil
 }
