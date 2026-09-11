@@ -22,8 +22,11 @@ func TestAccKionGcpRegionsDataSource_basic(t *testing.T) {
 			{
 				Config: testAccGcpRegionsDataSourceConfig_basic(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "regions"),
+					// kion_gcp_regions has no id: it is the whole collection,
+					// with nothing to select by, so its schema declares only
+					// regions. The check asserted an attribute the data source
+					// never had. A set is checked by element count, not by name.
+					resource.TestCheckResourceAttrSet(dataSourceName, "regions.#"),
 				),
 			},
 		},
@@ -33,7 +36,6 @@ func TestAccKionGcpRegionsDataSource_basic(t *testing.T) {
 func testAccGcpRegionsDataSourceConfig_basic() string {
 	return `
 data "kion_gcp_regions" "test" {
-  # TODO: Fill in filter criteria or ID to look up the data source.
 }
 `
 }

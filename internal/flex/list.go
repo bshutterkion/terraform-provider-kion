@@ -162,6 +162,23 @@ func Uint64SliceToFrameworkSet(ctx context.Context, v []uint64) (types.Set, diag
 	return types.SetValueFrom(ctx, types.Int64Type, elems)
 }
 
+// Uint64SliceToFrameworkSetOrEmpty is Uint64SliceToFrameworkSet with a nil
+// slice mapped to an EMPTY set instead of a null one.
+//
+// Use it for a membership collection whose API cannot express null. Kion's
+// permission mappings store an empty member list and return it as JSON null, so
+// null and empty are one state on the wire. Preserving the distinction in state
+// is what made `user_groups_ids = []` in a configuration never converge: the
+// read turned the API's null back into a null set, which never equals the
+// configured empty set, so every plan re-proposed the same write. Collections
+// the API does distinguish keep using Uint64SliceToFrameworkSet.
+func Uint64SliceToFrameworkSetOrEmpty(ctx context.Context, v []uint64) (types.Set, diag.Diagnostics) {
+	if v == nil {
+		v = []uint64{}
+	}
+	return Uint64SliceToFrameworkSet(ctx, v)
+}
+
 // --- Membership diff: for associations synced via paired add/remove endpoints ---
 
 // Uint64SetDiff extracts the old (state) and new (plan) uint64 id sets and
