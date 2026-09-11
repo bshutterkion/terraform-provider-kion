@@ -410,6 +410,11 @@ func flattenOuCloudAccessRole(ctx context.Context, apiObject any, model *OuCloud
 			} else {
 				model.AwsIamPermissionsBoundary = types.Int64Null()
 			}
+			if v.Data.Value.Ou.Set {
+				model.OuId = types.Int64Value(int64(v.Data.Value.Ou.Value.ID.Value))
+			} else {
+				model.OuId = types.Int64Null()
+			}
 		}
 		return diags
 	default:

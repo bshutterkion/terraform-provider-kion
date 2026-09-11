@@ -443,6 +443,11 @@ func flattenProjectCloudAccessRole(ctx context.Context, apiObject any, model *Pr
 			} else {
 				model.AwsIamPermissionsBoundary = types.Int64Null()
 			}
+			if v.Data.Value.Project.Set {
+				model.ProjectId = types.Int64Value(int64(v.Data.Value.Project.Value.ID.Value))
+			} else {
+				model.ProjectId = types.Int64Null()
+			}
 		}
 		return diags
 	default:

@@ -320,6 +320,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		rm.SchemaVersion = 1
 	}
 	if entityArch != nil {
+		rm.ReadCompanion = entityArch.ReadCompanion
 		rm.DeleteRecordParam = entityArch.DeleteRecordParam
 		rm.DeleteExtraParam = entityArch.DeleteExtraParam
 		rm.DeleteExtraField = entityArch.DeleteExtraField
@@ -374,6 +375,11 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	}
 	if rm.ReadNested, err = resolveNestedFlatten(g.src, schemaGen, rm.Read.RespFields, byTF, idx, readPrefix); err != nil {
 		return 0, fmt.Errorf("%s read nested: %w", name, err)
+	}
+	if entityArch != nil && len(entityArch.SumFrom) > 0 {
+		if rm.ReadSums, err = resolveSumFlats(entityArch.SumFrom, rm.Read.RespFields, byTF, idx, readPrefix); err != nil {
+			return 0, fmt.Errorf("%s read sums: %w", name, err)
+		}
 	}
 
 	// Owner association synced on Update via paired add/remove endpoints.
