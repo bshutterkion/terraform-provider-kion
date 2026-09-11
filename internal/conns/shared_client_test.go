@@ -37,6 +37,11 @@ func TestBuildSharedClient_WithAPIKey(t *testing.T) {
 	// The API root, matching what the provider's Configure stores, so the raw
 	// helpers and DetectVersion resolve the same way here as in production.
 	require.Equal(t, "https://kion.example.com/api", c.APIURL)
+	// The raw helpers read the credential from the client, not from the SDK's
+	// security source: without it every raw call a test or sweeper makes is
+	// unauthenticated and 401s as though the record were gone.
+	require.Equal(t, "secret", c.APIKey)
+	require.NotNil(t, c.HTTPClient)
 }
 
 func TestBuildSharedClient_WithAuthTokenAndSkipSSL(t *testing.T) {
@@ -48,4 +53,5 @@ func TestBuildSharedClient_WithAuthTokenAndSkipSSL(t *testing.T) {
 	c, err := buildSharedClient()
 	require.NoError(t, err)
 	require.NotNil(t, c)
+	require.Equal(t, "tok", c.AuthToken)
 }

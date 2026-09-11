@@ -28,7 +28,30 @@ func CreatedID(res any) (int64, diag.Diagnostics) {
 		return 0, diags
 	}
 
-	return int64(cr.RecordID.Value), diags
+	return RawCreatedID(int64(cr.RecordID.Value))
+}
+
+// RawCreatedID validates a record ID decoded from a create response by hand,
+// for the endpoints served over raw HTTP rather than through the SDK.
+//
+// Zero is rejected: Kion issues ids from 1, so a zero is either a response with
+// no record id in it at all or one that explicitly reported a non-id. Writing it
+// to state produces a resource that exists in Kion and can never be addressed —
+// refresh reads id 0 and finds nothing, destroy deletes id 0 — so every apply
+// leaks a record (#71). Failing is the only outcome that says so.
+func RawCreatedID(recordID int64) (int64, diag.Diagnostics) {
+	var diags diag.Diagnostics
+
+	if recordID <= 0 {
+		diags.AddError(
+			"Missing Record ID",
+			fmt.Sprintf("the create response reported record ID %d, which is not a usable Kion id; "+
+				"the record may have been created but Terraform cannot manage it", recordID),
+		)
+		return 0, diags
+	}
+
+	return recordID, diags
 }
 
 // IsNotFound returns true if the response is a *NotFoundResponse.

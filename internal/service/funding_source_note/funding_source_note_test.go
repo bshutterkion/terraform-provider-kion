@@ -1,17 +1,17 @@
-// Known issues this test is expected to surface:
-//   #71 every note is created with id 0: POST /v2/funding-source-note returns {"status":201,"data":""} and Create decodes a record_id that is not there. Refresh then finds nothing and destroy deletes id 0. Left failing on purpose.
-
 package funding_source_note_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"terraform-provider-kion/internal/acctest"
+	"terraform-provider-kion/internal/conns"
 )
 
 func TestAccKionFundingSourceNote_basic(t *testing.T) {
@@ -81,28 +81,86 @@ func TestAccKionFundingSourceNote_update(t *testing.T) {
 	})
 }
 
-func testAccCheckFundingSourceNoteExists(_ context.Context, name string) resource.TestCheckFunc {
+// readNote fetches a note straight from the API, bypassing the provider.
+// funding_source_note is served entirely over private /v2, so there is no SDK
+// method to call: the check has to speak raw HTTP, as the resource does.
+func readNote(ctx context.Context, id int64) (found bool, err error) {
+	conn, err := acctest.SharedClient()
+	if err != nil {
+		return false, fmt.Errorf("getting shared client: %w", err)
+	}
+	body, err := conn.RawGet(ctx, "/v2/funding-source-note/"+strconv.FormatInt(id, 10))
+	if err != nil {
+		if conns.IsRawNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	var env struct {
+		Data struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &env); err != nil {
+		return false, fmt.Errorf("decoding response: %w", err)
+	}
+	return env.Data.ID == id, nil
+}
+
+func stateNoteID(s *terraform.State, name string) (int64, error) {
+	rs, ok := s.RootModule().Resources[name]
+	if !ok {
+		return 0, fmt.Errorf("not found: %s", name)
+	}
+	id, err := strconv.ParseInt(rs.Primary.ID, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("parsing ID %q: %w", rs.Primary.ID, err)
+	}
+	// The id this whole resource was broken on. #71 wrote "0" to state for a
+	// note that really existed, so an assertion that merely reads state back is
+	// not enough: the id has to be one the API answers to.
+	if id <= 0 {
+		return 0, fmt.Errorf("%s recorded id %d, which is not a usable Kion id", name, id)
+	}
+	return id, nil
+}
+
+func testAccCheckFundingSourceNoteExists(ctx context.Context, name string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		rs, ok := s.RootModule().Resources[name]
-		if !ok {
-			return fmt.Errorf("not found: %s", name)
+		id, err := stateNoteID(s, name)
+		if err != nil {
+			return err
 		}
-		if rs.Primary.ID == "" {
-			return fmt.Errorf("no ID set for %s", name)
+		found, err := readNote(ctx, id)
+		if err != nil {
+			return fmt.Errorf("reading note %d: %w", id, err)
 		}
-		// TODO: Call SDK to verify the resource exists.
+		if !found {
+			return fmt.Errorf("note %d is in state but not in Kion", id)
+		}
 		return nil
 	}
 }
 
-func testAccCheckFundingSourceNoteDestroy(_ context.Context) resource.TestCheckFunc {
+// testAccCheckFundingSourceNoteDestroy is what proves the leak is fixed: a note
+// Terraform destroyed has to be gone from the API, not merely gone from state.
+func testAccCheckFundingSourceNoteDestroy(ctx context.Context) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		for _, rs := range s.RootModule().Resources {
 			if rs.Type != "kion_funding_source_note" {
 				continue
 			}
-			// TODO: Call SDK to verify the resource no longer exists.
-			// Return nil if 404, return error if still exists.
+			id, err := strconv.ParseInt(rs.Primary.ID, 10, 64)
+			if err != nil {
+				return fmt.Errorf("parsing ID %q: %w", rs.Primary.ID, err)
+			}
+			found, err := readNote(ctx, id)
+			if err != nil {
+				return fmt.Errorf("reading note %d: %w", id, err)
+			}
+			if found {
+				return fmt.Errorf("note %d still exists in Kion after destroy", id)
+			}
 		}
 		return nil
 	}
