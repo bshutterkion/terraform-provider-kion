@@ -10,7 +10,8 @@ run "plan" {
   command = plan
 
   variables {
-    name   = "example"
-    policy = "{}"
+    name           = "example"
+    owner_user_ids = []
+    policy         = "{}"
   }
 }

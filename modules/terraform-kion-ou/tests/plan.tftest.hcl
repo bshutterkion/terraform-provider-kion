@@ -11,6 +11,7 @@ run "plan" {
 
   variables {
     name                 = "example"
+    owner_user_ids       = []
     parent_ou_id         = 1
     permission_scheme_id = 1
   }

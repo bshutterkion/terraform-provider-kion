@@ -40,8 +40,9 @@ func TestAccKionSamlGroupAssociationDataSource_basic(t *testing.T) {
 func testAccSamlGroupAssociationDataSourceConfig_basic(rName, samlIDMSID string) string {
 	return fmt.Sprintf(`
 resource "kion_user_group" "test_group" {
-  idms_id = 1
-  name    = "%[1]s-group"
+  idms_id        = 1
+  name           = "%[1]s-group"
+  owner_user_ids = [1]
 }
 
 resource "kion_saml_group_association" "test" {

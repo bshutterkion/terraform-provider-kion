@@ -10,9 +10,10 @@ run "plan" {
   command = plan
 
   variables {
-    account_id = 1
-    aws_ami_id = "example"
-    name       = "example"
-    region     = "example"
+    account_id     = 1
+    aws_ami_id     = "example"
+    name           = "example"
+    owner_user_ids = []
+    region         = "example"
   }
 }

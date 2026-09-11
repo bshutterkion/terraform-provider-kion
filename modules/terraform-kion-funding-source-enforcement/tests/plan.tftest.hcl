@@ -13,5 +13,6 @@ run "plan" {
     funding_source_id = 1
     threshold         = 1
     timeframe         = "example"
+    user_ids          = []
   }
 }

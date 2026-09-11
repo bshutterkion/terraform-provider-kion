@@ -13,6 +13,7 @@ run "plan" {
     amount         = 1
     end_datecode   = "2026-01"
     name           = "example"
+    owner_user_ids = []
     start_datecode = "2026-01"
   }
 }

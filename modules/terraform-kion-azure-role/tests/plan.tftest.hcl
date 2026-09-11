@@ -11,6 +11,7 @@ run "plan" {
 
   variables {
     name             = "example"
+    owner_user_ids   = []
     role_permissions = "{}"
   }
 }
