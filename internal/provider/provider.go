@@ -162,6 +162,17 @@ func (p *kionProvider) Configure(ctx context.Context, req provider.ConfigureRequ
 		tflog.Info(ctx, "detected Kion version", map[string]any{"version": kionClient.Version.String()})
 	}
 
+	// Best-effort: detect whether the install funds projects with budgets or
+	// spend plans (GET /v3/app-config), which decides the kion_project create
+	// endpoint. Reading app-config needs a global settings permission, so a
+	// failure is expected for a restricted token and leaves the mode to the
+	// configuration.
+	if err := kionClient.DetectFinancialMode(ctx); err != nil {
+		tflog.Debug(ctx, "could not detect Kion financial mode", map[string]any{"error": err.Error()})
+	} else {
+		tflog.Info(ctx, "detected Kion financial mode", map[string]any{"budget_mode": kionClient.BudgetMode})
+	}
+
 	// Make the client available to resources and data sources
 	resp.ResourceData = kionClient
 	resp.DataSourceData = kionClient

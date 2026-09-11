@@ -409,6 +409,17 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	if err != nil {
 		return 0, err
 	}
+	// A verbatim resource body replaces the derived one; everything below it
+	// (data source, sweeper, tests) still comes from the resolved op-set.
+	if entityArch != nil && entityArch.ResourceTemplate != "" {
+		tmpl, ok := resourceTemplates[entityArch.ResourceTemplate]
+		if !ok {
+			return 0, fmt.Errorf("%s: resource_template %q is not registered in resourceTemplates", name, entityArch.ResourceTemplate)
+		}
+		if resourceGo, err = execGoTemplate(name+":"+name+".go", tmpl, nil, name+".go"); err != nil {
+			return 0, err
+		}
+	}
 	dataSourceGo, dsDowngrade, dsDrops, err := renderDataSource(rm, g.fieldPolicy)
 	if err != nil {
 		return 0, err
