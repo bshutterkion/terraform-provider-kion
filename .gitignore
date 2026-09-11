@@ -46,12 +46,3 @@ docs/superpowers/
 
 # Private denylist for check-no-internal-refs.sh (see that script's header)
 scripts/.internal-refs-private
-
-# Bearer token + install URL for arr/audit-trail-dump.py, and the data it pulls
-# (audit records from a live install, never committed)
-/arr/.audit-trail.env
-/arr/audit-trail*.json
-/arr/label-restore-*.json
-
-# Python bytecode from the arr/ and scripts/ helpers
-__pycache__/
