@@ -1,6 +1,3 @@
-// Known issues this test is expected to surface:
-//   #68 owner_user_ids and permission_scheme_id are dropped on read, so ImportStateVerify fails. GET /v3/funding-source/{id} returns neither; the owners live at /v3/funding-source/{id}/permission-mapping, which Read never calls. Left failing on purpose.
-
 package funding_source_test
 
 import (

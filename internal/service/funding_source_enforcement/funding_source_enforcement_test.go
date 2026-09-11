@@ -1,6 +1,3 @@
-// Known issues this test is expected to surface:
-//   #70 cloud_rule_id is dropped on read (the record carries the cloud rule as a nested object and flatten never unwraps it), so the _update test's ImportStateVerify fails. Left failing on purpose.
-
 package funding_source_enforcement_test
 
 import (

@@ -1,6 +1,3 @@
-// Known issues this test is expected to surface:
-//   #70 cloud_rule_id and service_id are dropped on read (the record carries both as nested objects and flatten never unwraps them), so the _update test's ImportStateVerify fails. Left failing on purpose.
-
 package ou_enforcement_test
 
 import (

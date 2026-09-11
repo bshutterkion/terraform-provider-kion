@@ -81,6 +81,16 @@ func flattenOuEnforcement(ctx context.Context, rec generated.OUEnforcement, mode
 	model.Timeframe = flex.OptStringToFramework(rec.Timeframe)
 	model.TriggerPlannedAmountType = flex.OptStringToFramework(rec.TriggerPlannedAmountType)
 	model.Triggered = flex.OptNilBoolToFramework(rec.Triggered)
+	if rec.CloudRule.Set {
+		model.CloudRuleId = types.Int64Value(int64(rec.CloudRule.Value.ID.Value))
+	} else {
+		model.CloudRuleId = types.Int64Null()
+	}
+	if rec.Service.Set {
+		model.ServiceId = types.Int64Value(int64(rec.Service.Value.ID.Value))
+	} else {
+		model.ServiceId = types.Int64Null()
+	}
 	ugroupIds, _ := flex.Uint64SliceToFrameworkSet(ctx, rec.UgroupIds.Value)
 	model.UgroupIds = ugroupIds
 	userIds, _ := flex.Uint64SliceToFrameworkSet(ctx, rec.UserIds.Value)

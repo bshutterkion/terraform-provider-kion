@@ -8,7 +8,8 @@ import (
 	{{end}}"context"
 	{{if or .RawValueHelpers .RespRawValues}}"encoding/json"
 	{{end}}"fmt"
-	"strconv"
+	{{if .RespSums}}"math"
+	{{end}}"strconv"
 
 	{{if or .RawValueHelpers .RespRawValues}}"github.com/go-faster/jx"
 	{{end}}{{if .HasNestedFlat}}"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -198,6 +199,13 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
+{{- if .ReadCompanion}}
+
+	resp.Diagnostics.Append({{.ReadCompanion}}(ctx, r.Meta(), id, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+{{- end}}
 
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -243,6 +251,13 @@ func (r *{{.Pkg}}Resource) Read(ctx context.Context, req resource.ReadRequest, r
 	if resp.Diagnostics.HasError() {
 		return
 	}
+{{- if .ReadCompanion}}
+
+	resp.Diagnostics.Append({{.ReadCompanion}}(ctx, r.Meta(), idInt, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+{{- end}}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
@@ -452,6 +467,13 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
+{{- if .ReadCompanion}}
+
+	resp.Diagnostics.Append({{.ReadCompanion}}(ctx, r.Meta(), idInt, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+{{- end}}
 
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -589,6 +611,18 @@ func flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRa
 			{{- else}}
 			model.{{.ModelGo}} = types.Int64Value({{.IDExpr}})
 			{{- end}}
+			{{- end}}
+			{{- range .RespSums}}
+			// The write took one {{.ModelGo}} and the server expanded it across the
+			// rows below, which are all the read returns. An absent array is left
+			// alone: "not reported" is not "zero", and zeroing breaks apply.
+			if len({{.SrcPath}}) > 0 {
+				var {{.Var}} float64
+				for _, elem := range {{.SrcPath}} {
+					{{.Var}} += {{.ElemExpr}}
+				}
+				model.{{.ModelGo}} = types.{{if .Round}}Int64Value(int64(math.Round({{.Var}}))){{else}}Float64Value({{.Var}}){{end}}
+			}
 			{{- end}}
 			{{- range .RespRawValues}}
 			diags.Append({{.Func}}(ctx, {{.SDKPath}}, model)...)

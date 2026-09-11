@@ -80,6 +80,11 @@ func flattenFundingSourceEnforcement(ctx context.Context, rec generated.FundingS
 	model.Threshold = flex.OptInt64ToFramework(rec.Threshold)
 	model.Timeframe = flex.OptStringToFramework(rec.Timeframe)
 	model.Triggered = flex.OptNilBoolToFramework(rec.Triggered)
+	if rec.CloudRule.Set {
+		model.CloudRuleId = types.Int64Value(int64(rec.CloudRule.Value.ID.Value))
+	} else {
+		model.CloudRuleId = types.Int64Null()
+	}
 	userIds, _ := flex.Uint64SliceToFrameworkSet(ctx, rec.UserIds.Value)
 	model.UserIds = userIds
 }
