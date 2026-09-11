@@ -60,6 +60,7 @@ type entityData struct {
 	TypeName           string // "kion_<name>"
 	IDGo, SDKAlias     string
 	IDParamType        string // "int64" | "uint64". The read/update/delete param id Go type
+	IDParseBits        int    // strconv bit size for the record id. See idParseBits
 	Gated              bool   // emit RequireKionVersionInRange in Create
 	SchemaVersion      int    // >0 bumps resp.Schema.Version (state migration)
 	CreateMethod       string
@@ -393,7 +394,26 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		d.RespRawValues = resolveRawValueFlats(rm.Read.RespFields, byTF, topPrefix, mergeRawValues(rm.CreateNested.RawValues, rm.UpdateNested.RawValues))
 	}
 	d.RawValueHelpers = mergeRawValues(d.CreateRawValues, d.UpdateRawValues)
+	d.IDParseBits = idParseBits(d.IDParamType)
 	return d, nil
+}
+
+// idParseBits is the strconv bit size the record id is parsed at.
+//
+// A uint64 id is parsed at 63, not 64, because one parse feeds two signednesses:
+// the SDK's params want uint64 while a blended resource's private read and
+// several mixed-type ops want int64 (see idExpr). strconv.ParseUint(s, 10, 64)
+// accepts values above MaxInt64, and int64(...) wraps those negative -- an
+// unbounded narrowing the generator has no business emitting, whatever Kion's
+// ids actually reach. At 63 the value provably fits either type, and an id that
+// large fails to parse with a clear error instead of silently going negative.
+//
+// An int64 id needs no such limit: nothing widens it back.
+func idParseBits(idParamType string) int {
+	if idParamType == "uint64" {
+		return 63
+	}
+	return 64
 }
 
 // bodyBinds maps a request body's fields to model fields via json/tfsdk tags,

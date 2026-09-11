@@ -185,7 +185,7 @@ func (r *billing_source_ociResource) Update(ctx context.Context, req resource.Up
 		return
 	}
 
-	idInt, err := strconv.ParseUint(plan.Id.ValueString(), 10, 64)
+	idInt, err := strconv.ParseUint(plan.Id.ValueString(), 10, 63)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
@@ -243,7 +243,7 @@ func (r *billing_source_ociResource) Delete(ctx context.Context, req resource.De
 		return
 	}
 
-	idInt, err := strconv.ParseUint(state.Id.ValueString(), 10, 64)
+	idInt, err := strconv.ParseUint(state.Id.ValueString(), 10, 63)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return

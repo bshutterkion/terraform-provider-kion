@@ -203,7 +203,7 @@ func (r *permission_schemeResource) Update(ctx context.Context, req resource.Upd
 		return
 	}
 
-	idInt, err := strconv.ParseUint(plan.Id.ValueString(), 10, 64)
+	idInt, err := strconv.ParseUint(plan.Id.ValueString(), 10, 63)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
@@ -283,7 +283,7 @@ func (r *permission_schemeResource) Delete(ctx context.Context, req resource.Del
 		return
 	}
 
-	idInt, err := strconv.ParseUint(state.Id.ValueString(), 10, 64)
+	idInt, err := strconv.ParseUint(state.Id.ValueString(), 10, 63)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return

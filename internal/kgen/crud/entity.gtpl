@@ -204,7 +204,7 @@ func (r *{{.Pkg}}Resource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(state.{{.IDGo}}.ValueString(), 10, 64)
+	idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(state.{{.IDGo}}.ValueString(), 10, {{.IDParseBits}})
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
@@ -252,7 +252,7 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	}
 {{- end}}
 
-	idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(plan.{{.IDGo}}.ValueString(), 10, 64)
+	idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(plan.{{.IDGo}}.ValueString(), 10, {{.IDParseBits}})
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
@@ -463,7 +463,7 @@ func (r *{{.Pkg}}Resource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 
-	idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(state.{{.IDGo}}.ValueString(), 10, 64)
+	idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(state.{{.IDGo}}.ValueString(), 10, {{.IDParseBits}})
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return

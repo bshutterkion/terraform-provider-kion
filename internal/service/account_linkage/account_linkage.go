@@ -115,7 +115,7 @@ func (r *account_linkageResource) Read(ctx context.Context, req resource.ReadReq
 		return
 	}
 
-	idInt, err := strconv.ParseUint(state.Id.ValueString(), 10, 64)
+	idInt, err := strconv.ParseUint(state.Id.ValueString(), 10, 63)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
@@ -158,7 +158,7 @@ func (r *account_linkageResource) Delete(ctx context.Context, req resource.Delet
 		return
 	}
 
-	idInt, err := strconv.ParseUint(state.Id.ValueString(), 10, 64)
+	idInt, err := strconv.ParseUint(state.Id.ValueString(), 10, 63)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return

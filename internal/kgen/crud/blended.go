@@ -168,6 +168,7 @@ func (g *generator) resolveBlended(name string, ops resOps, idx sdkIndex, pe raw
 				break
 			}
 		}
+		d.IDParseBits = idParseBits(d.IDParamType)
 	}
 
 	// Raw private read: a declared nested shape (read_shape) when the wire isn't

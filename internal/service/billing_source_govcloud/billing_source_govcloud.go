@@ -107,7 +107,7 @@ func (r *billing_source_govcloudResource) Read(ctx context.Context, req resource
 		return
 	}
 
-	idInt, err := strconv.ParseUint(state.Id.ValueString(), 10, 64)
+	idInt, err := strconv.ParseUint(state.Id.ValueString(), 10, 63)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
@@ -141,7 +141,7 @@ func (r *billing_source_govcloudResource) Update(ctx context.Context, req resour
 		return
 	}
 
-	idInt, err := strconv.ParseUint(plan.Id.ValueString(), 10, 64)
+	idInt, err := strconv.ParseUint(plan.Id.ValueString(), 10, 63)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
@@ -197,7 +197,7 @@ func (r *billing_source_govcloudResource) Delete(ctx context.Context, req resour
 		return
 	}
 
-	idInt, err := strconv.ParseUint(state.Id.ValueString(), 10, 64)
+	idInt, err := strconv.ParseUint(state.Id.ValueString(), 10, 63)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
