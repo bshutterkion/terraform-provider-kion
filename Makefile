@@ -655,6 +655,13 @@ modules-test: ## Run terraform init/validate/test over every module against the 
 	@rm -rf .modules-test
 	@$(MAKE) --no-print-directory tfdev-mirror
 	@cp -R ./modules ./.modules-test
+	@# A developer who ran terraform directly in modules/ leaves .terraform/ and
+	@# a lock file behind. Copied along, terraform reuses the provider cached
+	@# there instead of the one just built, so the run silently tests a stale
+	@# binary -- 12 modules failed locally against a schema the working tree had
+	@# already changed, while CI (which generates a fresh tree) passed all 72.
+	@find ./.modules-test \( -name .terraform -type d -o -name .terraform.lock.hcl \) \
+	  -exec rm -rf {} + 2>/dev/null || true
 	@echo "$(BLUE)Validating and testing modules...$(RESET)"
 	@export TF_CLI_CONFIG_FILE="$$(pwd)/.tfdev/dev.tfrc" TF_IN_AUTOMATION=true; \
 	pass=0; fail=0; \
