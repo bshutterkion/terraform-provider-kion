@@ -151,6 +151,11 @@ func (r *billing_source_gcpResource) Create(ctx context.Context, req resource.Cr
 		resp.Diagnostics.Append(r.flatten(ctx, w, &plan)...)
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

@@ -133,6 +133,11 @@ func (r *funding_source_permission_mappingResource) Create(ctx context.Context, 
 		return
 	}
 	plan.Id = types.StringValue(fmt.Sprintf("%d/%d", plan.FundingSourceId.ValueInt64(), plan.AppRoleId.ValueInt64()))
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -186,6 +191,11 @@ func (r *funding_source_permission_mappingResource) Update(ctx context.Context, 
 		return
 	}
 	plan.Id = types.StringValue(fmt.Sprintf("%d/%d", plan.FundingSourceId.ValueInt64(), plan.AppRoleId.ValueInt64()))
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

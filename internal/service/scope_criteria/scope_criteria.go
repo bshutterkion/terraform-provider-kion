@@ -101,6 +101,11 @@ func (r *scope_criteriaResource) Create(ctx context.Context, req resource.Create
 	plan.CriteriaId = types.Int64Value(childID)
 	plan.Id = types.StringValue(fmt.Sprintf("%d/%d", parentID, childID))
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -189,6 +194,11 @@ func (r *scope_criteriaResource) Update(ctx context.Context, req resource.Update
 	flattenScopeCriteria(rec, &plan)
 	plan.CriteriaId = types.Int64Value(childID)
 	plan.Id = types.StringValue(fmt.Sprintf("%d/%d", parentID, childID))
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }

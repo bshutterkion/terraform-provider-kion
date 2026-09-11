@@ -110,6 +110,11 @@ func (r *gcp_iam_roleResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -204,6 +209,11 @@ func (r *gcp_iam_roleResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	resp.Diagnostics.Append(flattenGcpIamRole(ctx, readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

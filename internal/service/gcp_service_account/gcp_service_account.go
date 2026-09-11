@@ -94,6 +94,11 @@ func (r *gcp_service_accountResource) Create(ctx context.Context, req resource.C
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -175,6 +180,11 @@ func (r *gcp_service_accountResource) Update(ctx context.Context, req resource.U
 	}
 
 	resp.Diagnostics.Append(flattenGcpServiceAccount(readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

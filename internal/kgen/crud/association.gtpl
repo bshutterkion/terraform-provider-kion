@@ -140,6 +140,11 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 	plan.{{.IDGo}} = types.StringValue({{if .HasParent}}fmt.Sprintf("%d/%d", plan.{{.ParentGo}}.ValueInt64(), plan.{{.KeyGo}}.ValueInt64()){{else}}strconv.FormatInt(plan.{{.KeyGo}}.ValueInt64(), 10){{end}})
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -203,6 +208,11 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 	plan.{{.IDGo}} = types.StringValue({{if .HasParent}}fmt.Sprintf("%d/%d", plan.{{.ParentGo}}.ValueInt64(), plan.{{.KeyGo}}.ValueInt64()){{else}}strconv.FormatInt(plan.{{.KeyGo}}.ValueInt64(), 10){{end}})
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

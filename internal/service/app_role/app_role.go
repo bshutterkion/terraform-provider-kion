@@ -129,6 +129,11 @@ func (r *app_roleResource) Create(ctx context.Context, req resource.CreateReques
 		r.flatten(w, &plan)
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -195,6 +200,11 @@ func (r *app_roleResource) Update(ctx context.Context, req resource.UpdateReques
 	if found {
 		r.flatten(w, &plan)
 	}
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

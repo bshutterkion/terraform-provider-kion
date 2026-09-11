@@ -33,7 +33,7 @@ func TestAccKionIamPolicyDataSource_basic(t *testing.T) {
 
 func testAccIamPolicyDataSourceConfigBasic(rName string) string {
 	return fmt.Sprintf(`
-resource "kion_aws_iam_policy" "test" {
+resource "kion_iam_policy" "test" {
   name           = %[1]q
   description    = "test-acc IAM policy"
   owner_user_ids = [1]
@@ -48,8 +48,8 @@ resource "kion_aws_iam_policy" "test" {
   })
 }
 
-data "kion_aws_iam_policy" "test" {
-  id = kion_aws_iam_policy.test.id
+data "kion_iam_policy" "test" {
+  id = kion_iam_policy.test.id
 }
 `, rName)
 }

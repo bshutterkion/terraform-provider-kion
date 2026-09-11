@@ -105,6 +105,11 @@ func (r *custom_variableResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -198,6 +203,11 @@ func (r *custom_variableResource) Update(ctx context.Context, req resource.Updat
 	}
 
 	resp.Diagnostics.Append(flattenCustomVariable(ctx, readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

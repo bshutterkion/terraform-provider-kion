@@ -74,6 +74,11 @@ func (r *aws_resource_tagResource) Create(ctx context.Context, req resource.Crea
 	// No read endpoint exists; the plan holds every writable field, so it is the
 	// full post-create state.
 	plan.Id = types.StringValue(strconv.FormatInt(id, 10))
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

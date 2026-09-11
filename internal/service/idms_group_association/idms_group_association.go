@@ -92,6 +92,11 @@ func (r *idms_group_associationResource) Create(ctx context.Context, req resourc
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -174,6 +179,11 @@ func (r *idms_group_associationResource) Update(ctx context.Context, req resourc
 	}
 
 	resp.Diagnostics.Append(flattenIdmsGroupAssociation(readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

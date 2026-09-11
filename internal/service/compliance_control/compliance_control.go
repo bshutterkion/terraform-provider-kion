@@ -120,6 +120,11 @@ func (r *compliance_controlResource) Create(ctx context.Context, req resource.Cr
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -223,6 +228,11 @@ func (r *compliance_controlResource) Update(ctx context.Context, req resource.Up
 	}
 
 	resp.Diagnostics.Append(flattenComplianceControl(ctx, readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

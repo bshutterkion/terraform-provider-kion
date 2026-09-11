@@ -59,7 +59,12 @@ func (r *cftResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	var tags []generated.AWSStackTag
 	var tagsSrc []TagsValue
-	resp.Diagnostics.Append(plan.Tags.ElementsAs(ctx, &tagsSrc, false)...)
+	// Guarded like the flex slice helpers: ElementsAs cannot convert a null or
+	// unknown collection into a concrete slice, and an Optional+Computed
+	// attribute the config omits is unknown at create.
+	if !plan.Tags.IsNull() && !plan.Tags.IsUnknown() {
+		resp.Diagnostics.Append(plan.Tags.ElementsAs(ctx, &tagsSrc, false)...)
+	}
 	for _, elem := range tagsSrc {
 		tags = append(tags, generated.AWSStackTag{
 			TagKey:   flex.OptStringFromFramework(elem.TagKey),
@@ -116,6 +121,11 @@ func (r *cftResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -164,7 +174,12 @@ func (r *cftResource) Update(ctx context.Context, req resource.UpdateRequest, re
 
 	var tags []generated.AWSStackTag
 	var tagsSrc []TagsValue
-	resp.Diagnostics.Append(plan.Tags.ElementsAs(ctx, &tagsSrc, false)...)
+	// Guarded like the flex slice helpers: ElementsAs cannot convert a null or
+	// unknown collection into a concrete slice, and an Optional+Computed
+	// attribute the config omits is unknown at create.
+	if !plan.Tags.IsNull() && !plan.Tags.IsUnknown() {
+		resp.Diagnostics.Append(plan.Tags.ElementsAs(ctx, &tagsSrc, false)...)
+	}
 	for _, elem := range tagsSrc {
 		tags = append(tags, generated.AWSStackTag{
 			TagKey:   flex.OptStringFromFramework(elem.TagKey),
@@ -215,6 +230,11 @@ func (r *cftResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	}
 
 	resp.Diagnostics.Append(flattenCft(ctx, readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

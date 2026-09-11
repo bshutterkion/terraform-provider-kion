@@ -347,6 +347,11 @@ func (r *awsAccountResource) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -510,6 +515,11 @@ func (r *awsAccountResource) Update(ctx context.Context, req resource.UpdateRequ
 	plan.Location = types.StringValue(currentLocation)
 
 	resp.Diagnostics.Append(r.readIntoModel(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

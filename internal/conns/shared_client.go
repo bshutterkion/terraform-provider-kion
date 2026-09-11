@@ -1,8 +1,10 @@
 package conns
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	kion "github.com/kionsoftware/kion-sdk-go"
@@ -48,17 +50,59 @@ func buildSharedClient() (*KionClient, error) {
 	if authToken != "" {
 		opts = append(opts, kion.WithBearerToken(authToken))
 	}
+	skipVerify := false
 	if v := os.Getenv("KION_SKIP_SSL_VALIDATION"); v == "true" || v == "1" {
+		skipVerify = true
 		opts = append(opts, kion.WithSkipVerify(true))
 	}
+	_ = opts // the SDK client is built directly below; opts is kept for callers that still read it
 
-	sdkClient, err := generated.New(apiURL, opts...)
+	// generated.New routes through kion.NormalizeServerURL, which appends "/api"
+	// unconditionally -- so it can never address an install that serves its API
+	// at the root. That is exactly a local development instance, and it made
+	// every acceptance-test check fail with "not found" while the provider,
+	// which honors KION_APIPATH, created the record perfectly well: two
+	// clients in one test disagreeing about where the API lives.
+	//
+	// Build the server URL here on the same rule the provider uses and hand it
+	// to NewClient, which takes it verbatim.
+	serverURL := sharedServerURL(apiURL, os.LookupEnv)
+
+	sdkClient, err := generated.NewClient(serverURL, &sharedSecurity{apiKey: apiKey, authToken: authToken},
+		generated.WithClient(kion.BuildHTTPClient(skipVerify, 0)))
 	if err != nil {
 		return nil, fmt.Errorf("creating shared Kion client: %w", err)
 	}
 
 	// APIURL must be the API root, matching what the provider's Configure
-	// stores, generated.New normalizes the same way for the SDK client, so the
-	// raw helpers and the SDK agree on where the API lives.
-	return &KionClient{Client: sdkClient, APIURL: kion.NormalizeServerURL(apiURL)}, nil
+	// stores, so the raw helpers and the SDK agree on where the API lives.
+	return &KionClient{Client: sdkClient, APIURL: serverURL}, nil
+}
+
+// sharedServerURL applies the provider's own apipath rule: default "/api",
+// overridden by KION_APIPATH, where set-but-empty means the API is served at
+// the root. lookup is injected so this is testable without touching the
+// process environment.
+func sharedServerURL(apiURL string, lookup func(string) (string, bool)) string {
+	apiPath := "/api"
+	if v, ok := lookup("KION_APIPATH"); ok {
+		apiPath = v
+	}
+	return strings.TrimRight(apiURL, "/") + strings.TrimRight(apiPath, "/")
+}
+
+// sharedSecurity is the acceptance-test client's bearer source. generated.New
+// builds one internally, but it is unexported, and NewClient (the constructor
+// that does not rewrite the URL) requires the caller to supply it.
+type sharedSecurity struct {
+	apiKey    string
+	authToken string
+}
+
+func (s *sharedSecurity) Token(_ context.Context, _ generated.OperationName) (generated.Token, error) {
+	key := s.authToken
+	if key == "" {
+		key = s.apiKey
+	}
+	return generated.Token{APIKey: "Bearer " + key}, nil
 }

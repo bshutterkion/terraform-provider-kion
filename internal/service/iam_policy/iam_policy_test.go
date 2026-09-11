@@ -71,7 +71,7 @@ func TestAccKionIamPolicy_update(t *testing.T) {
 
 func testAccIamPolicyConfigBasic(rName string) string {
 	return fmt.Sprintf(`
-resource "kion_aws_iam_policy" "test" {
+resource "kion_iam_policy" "test" {
   name           = %[1]q
   description    = "test-acc IAM policy"
   owner_user_ids = [1]
@@ -90,7 +90,7 @@ resource "kion_aws_iam_policy" "test" {
 
 func testAccIamPolicyConfigUpdate(rName string) string {
 	return fmt.Sprintf(`
-resource "kion_aws_iam_policy" "test" {
+resource "kion_iam_policy" "test" {
   name           = %[1]q
   description    = "test-acc IAM policy updated"
   owner_user_ids = [1]

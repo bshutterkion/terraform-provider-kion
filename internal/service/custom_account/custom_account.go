@@ -96,6 +96,11 @@ func (r *custom_accountResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -184,6 +189,11 @@ func (r *custom_accountResource) Update(ctx context.Context, req resource.Update
 	}
 
 	resp.Diagnostics.Append(flattenCustomAccount(readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

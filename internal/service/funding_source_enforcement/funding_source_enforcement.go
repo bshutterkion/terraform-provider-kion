@@ -139,6 +139,11 @@ func (r *funding_source_enforcementResource) Create(ctx context.Context, req res
 		return
 	}
 	flattenFundingSourceEnforcement(ctx, rec, &plan)
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -216,6 +221,11 @@ func (r *funding_source_enforcementResource) Update(ctx context.Context, req res
 	if found {
 		flattenFundingSourceEnforcement(ctx, rec, &plan)
 	}
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

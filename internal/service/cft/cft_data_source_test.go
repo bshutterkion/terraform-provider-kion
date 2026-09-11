@@ -33,7 +33,7 @@ func TestAccKionCftDataSource_basic(t *testing.T) {
 
 func testAccCftDataSourceConfigBasic(rName string) string {
 	return fmt.Sprintf(`
-resource "kion_aws_cloudformation_template" "test" {
+resource "kion_cft" "test" {
   name           = %[1]q
   description    = "test-acc CFT"
   regions        = ["us-east-1"]
@@ -50,8 +50,8 @@ resource "kion_aws_cloudformation_template" "test" {
   })
 }
 
-data "kion_aws_cloudformation_template" "test" {
-  id = kion_aws_cloudformation_template.test.id
+data "kion_cft" "test" {
+  id = kion_cft.test.id
 }
 `, rName)
 }

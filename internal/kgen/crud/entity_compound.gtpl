@@ -102,6 +102,11 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 	plan.{{.ChildIDGo}} = types.Int64Value(childID)
 	plan.{{.IDGo}} = types.StringValue(fmt.Sprintf("%d/%d", parentID, childID))
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -192,6 +197,11 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	flatten{{.Pascal}}(rec, &plan)
 	plan.{{.ChildIDGo}} = types.Int64Value(childID)
 	plan.{{.IDGo}} = types.StringValue(fmt.Sprintf("%d/%d", parentID, childID))
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }

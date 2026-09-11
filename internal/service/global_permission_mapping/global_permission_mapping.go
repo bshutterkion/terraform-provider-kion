@@ -131,6 +131,11 @@ func (r *global_permission_mappingResource) Create(ctx context.Context, req reso
 		return
 	}
 	plan.Id = types.StringValue(strconv.FormatInt(plan.AppRoleId.ValueInt64(), 10))
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -183,6 +188,11 @@ func (r *global_permission_mappingResource) Update(ctx context.Context, req reso
 		return
 	}
 	plan.Id = types.StringValue(strconv.FormatInt(plan.AppRoleId.ValueInt64(), 10))
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

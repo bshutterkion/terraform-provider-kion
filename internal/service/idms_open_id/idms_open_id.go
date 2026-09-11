@@ -58,7 +58,12 @@ func (r *idms_open_idResource) Create(ctx context.Context, req resource.CreateRe
 
 	var accessRules []generated.OpenIDAccessRuleCreate
 	var accessRulesSrc []AccessRulesValue
-	resp.Diagnostics.Append(plan.AccessRules.ElementsAs(ctx, &accessRulesSrc, false)...)
+	// Guarded like the flex slice helpers: ElementsAs cannot convert a null or
+	// unknown collection into a concrete slice, and an Optional+Computed
+	// attribute the config omits is unknown at create.
+	if !plan.AccessRules.IsNull() && !plan.AccessRules.IsUnknown() {
+		resp.Diagnostics.Append(plan.AccessRules.ElementsAs(ctx, &accessRulesSrc, false)...)
+	}
 	for _, elem := range accessRulesSrc {
 		accessRules = append(accessRules, generated.OpenIDAccessRuleCreate{
 			AssertionName:           flex.OptStringFromFramework(elem.AssertionName),
@@ -112,6 +117,11 @@ func (r *idms_open_idResource) Create(ctx context.Context, req resource.CreateRe
 	}
 
 	resp.Diagnostics.Append(flattenIdmsOpenId(ctx, readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -211,6 +221,11 @@ func (r *idms_open_idResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	resp.Diagnostics.Append(flattenIdmsOpenId(ctx, readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

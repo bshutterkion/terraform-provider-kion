@@ -99,6 +99,11 @@ func (r *ouResource) Create(ctx context.Context, req resource.CreateRequest, res
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -209,6 +214,11 @@ func (r *ouResource) Update(ctx context.Context, req resource.UpdateRequest, res
 	}
 
 	resp.Diagnostics.Append(flattenOu(ctx, readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

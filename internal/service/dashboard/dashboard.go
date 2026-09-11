@@ -143,6 +143,11 @@ func (r *dashboardResource) Create(ctx context.Context, req resource.CreateReque
 	} else {
 		plan.Id = types.StringValue(strconv.FormatInt(created.RecordID, 10))
 	}
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -210,6 +215,11 @@ func (r *dashboardResource) Update(ctx context.Context, req resource.UpdateReque
 	if found {
 		r.flatten(w, &plan)
 	}
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

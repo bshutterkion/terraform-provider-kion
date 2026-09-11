@@ -102,6 +102,11 @@ func (r *azure_arm_templateResource) Create(ctx context.Context, req resource.Cr
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -182,6 +187,11 @@ func (r *azure_arm_templateResource) Update(ctx context.Context, req resource.Up
 	}
 
 	resp.Diagnostics.Append(flattenAzureArmTemplate(ctx, readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

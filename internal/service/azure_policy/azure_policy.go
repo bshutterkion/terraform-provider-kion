@@ -106,6 +106,11 @@ func (r *azure_policyResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -217,6 +222,11 @@ func (r *azure_policyResource) Update(ctx context.Context, req resource.UpdateRe
 	}
 
 	resp.Diagnostics.Append(flattenAzurePolicy(ctx, readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

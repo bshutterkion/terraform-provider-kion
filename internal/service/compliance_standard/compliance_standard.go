@@ -102,6 +102,11 @@ func (r *compliance_standardResource) Create(ctx context.Context, req resource.C
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -234,6 +239,11 @@ func (r *compliance_standardResource) Update(ctx context.Context, req resource.U
 	}
 
 	resp.Diagnostics.Append(flattenComplianceStandard(ctx, readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

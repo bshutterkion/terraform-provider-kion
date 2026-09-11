@@ -90,6 +90,11 @@ func (r *billing_source_govcloudResource) Create(ctx context.Context, req resour
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -171,6 +176,11 @@ func (r *billing_source_govcloudResource) Update(ctx context.Context, req resour
 	}
 
 	resp.Diagnostics.Append(flattenBillingSourceGovcloud(readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

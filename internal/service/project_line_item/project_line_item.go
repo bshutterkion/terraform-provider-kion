@@ -99,6 +99,11 @@ func (r *project_line_itemResource) Create(ctx context.Context, req resource.Cre
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -181,6 +186,11 @@ func (r *project_line_itemResource) Update(ctx context.Context, req resource.Upd
 	}
 
 	resp.Diagnostics.Append(flattenProjectLineItem(readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

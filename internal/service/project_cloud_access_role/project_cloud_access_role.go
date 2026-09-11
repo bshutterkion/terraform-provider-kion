@@ -59,7 +59,12 @@ func (r *project_cloud_access_roleResource) Create(ctx context.Context, req reso
 
 	var aWSSessionTags []generated.AWSSessionTag
 	var aWSSessionTagsSrc []AwsSessionTagsValue
-	resp.Diagnostics.Append(plan.AwsSessionTags.ElementsAs(ctx, &aWSSessionTagsSrc, false)...)
+	// Guarded like the flex slice helpers: ElementsAs cannot convert a null or
+	// unknown collection into a concrete slice, and an Optional+Computed
+	// attribute the config omits is unknown at create.
+	if !plan.AwsSessionTags.IsNull() && !plan.AwsSessionTags.IsUnknown() {
+		resp.Diagnostics.Append(plan.AwsSessionTags.ElementsAs(ctx, &aWSSessionTagsSrc, false)...)
+	}
 	for _, elem := range aWSSessionTagsSrc {
 		aWSSessionTags = append(aWSSessionTags, generated.AWSSessionTag{
 			CloudAccessRoleID:   flex.OptNilUint64FromFramework(elem.CloudAccessRoleId),
@@ -134,6 +139,11 @@ func (r *project_cloud_access_roleResource) Create(ctx context.Context, req reso
 		return
 	}
 
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -188,7 +198,12 @@ func (r *project_cloud_access_roleResource) Update(ctx context.Context, req reso
 
 	var aWSSessionTags []generated.AWSSessionTag
 	var aWSSessionTagsSrc []AwsSessionTagsValue
-	resp.Diagnostics.Append(plan.AwsSessionTags.ElementsAs(ctx, &aWSSessionTagsSrc, false)...)
+	// Guarded like the flex slice helpers: ElementsAs cannot convert a null or
+	// unknown collection into a concrete slice, and an Optional+Computed
+	// attribute the config omits is unknown at create.
+	if !plan.AwsSessionTags.IsNull() && !plan.AwsSessionTags.IsUnknown() {
+		resp.Diagnostics.Append(plan.AwsSessionTags.ElementsAs(ctx, &aWSSessionTagsSrc, false)...)
+	}
 	for _, elem := range aWSSessionTagsSrc {
 		aWSSessionTags = append(aWSSessionTags, generated.AWSSessionTag{
 			CloudAccessRoleID:   flex.OptNilUint64FromFramework(elem.CloudAccessRoleId),
@@ -271,6 +286,11 @@ func (r *project_cloud_access_roleResource) Update(ctx context.Context, req reso
 	}
 
 	resp.Diagnostics.Append(flattenProjectCloudAccessRole(ctx, readOut, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
