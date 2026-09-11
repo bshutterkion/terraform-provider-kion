@@ -150,6 +150,12 @@ func (r *project_line_itemResource) Update(ctx context.Context, req resource.Upd
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := &generated.ProjectLineItemCreate{
 		Amount:          flex.OptFloat64FromFramework(plan.Amount),
 		CategoryID:      flex.OptNilUint64FromFramework(plan.CategoryId),
@@ -158,12 +164,6 @@ func (r *project_line_itemResource) Update(ctx context.Context, req resource.Upd
 		FundingSourceID: flex.OptNilUint64FromFramework(plan.FundingSourceId),
 		PayerID:         flex.OptNilUint64FromFramework(plan.PayerId),
 		ProjectID:       flex.OptNilUint64FromFramework(plan.ProjectId),
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchProjectLineItem(ctx, input, generated.PatchProjectLineItemParams{ID: idInt})

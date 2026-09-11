@@ -138,16 +138,16 @@ func (r *categoryResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	input := &generated.CategoryUpdate{
-		Description: flex.OptStringFromFramework(plan.Description),
-		Name:        flex.StringValueFromFramework(plan.Name),
-		PayerID:     flex.OptNilUint64FromFramework(plan.PayerId),
-	}
-
 	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
+	}
+
+	input := &generated.CategoryUpdate{
+		Description: flex.OptStringFromFramework(plan.Description),
+		Name:        flex.StringValueFromFramework(plan.Name),
+		PayerID:     flex.OptNilUint64FromFramework(plan.PayerId),
 	}
 
 	out, err := conn.UpdateCategoryByID(ctx, input, generated.UpdateCategoryByIDParams{ID: idInt})

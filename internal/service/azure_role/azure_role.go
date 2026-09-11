@@ -155,16 +155,16 @@ func (r *azure_roleResource) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 
-	input := &generated.AzureRole{
-		Description:     flex.OptStringFromFramework(plan.Description),
-		Name:            flex.OptStringFromFramework(plan.Name),
-		RolePermissions: flex.OptStringFromFramework(plan.RolePermissions),
-	}
-
 	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
+	}
+
+	input := &generated.AzureRole{
+		Description:     flex.OptStringFromFramework(plan.Description),
+		Name:            flex.OptStringFromFramework(plan.Name),
+		RolePermissions: flex.OptStringFromFramework(plan.RolePermissions),
 	}
 
 	out, err := conn.PatchAzureRole(ctx, input, generated.PatchAzureRoleParams{ID: idInt})

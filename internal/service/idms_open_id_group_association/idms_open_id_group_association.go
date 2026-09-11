@@ -142,6 +142,12 @@ func (r *idms_open_id_group_associationResource) Update(ctx context.Context, req
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := generated.OptOpenIDGroupAssociationUpdate{
 		Value: generated.OpenIDGroupAssociationUpdate{
 			AssertionName:  flex.OptStringFromFramework(plan.AssertionName),
@@ -150,12 +156,6 @@ func (r *idms_open_id_group_associationResource) Update(ctx context.Context, req
 			UserGroupID:    flex.OptNilUint64FromFramework(plan.UserGroupId),
 		},
 		Set: true,
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchOpenIDGroupAssociation(ctx, input, generated.PatchOpenIDGroupAssociationParams{ID: idInt})

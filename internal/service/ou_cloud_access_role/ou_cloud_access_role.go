@@ -188,6 +188,12 @@ func (r *ou_cloud_access_roleResource) Update(ctx context.Context, req resource.
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	var aWSSessionTags []generated.AWSSessionTag
 	var aWSSessionTagsSrc []AwsSessionTagsValue
 	// Guarded like the flex slice helpers: ElementsAs cannot convert a null or
@@ -216,12 +222,6 @@ func (r *ou_cloud_access_roleResource) Update(ctx context.Context, req resource.
 		ShortTermAccessKeys:       flex.OptNilBoolFromFramework(plan.ShortTermAccessKeys),
 		WebAccess:                 flex.OptNilBoolFromFramework(plan.WebAccess),
 		AWSSessionTags:            generated.OptNilAWSSessionTagArray{Value: aWSSessionTags, Set: true},
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchOUCloudAccessRole(ctx, input, generated.PatchOUCloudAccessRoleParams{ID: idInt})

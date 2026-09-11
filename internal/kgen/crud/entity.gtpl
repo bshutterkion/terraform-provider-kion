@@ -4,11 +4,14 @@
 package {{.Pkg}}
 
 import (
-	"context"
-	"fmt"
+	{{if .RespRawValues}}"bytes"
+	{{end}}"context"
+	{{if or .RawValueHelpers .RespRawValues}}"encoding/json"
+	{{end}}"fmt"
 	"strconv"
 
-	{{if .HasNestedFlat}}"github.com/hashicorp/terraform-plugin-framework/attr"
+	{{if or .RawValueHelpers .RespRawValues}}"github.com/go-faster/jx"
+	{{end}}{{if .HasNestedFlat}}"github.com/hashicorp/terraform-plugin-framework/attr"
 	{{end}}"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -88,6 +91,12 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 			{{- end}}
 		})
 	}
+	{{end}}{{range .CreateRawValues}}{{.Var}}, {{.Var}}Diags := {{.Func}}(ctx, &plan)
+	resp.Diagnostics.Append({{.Var}}Diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	{{end}}{{if or .CreateSliceBinds .CreateArrBinds}}{{range .CreateSliceBinds}}{{.Var}}, {{.Var}}Diags := {{.Func}}(ctx, plan.{{.ModelGo}})
 	resp.Diagnostics.Append({{.Var}}Diags...)
 	{{end}}if resp.Diagnostics.HasError() {
@@ -110,6 +119,9 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		{{- range .CreateFlatSubs}}
 		{{.SDKField}}: {{.Expr}},
 		{{- end}}
+		{{- range .CreateRawValues}}
+		{{.SDKField}}: {{.Var}},
+		{{- end}}
 	}{{else}}{{.SDKAlias}}.{{.CreateBodyOpt}}{
 		Value: {{.SDKAlias}}.{{.CreateBody}}{
 			{{- range .CreateBinds}}
@@ -126,6 +138,9 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 			{{- end}}
 			{{- range .CreateFlatSubs}}
 			{{.SDKField}}: {{.Expr}},
+			{{- end}}
+			{{- range .CreateRawValues}}
+			{{.SDKField}}: {{.Var}},
 			{{- end}}
 		},
 		Set: true,
@@ -161,7 +176,7 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	resp.Diagnostics.Append(flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj}}ctx, {{end}}readOut, &plan)...)
+	resp.Diagnostics.Append(flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}ctx, {{end}}readOut, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -189,7 +204,7 @@ func (r *{{.Pkg}}Resource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(state.{{.IDGo}}.ValueString(), 10, 64)
+	idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(state.{{.IDGo}}.ValueString(), 10, {{.IDParseBits}})
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
@@ -206,7 +221,7 @@ func (r *{{.Pkg}}Resource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	resp.Diagnostics.Append(flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj}}ctx, {{end}}out, &state)...)
+	resp.Diagnostics.Append(flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}ctx, {{end}}out, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -237,6 +252,12 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	}
 {{- end}}
 
+	idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(plan.{{.IDGo}}.ValueString(), 10, {{.IDParseBits}})
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	{{range .UpdateObjBinds}}{{.Var}} := {{$.SDKAlias}}.{{.SDKType}}{
 		{{- range .Subs}}
 		{{.SDKField}}: {{.Expr}},
@@ -257,6 +278,12 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 			{{- end}}
 		})
 	}
+	{{end}}{{range .UpdateRawValues}}{{.Var}}, {{.Var}}Diags := {{.Func}}(ctx, &plan)
+	resp.Diagnostics.Append({{.Var}}Diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	{{end}}{{if or .UpdateSliceBinds .UpdateArrBinds}}{{range .UpdateSliceBinds}}{{.Var}}, {{.Var}}Diags := {{.Func}}(ctx, plan.{{.ModelGo}})
 	resp.Diagnostics.Append({{.Var}}Diags...)
 	{{end}}if resp.Diagnostics.HasError() {
@@ -279,6 +306,9 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 		{{- range .UpdateFlatSubs}}
 		{{.SDKField}}: {{.Expr}},
 		{{- end}}
+		{{- range .UpdateRawValues}}
+		{{.SDKField}}: {{.Var}},
+		{{- end}}
 	}{{else}}{{.SDKAlias}}.{{.UpdateBodyOpt}}{
 		Value: {{.SDKAlias}}.{{.UpdateBody}}{
 			{{- range .UpdateBinds}}
@@ -296,15 +326,12 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 			{{- range .UpdateFlatSubs}}
 			{{.SDKField}}: {{.Expr}},
 			{{- end}}
+			{{- range .UpdateRawValues}}
+			{{.SDKField}}: {{.Var}},
+			{{- end}}
 		},
 		Set: true,
 	}{{end}}
-
-	idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(plan.{{.IDGo}}.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
-	}
 
 	out, err := conn.{{.UpdateMethod}}(ctx, input, {{.SDKAlias}}.{{.UpdateParams}}{ {{.UpdateIDParam}}: {{.UpdateIDExpr}}})
 	if err != nil {
@@ -403,7 +430,7 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	resp.Diagnostics.Append(flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj}}ctx, {{end}}readOut, &plan)...)
+	resp.Diagnostics.Append(flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}ctx, {{end}}readOut, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -436,7 +463,7 @@ func (r *{{.Pkg}}Resource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 
-	idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(state.{{.IDGo}}.ValueString(), 10, 64)
+	idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(state.{{.IDGo}}.ValueString(), 10, {{.IDParseBits}})
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
@@ -469,8 +496,8 @@ func (r *{{.Pkg}}Resource) ImportState(ctx context.Context, req resource.ImportS
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
 }
 
-func flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj}}ctx context.Context, {{end}}apiObject any, model *{{.Model}}) diag.Diagnostics {
-	{{- if or .HasRespSlices .HasNestedFlat .HasIDProj}}
+func flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}ctx context.Context, {{end}}apiObject any, model *{{.Model}}) diag.Diagnostics {
+	{{- if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}
 	var diags diag.Diagnostics
 	{{- end}}
 	switch v := apiObject.(type) {
@@ -545,9 +572,135 @@ func flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj}}ctx co
 			model.{{.ModelGo}} = types.Int64Value({{.IDExpr}})
 			{{- end}}
 			{{- end}}
+			{{- range .RespRawValues}}
+			diags.Append({{.Func}}(ctx, {{.SDKPath}}, model)...)
+			{{- end}}
 		}
-		return {{if or .HasRespSlices .HasNestedFlat .HasIDProj}}diags{{else}}nil{{end}}
+		return {{if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}diags{{else}}nil{{end}}
 	default:
 		return errs.ResponseDiagnostics("reading "+{{.ResConst}}, apiObject)
 	}
 }
+{{range .RawValueHelpers}}
+
+// {{.Func}} collapses the typed {{.Attr}}_* attributes onto the single
+// polymorphic {{.Attr}} the API takes. The spec leaves {{.Attr}} untyped, so the
+// schema splits it into typed variants; exactly one of them is the value.
+func {{.Func}}(ctx context.Context, plan *{{$.Model}}) (jx.Raw, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	{{if .StringGo}}stringSet := !plan.{{.StringGo}}.IsNull() && !plan.{{.StringGo}}.IsUnknown()
+	{{end}}{{if .ListGo}}listSet := !plan.{{.ListGo}}.IsNull() && !plan.{{.ListGo}}.IsUnknown()
+	{{end}}{{if .MapGo}}mapSet := !plan.{{.MapGo}}.IsNull() && !plan.{{.MapGo}}.IsUnknown()
+	{{end}}
+	set := 0
+	{{if .StringGo}}if stringSet {
+		set++
+	}
+	{{end}}{{if .ListGo}}if listSet {
+		set++
+	}
+	{{end}}{{if .MapGo}}if mapSet {
+		set++
+	}
+	{{end}}if set > 1 {
+		diags.AddError(
+			fmt.Sprintf("building %s {{.Attr}}", {{$.ResConst}}),
+			"only one of {{.Attrs}} may be set",
+		)
+		return nil, diags
+	}
+	if set == 0 {
+		{{if .Required}}diags.AddError(
+			fmt.Sprintf("building %s {{.Attr}}", {{$.ResConst}}),
+			"one of {{.Attrs}} must be set",
+		)
+		{{end}}return nil, diags
+	}
+
+	switch {
+	{{if .StringGo}}case stringSet:
+		b, err := json.Marshal(plan.{{.StringGo}}.ValueString())
+		if err != nil {
+			diags.AddError(fmt.Sprintf("building %s {{.Attr}}", {{$.ResConst}}), err.Error())
+			return nil, diags
+		}
+		return jx.Raw(b), diags
+	{{end}}{{if .ListGo}}case listSet:
+		items, d := flex.StringSliceFromFramework(ctx, plan.{{.ListGo}})
+		diags.Append(d...)
+		if diags.HasError() {
+			return nil, diags
+		}
+		if items == nil {
+			items = []string{}
+		}
+		b, err := json.Marshal(items)
+		if err != nil {
+			diags.AddError(fmt.Sprintf("building %s {{.Attr}}", {{$.ResConst}}), err.Error())
+			return nil, diags
+		}
+		return jx.Raw(b), diags
+	{{end}}{{if .MapGo}}case mapSet:
+		var elems map[string]string
+		diags.Append(plan.{{.MapGo}}.ElementsAs(ctx, &elems, false)...)
+		if diags.HasError() {
+			return nil, diags
+		}
+		if elems == nil {
+			elems = map[string]string{}
+		}
+		b, err := json.Marshal(elems)
+		if err != nil {
+			diags.AddError(fmt.Sprintf("building %s {{.Attr}}", {{$.ResConst}}), err.Error())
+			return nil, diags
+		}
+		return jx.Raw(b), diags
+	{{end}}}
+
+	return nil, diags
+}
+{{end}}
+{{range .RespRawValues}}
+
+// {{.Func}} takes the polymorphic {{.Attr}} the API returns back apart into the
+// typed attributes the schema exposes, so what was sent comes back on refresh
+// and import. The JSON says which variant it is: an array is the list, an
+// object the map, anything else the string.
+func {{.Func}}(ctx context.Context, raw jx.Raw, model *{{$.Model}}) diag.Diagnostics {
+	var diags diag.Diagnostics
+	trimmed := bytes.TrimSpace(raw)
+	if len(trimmed) == 0 || string(trimmed) == "null" {
+		return diags
+	}
+
+	switch trimmed[0] {
+	{{if .ListGo}}case '[':
+		var items []string
+		if err := json.Unmarshal(trimmed, &items); err != nil {
+			diags.AddError(fmt.Sprintf("reading %s {{.Attr}}", {{$.ResConst}}), err.Error())
+			return diags
+		}
+		list, d := types.ListValueFrom(ctx, types.StringType, items)
+		diags.Append(d...)
+		model.{{.ListGo}} = list
+	{{end}}{{if .MapGo}}case '{':
+		var elems map[string]string
+		if err := json.Unmarshal(trimmed, &elems); err != nil {
+			diags.AddError(fmt.Sprintf("reading %s {{.Attr}}", {{$.ResConst}}), err.Error())
+			return diags
+		}
+		m, d := types.MapValueFrom(ctx, types.StringType, elems)
+		diags.Append(d...)
+		model.{{.MapGo}} = m
+	{{end}}default:
+		{{if .StringGo}}var s string
+		if err := json.Unmarshal(trimmed, &s); err != nil {
+			diags.AddError(fmt.Sprintf("reading %s {{.Attr}}", {{$.ResConst}}), err.Error())
+			return diags
+		}
+		model.{{.StringGo}} = types.StringValue(s){{else}}_ = ctx{{end}}
+	}
+
+	return diags
+}
+{{end}}

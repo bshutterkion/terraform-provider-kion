@@ -360,11 +360,11 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 			}
 		}
 	}
-	if rm.CreateNested, err = resolveNested(g.src, schemaGen, rm.Create.Body, byTF, idx, false); err != nil {
+	if rm.CreateNested, err = resolveNested(g.src, schemaGen, rm.Create.Body, byTF, idx, nestedOpts{}); err != nil {
 		return 0, fmt.Errorf("%s create nested: %w", name, err)
 	}
 	if rm.Update != nil {
-		if rm.UpdateNested, err = resolveNested(g.src, schemaGen, rm.Update.Body, byTF, idx, false); err != nil {
+		if rm.UpdateNested, err = resolveNested(g.src, schemaGen, rm.Update.Body, byTF, idx, nestedOpts{IDAttr: rm.IDField.TFSDK, IDVar: "idInt"}); err != nil {
 			return 0, fmt.Errorf("%s update nested: %w", name, err)
 		}
 	}

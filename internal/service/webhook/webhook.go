@@ -156,6 +156,12 @@ func (r *webhookResource) Update(ctx context.Context, req resource.UpdateRequest
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := &generated.WebhookUpdate{
 		CalloutURL:           flex.OptStringFromFramework(plan.CalloutUrl),
 		Description:          flex.OptStringFromFramework(plan.Description),
@@ -167,12 +173,6 @@ func (r *webhookResource) Update(ctx context.Context, req resource.UpdateRequest
 		SkipSsl:              flex.OptNilBoolFromFramework(plan.SkipSsl),
 		TimeoutInSeconds:     flex.OptInt64FromFramework(plan.TimeoutInSeconds),
 		UseRequestHeaders:    flex.OptNilBoolFromFramework(plan.UseRequestHeaders),
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchWebhook(ctx, input, generated.PatchWebhookParams{ID: idInt})

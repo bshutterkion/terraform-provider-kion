@@ -168,6 +168,12 @@ func (r *user_groupResource) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := generated.OptUGroupUpdatable{
 		Value: generated.UGroupUpdatable{
 			Description: flex.OptStringFromFramework(plan.Description),
@@ -175,12 +181,6 @@ func (r *user_groupResource) Update(ctx context.Context, req resource.UpdateRequ
 			Name:        flex.OptStringFromFramework(plan.Name),
 		},
 		Set: true,
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchUGroup(ctx, input, generated.PatchUGroupParams{ID: idInt})

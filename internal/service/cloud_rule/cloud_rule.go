@@ -196,18 +196,18 @@ func (r *cloud_ruleResource) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 
+	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
 	input := &generated.CloudRuleUpdate{
 		ConcurrentCftSync: flex.OptNilBoolFromFramework(plan.ConcurrentCftSync),
 		Description:       flex.OptStringFromFramework(plan.Description),
 		Name:              flex.OptStringFromFramework(plan.Name),
 		PostWebhookID:     flex.OptNilUint64FromFramework(plan.PostWebhookId),
 		PreWebhookID:      flex.OptNilUint64FromFramework(plan.PreWebhookId),
-	}
-
-	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Invalid ID", err.Error())
-		return
 	}
 
 	out, err := conn.PatchCloudRule(ctx, input, generated.PatchCloudRuleParams{ID: idInt})

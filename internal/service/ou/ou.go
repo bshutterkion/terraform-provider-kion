@@ -156,16 +156,16 @@ func (r *ouResource) Update(ctx context.Context, req resource.UpdateRequest, res
 		return
 	}
 
-	input := &generated.OUUpdatable{
-		Description:        flex.OptStringFromFramework(plan.Description),
-		Name:               flex.OptStringFromFramework(plan.Name),
-		PermissionSchemeID: flex.NilUint64FromFramework(plan.PermissionSchemeId),
-	}
-
 	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
+	}
+
+	input := &generated.OUUpdatable{
+		Description:        flex.OptStringFromFramework(plan.Description),
+		Name:               flex.OptStringFromFramework(plan.Name),
+		PermissionSchemeID: flex.NilUint64FromFramework(plan.PermissionSchemeId),
 	}
 
 	out, err := conn.PatchOU(ctx, input, generated.PatchOUParams{ID: idInt})
