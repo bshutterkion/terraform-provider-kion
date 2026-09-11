@@ -75,6 +75,51 @@ func find{{.Pascal}}Row(list []{{.SDKAlias}}.{{.RecordType}}, key int64) int {
 	return -1
 }
 
+// flatten{{.Pascal}} assigns rec's membership fields onto the model.
+//
+// A member list Kion holds as empty comes back as JSON null, so null and empty
+// are the same state on the wire and the read collapses both to an empty set.
+// Mapping null to a null set instead is what made a configured `[]` diff for
+// ever: state went null, the configuration stayed empty, and the two never met.
+func flatten{{.Pascal}}(ctx context.Context, rec {{.SDKAlias}}.{{.RecordType}}, m *{{.Model}}) diag.Diagnostics {
+	var diags diag.Diagnostics
+	{{- range .Members}}
+	{{.TF}}Vals, _ := rec.{{.RecordGo}}.Get()
+	{{.TF}}Set, {{.TF}}Diags := flex.Uint64SliceToFrameworkSetOrEmpty(ctx, {{.TF}}Vals)
+	diags.Append({{.TF}}Diags...)
+	m.{{.ModelGo}} = {{.TF}}Set
+	{{- end}}
+	return diags
+}
+
+// readBack refreshes the membership fields from the API after a write, so state
+// records what Kion stored rather than what the plan asked for.
+//
+// Without it an Optional+Computed collection the configuration omits is still
+// unknown here, resolves to null, and then never matches the empty set the read
+// produces. It also turns a write the API accepts with 200 but silently drops —
+// which it does for an app role the parent's permission scheme does not carry —
+// into an error at apply rather than a resource that plans as absent for ever.
+func (r *{{.Pkg}}Resource) readBack(ctx context.Context, model *{{.Model}}, diags *diag.Diagnostics) {
+	list, found, fetchDiags := {{.Pkg}}Fetch(ctx, r.Meta().Client{{if .HasParent}}, model.{{.ParentGo}}.ValueInt64(){{end}})
+	diags.Append(fetchDiags...)
+	if diags.HasError() {
+		return
+	}
+	i := -1
+	if found {
+		i = find{{.Pascal}}Row(list, model.{{.KeyGo}}.ValueInt64())
+	}
+	if i < 0 {
+		diags.AddError(
+			fmt.Sprintf("reading back %s", {{.ResConst}}),
+			"the write was accepted but the mapping is not present afterwards; Kion drops a mapping for an app role the parent's permission scheme does not grant.",
+		)
+		return
+	}
+	diags.Append(flatten{{.Pascal}}(ctx, list[i], model)...)
+}
+
 // write{{.Pascal}} builds the row from the plan and returns the upserted list.
 func (r *{{.Pkg}}Resource) build{{.Pascal}}Row(ctx context.Context, plan *{{.Model}}, diags *diag.Diagnostics) {{.SDKAlias}}.{{.RecordType}} {
 	{{- range .Members}}
@@ -140,6 +185,10 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 	plan.{{.IDGo}} = types.StringValue({{if .HasParent}}fmt.Sprintf("%d/%d", plan.{{.ParentGo}}.ValueInt64(), plan.{{.KeyGo}}.ValueInt64()){{else}}strconv.FormatInt(plan.{{.KeyGo}}.ValueInt64(), 10){{end}})
+	r.readBack(ctx, &plan, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -178,13 +227,7 @@ func (r *{{.Pkg}}Resource) Read(ctx context.Context, req resource.ReadRequest, r
 		resp.State.RemoveResource(ctx)
 		return
 	}
-	rec := list[i]
-	{{- range .Members}}
-	{{.TF}}Vals, _ := rec.{{.RecordGo}}.Get()
-	{{.TF}}Set, {{.TF}}Diags := flex.Uint64SliceToFrameworkSet(ctx, {{.TF}}Vals)
-	resp.Diagnostics.Append({{.TF}}Diags...)
-	state.{{.ModelGo}} = {{.TF}}Set
-	{{- end}}
+	resp.Diagnostics.Append(flatten{{.Pascal}}(ctx, list[i], &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -208,6 +251,10 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 	plan.{{.IDGo}} = types.StringValue({{if .HasParent}}fmt.Sprintf("%d/%d", plan.{{.ParentGo}}.ValueInt64(), plan.{{.KeyGo}}.ValueInt64()){{else}}strconv.FormatInt(plan.{{.KeyGo}}.ValueInt64(), 10){{end}})
+	r.readBack(ctx, &plan, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return

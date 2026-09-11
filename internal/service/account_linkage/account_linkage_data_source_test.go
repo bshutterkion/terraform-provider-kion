@@ -22,7 +22,12 @@ func TestAccKionAccountLinkageDataSource_basic(t *testing.T) {
 			{
 				Config: testAccAccountLinkageDataSourceConfig_basic(),
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
+					// id is the selector this data source is read BY, not a
+					// value it returns; with no id and no filter the read is in
+					// list mode, where id stays null by design. list is what
+					// carries the records, as in the account and
+					// custom_variable_override data source tests.
+					resource.TestCheckResourceAttrSet(dataSourceName, "list.#"),
 				),
 			},
 		},

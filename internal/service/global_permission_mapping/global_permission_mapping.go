@@ -74,6 +74,53 @@ func findGlobalPermissionMappingRow(list []generated.UserMapping, key int64) int
 	return -1
 }
 
+// flattenGlobalPermissionMapping assigns rec's membership fields onto the model.
+//
+// A member list Kion holds as empty comes back as JSON null, so null and empty
+// are the same state on the wire and the read collapses both to an empty set.
+// Mapping null to a null set instead is what made a configured `[]` diff for
+// ever: state went null, the configuration stayed empty, and the two never met.
+func flattenGlobalPermissionMapping(ctx context.Context, rec generated.UserMapping, m *GlobalPermissionMappingModel) diag.Diagnostics {
+	var diags diag.Diagnostics
+	user_idsVals, _ := rec.UserIds.Get()
+	user_idsSet, user_idsDiags := flex.Uint64SliceToFrameworkSetOrEmpty(ctx, user_idsVals)
+	diags.Append(user_idsDiags...)
+	m.UserIds = user_idsSet
+	user_groups_idsVals, _ := rec.UserGroupsIds.Get()
+	user_groups_idsSet, user_groups_idsDiags := flex.Uint64SliceToFrameworkSetOrEmpty(ctx, user_groups_idsVals)
+	diags.Append(user_groups_idsDiags...)
+	m.UserGroupsIds = user_groups_idsSet
+	return diags
+}
+
+// readBack refreshes the membership fields from the API after a write, so state
+// records what Kion stored rather than what the plan asked for.
+//
+// Without it an Optional+Computed collection the configuration omits is still
+// unknown here, resolves to null, and then never matches the empty set the read
+// produces. It also turns a write the API accepts with 200 but silently drops —
+// which it does for an app role the parent's permission scheme does not carry —
+// into an error at apply rather than a resource that plans as absent for ever.
+func (r *global_permission_mappingResource) readBack(ctx context.Context, model *GlobalPermissionMappingModel, diags *diag.Diagnostics) {
+	list, found, fetchDiags := global_permission_mappingFetch(ctx, r.Meta().Client)
+	diags.Append(fetchDiags...)
+	if diags.HasError() {
+		return
+	}
+	i := -1
+	if found {
+		i = findGlobalPermissionMappingRow(list, model.AppRoleId.ValueInt64())
+	}
+	if i < 0 {
+		diags.AddError(
+			fmt.Sprintf("reading back %s", ResNameGlobalPermissionMapping),
+			"the write was accepted but the mapping is not present afterwards; Kion drops a mapping for an app role the parent's permission scheme does not grant.",
+		)
+		return
+	}
+	diags.Append(flattenGlobalPermissionMapping(ctx, list[i], model)...)
+}
+
 // writeGlobalPermissionMapping builds the row from the plan and returns the upserted list.
 func (r *global_permission_mappingResource) buildGlobalPermissionMappingRow(ctx context.Context, plan *GlobalPermissionMappingModel, diags *diag.Diagnostics) generated.UserMapping {
 	user_ids, user_idsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserIds)
@@ -131,6 +178,10 @@ func (r *global_permission_mappingResource) Create(ctx context.Context, req reso
 		return
 	}
 	plan.Id = types.StringValue(strconv.FormatInt(plan.AppRoleId.ValueInt64(), 10))
+	r.readBack(ctx, &plan, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -162,15 +213,7 @@ func (r *global_permission_mappingResource) Read(ctx context.Context, req resour
 		resp.State.RemoveResource(ctx)
 		return
 	}
-	rec := list[i]
-	user_idsVals, _ := rec.UserIds.Get()
-	user_idsSet, user_idsDiags := flex.Uint64SliceToFrameworkSet(ctx, user_idsVals)
-	resp.Diagnostics.Append(user_idsDiags...)
-	state.UserIds = user_idsSet
-	user_groups_idsVals, _ := rec.UserGroupsIds.Get()
-	user_groups_idsSet, user_groups_idsDiags := flex.Uint64SliceToFrameworkSet(ctx, user_groups_idsVals)
-	resp.Diagnostics.Append(user_groups_idsDiags...)
-	state.UserGroupsIds = user_groups_idsSet
+	resp.Diagnostics.Append(flattenGlobalPermissionMapping(ctx, list[i], &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -188,6 +231,10 @@ func (r *global_permission_mappingResource) Update(ctx context.Context, req reso
 		return
 	}
 	plan.Id = types.StringValue(strconv.FormatInt(plan.AppRoleId.ValueInt64(), 10))
+	r.readBack(ctx, &plan, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
