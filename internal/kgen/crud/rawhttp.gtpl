@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"terraform-provider-kion/internal/conns"
+	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
 )
@@ -46,7 +47,8 @@ func (r *{{.Pkg}}Resource) Schema(ctx context.Context, _ resource.SchemaRequest,
 }
 
 // {{.Pkg}}Wire is the JSON body/record shape (keys are the schema attribute
-// names). Kion wraps reads in {"data": …} and returns {"record_id": …} on create.
+// names). Kion wraps reads in {"data": …}, and most creates answer
+// {"record_id": …} -- but not all of them, which is what create_id is for.
 type {{.Pkg}}Wire struct {
 	ID int64 `json:"id,omitempty"`
 	{{- range .Fields}}
@@ -92,7 +94,50 @@ func (r *{{.Pkg}}Resource) read(ctx context.Context, id int64) ({{.Pkg}}Wire, bo
 	}
 	return env.Data, true, nil
 }
+{{if .CreateID}}
+// collectionIDs returns the ids of every record under one parent.
+func (r *{{.Pkg}}Resource) collectionIDs(ctx context.Context, parentID int64) (map[int64]bool, error) {
+	body, err := r.Meta().RawGet(ctx, strings.Replace("{{.CreateID.ListPath}}", "{parent_id}", strconv.FormatInt(parentID, 10), 1))
+	if err != nil {
+		return nil, err
+	}
+	var env struct {
+		Data []struct {
+			ID int64 `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil, fmt.Errorf("decoding response: %w", err)
+	}
+	ids := make(map[int64]bool, len(env.Data))
+	for _, rec := range env.Data {
+		ids[rec.ID] = true
+	}
+	return ids, nil
+}
 
+// newRecordID returns the one id present under the parent now and absent from
+// before: the record just created. Anything else is ambiguous and is an error
+// rather than a guess -- writing the wrong id to state is the same defect as
+// writing no id at all.
+func (r *{{.Pkg}}Resource) newRecordID(ctx context.Context, parentID int64, before map[int64]bool) (int64, error) {
+	after, err := r.collectionIDs(ctx, parentID)
+	if err != nil {
+		return 0, err
+	}
+	var found int64
+	n := 0
+	for id := range after {
+		if !before[id] {
+			found, n = id, n+1
+		}
+	}
+	if n != 1 {
+		return 0, fmt.Errorf("expected exactly one new record under parent %d, found %d", parentID, n)
+	}
+	return found, nil
+}
+{{end}}
 func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	{{- if .Gated}}
 	resp.Diagnostics.Append(framework.RequireKionVersionInRange(r.Meta(), minKionVersion, maxKionVersion, "{{.TypeName}}")...)
@@ -111,6 +156,16 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", {{.ResConst}}), err.Error())
 		return
 	}
+	{{- if .CreateID}}
+	// This create answers without a record id, so the new record is found by
+	// difference: snapshot the parent collection before the POST.
+	parentID := plan.{{.CreateID.ParentGo}}.ValueInt64()
+	before, err := r.collectionIDs(ctx, parentID)
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("listing %s before create", {{.ResConst}}), err.Error())
+		return
+	}
+	{{- end}}
 	out, err := r.Meta().{{.CreateMethod}}(ctx, "{{.CreatePath}}", body)
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", {{.ResConst}}), err.Error())
@@ -121,16 +176,40 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", {{.ResConst}}), fmt.Sprintf("decoding response: %s", err))
 		return
 	}
+	recordID := created.RecordID
+	{{- if .CreateID}}
+	if recordID <= 0 {
+		recordID, err = r.newRecordID(ctx, parentID, before)
+		if err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("resolving the id of the created %s", {{.ResConst}}), err.Error())
+			return
+		}
+	}
+	{{- end}}
+	// An id that decodes to zero is not a fallback to write to state: the record
+	// exists in Kion and nothing addressed as id 0 can ever refresh or delete it.
+	recordID, idDiags := errs.RawCreatedID(recordID)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	w, found, err := r.read(ctx, created.RecordID)
+	w, found, err := r.read(ctx, recordID)
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("reading %s after create", {{.ResConst}}), err.Error())
 		return
 	}
+	plan.{{.IDGo}} = types.StringValue(strconv.FormatInt(recordID, 10))
 	if found {
 		r.flatten(w, &plan)
 	} else {
-		plan.{{.IDGo}} = types.StringValue(strconv.FormatInt(created.RecordID, 10))
+		// The id is server-issued and validated, so it goes to state anyway:
+		// dropping it would orphan a record that exists. The next refresh either
+		// reconciles the attributes or removes the resource cleanly.
+		resp.Diagnostics.AddWarning(
+			fmt.Sprintf("Created %s could not be read back", {{.ResConst}}),
+			fmt.Sprintf("record %d was created but is not readable yet; state records the planned values until the next refresh", recordID),
+		)
 	}
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {

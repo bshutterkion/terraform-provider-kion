@@ -154,6 +154,66 @@ func TestBuildParentReadFlatCollection(t *testing.T) {
 	assert.Contains(t, d.FlattenGo, "m.ResourceKey = types.StringValue(rec.ResourceKey)")
 }
 
+func noteCreateIDModel() []ModelField {
+	return []ModelField{
+		{TFSDK: "id", GoName: "Id", Type: "types.String"},
+		{TFSDK: "funding_source_id", GoName: "FundingSourceId", Type: "types.Int64"},
+		{TFSDK: "name", GoName: "Name", Type: "types.String"},
+	}
+}
+
+// TestResolveRawCreateID covers #71: POST /v2/funding-source-note answers with
+// no record_id, so the resource recovers the id from its parent collection
+// rather than writing 0 to state.
+func TestResolveRawCreateID(t *testing.T) {
+	d, err := resolveRaw("funding_source_note", rawResourceOps{
+		Create: rawOp{Method: "POST", Path: "/v2/funding-source-note"},
+		Read:   rawOp{Method: "GET", Path: "/v2/funding-source-note/{id}"},
+		CreateID: &createID{
+			ListPath: "/v2/funding-source/{parent_id}/funding-source-note",
+			ParentTF: "funding_source_id",
+		},
+	}, noteCreateIDModel())
+	require.NoError(t, err)
+
+	require.NotNil(t, d.CreateID)
+	assert.Equal(t, "/v2/funding-source/{parent_id}/funding-source-note", d.CreateID.ListPath)
+	assert.Equal(t, "FundingSourceId", d.CreateID.ParentGo, "the model field the parent id is read from")
+}
+
+// TestResolveRawWithoutCreateID pins the default: a create that does report a
+// record_id renders no collection diff at all.
+func TestResolveRawWithoutCreateID(t *testing.T) {
+	d, err := resolveRaw("dashboard", rawResourceOps{
+		Create: rawOp{Method: "POST", Path: "/beta/dashboard"},
+		Read:   rawOp{Method: "GET", Path: "/v1/dashboard/{id}"},
+	}, noteCreateIDModel())
+	require.NoError(t, err)
+	assert.Nil(t, d.CreateID)
+}
+
+func TestBuildCreateIDRejectsBadDeclaration(t *testing.T) {
+	m := byTF(noteCreateIDModel())
+
+	_, err := buildCreateID("x", createID{ListPath: "/v2/funding-source-note", ParentTF: "funding_source_id"}, m)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must contain {parent_id}")
+
+	_, err = buildCreateID("x", createID{ListPath: "/v2/fs/{parent_id}/note"}, m)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parent_tf is required")
+
+	_, err = buildCreateID("x", createID{ListPath: "/v2/fs/{parent_id}/note", ParentTF: "nope"}, m)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "is not a model attribute")
+
+	// The parent id is read with ValueInt64(), so anything else would generate
+	// a file that does not compile.
+	_, err = buildCreateID("x", createID{ListPath: "/v2/fs/{parent_id}/note", ParentTF: "name"}, m)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must be a types.Int64 attribute")
+}
+
 func TestBuildParentReadRejectsBadDeclaration(t *testing.T) {
 	m := byTF(exemptionModel())
 
