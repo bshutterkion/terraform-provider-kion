@@ -34,6 +34,10 @@ funding_source_permission_mapping:
 # uses the consistent user_group_ids.
 project_enforcement:
   ugroup_ids: user_group_ids
+ou_enforcement:
+  ugroup_ids: user_group_ids
+funding_source_enforcement:
+  ugroup_ids: user_group_ids
 
 # aws_account's create body uses account_email/account_name/organizational_unit;
 # the resource model uses email/name/aws_organizational_unit.

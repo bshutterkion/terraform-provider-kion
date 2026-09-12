@@ -12,6 +12,6 @@ resource "kion_ou_enforcement" "example" {
   # service_id                  = 1
   # threshold_type              = "example"
   # trigger_planned_amount_type = "example"
-  # ugroup_ids                  = []
+  # user_group_ids              = []
   # user_ids                    = []
 }
