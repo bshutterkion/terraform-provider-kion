@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Discover the KION_ACC_* values an installation can supply.
 
-Read-only: every call is a GET. Prints an env block for the ten variables the
+Read-only: every call is a GET. Prints an env block for the eleven variables the
 acceptance tests skip without, and says plainly which ones this install cannot
 provide -- a test that skips for a missing id is not a passing test, and the
 difference matters when reading a run.
@@ -88,6 +88,21 @@ record("KION_ACC_AWS_ACCOUNT_NUMBER", (aws_acct or {}).get("account_number"),
 record("KION_ACC_CUSTOM_ACCOUNT_NUMBER", (any_acct or {}).get("account_number"),
        "no account with an account_number")
 
+# kion_ami attaches to an account by Kion's own id, not the cloud account
+# number: "Bad Request: account not found" is what a stale hardcoded id gives.
+record("KION_ACC_ACCOUNT_ID", (aws_acct or any_acct or {}).get("id"),
+       "no account Kion can attach an AMI to")
+
+# kion_ami registers an image that must actually exist: Kion assumes its service
+# role in the owner account and calls ec2:DescribeImages, so a made-up id fails
+# with "Could not validate the presence of this AMI". An AMI already registered
+# here is known-good; otherwise it has to be supplied, since Kion has no endpoint
+# that enumerates what AWS holds.
+amis = items(get("/v3/ami"))
+record("KION_ACC_AWS_AMI_ID", next((a.get("aws_ami_id") for a in amis if a.get("aws_ami_id")), None),
+       "no AMI registered to copy an id from; set it to any AMI id the install's "
+       "accounts can describe (a public Amazon image works)")
+
 azure_acct = next((inner(a) for a in accts if inner(a).get("subscription_uuid")), None)
 record("KION_ACC_AZURE_SUBSCRIPTION_UUID", (azure_acct or {}).get("subscription_uuid"),
        "no Azure account carrying a subscription_uuid")
@@ -126,4 +141,4 @@ if missing:
     print(f"\n# NOT AVAILABLE on this install ({len(missing)}):")
     for k, why in missing:
         print(f"#   {k}: {why}")
-print(f"\n# {len(found)}/10 discovered")
+print(f"\n# {len(found)}/{len(found) + len(missing)} discovered")
