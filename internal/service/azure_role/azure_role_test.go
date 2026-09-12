@@ -47,6 +47,14 @@ func TestAccKionAzureRole_basic(t *testing.T) {
 				ResourceName:      resourceName,
 				ImportState:       true,
 				ImportStateVerify: true,
+				// An import has no prior value to compare against, so it takes
+				// Kion's canonical form of the permissions -- the same document,
+				// with the two empty arrays it fills in. ImportStateVerify
+				// compares raw strings and so reports that as a difference.
+				// Managed state converges (the apply and refresh steps above
+				// prove it), and a configuration generated from an import is
+				// already canonical, so it plans clean.
+				ImportStateVerifyIgnore: []string{"role_permissions"},
 			},
 		},
 	})
@@ -88,6 +96,14 @@ func TestAccKionAzureRole_update(t *testing.T) {
 				ResourceName:      resourceName,
 				ImportState:       true,
 				ImportStateVerify: true,
+				// An import has no prior value to compare against, so it takes
+				// Kion's canonical form of the permissions -- the same document,
+				// with the two empty arrays it fills in. ImportStateVerify
+				// compares raw strings and so reports that as a difference.
+				// Managed state converges (the apply and refresh steps above
+				// prove it), and a configuration generated from an import is
+				// already canonical, so it plans clean.
+				ImportStateVerifyIgnore: []string{"role_permissions"},
 			},
 		},
 	})
@@ -163,7 +179,10 @@ func testAccAzureRoleConfig_basic(rName string) string {
 	return fmt.Sprintf(`
 resource "kion_azure_role" "test" {
   name = %[1]q
-  role_permissions = jsonencode([{ actions = ["Microsoft.Resources/subscriptions/read"], notActions = [] }])
+  // Kion parses this as Azure's Permissions OBJECT (or a full role definition
+  // with properties.permissions). A JSON ARRAY of permission objects fails to
+  // unmarshal and surfaces as a bare 500 with no message.
+  role_permissions = jsonencode({ actions = ["Microsoft.Resources/subscriptions/read"], notActions = [] })
   owner_user_ids = [1]
 }
 `, rName)
@@ -173,7 +192,7 @@ func testAccAzureRoleConfig_update(rName string) string {
 	return fmt.Sprintf(`
 resource "kion_azure_role" "test" {
   name = %[1]q
-  role_permissions = jsonencode([{ actions = ["Microsoft.Resources/subscriptions/resourceGroups/read"], notActions = [] }])
+  role_permissions = jsonencode({ actions = ["Microsoft.Resources/subscriptions/resourceGroups/read"], notActions = [] })
   car_restricted_user_group_ids = []
   owner_user_ids = [1]
 }

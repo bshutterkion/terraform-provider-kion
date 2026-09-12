@@ -113,11 +113,14 @@ func (r *azure_roleResource) Create(ctx context.Context, req resource.CreateRequ
 		resp.Diagnostics.AddError(fmt.Sprintf("reading %s after creation (ID: %d)", ResNameAzureRole, id), readErr.Error())
 		return
 	}
-
+	configuredRolePermissions := plan.RolePermissions
 	resp.Diagnostics.Append(flattenAzureRole(ctx, readOut, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// The API canonicalizes this and echoes the rewritten form; keeping the
+	// configured value is what stops an unconvergeable diff. See Rewritten.
+	plan.RolePermissions = configuredRolePermissions
 
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -152,10 +155,17 @@ func (r *azure_roleResource) Read(ctx context.Context, req resource.ReadRequest,
 		resp.State.RemoveResource(ctx)
 		return
 	}
-
+	priorRolePermissions := state.RolePermissions
 	resp.Diagnostics.Append(flattenAzureRole(ctx, out, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+	// The API returns its own canonical form of this value. Keep what state
+	// already held when the two say the same thing, so a refresh converges;
+	// take the API's when they genuinely differ, so real drift still shows.
+	// Import has no prior value and so always takes the API's. See Rewritten.
+	if !priorRolePermissions.IsNull() && flex.JSONEquivalent(priorRolePermissions.ValueString(), state.RolePermissions.ValueString()) {
+		state.RolePermissions = priorRolePermissions
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
@@ -203,11 +213,14 @@ func (r *azure_roleResource) Update(ctx context.Context, req resource.UpdateRequ
 		resp.Diagnostics.AddError(fmt.Sprintf("reading %s after update (ID: %d)", ResNameAzureRole, idInt), readErr.Error())
 		return
 	}
-
+	configuredRolePermissions := plan.RolePermissions
 	resp.Diagnostics.Append(flattenAzureRole(ctx, readOut, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// The API canonicalizes this and echoes the rewritten form; keeping the
+	// configured value is what stops an unconvergeable diff. See Rewritten.
+	plan.RolePermissions = configuredRolePermissions
 
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {

@@ -42,7 +42,10 @@ func testAccAzureRoleDataSourceConfig_basic(rName string) string {
 	return fmt.Sprintf(`
 resource "kion_azure_role" "test" {
   name = %[1]q
-  role_permissions = jsonencode([{ actions = ["Microsoft.Resources/subscriptions/read"], notActions = [] }])
+  // Kion parses this as Azure's Permissions OBJECT (or a full role definition
+  // with properties.permissions). A JSON ARRAY of permission objects fails to
+  // unmarshal and surfaces as a bare 500 with no message.
+  role_permissions = jsonencode({ actions = ["Microsoft.Resources/subscriptions/read"], notActions = [] })
   owner_user_ids = [1]
 }
 
