@@ -29,7 +29,7 @@ func TestAccKionAccountDataSource_basic(t *testing.T) {
 	dataSourceName := "data.kion_account.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(t); acctest.RequireAccountCreation(t) },
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
