@@ -153,6 +153,31 @@ project_permission_mapping:
 account_linkage:
   kind: blended
 
+# Raw create only (#102), same cause as custom_account.
+azure_account:
+  kind: entity
+  raw_create:
+    method: POST
+    path: /v3/account?account-type=azure
+
+gcp_account:
+  kind: entity
+  raw_create:
+    method: POST
+    path: /v3/account?account-type=google-cloud
+
+# Raw create only (#102). PostCustomAccount requests
+# /v3/account/__qs__/account-type/custom -- the spec encodes the account-type
+# QUERY parameter as literal path segments around a __qs__ marker that nothing
+# converts back, so the URL does not exist and every create 404s. All 13
+# account-creation operations in the SDK have this. Read, update and delete use
+# /v3/account/{id} and are fine.
+custom_account:
+  kind: entity
+  raw_create:
+    method: POST
+    path: /v3/account?account-type=custom
+
 # Raw create only. POST /beta/scope answers {status, record_id}; the spec models
 # the response as {data: {...}}, so ScopeResponse carries no record_id field at
 # all and neither create-id strategy can reach the new id. The resource could not

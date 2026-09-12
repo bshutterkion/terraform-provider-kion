@@ -5,6 +5,7 @@ package gcp_account
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -56,25 +57,37 @@ func (r *gcp_accountResource) Create(ctx context.Context, req resource.CreateReq
 		return
 	}
 
-	input := &generated.GoogleCloudAccountCreate{
-		AccountAlias:         flex.OptStringFromFramework(plan.AccountAlias),
-		AccountName:          flex.StringValueFromFramework(plan.AccountName),
-		AccountTypeID:        flex.OptNilUint64FromFramework(plan.AccountTypeId),
-		GoogleCloudProjectID: flex.StringValueFromFramework(plan.GoogleCloudProjectId),
-		PayerID:              flex.NilUint64FromFramework(plan.PayerId),
-		ProjectID:            flex.NilUint64FromFramework(plan.ProjectId),
-		SkipAccessChecking:   flex.OptNilBoolFromFramework(plan.SkipAccessChecking),
-		StartDatecode:        flex.StringValueFromFramework(plan.StartDatecode),
+	wire := gcp_accountCreateWire{
+		AccountAlias:         plan.AccountAlias.ValueString(),
+		AccountName:          plan.AccountName.ValueString(),
+		AccountTypeId:        plan.AccountTypeId.ValueInt64(),
+		GoogleCloudProjectId: plan.GoogleCloudProjectId.ValueString(),
+		PayerId:              plan.PayerId.ValueInt64(),
+		ProjectId:            plan.ProjectId.ValueInt64(),
+		SkipAccessChecking:   plan.SkipAccessChecking.ValueBool(),
+		StartDatecode:        plan.StartDatecode.ValueString(),
 	}
-
-	out, err := conn.PostGoogleCloudAccount(ctx, input, generated.PostGoogleCloudAccountParams{AccountType: "google-cloud"})
+	rawBody, err := json.Marshal(wire)
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameGcpAccount), err.Error())
 		return
 	}
-
-	id, diags := errs.CreatedID(out)
-	resp.Diagnostics.Append(diags...)
+	rawOut, err := r.Meta().RawPost(ctx, "/v3/account?account-type=google-cloud", rawBody)
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameGcpAccount), err.Error())
+		return
+	}
+	var createdRaw struct {
+		RecordID int64 `json:"record_id"`
+	}
+	if err := json.Unmarshal(rawOut, &createdRaw); err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameGcpAccount), fmt.Sprintf("decoding response: %s", err))
+		return
+	}
+	// An id that decodes to zero is not a fallback to write to state: the record
+	// exists in Kion and nothing addressed as id 0 can ever refresh or delete it.
+	id, idDiags := errs.RawCreatedID(createdRaw.RecordID)
+	resp.Diagnostics.Append(idDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -223,6 +236,19 @@ func (r *gcp_accountResource) Delete(ctx context.Context, req resource.DeleteReq
 
 func (r *gcp_accountResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+}
+
+// gcp_accountCreateWire is the create body, keyed by the schema's own attribute
+// names. Only the create is raw; read, update and delete stay on the SDK.
+type gcp_accountCreateWire struct {
+	AccountAlias         string `json:"account_alias,omitempty"`
+	AccountName          string `json:"account_name,omitempty"`
+	AccountTypeId        int64  `json:"account_type_id,omitempty"`
+	GoogleCloudProjectId string `json:"google_cloud_project_id,omitempty"`
+	PayerId              int64  `json:"payer_id,omitempty"`
+	ProjectId            int64  `json:"project_id,omitempty"`
+	SkipAccessChecking   bool   `json:"skip_access_checking,omitempty"`
+	StartDatecode        string `json:"start_datecode,omitempty"`
 }
 
 func flattenGcpAccount(apiObject any, model *GcpAccountModel) diag.Diagnostics {
