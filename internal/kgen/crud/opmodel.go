@@ -148,6 +148,8 @@ type ResourceModel struct {
 	AtLeastOneOf   []string
 	RawDeletePath  string
 	ImportParentTF string
+	// EmptyCollections: see archetype.EmptyCollections.
+	EmptyCollections []string
 	// Renames maps this resource's API attribute names to its provider ones.
 	Renames map[string]string
 	Pascal  string       // "Label"

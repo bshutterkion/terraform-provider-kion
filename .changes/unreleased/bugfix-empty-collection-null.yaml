@@ -1,0 +1,2 @@
+kind: BUG FIXES
+body: "An explicitly empty id list on `kion_compliance_control` no longer fails the apply. Kion stores an empty array as null and returns null, so a configured `[]` came back as a null set and Terraform rejected the result: `.arm_template_definition_ids: was cty.SetValEmpty(cty.Number), but now null`. The read now collapses both to an empty set, the same treatment the permission mappings already had. A new `empty_collections` archetype knob declares which attributes behave this way, per resource, rather than assuming every collection does."

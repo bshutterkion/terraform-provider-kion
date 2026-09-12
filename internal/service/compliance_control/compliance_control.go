@@ -314,19 +314,19 @@ func flattenComplianceControl(ctx context.Context, apiObject any, model *Complia
 			model.Name = flex.OptStringToFramework(v.Data.Value.Name)
 			model.Severity = flex.OptStringToFramework(v.Data.Value.Severity)
 			model.Title = flex.OptStringToFramework(v.Data.Value.Title)
-			armTemplateDefinitionIds, armTemplateDefinitionIdsDiags := flex.Uint64SliceToFrameworkSet(ctx, v.Data.Value.ArmTemplateDefinitionIds.Value)
+			armTemplateDefinitionIds, armTemplateDefinitionIdsDiags := flex.Uint64SliceToFrameworkSetOrEmpty(ctx, v.Data.Value.ArmTemplateDefinitionIds.Value)
 			diags.Append(armTemplateDefinitionIdsDiags...)
 			model.ArmTemplateDefinitionIds = armTemplateDefinitionIds
-			aWSCloudformationPolicyIds, aWSCloudformationPolicyIdsDiags := flex.Uint64SliceToFrameworkSet(ctx, v.Data.Value.AWSCloudformationPolicyIds.Value)
+			aWSCloudformationPolicyIds, aWSCloudformationPolicyIdsDiags := flex.Uint64SliceToFrameworkSetOrEmpty(ctx, v.Data.Value.AWSCloudformationPolicyIds.Value)
 			diags.Append(aWSCloudformationPolicyIdsDiags...)
 			model.AwsCloudformationPolicyIds = aWSCloudformationPolicyIds
-			azurePolicyDefinitionIds, azurePolicyDefinitionIdsDiags := flex.Uint64SliceToFrameworkSet(ctx, v.Data.Value.AzurePolicyDefinitionIds.Value)
+			azurePolicyDefinitionIds, azurePolicyDefinitionIdsDiags := flex.Uint64SliceToFrameworkSetOrEmpty(ctx, v.Data.Value.AzurePolicyDefinitionIds.Value)
 			diags.Append(azurePolicyDefinitionIdsDiags...)
 			model.AzurePolicyDefinitionIds = azurePolicyDefinitionIds
-			cloudProviderPolicyIds, cloudProviderPolicyIdsDiags := flex.Uint64SliceToFrameworkSet(ctx, v.Data.Value.CloudProviderPolicyIds.Value)
+			cloudProviderPolicyIds, cloudProviderPolicyIdsDiags := flex.Uint64SliceToFrameworkSetOrEmpty(ctx, v.Data.Value.CloudProviderPolicyIds.Value)
 			diags.Append(cloudProviderPolicyIdsDiags...)
 			model.CloudProviderPolicyIds = cloudProviderPolicyIds
-			complianceCheckIds, complianceCheckIdsDiags := flex.Uint64SliceToFrameworkSet(ctx, v.Data.Value.ComplianceCheckIds.Value)
+			complianceCheckIds, complianceCheckIdsDiags := flex.Uint64SliceToFrameworkSetOrEmpty(ctx, v.Data.Value.ComplianceCheckIds.Value)
 			diags.Append(complianceCheckIdsDiags...)
 			model.ComplianceCheckIds = complianceCheckIds
 			complianceLevels, complianceLevelsDiags := flex.Uint64SliceToFrameworkSet(ctx, v.Data.Value.ComplianceLevels.Value)
