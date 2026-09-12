@@ -70,9 +70,9 @@ func TestVersionString(t *testing.T) {
 		v    version
 		want string
 	}{
-		{version{dir: "v3_12", minor: 12}, "3.12.0"},
-		{version{dir: "v3_16", minor: 16}, "3.16.0"},
-		{version{dir: "v3_13", minor: 13}, "3.13.0"},
+		{version{dir: "v3_14", minor: 14}, "3.14.0"},
+		{version{dir: "v3_17", minor: 17}, "3.17.0"},
+		{version{dir: "v3_15", minor: 15}, "3.15.0"},
 	}
 	for _, c := range cases {
 		require.Equal(t, c.want, versionString(c.v))
@@ -80,14 +80,15 @@ func TestVersionString(t *testing.T) {
 }
 
 func TestTrackedVersionsMapping(t *testing.T) {
-	// Guard the assumption used throughout: 5 tracked versions v3_12..v3_16.
-	require.Len(t, trackedVersions, 5)
-	require.Equal(t, "3.12.0", versionString(trackedVersions[0]))
-	require.Equal(t, "3.16.0", versionString(trackedVersions[len(trackedVersions)-1]))
+	// Guard the assumption used throughout: 4 tracked versions v3_14..v3_17,
+	// the current Kion release plus three back.
+	require.Len(t, trackedVersions, 4)
+	require.Equal(t, "3.14.0", versionString(trackedVersions[0]))
+	require.Equal(t, "3.17.0", versionString(trackedVersions[len(trackedVersions)-1]))
 }
 
 func TestComputeRange(t *testing.T) {
-	// Presence slices are aligned with trackedVersions: [v3_12, v3_13, v3_14, v3_15, v3_16].
+	// Presence slices are aligned with trackedVersions: [v3_14, v3_15, v3_16, v3_17].
 	cases := []struct {
 		name       string
 		present    []bool
@@ -99,12 +100,39 @@ func TestComputeRange(t *testing.T) {
 	}{
 		{
 			name:     "not present anywhere -> unresolved",
-			present:  []bool{false, false, false, false, false},
+			present:  []bool{false, false, false, false},
 			resolved: false,
 		},
 		{
-			name:       "new endpoint only in newest -> min 3.16.0, open max, emit",
-			present:    []bool{false, false, false, false, true},
+			name:       "new endpoint only in newest -> min 3.17.0, open max, emit",
+			present:    []bool{false, false, false, true},
+			resolved:   true,
+			contiguous: true,
+			emit:       true,
+			min:        "3.17.0",
+			max:        "",
+		},
+		{
+			name:       "dropped endpoint present only in v3_14,v3_15 -> min 3.14.0 max 3.15.0",
+			present:    []bool{true, true, false, false},
+			resolved:   true,
+			contiguous: true,
+			emit:       true,
+			min:        "3.14.0",
+			max:        "3.15.0",
+		},
+		{
+			name:       "fully supported all versions -> no gate, emit false",
+			present:    []bool{true, true, true, true},
+			resolved:   true,
+			contiguous: true,
+			emit:       false,
+			min:        "3.14.0",
+			max:        "",
+		},
+		{
+			name:       "added mid-range and still current -> min 3.16.0 open max, emit",
+			present:    []bool{false, false, true, true},
 			resolved:   true,
 			contiguous: true,
 			emit:       true,
@@ -112,49 +140,22 @@ func TestComputeRange(t *testing.T) {
 			max:        "",
 		},
 		{
-			name:       "dropped endpoint present only in v3_12,v3_13 -> min 3.12.0 max 3.13.0",
-			present:    []bool{true, true, false, false, false},
+			name:       "non-contiguous still uses overall min/max and warns",
+			present:    []bool{true, false, true, false},
 			resolved:   true,
-			contiguous: true,
+			contiguous: false,
 			emit:       true,
-			min:        "3.12.0",
-			max:        "3.13.0",
+			min:        "3.14.0",
+			max:        "3.16.0",
 		},
 		{
-			name:       "fully supported all versions -> no gate, emit false",
-			present:    []bool{true, true, true, true, true},
-			resolved:   true,
-			contiguous: true,
-			emit:       false,
-			min:        "3.12.0",
-			max:        "",
-		},
-		{
-			name:       "added mid-range and still current -> min 3.14.0 open max, emit",
-			present:    []bool{false, false, true, true, true},
+			name:       "dropped just before newest -> min 3.14.0 max 3.16.0",
+			present:    []bool{true, true, true, false},
 			resolved:   true,
 			contiguous: true,
 			emit:       true,
 			min:        "3.14.0",
-			max:        "",
-		},
-		{
-			name:       "non-contiguous still uses overall min/max and warns",
-			present:    []bool{true, false, true, false, false},
-			resolved:   true,
-			contiguous: false,
-			emit:       true,
-			min:        "3.12.0",
-			max:        "3.14.0",
-		},
-		{
-			name:       "dropped just before newest -> min 3.12.0 max 3.15.0",
-			present:    []bool{true, true, true, true, false},
-			resolved:   true,
-			contiguous: true,
-			emit:       true,
-			min:        "3.12.0",
-			max:        "3.15.0",
+			max:        "3.16.0",
 		},
 	}
 
@@ -256,9 +257,9 @@ func TestDeriveSectionAndMarshal(t *testing.T) {
 		versionOps[i] = map[op]struct{}{}
 		versionOps[i][account] = struct{}{} // present everywhere
 	}
-	// ou-note only in v3_16 (index 4).
-	versionOps[4][ouNote] = struct{}{}
-	// forecast-v2 only in v3_12,v3_13 (indexes 0,1).
+	// ou-note only in v3_17 (index 3, the newest).
+	versionOps[3][ouNote] = struct{}{}
+	// forecast-v2 only in v3_14,v3_15 (indexes 0,1).
 	versionOps[0][forecast] = struct{}{}
 	versionOps[1][forecast] = struct{}{}
 
@@ -270,8 +271,8 @@ func TestDeriveSectionAndMarshal(t *testing.T) {
 		byName[e.name] = e.support
 	}
 	require.Len(t, out, 2)
-	require.Equal(t, support{Min: "3.16.0"}, byName["ou_note"])
-	require.Equal(t, support{Min: "3.12.0", Max: "3.13.0"}, byName["forecast_v2"])
+	require.Equal(t, support{Min: "3.17.0"}, byName["ou_note"])
+	require.Equal(t, support{Min: "3.14.0", Max: "3.15.0"}, byName["forecast_v2"])
 
 	// Marshaled output is deterministic and quotes versions.
 	b, err := marshalOutput(out, nil)
@@ -279,8 +280,8 @@ func TestDeriveSectionAndMarshal(t *testing.T) {
 	s := string(b)
 	require.Contains(t, s, "Generated by")
 	require.Contains(t, s, "resources:")
-	require.Contains(t, s, `min: "3.16.0"`)
-	require.Contains(t, s, `max: "3.13.0"`)
+	require.Contains(t, s, `min: "3.17.0"`)
+	require.Contains(t, s, `max: "3.15.0"`)
 	require.NotContains(t, s, "data_sources:") // none emitted
 
 	// Deterministic ordering: forecast_v2 sorts before ou_note.
@@ -318,15 +319,14 @@ func TestRunEndToEnd(t *testing.T) {
 	betaThing := op{method: "GET", path: "/beta/thing/{id}"}
 
 	// Per-version presence:
-	//   ou-note: only v3_16 -> min 3.16.0
-	//   forecast-v2: v3_12,v3_13 -> min 3.12.0 max 3.13.0
+	//   ou-note: only v3_17 -> min 3.17.0
+	//   forecast-v2: v3_14,v3_15 -> min 3.14.0 max 3.15.0
 	//   account: all -> omitted (fully supported)
 	//   beta thing (from override read): all -> omitted
-	writeClient(t, sdkDir, "v3_12", []op{forecast, account, betaThing})
-	writeClient(t, sdkDir, "v3_13", []op{forecast, account, betaThing})
-	writeClient(t, sdkDir, "v3_14", []op{account, betaThing})
-	writeClient(t, sdkDir, "v3_15", []op{account, betaThing})
-	writeClient(t, sdkDir, "v3_16", []op{ouNote, account, betaThing})
+	writeClient(t, sdkDir, "v3_14", []op{forecast, account, betaThing})
+	writeClient(t, sdkDir, "v3_15", []op{forecast, account, betaThing})
+	writeClient(t, sdkDir, "v3_16", []op{account, betaThing})
+	writeClient(t, sdkDir, "v3_17", []op{ouNote, account, betaThing})
 
 	cfgPath := filepath.Join(root, "generator_config.yaml")
 	require.NoError(t, os.WriteFile(cfgPath, []byte(`
@@ -382,14 +382,14 @@ resources:
 	}
 	require.NoError(t, yaml.Unmarshal(b, &doc))
 
-	require.Equal(t, support{Min: "3.16.0"}, doc.Resources["ou_note"])
-	require.Equal(t, support{Min: "3.12.0", Max: "3.13.0"}, doc.Resources["forecast_v2"])
+	require.Equal(t, support{Min: "3.17.0"}, doc.Resources["ou_note"])
+	require.Equal(t, support{Min: "3.14.0", Max: "3.15.0"}, doc.Resources["forecast_v2"])
 	// account fully supported -> omitted.
 	require.NotContains(t, doc.Resources, "account")
 	// thing's read was overridden to /beta/thing/{id}, present everywhere -> omitted.
 	require.NotContains(t, doc.Resources, "thing")
 	// data source gcp_regions points at ou-note op (only v3_16) -> min 3.16.0.
-	require.Equal(t, support{Min: "3.16.0"}, doc.DataSources["gcp_regions"])
+	require.Equal(t, support{Min: "3.17.0"}, doc.DataSources["gcp_regions"])
 }
 
 // TestRunMissingOverridesOK confirms a missing overrides file is non-fatal.
@@ -397,10 +397,10 @@ func TestRunMissingOverridesOK(t *testing.T) {
 	root := t.TempDir()
 	sdkDir := filepath.Join(root, "sdk")
 	ouNote := op{method: "POST", path: "/v3/ou-note"}
-	for _, v := range []string{"v3_12", "v3_13", "v3_14", "v3_15"} {
+	for _, v := range []string{"v3_14", "v3_15", "v3_16"} {
 		writeClient(t, sdkDir, v, nil)
 	}
-	writeClient(t, sdkDir, "v3_16", []op{ouNote})
+	writeClient(t, sdkDir, "v3_17", []op{ouNote})
 
 	cfgPath := filepath.Join(root, "generator_config.yaml")
 	require.NoError(t, os.WriteFile(cfgPath, []byte(`
@@ -426,7 +426,7 @@ resources:
 
 	b, err := os.ReadFile(outPath)
 	require.NoError(t, err)
-	require.Contains(t, string(b), `min: "3.16.0"`)
+	require.Contains(t, string(b), `min: "3.17.0"`)
 }
 
 // TestRun_errorPaths covers the flag-parse and load failure exit codes.

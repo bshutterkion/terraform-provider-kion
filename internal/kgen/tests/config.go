@@ -7,12 +7,11 @@ package tests
 //
 // Per release branch, this is pinned to the matching SDK sub-package:
 //
-//	main              → kion-sdk-go/generated/v3_16 (newest supported)
+//	main              → kion-sdk-go/generated/v3_17 (newest supported)
+//	release-3.17.x    → kion-sdk-go/generated/v3_17
 //	release-3.16.x    → kion-sdk-go/generated/v3_16
 //	release-3.15.x    → kion-sdk-go/generated/v3_15
 //	release-3.14.x    → kion-sdk-go/generated/v3_14
-//	release-3.13.x    → kion-sdk-go/generated/v3_13
-//	release-3.12.x    → kion-sdk-go/generated/v3_12
 //
 // It must match what internal/conns builds its *generated.Client from: an
 // emitted test passes `generated.<Op>Params` to `conn.Client.<Op>`, so a

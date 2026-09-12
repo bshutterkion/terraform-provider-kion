@@ -23,19 +23,23 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"terraform-provider-kion/internal/kgen/versions"
 
 	"gopkg.in/yaml.v3"
 )
 
 // trackedVersions are the SDK support versions, ascending. master is excluded.
 // Each entry maps a version directory name to its minor number.
-var trackedVersions = []version{
-	{dir: "v3_12", minor: 12},
-	{dir: "v3_13", minor: 13},
-	{dir: "v3_14", minor: 14},
-	{dir: "v3_15", minor: 15},
-	{dir: "v3_16", minor: 16},
-}
+// trackedVersions is the canonical set, defined once in internal/kgen/versions.
+// Keeping a second copy here is what the SDK's own nine-copy version set is a
+// cautionary tale about.
+var trackedVersions = func() []version {
+	out := make([]version, 0, len(versions.TrackedVersions))
+	for _, v := range versions.TrackedVersions {
+		out = append(out, version{dir: v.Dir, minor: v.Minor})
+	}
+	return out
+}()
 
 type version struct {
 	dir   string

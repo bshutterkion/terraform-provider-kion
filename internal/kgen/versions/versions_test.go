@@ -106,7 +106,7 @@ func TestDefiningOp(t *testing.T) {
 // --- computeRange ---------------------------------------------------------
 
 func TestComputeRange(t *testing.T) {
-	// trackedVersions = [v3_12, v3_13, v3_14, v3_15, v3_16] (indices 0..4).
+	// trackedVersions = [v3_14, v3_15, v3_16, v3_17] (indices 0..3).
 	tests := []struct {
 		name       string
 		present    []bool
@@ -117,60 +117,60 @@ func TestComputeRange(t *testing.T) {
 	}{
 		{
 			name:     "unresolved (in no version)",
-			present:  []bool{false, false, false, false, false},
+			present:  []bool{false, false, false, false},
 			resolved: false,
 		},
 		{
 			name:       "fully supported oldest..open => no emit",
-			present:    []bool{true, true, true, true, true},
+			present:    []bool{true, true, true, true},
 			resolved:   true,
 			emit:       false,
 			contiguous: true,
 		},
 		{
-			name:       "min-only: introduced in 3.16, still current",
-			present:    []bool{false, false, false, false, true},
+			name:       "min-only: introduced in 3.17, still current",
+			present:    []bool{false, false, false, true},
 			resolved:   true,
 			emit:       true,
 			contiguous: true,
-			min:        "3.16.0",
+			min:        "3.17.0",
 			max:        "", // open (newest)
 		},
 		{
 			name:       "min introduced mid, still current",
-			present:    []bool{false, false, true, true, true},
+			present:    []bool{false, false, true, true},
+			resolved:   true,
+			emit:       true,
+			contiguous: true,
+			min:        "3.16.0",
+			max:        "",
+		},
+		{
+			name:       "min+max bounded: dropped after 3.15",
+			present:    []bool{true, true, false, false},
 			resolved:   true,
 			emit:       true,
 			contiguous: true,
 			min:        "3.14.0",
-			max:        "",
-		},
-		{
-			name:       "min+max bounded: dropped after 3.13",
-			present:    []bool{true, true, false, false, false},
-			resolved:   true,
-			emit:       true,
-			contiguous: true,
-			min:        "3.12.0",
-			max:        "3.13.0",
+			max:        "3.15.0",
 		},
 		{
 			name:       "bounded window in the middle",
-			present:    []bool{false, true, true, false, false},
+			present:    []bool{false, true, true, false},
 			resolved:   true,
 			emit:       true,
 			contiguous: true,
-			min:        "3.13.0",
-			max:        "3.14.0",
+			min:        "3.15.0",
+			max:        "3.16.0",
 		},
 		{
 			name:       "non-contiguous uses overall min/max",
-			present:    []bool{true, false, true, false, false},
+			present:    []bool{true, false, true, false},
 			resolved:   true,
 			emit:       true,
 			contiguous: false,
-			min:        "3.12.0",
-			max:        "3.14.0",
+			min:        "3.14.0",
+			max:        "3.16.0",
 		},
 	}
 	for _, tt := range tests {
@@ -255,9 +255,9 @@ func TestDeriveSection(t *testing.T) {
 		"missing": {Create: &opRef{Path: "/v3/missing", Method: "post"}},
 	}
 	versionOps := versionOpsFrom(map[string][]bool{
-		"POST /v3/dropped": {true, true, false, false, false},
-		"POST /v3/full":    {true, true, true, true, true},
-		"POST /v3/new":     {false, false, false, false, true},
+		"POST /v3/dropped": {true, true, false, false},
+		"POST /v3/full":    {true, true, true, true},
+		"POST /v3/new":     {false, false, false, true},
 	})
 
 	var log bytes.Buffer
@@ -266,10 +266,10 @@ func TestDeriveSection(t *testing.T) {
 	// Sorted by name; only "dropped" and "new" emit.
 	require.Len(t, out, 2)
 	assert.Equal(t, "dropped", out[0].name)
-	assert.Equal(t, "3.12.0", out[0].support.Min)
-	assert.Equal(t, "3.13.0", out[0].support.Max)
+	assert.Equal(t, "3.14.0", out[0].support.Min)
+	assert.Equal(t, "3.15.0", out[0].support.Max)
 	assert.Equal(t, "new", out[1].name)
-	assert.Equal(t, "3.16.0", out[1].support.Min)
+	assert.Equal(t, "3.17.0", out[1].support.Min)
 	assert.Equal(t, "", out[1].support.Max)
 
 	logStr := log.String()
@@ -346,19 +346,18 @@ data_sources:
 	m.EXPECT().ReadFile("cfg/config_overrides.yaml").Return(nil, os.ErrNotExist)
 
 	// Per-version clients:
-	//  ou-note: only in v3_16 (min-only, gated)
+	//  ou-note: only in v3_17 (min-only, gated)
 	//  full:    in every version (fully supported, skipped)
-	//  legacy:  only in v3_12,v3_13 (bounded, gated)
+	//  legacy:  only in v3_14,v3_15 (bounded, gated)
 	ouNote := op{method: "POST", path: "/v3/ou-note"}
 	full := op{method: "POST", path: "/v3/full"}
 	legacy := op{method: "GET", path: "/v3/legacy/{id}"}
 
 	presence := map[string][]op{
-		"v3_12": {full, legacy},
-		"v3_13": {full, legacy},
-		"v3_14": {full},
-		"v3_15": {full},
-		"v3_16": {full, ouNote},
+		"v3_14": {full, legacy},
+		"v3_15": {full, legacy},
+		"v3_16": {full},
+		"v3_17": {full, ouNote},
 	}
 	for _, v := range trackedVersions {
 		path := filepath.Join("sdk", "generated", v.dir, "oas_client_gen.go")
@@ -387,14 +386,14 @@ data_sources:
 	ouPath := filepath.Join("svc", "ou_note", "ou_note_version_gen.go")
 	require.Contains(t, writes, ouPath)
 	assert.Contains(t, writes[ouPath], "package ou_note")
-	assert.Contains(t, writes[ouPath], `minKionVersion = conns.MustParseKionVersion("3.16.0")`)
+	assert.Contains(t, writes[ouPath], `minKionVersion = conns.MustParseKionVersion("3.17.0")`)
 	assert.Contains(t, writes[ouPath], "maxKionVersion = conns.KionVersion{} // unbounded")
 
 	// legacy: bounded min+max gate.
 	legacyPath := filepath.Join("svc", "legacy", "legacy_version_gen.go")
 	require.Contains(t, writes, legacyPath)
-	assert.Contains(t, writes[legacyPath], `minKionVersion = conns.MustParseKionVersion("3.12.0")`)
-	assert.Contains(t, writes[legacyPath], `maxKionVersion = conns.MustParseKionVersion("3.13.0")`)
+	assert.Contains(t, writes[legacyPath], `minKionVersion = conns.MustParseKionVersion("3.14.0")`)
+	assert.Contains(t, writes[legacyPath], `maxKionVersion = conns.MustParseKionVersion("3.15.0")`)
 
 	// isResource must survive the whole pipeline, not just renderVersionGen:
 	// ou_note is a resource and gets a plan-time gate; legacy is a data source
@@ -429,7 +428,7 @@ resources:
 
 	ouNote := op{method: "POST", path: "/v3/ou-note"}
 	billing := op{method: "POST", path: "/v3/billing-rule"}
-	presence := map[string][]op{"v3_16": {ouNote, billing}} // both min-only, gated
+	presence := map[string][]op{"v3_17": {ouNote, billing}} // both min-only, gated
 	for _, v := range trackedVersions {
 		path := filepath.Join("sdk", "generated", v.dir, "oas_client_gen.go")
 		m.EXPECT().ReadFile(path).Return(clientSrc(presence[v.dir]...), nil)
@@ -510,13 +509,13 @@ func TestGenerate_sdkReadError(t *testing.T) {
 	m.EXPECT().ReadFile("cfg.yml").Return([]byte("resources: {}\n"), nil)
 	m.EXPECT().ReadFile("ov.yml").Return(nil, os.ErrNotExist)
 	// First version client read fails.
-	m.EXPECT().ReadFile(filepath.Join("sdk", "generated", "v3_12", "oas_client_gen.go")).
+	m.EXPECT().ReadFile(filepath.Join("sdk", "generated", "v3_14", "oas_client_gen.go")).
 		Return(nil, os.ErrNotExist)
 
 	g := &generator{fs: m}
 	_, err := g.generate(Options{ConfigPath: "cfg.yml", Overrides: "ov.yml", SDKDir: "sdk", ServiceRoot: "svc"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "reading client for v3_12")
+	assert.Contains(t, err.Error(), "reading client for v3_14")
 }
 
 func TestGenerate_overridesMerged(t *testing.T) {
@@ -540,7 +539,7 @@ resources:
 
 	newOp := op{method: "POST", path: "/v3/new"}
 	presence := map[string][]op{
-		"v3_16": {newOp}, // only newest => min-only gate at 3.16
+		"v3_17": {newOp}, // only newest => min-only gate at 3.17
 	}
 	for _, v := range trackedVersions {
 		path := filepath.Join("sdk", "generated", v.dir, "oas_client_gen.go")
@@ -559,7 +558,7 @@ resources:
 	require.NoError(t, err)
 	require.Equal(t, 1, n)
 	// Confirms the override's /v3/new op (present only in v3_16) drove the range.
-	assert.Contains(t, written, `minKionVersion = conns.MustParseKionVersion("3.16.0")`)
+	assert.Contains(t, written, `minKionVersion = conns.MustParseKionVersion("3.17.0")`)
 }
 
 // A resource gets a plan-time gate; a data source must not, both because it has

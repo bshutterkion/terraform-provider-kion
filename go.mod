@@ -45,7 +45,7 @@ require (
 // the import path at that host so the provider builds from a plain clone, with no
 // sibling checkout. Delete this line once the module path itself is published,
 // no import in the tree changes.
-replace github.com/kionsoftware/kion-sdk-go => github.com/bshutterkion/kion-sdk-go v0.9.0
+replace github.com/kionsoftware/kion-sdk-go => github.com/bshutterkion/kion-sdk-go v0.10.0
 
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
