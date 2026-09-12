@@ -154,27 +154,67 @@ func testAccCheckFundingSourceDestroy(_ context.Context) resource.TestCheckFunc 
 
 func testAccFundingSourceConfig_basic(rName string) string {
 	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
+}
+
+// A funding source rejects an ou-typed scheme: "app policy type not valid for
+// this object". The OU above still needs the ou-typed one.
+resource "kion_permission_scheme" "test_fs_perm" {
+  name = "%[1]s-fs-perm"
+  type = "funding_source"
+}
+
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
+}
+
 resource "kion_funding_source" "test" {
-  amount = 1000.00
-  end_datecode = "2026-12"
-  name = %[1]q
-  start_datecode = "2026-01"
-  owner_user_ids = [1]
-  permission_scheme_id = 4
+  amount               = 1000.00
+  end_datecode         = "2026-12"
+  name                 = %[1]q
+  start_datecode       = "2026-01"
+  owner_user_ids       = [1]
+  ou_id                = kion_ou.test_ou.id
+  permission_scheme_id = kion_permission_scheme.test_fs_perm.id
 }
 `, rName)
 }
 
 func testAccFundingSourceConfig_update(rName string) string {
 	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
+}
+
+// A funding source rejects an ou-typed scheme: "app policy type not valid for
+// this object". The OU above still needs the ou-typed one.
+resource "kion_permission_scheme" "test_fs_perm" {
+  name = "%[1]s-fs-perm"
+  type = "funding_source"
+}
+
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
+}
+
 resource "kion_funding_source" "test" {
-  amount = 2000.00
-  end_datecode = "2027-12"
-  name = %[1]q
-  start_datecode = "2026-01"
-  description = "test-acc-updated"
-  owner_user_ids = [1]
-  permission_scheme_id = 4
+  amount               = 2000.00
+  end_datecode         = "2027-12"
+  name                 = %[1]q
+  start_datecode       = "2026-01"
+  description          = "test-acc-updated"
+  owner_user_ids       = [1]
+  ou_id                = kion_ou.test_ou.id
+  permission_scheme_id = kion_permission_scheme.test_fs_perm.id
 }
 `, rName)
 }

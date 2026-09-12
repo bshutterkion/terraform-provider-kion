@@ -84,15 +84,21 @@ func readFundingSourceOwners(ctx context.Context, meta *conns.KionClient, id int
 
 // readFundingSourcePermissionScheme recovers permission_scheme_id.
 //
-// No public endpoint reports a funding source's permission scheme; the private
-// /v2 route that backs the UI's permissions tab joins app_policy and so returns
-// its id on every row. POST /v3/funding-source rejects a body without a
+// No public endpoint reports a funding source's permission scheme. The private
+// /v2 edit-data route -- what the UI's own edit form loads -- returns the
+// mapping row directly as app_policy_id. POST /v3/funding-source REQUIRES a
 // permission scheme, so without this an imported funding source produces a
-// configuration that fails on the first apply.
+// configuration that cannot be applied (#68).
+//
+// An earlier attempt read /v2/funding-source/{id}/app_policy_role_permissions
+// instead. That route joins app_policy_role_permission, so it returns rows only
+// for a scheme that already has role permissions -- a freshly created scheme has
+// none, and the read silently kept the id null. It passed against seeded data
+// and failed ImportStateVerify against a scheme the test made itself.
 func readFundingSourcePermissionScheme(ctx context.Context, meta *conns.KionClient, id int64, model *FundingSourceModel) diag.Diagnostics {
 	var diags diag.Diagnostics
 
-	body, err := meta.RawGet(ctx, fmt.Sprintf("/v2/funding-source/%d/app_policy_role_permissions", id))
+	body, err := meta.RawGet(ctx, fmt.Sprintf("/v2/funding-source/%d/edit-data", id))
 	if err != nil {
 		if conns.IsRawNotFound(err) {
 			return diags
@@ -102,7 +108,7 @@ func readFundingSourcePermissionScheme(ctx context.Context, meta *conns.KionClie
 	}
 
 	var payload struct {
-		Data []struct {
+		Data struct {
 			AppPolicyID int64 `json:"app_policy_id"`
 		} `json:"data"`
 	}
@@ -110,11 +116,11 @@ func readFundingSourcePermissionScheme(ctx context.Context, meta *conns.KionClie
 		diags.AddError(fmt.Sprintf("reading %s permission scheme (ID: %d)", ResNameFundingSource, id), err.Error())
 		return diags
 	}
-	// Every row carries the same scheme: the route reads the permissions of the
-	// one app policy mapped to this funding source.
-	if len(payload.Data) == 0 {
+	// Zero means no mapping row: leave the attribute untouched rather than
+	// writing a 0 no configuration could have set.
+	if payload.Data.AppPolicyID == 0 {
 		return diags
 	}
-	model.PermissionSchemeId = types.Int64Value(payload.Data[0].AppPolicyID)
+	model.PermissionSchemeId = types.Int64Value(payload.Data.AppPolicyID)
 	return diags
 }
