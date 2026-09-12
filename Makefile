@@ -303,6 +303,10 @@ crud-force: ## Regenerate ALL CRUD output, overwriting existing files (use after
 	@go run ./cmd/kgen crud --config $(GENERATOR_CONFIG) --config-overrides $(CONFIG_OVERRIDES) --sdk $(SDK_DIR) --crud-overrides $(CRUD_OVERRIDES) --test-values $(TEST_VALUES) --version-support $(VERSION_SUPPORT) --force
 	@echo "$(GREEN)✓ CRUD regenerated$(RESET)"
 
+.PHONY: regen-from-scratch
+regen-from-scratch: ## Wipe internal/service and rebuild it from codegen/, then diff against HEAD
+	@./scripts/regen-from-scratch.sh
+
 .PHONY: import-manifest
 import-manifest: ## Generate codegen/import_manifest.json (kgen import-manifest)
 	@go run ./cmd/kgen import-manifest
@@ -340,7 +344,26 @@ bind-audit: ## Rewrite codegen/unbound_attributes.yaml from the current tree
 	@echo "$(GREEN)✓ codegen/unbound_attributes.yaml regenerated$(RESET)"
 
 .PHONY: generate
-generate: version-gen generate-schemas crud import-manifest ## Regenerate the full generatable surface
+# Two passes, and the second is not belt-and-braces.
+#
+# The generators are not independent: `kgen crud` needs the schema models, while
+# the schema TESTS and some version gates read the generated Go source for a
+# resource's constructor. Each pass therefore produces input the other needs,
+# and one pass cannot satisfy both.
+#
+# Incrementally that never shows, because the files the second pass needs are
+# already on disk from last time. Against an empty internal/service it does: one
+# pass leaves 70 *_schema_gen_test.go files and 2 version gates unwritten, and
+# one version gate wrong -- all silently, since the tree still builds and the
+# only casualty is test files that no longer exist to fail.
+#
+# Verified by wiping all 408 generated files and regenerating: two passes
+# reproduce the tree byte for byte. TestGenerateConverges holds the property.
+generate: ## Regenerate the full generatable surface (converges in two passes)
+	@$(MAKE) --no-print-directory version-gen generate-schemas crud
+	@echo "$(BLUE)Second pass (schema tests and version gates read generated source)...$(RESET)"
+	@$(MAKE) --no-print-directory version-gen generate-schemas
+	@$(MAKE) --no-print-directory import-manifest
 
 .PHONY: build-tools
 build-tools: ## Build the kgen + kalign + kconfig + kversions + kion-import dev tools into ./bin/
