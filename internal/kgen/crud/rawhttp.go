@@ -28,6 +28,27 @@ type rawOp struct {
 	Raw bool `yaml:"raw"`
 
 	Spec string `yaml:"spec"` // "public" | "private", blended archetype renders private ops raw
+
+	// Objects declares the nested attributes a raw body carries. rawModelFields
+	// maps scalars only and REFUSES anything else rather than dropping it, which
+	// is right -- a settable attribute silently omitted from the request is this
+	// codebase's worst defect class -- but it also means a resource whose create
+	// body has one nested object cannot use the raw path at all.
+	//
+	// kion_account_cache is the case: its create carries organizational_unit
+	// {name, org_unit_id}, so it stayed on a URL that 404s (#102) purely for
+	// want of two strings.
+	//
+	// Authored rather than derived: the generator would have to resolve the
+	// schema's Value type to know the sub-fields, and the wire names are the
+	// API's, not necessarily the attribute's.
+	Objects []rawObject `yaml:"objects"`
+}
+
+// rawObject is one nested attribute in a raw request body.
+type rawObject struct {
+	TF   string   `yaml:"tf"`   // model attribute, e.g. organizational_unit
+	Subs []string `yaml:"subs"` // sub-attribute names, identical on the wire
 }
 
 type rawResourceOps struct {

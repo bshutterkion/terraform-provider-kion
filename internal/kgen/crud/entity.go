@@ -610,8 +610,22 @@ func labelsRespType(l *labelSyncBind) string {
 // rawCreateData is a create routed over raw HTTP on an otherwise-typed resource.
 // The wire struct is flat and keyed by tfsdk names, like the raw archetype's.
 type rawCreateData struct {
-	Method string // conns verb, e.g. "RawPost"
-	Path   string
-	Fields []rawField
-	IDGo   string // model field holding the id
+	Method  string // conns verb, e.g. "RawPost"
+	Path    string
+	Fields  []rawField
+	Objects []rawCreateObject // nested attributes, declared in the archetype
+	IDGo    string            // model field holding the id
+}
+
+// rawCreateObject is a nested attribute rendered as a nested wire struct.
+type rawCreateObject struct {
+	ModelGo string // model field, e.g. "OrganizationalUnit"
+	JSON    string // wire key, e.g. "organizational_unit"
+	GoType  string // the schema's Value type, e.g. "OrganizationalUnitValue"
+	Subs    []rawCreateObjectSub
+}
+
+type rawCreateObjectSub struct {
+	ModelGo string // sub-field on the Value type, e.g. "OrgUnitId"
+	JSON    string // wire key, e.g. "org_unit_id"
 }

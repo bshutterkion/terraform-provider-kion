@@ -86,7 +86,7 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	{{range .CreateObjBinds}}{{.Var}} := {{$.SDKAlias}}.{{.SDKType}}{
+	{{if not .RawCreate}}{{range .CreateObjBinds}}{{.Var}} := {{$.SDKAlias}}.{{.SDKType}}{
 		{{- range .Subs}}
 		{{.SDKField}}: {{.Expr}},
 		{{- end}}
@@ -123,11 +123,22 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	{{end}}{{if .RawCreate}}wire := {{.Pkg}}CreateWire{
+	{{end}}{{end}}{{if .RawCreate}}wire := {{.Pkg}}CreateWire{
 		{{- range .RawCreate.Fields}}
 		{{.ModelGo}}: {{.FromExpr}},
 		{{- end}}
 	}
+{{- range $obj := .RawCreate.Objects}}
+	// A null or unknown nested object stays nil, so omitempty drops it from the
+	// body rather than sending an object of empty strings.
+	if !plan.{{$obj.ModelGo}}.IsNull() && !plan.{{$obj.ModelGo}}.IsUnknown() {
+		wire.{{$obj.ModelGo}} = &{{$.Pkg}}{{$obj.ModelGo}}Wire{
+			{{- range $obj.Subs}}
+			{{.ModelGo}}: plan.{{$obj.ModelGo}}.{{.ModelGo}}.ValueString(),
+			{{- end}}
+		}
+	}
+{{- end}}
 	rawBody, err := json.Marshal(wire)
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", {{.ResConst}}), err.Error())
@@ -748,7 +759,18 @@ type {{.Pkg}}CreateWire struct {
 	{{- range .RawCreate.Fields}}
 	{{.ModelGo}} {{.WireType}} `json:"{{.JSON}},omitempty"`
 	{{- end}}
+	{{- range .RawCreate.Objects}}
+	{{.ModelGo}} *{{$.Pkg}}{{.ModelGo}}Wire `json:"{{.JSON}},omitempty"`
+	{{- end}}
 }
+{{range .RawCreate.Objects}}
+// {{$.Pkg}}{{.ModelGo}}Wire is the nested {{.JSON}} object of the create body.
+type {{$.Pkg}}{{.ModelGo}}Wire struct {
+	{{- range .Subs}}
+	{{.ModelGo}} string `json:"{{.JSON}},omitempty"`
+	{{- end}}
+}
+{{end}}
 
 {{end}}func flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}ctx context.Context, {{end}}apiObject any, model *{{.Model}}) diag.Diagnostics {
 	{{- if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}

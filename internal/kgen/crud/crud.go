@@ -347,11 +347,39 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 			if err != nil {
 				return 0, fmt.Errorf("%s raw_create: %w", name, err)
 			}
-			fields, idGo, err := rawModelFields(model, nil)
+			// Nested attributes are declared, not mapped: hide them from
+			// rawModelFields so its refusal still covers everything else.
+			declared := map[string]bool{}
+			var objs []rawCreateObject
+			for _, o := range rc.Objects {
+				declared[o.TF] = true
+				var goType string
+				for _, mf := range model {
+					if mf.TFSDK == o.TF {
+						goType = mf.Type
+						break
+					}
+				}
+				if goType == "" {
+					return 0, fmt.Errorf("%s raw_create: object %q is not in the model", name, o.TF)
+				}
+				obj := rawCreateObject{ModelGo: pascalCase(o.TF), JSON: o.TF, GoType: goType}
+				for _, s := range o.Subs {
+					obj.Subs = append(obj.Subs, rawCreateObjectSub{ModelGo: pascalCase(s), JSON: s})
+				}
+				objs = append(objs, obj)
+			}
+			scalars := make([]ModelField, 0, len(model))
+			for _, mf := range model {
+				if !declared[mf.TFSDK] {
+					scalars = append(scalars, mf)
+				}
+			}
+			fields, idGo, err := rawModelFields(scalars, nil)
 			if err != nil {
 				return 0, fmt.Errorf("%s raw_create: %w", name, err)
 			}
-			rm.RawCreate = &rawCreateData{Method: verb, Path: rc.Path, Fields: fields, IDGo: idGo}
+			rm.RawCreate = &rawCreateData{Method: verb, Path: rc.Path, Fields: fields, Objects: objs, IDGo: idGo}
 		}
 		for _, tfName := range entityArch.Rewritten {
 			var goName string

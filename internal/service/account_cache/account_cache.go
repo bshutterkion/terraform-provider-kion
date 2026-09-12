@@ -5,6 +5,7 @@ package account_cache
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -55,32 +56,54 @@ func (r *account_cacheResource) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 
-	organizationalUnit := generated.PayerOrganizationalUnit{
-		Name:      flex.OptStringFromFramework(plan.OrganizationalUnit.Name),
-		OrgUnitID: flex.OptStringFromFramework(plan.OrganizationalUnit.OrgUnitId),
+	wire := account_cacheCreateWire{
+		AccountAlias:              plan.AccountAlias.ValueString(),
+		AccountEmail:              plan.AccountEmail.ValueString(),
+		AccountName:               plan.AccountName.ValueString(),
+		AccountNumber:             plan.AccountNumber.ValueString(),
+		AccountTypeId:             plan.AccountTypeId.ValueInt64(),
+		CarExternalId:             plan.CarExternalId.ValueString(),
+		CommercialAccountName:     plan.CommercialAccountName.ValueString(),
+		CreateGovcloud:            plan.CreateGovcloud.ValueBool(),
+		CreatedAt:                 plan.CreatedAt.ValueString(),
+		GovAccountName:            plan.GovAccountName.ValueString(),
+		IncludeLinkedAccountSpend: plan.IncludeLinkedAccountSpend.ValueBool(),
+		LastUpdated:               plan.LastUpdated.ValueString(),
+		LinkedAccountNumber:       plan.LinkedAccountNumber.ValueString(),
+		LinkedRole:                plan.LinkedRole.ValueString(),
+		PayerId:                   plan.PayerId.ValueInt64(),
+		ServiceExternalId:         plan.ServiceExternalId.ValueString(),
+		SkipAccessChecking:        plan.SkipAccessChecking.ValueBool(),
 	}
-	input := &generated.AWSAccountCacheNewAWSAccount{
-		AccountAlias:              flex.OptStringFromFramework(plan.AccountAlias),
-		AccountEmail:              flex.OptStringFromFramework(plan.AccountEmail),
-		AccountName:               flex.StringValueFromFramework(plan.AccountName),
-		AccountTypeID:             flex.OptNilUint64FromFramework(plan.AccountTypeId),
-		CommercialAccountName:     flex.OptStringFromFramework(plan.CommercialAccountName),
-		CreateGovcloud:            flex.OptNilBoolFromFramework(plan.CreateGovcloud),
-		GovAccountName:            flex.OptStringFromFramework(plan.GovAccountName),
-		IncludeLinkedAccountSpend: flex.OptNilBoolFromFramework(plan.IncludeLinkedAccountSpend),
-		LinkedRole:                flex.OptStringFromFramework(plan.LinkedRole),
-		PayerID:                   flex.NilUint64FromFramework(plan.PayerId),
-		OrganizationalUnit:        generated.OptPayerOrganizationalUnit{Value: organizationalUnit, Set: true},
+	// A null or unknown nested object stays nil, so omitempty drops it from the
+	// body rather than sending an object of empty strings.
+	if !plan.OrganizationalUnit.IsNull() && !plan.OrganizationalUnit.IsUnknown() {
+		wire.OrganizationalUnit = &account_cacheOrganizationalUnitWire{
+			Name:      plan.OrganizationalUnit.Name.ValueString(),
+			OrgUnitId: plan.OrganizationalUnit.OrgUnitId.ValueString(),
+		}
 	}
-
-	out, err := conn.PostAccountCacheCreateNewAWS(ctx, input)
+	rawBody, err := json.Marshal(wire)
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameAccountCache), err.Error())
 		return
 	}
-
-	id, diags := errs.CreatedID(out)
-	resp.Diagnostics.Append(diags...)
+	rawOut, err := r.Meta().RawPost(ctx, "/v3/account-cache/create?account-type=aws", rawBody)
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameAccountCache), err.Error())
+		return
+	}
+	var createdRaw struct {
+		RecordID int64 `json:"record_id"`
+	}
+	if err := json.Unmarshal(rawOut, &createdRaw); err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameAccountCache), fmt.Sprintf("decoding response: %s", err))
+		return
+	}
+	// An id that decodes to zero is not a fallback to write to state: the record
+	// exists in Kion and nothing addressed as id 0 can ever refresh or delete it.
+	id, idDiags := errs.RawCreatedID(createdRaw.RecordID)
+	resp.Diagnostics.Append(idDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -231,6 +254,35 @@ func (r *account_cacheResource) Delete(ctx context.Context, req resource.DeleteR
 
 func (r *account_cacheResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+}
+
+// account_cacheCreateWire is the create body, keyed by the schema's own attribute
+// names. Only the create is raw; read, update and delete stay on the SDK.
+type account_cacheCreateWire struct {
+	AccountAlias              string                               `json:"account_alias,omitempty"`
+	AccountEmail              string                               `json:"account_email,omitempty"`
+	AccountName               string                               `json:"account_name,omitempty"`
+	AccountNumber             string                               `json:"account_number,omitempty"`
+	AccountTypeId             int64                                `json:"account_type_id,omitempty"`
+	CarExternalId             string                               `json:"car_external_id,omitempty"`
+	CommercialAccountName     string                               `json:"commercial_account_name,omitempty"`
+	CreateGovcloud            bool                                 `json:"create_govcloud,omitempty"`
+	CreatedAt                 string                               `json:"created_at,omitempty"`
+	GovAccountName            string                               `json:"gov_account_name,omitempty"`
+	IncludeLinkedAccountSpend bool                                 `json:"include_linked_account_spend,omitempty"`
+	LastUpdated               string                               `json:"last_updated,omitempty"`
+	LinkedAccountNumber       string                               `json:"linked_account_number,omitempty"`
+	LinkedRole                string                               `json:"linked_role,omitempty"`
+	PayerId                   int64                                `json:"payer_id,omitempty"`
+	ServiceExternalId         string                               `json:"service_external_id,omitempty"`
+	SkipAccessChecking        bool                                 `json:"skip_access_checking,omitempty"`
+	OrganizationalUnit        *account_cacheOrganizationalUnitWire `json:"organizational_unit,omitempty"`
+}
+
+// account_cacheOrganizationalUnitWire is the nested organizational_unit object of the create body.
+type account_cacheOrganizationalUnitWire struct {
+	Name      string `json:"name,omitempty"`
+	OrgUnitId string `json:"org_unit_id,omitempty"`
 }
 
 func flattenAccountCache(apiObject any, model *AccountCacheModel) diag.Diagnostics {
