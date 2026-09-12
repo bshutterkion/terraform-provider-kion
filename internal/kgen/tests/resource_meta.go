@@ -39,10 +39,17 @@ type ResourceMeta struct {
 	// needs a record this install has no way to invent (a billing source, a
 	// cloud account) skips loudly rather than failing or silently passing.
 	//
-	// These are guards only: the variable's value is not threaded into the HCL.
-	// A test that must interpolate an install-specific id into its config is
-	// hand-written, as internal/service/billing_rule already is.
+	// These are guards only. To also thread the value into the HCL, list it in
+	// EnvArgs; without that a test needing an install-specific id in its config
+	// has to be hand-written.
 	RequiredEnv []EnvRequirement
+
+	// EnvArgs are environment variables whose VALUES the config needs, not just
+	// the skip guard. Each becomes an extra parameter on the generated config
+	// functions, readable from FieldOverrides as %[2]s, %[3]s, ... in order.
+	// Pair each with a RequiredEnv entry so an install lacking the value skips
+	// rather than sending an empty string.
+	EnvArgs []string
 
 	// ImportIDParentField names the attribute holding the parent id for a
 	// resource whose ImportState expects "<parent>/<id>" rather than a bare id
@@ -159,8 +166,13 @@ var registry = map[string]ResourceMeta{
 		RequiredEnv: []EnvRequirement{
 			{Name: "KION_ACC_BILLING_SOURCE_ID", Reason: "a billing source on this install; POST /v3/category requires payer_id"},
 		},
+		EnvArgs: []string{"KION_ACC_BILLING_SOURCE_ID"},
 		FieldOverrides: map[string]FieldValue{
 			"name": {Basic: `%[1]q`, Update: `%[1]q`},
+			// payer_id is optional in the schema and the spec, and required by
+			// the create. Gating alone was not enough: the test then ran and
+			// failed on the missing field.
+			"payer_id": {Basic: `%[2]s`, Update: `%[2]s`},
 		},
 	},
 	"kion_idms": {

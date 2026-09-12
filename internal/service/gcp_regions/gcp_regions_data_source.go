@@ -57,7 +57,7 @@ func (d *gcpRegionsDataSource) Read(ctx context.Context, _ datasource.ReadReques
 	}
 	api, ok := out.(*generated.ListGCPRegionsResponse)
 	if !ok {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameGcpRegions, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("reading "+DSNameGcpRegions, out)...)
 		return
 	}
 

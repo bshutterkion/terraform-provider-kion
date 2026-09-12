@@ -63,6 +63,11 @@ func IsNotFound(res any) bool {
 // ResponseDiagnostics converts error response types (BadRequest, Unauthorized,
 // Forbidden, NotFound, InternalServerError) into Terraform diagnostics.
 // Returns empty diagnostics for success response types.
+//
+// Callers pass ANY response here, so silence on success is the contract: a
+// delete that answers 200 OK must not be reported as a failure. A caller that
+// has ALREADY established the response is unusable wants UnexpectedResponse
+// instead, which is never silent.
 func ResponseDiagnostics(summary string, res any) diag.Diagnostics {
 	var diags diag.Diagnostics
 
@@ -81,5 +86,44 @@ func ResponseDiagnostics(summary string, res any) diag.Diagnostics {
 		diags.AddError(summary, fmt.Sprintf("Unprocessable Entity: %s", r.Message.Or("no message")))
 	}
 
+	return diags
+}
+
+// UnexpectedResponse reports a response the caller has already determined it
+// cannot use. It ALWAYS produces an error.
+//
+// The distinction from ResponseDiagnostics matters because of what the callers
+// do next. A create that cannot find its record in the response does:
+//
+//	created, ok := out.(*generated.XResponse)
+//	if !ok || !created.Data.Set {
+//		resp.Diagnostics.Append(…)
+//		return
+//	}
+//
+// With ResponseDiagnostics, a response that is neither a modeled error nor the
+// expected success type produced NO diagnostic, so that returned with neither an
+// error nor any state:
+//
+//	Missing Resource State After Create
+//	The Terraform Provider unexpectedly returned no resource state after having
+//	no errors in the resource creation.
+//
+// The record is created and then orphaned -- Terraform never learns its id, so
+// nothing will ever address or destroy it. kion_scope is how this surfaced: the
+// spec models its create response as {data: …} while Kion answers {status,
+// record_id}, so the typed response carried no data at all.
+//
+// It still renders a modeled error's own message when there is one; the point
+// is only that it cannot return empty.
+func UnexpectedResponse(summary string, res any) diag.Diagnostics {
+	if diags := ResponseDiagnostics(summary, res); diags.HasError() {
+		return diags
+	}
+	var diags diag.Diagnostics
+	// Naming the Go type is what makes a spec/server mismatch diagnosable.
+	diags.AddError(summary, fmt.Sprintf(
+		"unexpected API response %T: it did not carry the record this operation needed. "+
+			"This usually means the OpenAPI spec models the response differently from what the server sends.", res))
 	return diags
 }

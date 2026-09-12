@@ -64,6 +64,25 @@ type archetype struct {
 	// permission scheme). Which endpoints those are, and how to read an
 	// attribute back out of them, is knowledge no spec carries.
 	ReadCompanion string `yaml:"read_companion"`
+	// Rewritten (kind: entity) names attributes the API stores in a canonical
+	// form of its own and echoes back rewritten, so the read-back after a write
+	// does not textually match what the practitioner configured. Terraform
+	// compares the post-apply value to the plan verbatim and rejects the
+	// mismatch outright:
+	//
+	//	Provider produced inconsistent result after apply
+	//	.role_permissions: was {"actions":[...],"notActions":[]}, but now
+	//	{"actions":[...],"dataActions":[],"notActions":[],"notDataActions":[]}
+	//
+	// and on a later plan the same difference is a diff that can never
+	// converge. Listed attributes keep the configured value through Create and
+	// Update; Read still flattens them, so drift on an unmanaged change is
+	// still detected. This is the labels restore generalized -- same shape, but
+	// driven by the archetype rather than hardcoded.
+	//
+	// Use it only for an attribute whose rewrite is a canonicalization, never
+	// to paper over one the provider sends wrong.
+	Rewritten []string `yaml:"rewritten"`
 	// Sweeper (kind: entity): the data-source collection is parent-scoped, so it
 	// takes a required parent-id param the data source cannot supply. A sweeper
 	// can: it enumerates SweepParent's own collection first. Without these the

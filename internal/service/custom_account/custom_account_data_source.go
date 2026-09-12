@@ -207,7 +207,7 @@ func (d *custom_accountDataSource) readByID(ctx context.Context, conn *generated
 	}
 	api, ok := out.(*generated.AccountResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameCustomAccount, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameCustomAccount, out)...)
 		return
 	}
 
@@ -277,7 +277,7 @@ func fetchAllCustomAccount(ctx context.Context, conn *generated.Client) ([]gener
 	}
 	resp, ok := out.(*generated.AccountListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameCustomAccount, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameCustomAccount, out)...)
 		return nil, diags
 	}
 	items := resp.Data

@@ -174,7 +174,7 @@ func (d *cftDataSource) readByID(ctx context.Context, conn *generated.Client, da
 	}
 	api, ok := out.(*generated.CFTResponseWithOwnersAndTags)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameCft, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameCft, out)...)
 		return
 	}
 
@@ -246,7 +246,7 @@ func fetchAllCft(ctx context.Context, conn *generated.Client) ([]generated.CFTWi
 	}
 	resp, ok := out.(*generated.CFTListResponseWithOwnersAndTags)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameCft, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameCft, out)...)
 		return nil, diags
 	}
 	items := resp.Data

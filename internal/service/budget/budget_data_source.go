@@ -82,7 +82,7 @@ func (d *budgetDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 
 	api, ok := out.(*generated.BudgetResponse)
 	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameBudget, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("reading "+DSNameBudget, out)...)
 		return
 	}
 

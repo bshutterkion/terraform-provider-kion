@@ -161,7 +161,7 @@ func (d *azure_policyDataSource) readByID(ctx context.Context, conn *generated.C
 	}
 	api, ok := out.(*generated.AzurePolicyResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameAzurePolicy, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameAzurePolicy, out)...)
 		return
 	}
 
@@ -227,7 +227,7 @@ func fetchAllAzurePolicy(ctx context.Context, conn *generated.Client) ([]generat
 	}
 	resp, ok := out.(*generated.AzurePolicyListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameAzurePolicy, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameAzurePolicy, out)...)
 		return nil, diags
 	}
 	items := resp.Data

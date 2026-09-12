@@ -177,7 +177,7 @@ func (d *custom_variableDataSource) readByID(ctx context.Context, conn *generate
 	}
 	api, ok := out.(*generated.CustomVariableResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameCustomVariable, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameCustomVariable, out)...)
 		return
 	}
 
@@ -253,7 +253,7 @@ func fetchAllCustomVariable(ctx context.Context, conn *generated.Client) ([]gene
 		}
 		resp, ok := out.(*generated.PaginatedCustomVariableListResponse)
 		if !ok {
-			diags.Append(errs.ResponseDiagnostics("listing "+DSNameCustomVariable, out)...)
+			diags.Append(errs.UnexpectedResponse("listing "+DSNameCustomVariable, out)...)
 			return nil, diags
 		}
 		if !resp.Data.Set {

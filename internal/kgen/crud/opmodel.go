@@ -203,6 +203,9 @@ type ResourceModel struct {
 	// ReadCompanion is a hand-authored function called after every flatten to
 	// read attributes the by-id GET does not return (archetype read_companion).
 	ReadCompanion string
+	// Rewritten holds model field names whose configured value Create and Update
+	// restore after the read-back; see the archetype's Rewritten.
+	Rewritten []string
 	// Owner association synced on Update via paired add/remove endpoints.
 	Owners *ownerMembershipBind
 	// Bulk association syncs (each a struct body of id-lists via one add/remove pair).

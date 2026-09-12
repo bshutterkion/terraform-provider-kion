@@ -722,10 +722,14 @@ resources:
         type: string
         computed_optional_required: computed
         description: When the dashboard was created.
+      # No UseStateForUnknown: the server stamps this on every update, so
+      # carrying the prior value into the plan and then receiving a new one
+      # fails the apply. See project_note's last_update_* for the same case.
       updated_at:
         type: string
         computed_optional_required: computed
         description: When the dashboard was last updated.
+        plan_modifiers: []
   app_role:
     description: "Manages a Kion App Role."
     # Computed read-only fields not in the create body.
@@ -738,6 +742,16 @@ resources:
         type: bool
         computed_optional_required: computed
         description: Whether the app role is system-managed.
+      # Read-only, like system_managed. Kion's AppRoleCreate and AppRoleUpdate
+      # both carry only `name`; `disabled` appears in the RESPONSE model alone.
+      # It was settable, and the provider had no way to send it, so a
+      # configuration setting it was accepted and discarded -- confirmed against
+      # a live install, where PATCH {"disabled":true} answers 200 and the role
+      # reads back disabled=false.
+      disabled:
+        type: bool
+        computed_optional_required: computed
+        description: Whether the app role is disabled.
   project_note:
     description: "Manages a Kion Project Note."
     # Computed audit fields from the backend ProjectNote model.
@@ -746,22 +760,35 @@ resources:
         type: string
         computed_optional_required: computed
         description: The ID of the project note.
+      # Required, not computed: POST /v3/project-note rejects a body without it
+      # ("Key: 'ProjectNoteCreate.CreateUserID' … failed on the 'required' tag"),
+      # so marking it computed made kion_project_note impossible to create. The
+      # provider already sends it; only the schema forbade supplying it. The
+      # SDKv2 provider had it Required, so this is also a migration regression.
       create_user_id:
         type: int64
-        computed_optional_required: computed
+        computed_optional_required: required
         description: ID of the user who created the note.
       create_user_name:
         type: string
         computed_optional_required: computed
         description: Name of the user who created the note.
+      # No UseStateForUnknown on these two: the server sets them on update, so
+      # carrying the prior state into the plan (null, for a note never updated)
+      # and then receiving a real value fails the apply outright:
+      #   .last_update_user_id: was null, but now 1
+      #   .updated_at: was null, but now "2026-09-12T06:06:51Z"
+      # An empty plan_modifiers list is how an attribute opts out of the default.
       last_update_user_id:
         type: int64
         computed_optional_required: computed
         description: ID of the user who last updated the note.
+        plan_modifiers: []
       last_update_user_name:
         type: string
         computed_optional_required: computed
         description: Name of the user who last updated the note.
+        plan_modifiers: []
       created_at:
         type: string
         computed_optional_required: computed
@@ -770,6 +797,7 @@ resources:
         type: string
         computed_optional_required: computed
         description: When the note was last updated.
+        plan_modifiers: []
   compliance_control:
     description: "Manages a Kion Compliance Control."
     # DELETE is scoped by the parent program (/v4/compliance/program/{id}/control/
@@ -834,6 +862,16 @@ resources:
           import: github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes
           type: jsontypes.NormalizedType{}
           value_type: jsontypes.Normalized
+      # alias is varchar(16) in Kion's own schema. The OpenAPI spec does not say
+      # so, and a longer value is answered with a bare 500 -- "error creating
+      # scope" -- naming neither the field nor the limit. Validating it here
+      # turns that into a plan-time message.
+      alias:
+        type: string
+        computed_optional_required: computed_optional
+        description: Alias of the scope in the application. Limited to 16 characters.
+        validators:
+          - stringvalidator.LengthAtMost(16)
   scope_criteria:
     # Compound-key sub-resource (see the compound-key/parent-read archetype).
     # Identity is (scope_id, criteria_id); the spec models neither of those as an
@@ -1019,6 +1057,37 @@ resources:
   # to carry forward.
   account_linkage:
     description: "Manages a Kion Account Linkage, associating an account with a project."
+    # Kion publishes no update for a linkage, so the generated Update is a flat
+    # error: "kion_account_linkage cannot be updated in place; changes force
+    # replacement." Nothing made that happen, though -- no attribute required
+    # replacement, so Terraform planned an in-place update and every change to a
+    # linkage failed the apply instead of recreating it. (Kion itself does serve a
+    # PATCH; the public spec does not declare it, so the SDK has no method for it.)
+    attributes:
+      azure_object_id:
+        type: string
+        computed_optional_required: required
+        description: Azure Object ID of the user (UUID format).
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
+      azure_principal_name:
+        type: string
+        computed_optional_required: required
+        description: Azure Principal Name (UPN) of the user.
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
+      payer_id:
+        type: int64
+        computed_optional_required: required
+        description: ID of the payer this linkage is associated with.
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
+      user_id:
+        type: int64
+        computed_optional_required: required
+        description: ID of the Kion user to link.
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
   billing_source_govcloud:
     description: "Manages the GovCloud information attached to an existing Kion commercial billing source. One per billing source, addressed by the commercial payer's id."
   funding_source_note:

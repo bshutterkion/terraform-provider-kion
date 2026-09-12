@@ -86,7 +86,7 @@ func (d *awsAccountDataSource) Read(ctx context.Context, req datasource.ReadRequ
 	}
 	api, ok := out.(*generated.AccountResponse)
 	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameAwsAccount, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("reading "+DSNameAwsAccount, out)...)
 		return
 	}
 

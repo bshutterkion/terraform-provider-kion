@@ -3,7 +3,6 @@ package ami_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"testing"
 
@@ -21,9 +20,17 @@ func TestAccKionAmi_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
-	if os.Getenv("KION_ACC_AWS_ACCOUNT_NUMBER") == "" {
-		t.Skip("KION_ACC_AWS_ACCOUNT_NUMBER must be set to an AWS account on this install; kion_ami registers an image against one")
-	}
+	// kion_ami takes Kion's own account id, not the cloud account number. The
+	// fixture used to hardcode account_id = 1, which is not an account on every
+	// install: "Bad Request: account not found".
+	accountID := acctest.RequireEnv(t, "KION_ACC_ACCOUNT_ID",
+		"the Kion id of an account this install can register an AMI against")
+	// Kion assumes its service role in that account and calls DescribeImages, so
+	// the image has to exist: an invented id fails with "Could not validate the
+	// presence of this AMI". Any AMI the account can describe works, including a
+	// public Amazon one -- but ids are per-region and rotate, so it is supplied.
+	amiID := acctest.RequireEnv(t, "KION_ACC_AWS_AMI_ID",
+		"an AMI id in us-east-1 the install's accounts can describe")
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
@@ -35,7 +42,7 @@ func TestAccKionAmi_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckAmiDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAmiConfig_basic(rName),
+				Config: testAccAmiConfig_basic(rName, accountID, amiID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAmiExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -59,9 +66,17 @@ func TestAccKionAmi_update(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
-	if os.Getenv("KION_ACC_AWS_ACCOUNT_NUMBER") == "" {
-		t.Skip("KION_ACC_AWS_ACCOUNT_NUMBER must be set to an AWS account on this install; kion_ami registers an image against one")
-	}
+	// kion_ami takes Kion's own account id, not the cloud account number. The
+	// fixture used to hardcode account_id = 1, which is not an account on every
+	// install: "Bad Request: account not found".
+	accountID := acctest.RequireEnv(t, "KION_ACC_ACCOUNT_ID",
+		"the Kion id of an account this install can register an AMI against")
+	// Kion assumes its service role in that account and calls DescribeImages, so
+	// the image has to exist: an invented id fails with "Could not validate the
+	// presence of this AMI". Any AMI the account can describe works, including a
+	// public Amazon one -- but ids are per-region and rotate, so it is supplied.
+	amiID := acctest.RequireEnv(t, "KION_ACC_AWS_AMI_ID",
+		"an AMI id in us-east-1 the install's accounts can describe")
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
@@ -73,14 +88,14 @@ func TestAccKionAmi_update(t *testing.T) {
 		CheckDestroy:             testAccCheckAmiDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAmiConfig_basic(rName),
+				Config: testAccAmiConfig_basic(rName, accountID, amiID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAmiExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
 			},
 			{
-				Config: testAccAmiConfig_update(rName),
+				Config: testAccAmiConfig_update(rName, accountID, amiID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAmiExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -161,27 +176,27 @@ func testAccCheckAmiDestroy(_ context.Context) resource.TestCheckFunc {
 	}
 }
 
-func testAccAmiConfig_basic(rName string) string {
+func testAccAmiConfig_basic(rName, accountID, amiID string) string {
 	return fmt.Sprintf(`
 resource "kion_ami" "test" {
-  account_id = 1
-  aws_ami_id = "ami-00000000000000000"
+  account_id = %[2]s
+  aws_ami_id = %[3]q
   name = %[1]q
   region = "us-east-1"
   owner_user_ids = [1]
 }
-`, rName)
+`, rName, accountID, amiID)
 }
 
-func testAccAmiConfig_update(rName string) string {
+func testAccAmiConfig_update(rName, accountID, amiID string) string {
 	return fmt.Sprintf(`
 resource "kion_ami" "test" {
-  account_id = 2
-  aws_ami_id = "ami-00000000000000000"
+  account_id = %[2]s
+  aws_ami_id = %[3]q
   name = %[1]q
   region = "us-east-1"
   description = "test-acc-updated"
   owner_user_ids = [1]
 }
-`, rName)
+`, rName, accountID, amiID)
 }

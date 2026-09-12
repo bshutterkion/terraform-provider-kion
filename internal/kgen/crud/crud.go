@@ -342,6 +342,20 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	}
 	if entityArch != nil {
 		rm.ReadCompanion = entityArch.ReadCompanion
+		for _, tfName := range entityArch.Rewritten {
+			var goName string
+			for _, mf := range model {
+				if mf.TFSDK == tfName {
+					goName = mf.GoName
+					break
+				}
+			}
+			if goName == "" {
+				fmt.Fprintf(os.Stderr, "kgen crud: %s: rewritten attribute %q is not in the model\n", name, tfName)
+				continue
+			}
+			rm.Rewritten = append(rm.Rewritten, goName)
+		}
 		rm.DeleteRecordParam = entityArch.DeleteRecordParam
 		rm.DeleteExtraParam = entityArch.DeleteExtraParam
 		rm.DeleteExtraField = entityArch.DeleteExtraField

@@ -3,6 +3,7 @@ package crud
 import (
 	_ "embed"
 	"fmt"
+	"os"
 	"path/filepath"
 )
 
@@ -42,9 +43,26 @@ type rawWriteData struct {
 	HasBody bool   // update marshals the model into the wire body; delete does not
 }
 
-// isRawOp reports whether an op is served over the private API (rendered raw).
+// isRawOp reports whether an op is rendered over raw HTTP rather than the SDK.
+//
+// A private path is the usual reason, and was once the only one -- hence `spec`,
+// which is recorded for documentation and is not used for routing (the raw call
+// takes the literal path). But it is not the invariant. kion_billing_rule is
+// served entirely by public endpoints whose spec schema for the read is EMPTY:
+// the SDK's typed model has no fields, so the typed flatten assigns nothing and
+// an import yields a bare id. That read has to be raw too.
+//
+// A public path can need it too, and says so with `raw: true`. kion_billing_rule
+// is served entirely by public endpoints whose spec schema for the read is
+// EMPTY: the SDK's typed model has no fields, so the typed flatten assigns
+// nothing and an import yields a bare id.
+//
+// The flag is required rather than inferred from the path, because these
+// entries also DOCUMENT the typed public writes that sit beside a private read.
+// Treating any declared path as raw turned those into raw writes and broke
+// every other blended resource.
 func isRawOp(op rawOp) bool {
-	return op.Spec == "private" && op.Path != ""
+	return (op.Spec == "private" || op.Raw) && op.Path != ""
 }
 
 // generateBlended resolves and writes a blended resource (<name>.go +
@@ -59,7 +77,7 @@ func (g *generator) generateBlended(dir, name string, ops resOps, idx sdkIndex, 
 	if err != nil {
 		return 0, err
 	}
-	pkgGo, err := execGoTemplate("servicepackage_noread", servicePackageNoReadTmpl, struct{ Pkg, Pascal, DataSourceCtor string }{name, d.Pascal, dataSourceCompanionCtor(name, d.Pascal)}, "service_package.go")
+	pkgGo, err := execGoTemplate("servicepackage_noread", servicePackageNoReadTmpl, struct{ Pkg, Pascal, DataSourceCtor string }{name, d.Pascal, blendedDataSourceCtor(dir, name, d.Pascal)}, "service_package.go")
 	if err != nil {
 		return 0, err
 	}
@@ -212,4 +230,27 @@ func (g *generator) resolveBlended(name string, ops resOps, idx sdkIndex, pe raw
 	}
 
 	return d, nil
+}
+
+// blendedDataSourceCtor names the data-source constructor a blended resource's
+// service package must register.
+//
+// A blended resource may have either kind: a hand-registered companion, or one
+// the data-source generator derives from a public list/read op. Only the
+// companion case was handled, so a derived data source was generated and
+// compiled but never registered -- kion_billing_rule's disappeared from the
+// provider the moment it became blended, and its acceptance test failed with
+// "Invalid data source" rather than anything pointing at the cause.
+func blendedDataSourceCtor(dir, name, pascal string) string {
+	if ctor := dataSourceCompanionCtor(name, pascal); ctor != "" {
+		return ctor
+	}
+	// A public read op is not enough: the data-source generator declines some
+	// (no usable list shape), and registering a constructor for a file that was
+	// never written does not compile. The file on disk is the only honest
+	// signal, and it is written before this runs.
+	if _, err := os.Stat(filepath.Join(dir, name+"_data_source.go")); err == nil {
+		return "New" + pascal + "DataSource"
+	}
+	return ""
 }

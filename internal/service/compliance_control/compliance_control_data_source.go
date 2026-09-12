@@ -88,7 +88,7 @@ func (d *compliance_controlDataSource) Read(ctx context.Context, req datasource.
 
 	api, ok := out.(*generated.ComplianceControlResponse)
 	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameComplianceControl, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("reading "+DSNameComplianceControl, out)...)
 		return
 	}
 

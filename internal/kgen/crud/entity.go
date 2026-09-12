@@ -152,6 +152,10 @@ type entityData struct {
 	// ReadCompanion is a hand-authored function called after every flatten, for
 	// attributes the by-id read does not return at all (see archetype).
 	ReadCompanion string
+	// Rewritten holds the model field names of attributes the API canonicalizes
+	// and echoes back rewritten; Create and Update restore the configured value
+	// after the read-back. See archetype's Rewritten.
+	Rewritten     []string
 	HasNestedFlat bool // obj/arr flattens present (drives the attr import)
 	HasIDProj     bool // id-projection flattens present
 	RespRawValues []rawValueFlat
@@ -245,6 +249,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		ImportParentTF: rm.ImportParentTF,
 		SchemaVersion:  rm.SchemaVersion,
 		ReadCompanion:  rm.ReadCompanion,
+		Rewritten:      rm.Rewritten,
 	}
 
 	if rm.Create.Body == nil {

@@ -59,7 +59,7 @@ func {{.Pkg}}Fetch(ctx context.Context, conn *{{.SDKAlias}}.Client{{if .HasParen
 	}
 	resp, ok := out.(*{{.SDKAlias}}.{{.RespType}})
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("reading "+{{.ResConst}}, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+{{.ResConst}}, out)...)
 		return nil, false, diags
 	}
 	return resp.{{.DataGo}}, true, diags

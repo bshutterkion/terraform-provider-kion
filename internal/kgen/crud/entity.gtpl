@@ -174,7 +174,7 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 
 	{{if eq .CreateIDMode "envelope"}}created, ok := out.(*{{.SDKAlias}}.{{.CreateRespType}})
 	if !ok || {{if .CreateDataPtr}}created.Data == nil{{else}}!created.Data.Set{{end}} {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("creating "+{{.ResConst}}, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("creating "+{{.ResConst}}, out)...)
 		return
 	}
 	{{if .CreateIDOpt}}if !created.Data{{if not .CreateDataPtr}}.Value{{end}}.{{.CreateIDSDKName}}.Set {
@@ -237,6 +237,10 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
+{{- range .Rewritten}}
+	configured{{.}} := plan.{{.}}
+{{- end}}
+
 	resp.Diagnostics.Append(flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}ctx, {{end}}readOut, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -252,6 +256,11 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 {{- if .Labels}}
 	// flatten nulls it: labels are not in the read payload.
 	plan.{{.Labels.ModelGo}} = configuredLabels
+{{- end}}
+{{- range .Rewritten}}
+	// The API canonicalizes this and echoes the rewritten form; keeping the
+	// configured value is what stops an unconvergeable diff. See Rewritten.
+	plan.{{.}} = configured{{.}}
 {{- end}}
 
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
@@ -294,10 +303,23 @@ func (r *{{.Pkg}}Resource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
+{{- range .Rewritten}}
+	prior{{.}} := state.{{.}}
+{{- end}}
+
 	resp.Diagnostics.Append(flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}ctx, {{end}}out, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+{{- range .Rewritten}}
+	// The API returns its own canonical form of this value. Keep what state
+	// already held when the two say the same thing, so a refresh converges;
+	// take the API's when they genuinely differ, so real drift still shows.
+	// Import has no prior value and so always takes the API's. See Rewritten.
+	if !prior{{.}}.IsNull() && flex.JSONEquivalent(prior{{.}}.ValueString(), state.{{.}}.ValueString()) {
+		state.{{.}} = prior{{.}}
+	}
+{{- end}}
 {{- if .ReadCompanion}}
 
 	resp.Diagnostics.Append({{.ReadCompanion}}(ctx, r.Meta(), idInt, &state)...)
@@ -560,6 +582,10 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
+{{- range .Rewritten}}
+	configured{{.}} := plan.{{.}}
+{{- end}}
+
 	resp.Diagnostics.Append(flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}ctx, {{end}}readOut, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -575,6 +601,11 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 {{- if .Labels}}
 	// flatten nulls it: labels are not in the read payload.
 	plan.{{.Labels.ModelGo}} = configuredLabels
+{{- end}}
+{{- range .Rewritten}}
+	// The API canonicalizes this and echoes the rewritten form; keeping the
+	// configured value is what stops an unconvergeable diff. See Rewritten.
+	plan.{{.}} = configured{{.}}
 {{- end}}
 
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)

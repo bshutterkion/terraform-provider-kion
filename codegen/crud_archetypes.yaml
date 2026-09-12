@@ -62,6 +62,16 @@ budget:
 # (#68). Both are readable elsewhere -- the owners from the permission mapping's
 # owner-role row, the scheme from the private /v2 route behind the UI's
 # permissions tab -- which is what funding_source_read.gtpl does.
+azure_role:
+  kind: entity
+  # Kion parses role_permissions into Azure's Permissions struct and re-marshals
+  # it, so a body omitting dataActions/notDataActions comes back carrying both as
+  # empty arrays. Without this the apply fails outright:
+  #   .role_permissions: was {"actions":[...],"notActions":[]}, but now
+  #   {"actions":[...],"dataActions":[],"notActions":[],"notDataActions":[]}
+  rewritten:
+    - role_permissions
+
 funding_source:
   kind: entity
   read_companion: readFundingSourceExtras
@@ -132,6 +142,18 @@ project_permission_mapping:
   key_field: app_role_id
   parent_field: project_id
   member_fields: [user_ids, user_groups_ids]
+
+# Blended because the SDK cannot decode the read response: the spec declares
+# delete_finalized_at non-nullable and Kion returns null. See private_endpoints.
+account_linkage:
+  kind: blended
+
+# Blended because the SPEC is empty, not because an endpoint is private: every
+# billing-rule verb is public, but the spec's BillingRule read schema has no
+# fields, so the typed flatten assigned nothing and an import produced a bare id.
+# The read is declared by hand in private_endpoints.yaml.
+billing_rule:
+  kind: blended
 
 # Blended: typed public create/update via the SDK, private by-id read + delete
 # over raw HTTP (no public by-id GET or DELETE for app-role).

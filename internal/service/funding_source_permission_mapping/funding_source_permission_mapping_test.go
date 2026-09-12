@@ -123,22 +123,7 @@ func TestAccKionFundingSourcePermissionMapping_update(t *testing.T) {
 // is the one role assignable under a permission scheme carrying no role
 // mappings of its own — Kion silently drops a mapping for any other.
 func testAccFundingSourcePermissionMappingPrereqs(rName string) string {
-	return fmt.Sprintf(`
-resource "kion_permission_scheme" "test_perm" {
-  name = "%[1]s-perm"
-  type = "funding_source"
-}
-
-resource "kion_funding_source" "test_fs" {
-  name                 = "%[1]s-fs"
-  description          = "test-acc funding source permission mapping"
-  amount               = 1000
-  start_datecode       = "2026-01"
-  end_datecode         = "2026-12"
-  permission_scheme_id = kion_permission_scheme.test_perm.id
-  owner_user_ids       = [1]
-}
-`, rName)
+	return acctest.FundingSourceConfig(rName)
 }
 
 func testAccFundingSourcePermissionMappingConfig_basic(rName, appRoleID string) string {

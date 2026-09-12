@@ -80,7 +80,7 @@ func (d *{{.Pkg}}DataSource) Read(ctx context.Context, req datasource.ReadReques
 
 	api, ok := out.(*{{.SDKAlias}}.{{.RespType}})
 	if !ok || {{if .DataPtr}}api.Data == nil{{else}}!api.Data.Set{{end}} {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+{{.DSConst}}, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("reading "+{{.DSConst}}, out)...)
 		return
 	}
 

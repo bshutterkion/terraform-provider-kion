@@ -158,7 +158,7 @@ func (d *azure_roleDataSource) readByID(ctx context.Context, conn *generated.Cli
 	}
 	api, ok := out.(*generated.AzureRoleResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameAzureRole, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameAzureRole, out)...)
 		return
 	}
 
@@ -222,7 +222,7 @@ func fetchAllAzureRole(ctx context.Context, conn *generated.Client) ([]generated
 	}
 	resp, ok := out.(*generated.AzureRoleListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameAzureRole, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameAzureRole, out)...)
 		return nil, diags
 	}
 	items := resp.Data

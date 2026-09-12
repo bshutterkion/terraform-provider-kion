@@ -22,7 +22,12 @@ const rawKind = "raw_http"
 type rawOp struct {
 	Method string `yaml:"method"`
 	Path   string `yaml:"path"`
-	Spec   string `yaml:"spec"` // "public" | "private", blended archetype renders private ops raw
+	// Raw forces this op onto the raw HTTP path even though its Path is public.
+	// The reason is never that the endpoint is private -- it is that the spec's
+	// schema for it is unusable, so the SDK's typed model carries no fields.
+	Raw bool `yaml:"raw"`
+
+	Spec string `yaml:"spec"` // "public" | "private", blended archetype renders private ops raw
 }
 
 type rawResourceOps struct {

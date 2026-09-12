@@ -163,7 +163,7 @@ func (d *service_catalogDataSource) readByID(ctx context.Context, conn *generate
 	}
 	api, ok := out.(*generated.ServiceCatalogPortfolioResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameServiceCatalog, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameServiceCatalog, out)...)
 		return
 	}
 
@@ -233,7 +233,7 @@ func fetchAllServiceCatalog(ctx context.Context, conn *generated.Client) ([]gene
 	}
 	resp, ok := out.(*generated.ServiceCatalogPortfolioListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameServiceCatalog, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameServiceCatalog, out)...)
 		return nil, diags
 	}
 	items := resp.Data

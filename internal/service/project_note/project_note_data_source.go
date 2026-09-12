@@ -111,7 +111,7 @@ func (d *projectNoteDataSource) Read(ctx context.Context, req datasource.ReadReq
 
 	listResp, ok := out.(*generated.ProjectNoteListResponse)
 	if !ok {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("reading %s", DSNameProjectNote), out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse(fmt.Sprintf("reading %s", DSNameProjectNote), out)...)
 		return
 	}
 

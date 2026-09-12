@@ -5,9 +5,11 @@ package scope
 import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -19,10 +21,13 @@ func ScopeResourceSchema(ctx context.Context) schema.Schema {
 			"alias": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
-				Description:         "Alias of the scope in the application.",
-				MarkdownDescription: "Alias of the scope in the application.",
+				Description:         "Alias of the scope in the application. Limited to 16 characters.",
+				MarkdownDescription: "Alias of the scope in the application. Limited to 16 characters.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+				},
+				Validators: []validator.String{
+					stringvalidator.LengthAtMost(16),
 				},
 			},
 			"criteria": schema.StringAttribute{

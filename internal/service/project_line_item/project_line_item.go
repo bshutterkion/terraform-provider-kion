@@ -76,7 +76,7 @@ func (r *project_line_itemResource) Create(ctx context.Context, req resource.Cre
 
 	created, ok := out.(*generated.ProjectLineItemResponse)
 	if !ok || !created.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("creating "+ResNameProjectLineItem, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("creating "+ResNameProjectLineItem, out)...)
 		return
 	}
 	if !created.Data.Value.ID.Set {

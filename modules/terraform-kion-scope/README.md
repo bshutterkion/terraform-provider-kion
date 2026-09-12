@@ -42,7 +42,7 @@ No modules.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | name | Name of the role in the application. | `string` | n/a | yes |
-| alias | Alias of the scope in the application. | `string` | `null` | no |
+| alias | Alias of the scope in the application. Limited to 16 characters. | `string` | `null` | no |
 | criteria | The criteria for the scope, as a JSON-encoded string. | `string` | `null` | no |
 | description | Description of the scope in the application. | `string` | `null` | no |
 | end\_datecode | End datecode for the scope (YYYYMM format), if applicable. | `number` | `null` | no |

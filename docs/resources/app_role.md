@@ -15,8 +15,7 @@ Manages a Kion App Role.
 ```terraform
 resource "kion_app_role" "example" {
   # Optional
-  # disabled = false
-  # name     = "example"
+  # name = "example"
 }
 ```
 
@@ -25,10 +24,10 @@ resource "kion_app_role" "example" {
 
 ### Optional
 
-- `disabled` (Boolean) Whether the app role is disabled.
 - `name` (String) Name of the app role.
 
 ### Read-Only
 
+- `disabled` (Boolean) Whether the app role is disabled.
 - `id` (String) The ID of the app role.
 - `system_managed` (Boolean) Whether the app role is system-managed.

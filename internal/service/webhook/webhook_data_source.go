@@ -191,7 +191,7 @@ func (d *webhookDataSource) readByID(ctx context.Context, conn *generated.Client
 	}
 	api, ok := out.(*generated.WebhookWithOwnersResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameWebhook, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameWebhook, out)...)
 		return
 	}
 
@@ -269,7 +269,7 @@ func fetchAllWebhook(ctx context.Context, conn *generated.Client) ([]generated.W
 	}
 	resp, ok := out.(*generated.WebhookListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameWebhook, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameWebhook, out)...)
 		return nil, diags
 	}
 	items := resp.Data

@@ -4,7 +4,8 @@ package {{.Pkg}}_test
 
 import (
 	"fmt"
-	"testing"
+	{{if .EnvArgs}}"os"
+	{{end}}"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 
@@ -24,7 +25,7 @@ func TestAccKion{{.Pascal}}DataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAcc{{.Pascal}}DataSourceConfig_basic(rName),
+				Config: testAcc{{.Pascal}}DataSourceConfig_basic(rName{{range .EnvArgs}}, os.Getenv("{{.Env}}"){{end}}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 					{{- range .AttrNames}}
@@ -36,21 +37,21 @@ func TestAccKion{{.Pascal}}DataSource_basic(t *testing.T) {
 	})
 }
 
-func testAcc{{.Pascal}}DataSourceConfig_basic({{if .BasicUsesRName}}rName{{else}}_{{end}} string) string {
+func testAcc{{.Pascal}}DataSourceConfig_basic({{if .BasicUsesRName}}rName{{else}}_{{end}} string{{range .EnvArgs}}, {{.Param}} string{{end}}) string {
 	return {{if .BasicUsesRName}}fmt.Sprintf(`
 resource "{{.ResourceType}}" "test" {
 {{- range .CreateAttrs}}
-  {{.Name}} = "{{.Value}}"
+  {{.Name}} = {{if .Quoted}}"{{.Value}}"{{else}}{{.Value}}{{end}}
 {{- end}}
 }
 
 data "{{.ResourceType}}" "test" {
   id = {{.ResourceType}}.test.id
 }
-`, rName){{else}}`
+`, rName{{range .EnvArgs}}, {{.Param}}{{end}}){{else}}`
 resource "{{.ResourceType}}" "test" {
 {{- range .CreateAttrs}}
-  {{.Name}} = "{{.Value}}"
+  {{.Name}} = {{if .Quoted}}"{{.Value}}"{{else}}{{.Value}}{{end}}
 {{- end}}
 }
 

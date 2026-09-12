@@ -59,7 +59,7 @@ func funding_source_permission_mappingFetch(ctx context.Context, conn *generated
 	}
 	resp, ok := out.(*generated.FSUserMappingListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("reading "+ResNameFundingSourcePermissionMapping, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+ResNameFundingSourcePermissionMapping, out)...)
 		return nil, false, diags
 	}
 	return resp.Data, true, diags

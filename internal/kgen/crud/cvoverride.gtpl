@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/go-faster/jx"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -91,7 +90,21 @@ func (r *customVariableOverrideResource) Create(ctx context.Context, req resourc
 
 	// Match the old provider's id format: "{entity_type}/{entity_id}/{custom_variable_id}"
 	plan.ID = types.StringValue(fmt.Sprintf("%s/%s/%s", entityType, plan.EntityID.ValueString(), plan.CustomVariableID.ValueString()))
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+	// last_updated is deliberately NOT stamped from the clock.
+	//
+	// The SDKv2 provider did (d.Set("last_updated", time.Now()…)) and SDKv2 did
+	// not check plan consistency. The framework does, and a clock read at apply
+	// never equals the value the plan carried, so every update failed outright:
+	//
+	//	Provider produced inconsistent result after apply
+	//	.last_updated: was "…23:18:26 MDT", but now "…23:18:27 MDT"
+	//
+	// Import failed too, for the same underlying reason: the value exists only
+	// in state, so an imported resource has nothing to put there.
+	//
+	// Kion stores no such field, and the other 14 resources carrying the
+	// attribute never set it. It stays Optional+Computed so a configuration
+	// written for the old provider still parses.
 
 	// Read back the resource to populate state accurately.
 	readDiags := readOverrideIntoModel(ctx, conn, &plan)
@@ -159,7 +172,21 @@ func (r *customVariableOverrideResource) Update(ctx context.Context, req resourc
 		return
 	}
 
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
+	// last_updated is deliberately NOT stamped from the clock.
+	//
+	// The SDKv2 provider did (d.Set("last_updated", time.Now()…)) and SDKv2 did
+	// not check plan consistency. The framework does, and a clock read at apply
+	// never equals the value the plan carried, so every update failed outright:
+	//
+	//	Provider produced inconsistent result after apply
+	//	.last_updated: was "…23:18:26 MDT", but now "…23:18:27 MDT"
+	//
+	// Import failed too, for the same underlying reason: the value exists only
+	// in state, so an imported resource has nothing to put there.
+	//
+	// Kion stores no such field, and the other 14 resources carrying the
+	// attribute never set it. It stays Optional+Computed so a configuration
+	// written for the old provider still parses.
 
 	readDiags := readOverrideIntoModel(ctx, conn, &plan)
 	resp.Diagnostics.Append(readDiags...)
@@ -498,7 +525,7 @@ func flattenCustomVariableOverride(apiObject any, model *customVariableOverrideR
 
 	resp, ok := apiObject.(*generated.CustomVariableOverrideResponse)
 	if !ok {
-		return errs.ResponseDiagnostics("reading "+ResNameCustomVariableOverride, apiObject)
+		return errs.UnexpectedResponse("reading "+ResNameCustomVariableOverride, apiObject)
 	}
 
 	if !resp.Data.IsSet() {

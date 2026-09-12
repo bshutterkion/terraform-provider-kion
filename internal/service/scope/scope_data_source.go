@@ -174,7 +174,7 @@ func (d *scopeDataSource) readByID(ctx context.Context, conn *generated.Client, 
 	}
 	api, ok := out.(*generated.ScopeResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameScope, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameScope, out)...)
 		return
 	}
 
@@ -248,7 +248,7 @@ func fetchAllScope(ctx context.Context, conn *generated.Client) ([]generated.Sco
 		}
 		resp, ok := out.(*generated.ScopeListResponse)
 		if !ok {
-			diags.Append(errs.ResponseDiagnostics("listing "+DSNameScope, out)...)
+			diags.Append(errs.UnexpectedResponse("listing "+DSNameScope, out)...)
 			return nil, diags
 		}
 		if !resp.Data.Set {

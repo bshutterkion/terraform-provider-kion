@@ -154,7 +154,7 @@ func (d *service_control_policyDataSource) readByID(ctx context.Context, conn *g
 	}
 	api, ok := out.(*generated.ServiceControlPolicyResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameServiceControlPolicy, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameServiceControlPolicy, out)...)
 		return
 	}
 
@@ -218,7 +218,7 @@ func fetchAllServiceControlPolicy(ctx context.Context, conn *generated.Client) (
 	}
 	resp, ok := out.(*generated.ServiceControlPolicyListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameServiceControlPolicy, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameServiceControlPolicy, out)...)
 		return nil, diags
 	}
 	items := resp.Data

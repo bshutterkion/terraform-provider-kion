@@ -145,7 +145,7 @@ func (d *labelDataSource) readByID(ctx context.Context, conn *generated.Client, 
 	}
 	api, ok := out.(*generated.LabelResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameLabel, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameLabel, out)...)
 		return
 	}
 
@@ -213,7 +213,7 @@ func fetchAllLabel(ctx context.Context, conn *generated.Client) ([]generated.Lab
 		}
 		resp, ok := out.(*generated.LabelListPaginatedResponse)
 		if !ok {
-			diags.Append(errs.ResponseDiagnostics("listing "+DSNameLabel, out)...)
+			diags.Append(errs.UnexpectedResponse("listing "+DSNameLabel, out)...)
 			return nil, diags
 		}
 		if !resp.Data.Set {

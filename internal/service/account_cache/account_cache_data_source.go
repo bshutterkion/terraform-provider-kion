@@ -212,7 +212,7 @@ func (d *account_cacheDataSource) readByID(ctx context.Context, conn *generated.
 	}
 	api, ok := out.(*generated.AccountCacheResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameAccountCache, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameAccountCache, out)...)
 		return
 	}
 
@@ -296,7 +296,7 @@ func fetchAllAccountCache(ctx context.Context, conn *generated.Client) ([]genera
 	}
 	resp, ok := out.(*generated.AccountCacheListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameAccountCache, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameAccountCache, out)...)
 		return nil, diags
 	}
 	items := resp.Data

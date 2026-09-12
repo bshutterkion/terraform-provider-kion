@@ -109,7 +109,7 @@ func (d *ouPermissionMappingDataSource) Read(ctx context.Context, req datasource
 
 	listResp, ok := out.(*generated.OUUserMappingListResponse)
 	if !ok {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("reading %s", DSNameOuPermissionMapping), out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse(fmt.Sprintf("reading %s", DSNameOuPermissionMapping), out)...)
 		return
 	}
 

@@ -156,7 +156,7 @@ func (d *ouDataSource) readByID(ctx context.Context, conn *generated.Client, dat
 	}
 	api, ok := out.(*generated.OUResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameOu, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameOu, out)...)
 		return
 	}
 
@@ -224,7 +224,7 @@ func fetchAllOu(ctx context.Context, conn *generated.Client) ([]generated.OUWith
 	}
 	resp, ok := out.(*generated.OUListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameOu, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameOu, out)...)
 		return nil, diags
 	}
 	items := resp.Data

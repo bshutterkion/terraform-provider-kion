@@ -41,8 +41,6 @@ account_cache.payer_id:update: "TODO: untriaged -- update builds AccountCacheUpd
 account_cache.skip_access_checking:create: "TODO: untriaged -- create builds PayerOrganizationalUnit, AWSAccountCacheNewAWSAccount without it"
 ami.owner_user_group_ids:update: "TODO: untriaged -- update builds AMIUpdate without it"
 ami.owner_user_ids:update: "TODO: untriaged -- update builds AMIUpdate without it"
-app_role.disabled:create: "TODO: untriaged -- create builds AppRoleCreate without it"
-app_role.disabled:update: "TODO: untriaged -- update builds AppRoleUpdate without it"
 aws_account.account_number:update: "TODO: untriaged -- update builds AccountUpdatable, AccountCacheUpdatable without it"
 aws_account.account_type_id:update: "TODO: untriaged -- update builds AccountUpdatable, AccountCacheUpdatable without it"
 aws_account.aws_organizational_unit:update: "TODO: untriaged -- update builds AccountUpdatable, AccountCacheUpdatable without it"

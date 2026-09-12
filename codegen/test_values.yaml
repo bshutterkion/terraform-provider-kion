@@ -3,6 +3,17 @@
 # passed through fmt.Sprintf(..., rName): use "%[1]s" where a value must be
 # unique per test run (the acctest random suffix).
 resources:
+  # payer_id is optional in the schema and the spec, and REQUIRED by
+  # POST /v3/category. %[2]s is the KION_ACC_BILLING_SOURCE_ID value, threaded
+  # in by the EnvArgs entry in internal/kgen/tests/resource_meta.go.
+  category:
+    env_args: [KION_ACC_BILLING_SOURCE_ID]
+    create:
+      name: "test-acc-%[1]s"
+      payer_id: "%[2]s"
+    update:
+      name: "test-acc-%[1]s-upd"
+      payer_id: "%[2]s"
   label:
     create:
       color: "#0088ff"

@@ -79,7 +79,7 @@ func (d *compliance_levelDataSource) Read(ctx context.Context, req datasource.Re
 
 	api, ok := out.(*generated.ComplianceLevelResponse)
 	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameComplianceLevel, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("reading "+DSNameComplianceLevel, out)...)
 		return
 	}
 

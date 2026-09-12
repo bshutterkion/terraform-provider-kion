@@ -427,11 +427,6 @@
       "path": "terraform-kion-app-role",
       "variables": [
         {
-          "attr": "disabled",
-          "var": "disabled",
-          "block": false
-        },
-        {
           "attr": "name",
           "var": "name",
           "block": false
@@ -2997,6 +2992,11 @@
       "tf_type": "kion_project_note",
       "path": "terraform-kion-project-note",
       "variables": [
+        {
+          "attr": "create_user_id",
+          "var": "create_user_id",
+          "block": false
+        },
         {
           "attr": "name",
           "var": "name",

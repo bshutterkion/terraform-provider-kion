@@ -230,7 +230,7 @@ func (d *compliance_checkDataSource) readByID(ctx context.Context, conn *generat
 	}
 	api, ok := out.(*generated.ComplianceCheckWithOwnersResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameComplianceCheck, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameComplianceCheck, out)...)
 		return
 	}
 
@@ -318,7 +318,7 @@ func fetchAllComplianceCheck(ctx context.Context, conn *generated.Client) ([]gen
 	}
 	resp, ok := out.(*generated.ComplianceCheckListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameComplianceCheck, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameComplianceCheck, out)...)
 		return nil, diags
 	}
 	items := resp.Data

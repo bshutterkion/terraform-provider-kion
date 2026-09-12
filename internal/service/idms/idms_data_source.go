@@ -142,7 +142,7 @@ func (d *idmsDataSource) readByID(ctx context.Context, conn *generated.Client, d
 	}
 	api, ok := out.(*generated.IDMSResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameIdms, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameIdms, out)...)
 		return
 	}
 
@@ -206,7 +206,7 @@ func fetchAllIdms(ctx context.Context, conn *generated.Client) ([]generated.IDMS
 	}
 	resp, ok := out.(*generated.IDMSListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameIdms, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameIdms, out)...)
 		return nil, diags
 	}
 	items := resp.Data

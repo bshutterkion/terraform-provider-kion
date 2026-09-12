@@ -811,10 +811,38 @@ type attributeOverride struct {
 	// without an explicit override every generated schema exposed its secrets in
 	// cleartext, smtp_password, oauth_client_secret, tenant_client_secret,
 	// key_secret and private_key were all unmarked.
-	Sensitive     bool                         `yaml:"sensitive"`
-	PlanModifiers []string                     `yaml:"plan_modifiers"` // e.g. stringplanmodifier.UseStateForUnknown()
-	CustomType    *customTypeOverride          `yaml:"custom_type"`    // wrap a scalar in a framework custom type (e.g. jsontypes.Normalized)
-	Attributes    map[string]attributeOverride `yaml:"attributes"`     // nested attributes for single_nested/set_nested/list_nested
+	Sensitive bool `yaml:"sensitive"`
+	// PlanModifiers is a POINTER so that an explicitly empty list is
+	// distinguishable from an absent one. Every Computed attribute is given
+	// UseStateForUnknown by default (see applyUseStateForUnknownDefault), and the
+	// documented way to opt out is to declare your own -- but an attribute the
+	// server recomputes needs to declare NONE, and with a plain slice "none" and
+	// "unset" were the same value, so the opt-out could not be expressed at all.
+	//
+	// kion_project_note is what found it: last_update_user_id and updated_at are
+	// set by the server on update, so carrying the prior state (null, for a note
+	// never updated) into the plan and then receiving a real value failed the
+	// apply outright.
+	PlanModifiers *[]string `yaml:"plan_modifiers"` // e.g. stringplanmodifier.UseStateForUnknown(); [] means none
+	// Validators are attribute-level validators, rendered exactly like
+	// PlanModifiers (the codegen spec's CustomValidator has the same
+	// imports + schema_definition shape as CustomPlanModifier).
+	//
+	// Validators DO reach the generated schemas already, but only from the
+	// OpenAPI spec's own pattern/maxLength -- and the spec carries almost none
+	// (3 enums, 16 patterns, 5 maxLength across 474 schemas). A limit the
+	// database enforces and the spec omits had no way in, so it surfaced as an
+	// opaque API error at apply time instead of a message at plan time.
+	// kion_scope.alias is the case: varchar(16), and Kion answers a longer one
+	// with a bare 500 "error creating scope".
+	//
+	// Import paths are derived the same way as plan modifiers, from the
+	// pkg.Func() prefix, so "stringvalidator.LengthAtMost(16)" resolves to
+	// terraform-plugin-framework-validators/stringvalidator.
+	Validators []string `yaml:"validators"`
+
+	CustomType *customTypeOverride          `yaml:"custom_type"` // wrap a scalar in a framework custom type (e.g. jsontypes.Normalized)
+	Attributes map[string]attributeOverride `yaml:"attributes"`  // nested attributes for single_nested/set_nested/list_nested
 }
 
 // customTypeOverride wraps a scalar attribute in a Terraform framework custom
@@ -910,10 +938,12 @@ func (g *generator) applySchemaOverrides(specPath, overridesPath string) error {
 
 // stdStringID is the AWS framework.IDAttribute() convention applied to every
 // resource id absent an explicit override.
+var stdStringIDModifiers = []string{"stringplanmodifier.UseStateForUnknown()"}
+
 var stdStringID = attributeOverride{
 	Type:                     "string",
 	ComputedOptionalRequired: "computed",
-	PlanModifiers:            []string{"stringplanmodifier.UseStateForUnknown()"},
+	PlanModifiers:            &stdStringIDModifiers,
 }
 
 // applyStringIDDefault retypes each resource's id attribute to the standard
@@ -1101,9 +1131,9 @@ func applyAttrOverride(attr map[string]any, ao attributeOverride) error {
 	if ao.Sensitive {
 		typeObj["sensitive"] = true
 	}
-	if len(ao.PlanModifiers) > 0 {
-		pms := make([]any, 0, len(ao.PlanModifiers))
-		for _, pm := range ao.PlanModifiers {
+	if ao.PlanModifiers != nil {
+		pms := make([]any, 0, len(*ao.PlanModifiers))
+		for _, pm := range *ao.PlanModifiers {
 			imp, err := planModifierImport(pm)
 			if err != nil {
 				return err
@@ -1116,6 +1146,22 @@ func applyAttrOverride(attr map[string]any, ao attributeOverride) error {
 			})
 		}
 		typeObj["plan_modifiers"] = pms
+	}
+	if len(ao.Validators) > 0 {
+		vs := make([]any, 0, len(ao.Validators))
+		for _, v := range ao.Validators {
+			imp, err := validatorImport(v)
+			if err != nil {
+				return err
+			}
+			vs = append(vs, map[string]any{
+				"custom": map[string]any{
+					"imports":           []any{map[string]any{"path": imp}},
+					"schema_definition": v,
+				},
+			})
+		}
+		typeObj["validators"] = vs
 	}
 	if len(ao.Attributes) > 0 {
 		// Merge into the children the spec already produced rather than replacing
@@ -1221,6 +1267,19 @@ func planModifierImport(call string) (string, error) {
 		return "", fmt.Errorf("plan modifier %q must be of the form pkg.Func()", call)
 	}
 	return planModifierBase + call[:dot], nil
+}
+
+// validatorBase is the import prefix for the framework's typed validator
+// packages (stringvalidator, int64validator, ...). They live in a separate
+// module from the plan modifiers, which is the only difference.
+const validatorBase = "github.com/hashicorp/terraform-plugin-framework-validators/"
+
+func validatorImport(call string) (string, error) {
+	dot := strings.IndexByte(call, '.')
+	if dot <= 0 {
+		return "", fmt.Errorf("validator %q must be of the form pkg.Func()", call)
+	}
+	return validatorBase + call[:dot], nil
 }
 
 func (g *generator) writeTest(path string, tmpl *template.Template, pkg, pascal, ctor string) error {

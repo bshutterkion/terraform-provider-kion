@@ -86,7 +86,7 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 
 	childID, ok := new{{.Pascal}}ID(out, existing)
 	if !ok {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("creating "+{{.ResConst}}, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("creating "+{{.ResConst}}, out)...)
 		if !resp.Diagnostics.HasError() {
 			resp.Diagnostics.AddError(fmt.Sprintf("creating %s", {{.ResConst}}), "could not determine the id of the newly created record")
 		}

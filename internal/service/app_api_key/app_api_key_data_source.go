@@ -140,7 +140,7 @@ func (d *app_api_keyDataSource) readByID(ctx context.Context, conn *generated.Cl
 	}
 	api, ok := out.(*generated.AppAPIKeyResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameAppApiKey, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameAppApiKey, out)...)
 		return
 	}
 
@@ -200,7 +200,7 @@ func fetchAllAppApiKey(ctx context.Context, conn *generated.Client) ([]generated
 	}
 	resp, ok := out.(*generated.AppAPIKeyListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameAppApiKey, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameAppApiKey, out)...)
 		return nil, diags
 	}
 	items := resp.Data

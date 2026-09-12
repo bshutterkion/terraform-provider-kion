@@ -177,7 +177,7 @@ func (d *iam_policyDataSource) readByID(ctx context.Context, conn *generated.Cli
 	}
 	api, ok := out.(*generated.IAMPolicyResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameIamPolicy, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameIamPolicy, out)...)
 		return
 	}
 
@@ -251,7 +251,7 @@ func fetchAllIamPolicy(ctx context.Context, conn *generated.Client) ([]generated
 	}
 	resp, ok := out.(*generated.IAMPolicyListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameIamPolicy, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameIamPolicy, out)...)
 		return nil, diags
 	}
 	items := resp.Data

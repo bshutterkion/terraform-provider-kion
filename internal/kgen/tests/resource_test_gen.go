@@ -92,7 +92,7 @@ func buildResourceTestFile(pkgName, typeName, snake, pascal string, s rsschema.S
 	b.WriteString("\t\tSteps: []resource.TestStep{\n")
 	b.WriteString("\t\t\t{\n")
 	if needsRName {
-		fmt.Fprintf(&b, "\t\t\t\tConfig: testAcc%sConfig_basic(rName),\n", pascal)
+		fmt.Fprintf(&b, "\t\t\t\tConfig: testAcc%sConfig_basic(%s),\n", pascal, configCallArgs(true, meta))
 	} else {
 		fmt.Fprintf(&b, "\t\t\t\tConfig: testAcc%sConfig_basic(),\n", pascal)
 	}
@@ -131,11 +131,12 @@ func buildResourceTestFile(pkgName, typeName, snake, pascal string, s rsschema.S
 
 	// testAcc<Name>Config_basic
 	basicConfig := buildBasicConfig(typeName, requiredAttrs, needsRName, meta)
-	if needsRName {
-		fmt.Fprintf(&b, "func testAcc%sConfig_basic(rName string) string {\n", pascal)
+	envArgs := envArgNames(meta)
+	if needsRName || len(envArgs) > 0 {
+		fmt.Fprintf(&b, "func testAcc%sConfig_basic(%s) string {\n", pascal, configParams(needsRName, envArgs))
 		b.WriteString("\treturn fmt.Sprintf(`\n")
 		b.WriteString(basicConfig)
-		b.WriteString("`, rName)\n")
+		fmt.Fprintf(&b, "`, %s)\n", configArgs(needsRName, envArgs))
 	} else {
 		fmt.Fprintf(&b, "func testAcc%sConfig_basic() string {\n", pascal)
 		b.WriteString("\treturn `\n")
@@ -151,11 +152,11 @@ func buildResourceTestFile(pkgName, typeName, snake, pascal string, s rsschema.S
 
 	// testAcc<Name>Config_update
 	updateConfig := buildUpdateConfig(typeName, requiredAttrs, s, needsRName, meta)
-	if needsRName {
-		fmt.Fprintf(&b, "func testAcc%sConfig_update(rName string) string {\n", pascal)
+	if needsRName || len(envArgs) > 0 {
+		fmt.Fprintf(&b, "func testAcc%sConfig_update(%s) string {\n", pascal, configParams(needsRName, envArgs))
 		b.WriteString("\treturn fmt.Sprintf(`\n")
 		b.WriteString(updateConfig)
-		b.WriteString("`, rName)\n")
+		fmt.Fprintf(&b, "`, %s)\n", configArgs(needsRName, envArgs))
 	} else {
 		fmt.Fprintf(&b, "func testAcc%sConfig_update() string {\n", pascal)
 		b.WriteString("\treturn `\n")
@@ -562,6 +563,20 @@ func buildBasicConfig(typeName string, requiredAttrs []attrInfo, hasName bool, m
 			}
 		}
 
+		// A FieldOverride on an attribute the schema marks Optional is a
+		// deliberate "the API needs this anyway" -- kion_category's payer_id is
+		// optional in the spec and rejected when absent. Required attributes
+		// were already emitted above.
+		for _, name := range sortedOverrideNames(meta) {
+			if attrInList(name, requiredAttrs) {
+				continue
+			}
+			if _, isDep := deps[name]; isDep {
+				continue
+			}
+			fmt.Fprintf(&b, "  %s = %s\n", name, meta.FieldOverrides[name].Basic)
+		}
+
 		for _, block := range meta.ExtraHCLBlocks {
 			fmt.Fprintf(&b, "  %s\n", block)
 		}
@@ -569,6 +584,20 @@ func buildBasicConfig(typeName string, requiredAttrs []attrInfo, hasName bool, m
 
 	b.WriteString("}\n")
 	return b.String()
+}
+
+// sortedOverrideNames lists FieldOverrides keys in a stable order, so the
+// generated config does not churn between runs.
+func sortedOverrideNames(meta *ResourceMeta) []string {
+	if meta == nil {
+		return nil
+	}
+	out := make([]string, 0, len(meta.FieldOverrides))
+	for k := range meta.FieldOverrides {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // depByTargetField maps each dependency's target field to the HCL reference
@@ -898,4 +927,70 @@ func attrInList(name string, attrs []attrInfo) bool {
 		}
 	}
 	return false
+}
+
+// envArgNames returns the Go parameter names for a resource's EnvArgs, in
+// declaration order. They land as %[2]s, %[3]s, ... in the config template.
+func envArgNames(meta *ResourceMeta) []string {
+	if meta == nil {
+		return nil
+	}
+	out := make([]string, 0, len(meta.EnvArgs))
+	for _, e := range meta.EnvArgs {
+		out = append(out, lowerCamelFromEnv(e))
+	}
+	return out
+}
+
+// lowerCamelFromEnv turns KION_ACC_BILLING_SOURCE_ID into billingSourceID.
+func lowerCamelFromEnv(name string) string {
+	s := strings.TrimPrefix(name, "KION_ACC_")
+	parts := strings.Split(strings.ToLower(s), "_")
+	for i, p := range parts {
+		if i == 0 || p == "" {
+			continue
+		}
+		if p == "id" {
+			parts[i] = "ID"
+			continue
+		}
+		parts[i] = strings.ToUpper(p[:1]) + p[1:]
+	}
+	return strings.Join(parts, "")
+}
+
+// configParams renders the parameter list for a generated config function.
+func configParams(needsRName bool, args []string) string {
+	var ps []string
+	if needsRName {
+		ps = append(ps, "rName string")
+	}
+	for _, a := range args {
+		ps = append(ps, a+" string")
+	}
+	return strings.Join(ps, ", ")
+}
+
+// configArgs renders the fmt.Sprintf argument list.
+func configArgs(needsRName bool, args []string) string {
+	var as []string
+	if needsRName {
+		as = append(as, "rName")
+	}
+	as = append(as, args...)
+	return strings.Join(as, ", ")
+}
+
+// configCallArgs renders a call site, reading each EnvArg from the environment.
+func configCallArgs(needsRName bool, meta *ResourceMeta) string {
+	var as []string
+	if needsRName {
+		as = append(as, "rName")
+	}
+	if meta != nil {
+		for _, e := range meta.EnvArgs {
+			as = append(as, fmt.Sprintf("os.Getenv(%q)", e))
+		}
+	}
+	return strings.Join(as, ", ")
 }

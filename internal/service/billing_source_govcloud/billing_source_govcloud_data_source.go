@@ -88,7 +88,7 @@ func (d *billing_source_govcloudDataSource) Read(ctx context.Context, req dataso
 
 	api, ok := out.(*generated.BillingSourceGovcloudResponse)
 	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameBillingSourceGovcloud, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("reading "+DSNameBillingSourceGovcloud, out)...)
 		return
 	}
 

@@ -36,13 +36,31 @@ func TestAccKionFundingSourceDataSource_basic(t *testing.T) {
 
 func testAccFundingSourceDataSourceConfig_basic(rName string) string {
 	return fmt.Sprintf(`
+resource "kion_permission_scheme" "test_perm" {
+  name = "%[1]s-perm"
+  type = "ou"
+}
+
+resource "kion_permission_scheme" "test_fs_perm" {
+  name = "%[1]s-fs-perm"
+  type = "funding_source"
+}
+
+resource "kion_ou" "test_ou" {
+  name                 = "%[1]s-ou"
+  parent_ou_id         = 0
+  permission_scheme_id = kion_permission_scheme.test_perm.id
+  owner_user_ids       = [1]
+}
+
 resource "kion_funding_source" "test" {
-  amount = 1000.00
-  end_datecode = "2026-12"
-  name = %[1]q
-  start_datecode = "2026-01"
-  owner_user_ids = [1]
-  permission_scheme_id = 4
+  amount               = 1000.00
+  end_datecode         = "2026-12"
+  name                 = %[1]q
+  start_datecode       = "2026-01"
+  owner_user_ids       = [1]
+  ou_id                = kion_ou.test_ou.id
+  permission_scheme_id = kion_permission_scheme.test_fs_perm.id
 }
 
 data "kion_funding_source" "test" {

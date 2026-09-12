@@ -117,7 +117,7 @@ func (d *accountDataSource) Read(ctx context.Context, req datasource.ReadRequest
 	}
 	api, ok := out.(*generated.AccountListResponse)
 	if !ok {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("listing "+DSNameAccount, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("listing "+DSNameAccount, out)...)
 		return
 	}
 
