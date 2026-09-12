@@ -56,6 +56,10 @@ The API key is read from --api-key or the KION_APIKEY environment variable.`,
 	root.Flags().StringVar(&flagURL, "url", os.Getenv("KION_URL"), "Kion install URL")
 	root.Flags().StringVar(&flagAPIKey, "api-key", os.Getenv("KION_APIKEY"), "Kion app API key")
 	root.Flags().StringVar(&flagOut, "out", "imports.tf", "output file")
+	// 1.0.0 is deliberate, and matches MODULE_PROVIDER_VERSION in the Makefile
+	// and the pin in every modules/*/versions.tf. The registry has no 1.0.0 yet;
+	// the point is that a generated config and a generated module agree, and
+	// that a locally-installed build resolves without reaching the registry.
 	root.Flags().StringVar(&flagProviderVersion, "provider-version", "1.0.0",
 		"provider version constraint written to the generated config")
 	root.Flags().BoolVar(&flagSkipSSL, "skip-ssl-validation", false, "skip TLS verification")
@@ -85,22 +89,12 @@ The API key is read from --api-key or the KION_APIKEY environment variable.`,
 }
 
 func run(_ *cobra.Command, _ []string) error {
-	// --list-types answers "what can I put in --include" and reads only the
-	// embedded manifest, so it must not demand credentials.
-	if flagListTypes {
-		manifest, err := kimport.LoadManifest(codegen.ImportManifestJSON)
-		if err != nil {
-			return err
-		}
-		return listTypes(manifest.Resources)
-	}
-	if flagURL == "" {
-		return fmt.Errorf("--url is required (or set KION_URL)")
-	}
-	if flagAPIKey == "" {
-		return fmt.Errorf("--api-key is required (or set KION_APIKEY)")
-	}
-
+	// Load the manifest before anything else. --list-types answers "what can I
+	// put in --include" from the manifest alone, so it must not demand
+	// credentials -- but it must still honor --manifest, which an earlier
+	// arrangement did not: it answered from the embedded manifest and returned,
+	// leaving the --manifest-aware branch further down unreachable. Passing both
+	// flags silently listed the wrong set.
 	data := codegen.ImportManifestJSON
 	if flagManifest != "" {
 		var err error
@@ -115,6 +109,13 @@ func run(_ *cobra.Command, _ []string) error {
 
 	if flagListTypes {
 		return listTypes(manifest.Resources)
+	}
+
+	if flagURL == "" {
+		return fmt.Errorf("--url is required (or set KION_URL)")
+	}
+	if flagAPIKey == "" {
+		return fmt.Errorf("--api-key is required (or set KION_APIKEY)")
 	}
 
 	sel, err := kimport.LoadSelection(flagSelection)
