@@ -45,13 +45,18 @@ resource "kion_azure_policy" "test" {
   azure_policy = {
     name        = %[1]q
     description = "test-acc Azure policy"
+    // Kion sends this JSON as the policy definition's properties, so the rule
+    // has to sit under policyRule. A bare if/then is rejected with: Could not
+    // find member 'if' on object of type 'PolicyDefinitionProperties'.
     policy = jsonencode({
-      if = {
-        field  = "type"
-        equals = "Microsoft.Resources/subscriptions"
-      }
-      then = {
-        effect = "audit"
+      policyRule = {
+        if = {
+          field  = "type"
+          equals = "Microsoft.Resources/subscriptions"
+        }
+        then = {
+          effect = "audit"
+        }
       }
     })
   }

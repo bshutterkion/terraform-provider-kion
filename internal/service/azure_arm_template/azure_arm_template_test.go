@@ -30,6 +30,13 @@ func TestAccKionAzureArmTemplate_basic(t *testing.T) {
 			// Azure connection; without one the API answers 500, which is an
 			// install that cannot run the test rather than a provider defect.
 			acctest.RequireEnv(t, "KION_ACC_AZURE_PAYER_ID", "the ID of an Azure billing source on the target Kion")
+			// A billing source is not enough. Kion validates an ARM template by
+			// creating a real resource group in an accessible subscription and
+			// asking Azure to validate a deployment into it, so a payer whose
+			// tenant exposes no subscription fails with the same opaque 500:
+			// "There was an issue with the ARM template or a dependent
+			// resource." An install with a subscription is the real prerequisite.
+			acctest.RequireEnv(t, "KION_ACC_AZURE_SUBSCRIPTION_UUID", "an Azure subscription UUID the payer's tenant exposes; ARM template validation deploys into one")
 		},
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
@@ -68,6 +75,13 @@ func TestAccKionAzureArmTemplate_update(t *testing.T) {
 			// Azure connection; without one the API answers 500, which is an
 			// install that cannot run the test rather than a provider defect.
 			acctest.RequireEnv(t, "KION_ACC_AZURE_PAYER_ID", "the ID of an Azure billing source on the target Kion")
+			// A billing source is not enough. Kion validates an ARM template by
+			// creating a real resource group in an accessible subscription and
+			// asking Azure to validate a deployment into it, so a payer whose
+			// tenant exposes no subscription fails with the same opaque 500:
+			// "There was an issue with the ARM template or a dependent
+			// resource." An install with a subscription is the real prerequisite.
+			acctest.RequireEnv(t, "KION_ACC_AZURE_SUBSCRIPTION_UUID", "an Azure subscription UUID the payer's tenant exposes; ARM template validation deploys into one")
 		},
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
