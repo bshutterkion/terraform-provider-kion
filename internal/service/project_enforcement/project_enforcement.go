@@ -128,6 +128,8 @@ func (r *project_enforcementResource) Create(ctx context.Context, req resource.C
 
 	notificationEmails, notificationEmailsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.NotificationEmails)
 	resp.Diagnostics.Append(notificationEmailsDiags...)
+	ugroupIds, ugroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserGroupIds)
+	resp.Diagnostics.Append(ugroupIdsDiags...)
 	userIds, userIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserIds)
 	resp.Diagnostics.Append(userIdsDiags...)
 	if resp.Diagnostics.HasError() {
@@ -147,6 +149,7 @@ func (r *project_enforcementResource) Create(ctx context.Context, req resource.C
 			ThresholdType:         flex.OptStringFromFramework(plan.ThresholdType),
 			Timeframe:             flex.StringValueFromFramework(plan.Timeframe),
 			NotificationEmails:    generated.OptNilStringArray{Value: notificationEmails, Set: true},
+			UgroupIds:             generated.OptNilUint64Array{Value: ugroupIds, Set: true},
 			UserIds:               generated.OptNilUint64Array{Value: userIds, Set: true},
 		},
 		Set: true,

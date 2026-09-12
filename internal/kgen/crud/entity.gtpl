@@ -181,7 +181,15 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", {{.ResConst}}), "the create response did not include an id")
 		return
 	}
-	id := int64(created.Data{{if not .CreateDataPtr}}.Value{{end}}.{{.CreateIDSDKName}}.Value){{else}}id := int64(created.Data{{if not .CreateDataPtr}}.Value{{end}}.{{.CreateIDSDKName}}){{end}}{{else}}id, diags := errs.CreatedID(out)
+	id := int64(created.Data{{if not .CreateDataPtr}}.Value{{end}}.{{.CreateIDSDKName}}.Value){{else}}id := int64(created.Data{{if not .CreateDataPtr}}.Value{{end}}.{{.CreateIDSDKName}}){{end}}
+	// Routed through the same guard as the raw path: .Set is true when the
+	// API returns an explicit 0, which is never a real Kion id. Recording it
+	// leaves a record that exists and that Terraform can never address.
+	id, idDiags := errs.RawCreatedID(id)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}{{else}}id, diags := errs.CreatedID(out)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return

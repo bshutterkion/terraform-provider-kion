@@ -106,6 +106,14 @@ func (r *compliance_controlResource) Create(ctx context.Context, req resource.Cr
 		return
 	}
 	id := int64(created.Data.Value.ID.Value)
+	// Routed through the same guard as the raw path: .Set is true when the
+	// API returns an explicit 0, which is never a real Kion id. Recording it
+	// leaves a record that exists and that Terraform can never address.
+	id, idDiags := errs.RawCreatedID(id)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	plan.Id = types.StringValue(strconv.FormatInt(id, 10))
 

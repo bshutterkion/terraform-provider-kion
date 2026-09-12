@@ -11,6 +11,6 @@ resource "kion_ou_enforcement" "this" {
   threshold_type              = var.threshold_type
   timeframe                   = var.timeframe
   trigger_planned_amount_type = var.trigger_planned_amount_type
-  ugroup_ids                  = var.ugroup_ids
+  user_group_ids              = var.user_group_ids
   user_ids                    = var.user_ids
 }

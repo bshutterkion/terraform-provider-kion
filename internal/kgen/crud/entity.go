@@ -301,7 +301,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 	d.NoRead = rm.Read.Method.Name == ""
 
 	var err error
-	if d.CreateBinds, d.CreateSliceBinds, err = bodyBinds(rm.Create.Body, byTF, rm.IDField.TFSDK, rm.CreateNested.Names); err != nil {
+	if d.CreateBinds, d.CreateSliceBinds, err = bodyBinds(rm.Create.Body, byTF, rm.IDField.TFSDK, rm.CreateNested.Names, rm.Renames); err != nil {
 		return d, fmt.Errorf("%s create: %w", rm.Name, err)
 	}
 	d.CreateObjBinds, d.CreateArrBinds, d.CreateFlatSubs = rm.CreateNested.Objs, rm.CreateNested.Arrs, rm.CreateNested.FlatSubs
@@ -327,7 +327,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		d.UpdateBody = rm.Update.Body.Name
 		d.UpdateBodyPtr = rm.Update.Method.BodyPtr
 		d.UpdateParams = rm.Update.Method.ParamsType
-		if d.UpdateBinds, d.UpdateSliceBinds, err = bodyBinds(rm.Update.Body, byTF, rm.IDField.TFSDK, rm.UpdateNested.Names); err != nil {
+		if d.UpdateBinds, d.UpdateSliceBinds, err = bodyBinds(rm.Update.Body, byTF, rm.IDField.TFSDK, rm.UpdateNested.Names, rm.Renames); err != nil {
 			return d, fmt.Errorf("%s update: %w", rm.Name, err)
 		}
 		d.UpdateObjBinds, d.UpdateArrBinds, d.UpdateFlatSubs = rm.UpdateNested.Objs, rm.UpdateNested.Arrs, rm.UpdateNested.FlatSubs
@@ -440,11 +440,21 @@ func idParseBits(idParamType string) int {
 // bodyBinds maps a request body's fields to model fields via json/tfsdk tags,
 // skipping the id field (server-assigned / path param) and fields absent from
 // the model. Refuses on an unconvertible scalar type.
-func bodyBinds(body *Struct, byTF map[string]ModelField, idTF string, skip map[string]bool) ([]fieldBind, []sliceBind, error) {
+// renames maps this resource's API attribute names to its provider ones; a
+// renamed attribute is keyed in byTF under the provider name, so a lookup by
+// the body field's own JSON name misses without it.
+func bodyBinds(body *Struct, byTF map[string]ModelField, idTF string, skip map[string]bool, renames map[string]string) ([]fieldBind, []sliceBind, error) {
 	var scalars []fieldBind
 	var sliceOut []sliceBind
 	for _, f := range body.Fields {
 		mf, ok := byTF[f.JSONName]
+		if !ok {
+			// codegen/renames.yaml gave the attribute a different provider
+			// name, so byTF is keyed under that instead.
+			if tf, renamed := renames[f.JSONName]; renamed {
+				mf, ok = byTF[tf]
+			}
+		}
 		if !ok || mf.TFSDK == idTF || skip[f.JSONName] {
 			continue
 		}

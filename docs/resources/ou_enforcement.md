@@ -27,7 +27,7 @@ resource "kion_ou_enforcement" "example" {
   # service_id                  = 1
   # threshold_type              = "example"
   # trigger_planned_amount_type = "example"
-  # ugroup_ids                  = []
+  # user_group_ids              = []
   # user_ids                    = []
 }
 ```
@@ -54,7 +54,7 @@ Use endpoint /v3/cloud-provider/service to get a list of valid services and IDs.
 - `threshold_type` (String) Type of the threshold value.
 Valid values are "dollar", "percent".
 - `trigger_planned_amount_type` (String) For OU percent enforcements, controls whether percentage is calculated against an aggregate budget or active threshold when applicable.
-- `ugroup_ids` (Set of Number) List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed.
+- `user_group_ids` (Set of Number) List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed.
 - `user_ids` (Set of Number) List of user IDs that will receive notifications from the enforcement. Is required if no user group IDs are listed.
 
 ### Read-Only

@@ -9,6 +9,6 @@ resource "kion_funding_source_enforcement" "this" {
   spend_option      = var.spend_option
   threshold         = var.threshold
   timeframe         = var.timeframe
-  ugroup_ids        = var.ugroup_ids
+  user_group_ids    = var.user_group_ids
   user_ids          = var.user_ids
 }

@@ -5,11 +5,11 @@ resource "kion_funding_source_enforcement" "example" {
   timeframe         = "example"
 
   # Optional
-  # cloud_rule_id = 1
-  # description   = "example"
-  # enabled       = false
-  # overburn      = false
-  # spend_option  = "example"
-  # ugroup_ids    = []
-  # user_ids      = []
+  # cloud_rule_id  = 1
+  # description    = "example"
+  # enabled        = false
+  # overburn       = false
+  # spend_option   = "example"
+  # user_group_ids = []
+  # user_ids       = []
 }
