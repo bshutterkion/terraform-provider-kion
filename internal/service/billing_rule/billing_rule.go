@@ -108,11 +108,6 @@ func (r *billing_ruleResource) flatten(ctx context.Context, w billing_ruleWire, 
 }
 
 func (r *billing_ruleResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	resp.Diagnostics.Append(framework.RequireKionVersionInRange(r.Meta(), minKionVersion, maxKionVersion, "kion_billing_rule")...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	conn := r.Meta().Client
 
 	var plan BillingRuleModel
@@ -170,11 +165,6 @@ func (r *billing_ruleResource) Create(ctx context.Context, req resource.CreateRe
 }
 
 func (r *billing_ruleResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	resp.Diagnostics.Append(framework.RequireKionVersionInRange(r.Meta(), minKionVersion, maxKionVersion, "kion_billing_rule")...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	var state BillingRuleModel
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 	if resp.Diagnostics.HasError() {
@@ -199,11 +189,6 @@ func (r *billing_ruleResource) Read(ctx context.Context, req resource.ReadReques
 }
 
 func (r *billing_ruleResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	resp.Diagnostics.Append(framework.RequireKionVersionInRange(r.Meta(), minKionVersion, maxKionVersion, "kion_billing_rule")...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	conn := r.Meta().Client
 
 	var plan BillingRuleModel
@@ -266,11 +251,6 @@ func (r *billing_ruleResource) Update(ctx context.Context, req resource.UpdateRe
 }
 
 func (r *billing_ruleResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	resp.Diagnostics.Append(framework.RequireKionVersionInRange(r.Meta(), minKionVersion, maxKionVersion, "kion_billing_rule")...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	conn := r.Meta().Client
 
 	var state BillingRuleModel

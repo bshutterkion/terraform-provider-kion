@@ -7,6 +7,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -32,6 +33,13 @@ type ServiceOps struct {
 	Name                         string
 	Create, Read, Update, Delete []string
 	DataSourceRead               []string
+	// Raw* are set when an op goes over raw HTTP rather than the SDK, which the
+	// op-name lists cannot express: a raw call is
+	// r.Meta().RawPost(ctx, "/v3/...", body), and "RawPost" is not an
+	// operationId, so the op simply vanished and the derived config reported the
+	// resource INCOMPLETE or dropped a verb. Both the raw_create archetype and
+	// the fully raw_http one need this.
+	RawCreate, RawRead, RawUpdate, RawDelete *Op
 }
 
 type fileSource struct{}
@@ -83,6 +91,10 @@ func (fileSource) ServiceOps(root string) ([]ServiceOps, error) {
 			so.Read = callsInMethod(f, "Read")
 			so.Update = callsInMethod(f, "Update")
 			so.Delete = callsInMethod(f, "Delete")
+			so.RawCreate = rawCallInMethod(f, "Create")
+			so.RawRead = rawCallInMethod(f, "Read")
+			so.RawUpdate = rawCallInMethod(f, "Update")
+			so.RawDelete = rawCallInMethod(f, "Delete")
 		}
 		if f := parseGo(filepath.Join(root, name, name+"_data_source.go")); f != nil {
 			so.DataSourceRead = callsInMethod(f, "Read")
@@ -122,4 +134,77 @@ func callsInMethod(f *ast.File, method string) []string {
 		})
 	}
 	return names
+}
+
+// rawVerbMethod maps a conns raw helper to its HTTP method.
+var rawVerbMethod = map[string]string{
+	"RawPost": "POST", "RawPatch": "PATCH", "RawPut": "PUT",
+	"RawDelete": "DELETE", "RawGet": "GET",
+}
+
+// rawCallInMethod finds a raw HTTP call in the named method and reconstructs
+// the op it performs, so a resource whose create bypasses the SDK is still
+// described by the derived config rather than reported as missing one.
+func rawCallInMethod(f *ast.File, method string) *Op {
+	for _, decl := range f.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Recv == nil || fn.Name.Name != method || fn.Body == nil {
+			continue
+		}
+		var found *Op
+		ast.Inspect(fn.Body, func(n ast.Node) bool {
+			if found != nil {
+				return false
+			}
+			call, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			sel, ok := call.Fun.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			httpMethod, ok := rawVerbMethod[sel.Sel.Name]
+			if !ok {
+				return true
+			}
+			// The path is the first path-shaped string literal in the call.
+			// It is not always a direct argument: a by-id op wraps it, as
+			// RawPatch(ctx, strings.Replace("/beta/dashboard/{id}", …), body),
+			// so this searches the whole expression rather than just Args.
+			for _, arg := range call.Args {
+				if p, ok := pathLiteral(arg); ok {
+					found = &Op{Method: httpMethod, Path: p}
+					return false
+				}
+			}
+			return true
+		})
+		if found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+// pathLiteral finds the first string literal in an expression that looks like an
+// API path.
+func pathLiteral(e ast.Expr) (string, bool) {
+	var out string
+	ast.Inspect(e, func(n ast.Node) bool {
+		if out != "" {
+			return false
+		}
+		lit, ok := n.(*ast.BasicLit)
+		if !ok || lit.Kind != token.STRING {
+			return true
+		}
+		p, err := strconv.Unquote(lit.Value)
+		if err == nil && strings.HasPrefix(p, "/") {
+			out = p
+			return false
+		}
+		return true
+	})
+	return out, out != ""
 }

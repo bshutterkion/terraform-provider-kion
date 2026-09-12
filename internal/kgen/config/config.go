@@ -72,20 +72,55 @@ func toPascal(snake string) string {
 	return strings.Join(parts, "")
 }
 
-// pickVerb returns the first candidate op present in the index whose method is
-// one of the wanted methods.
+// pickVerb returns the candidate op present in the index whose method is one of
+// the wanted methods, preferring one that addresses the RECORD rather than a
+// sub-resource hanging off it.
+//
+// The preference is not cosmetic. A service's update method may call more than
+// one write op: kion_cloud_rule and kion_ou both PATCH the record AND PUT its
+// labels, because label sync is part of Update. Taking the first match made
+// `kconfig gen` rewrite their update to
+//
+//	path: /v3/cloud-rule/{cloud_rule_id}/labels
+//	method: PUT
+//
+// which is a different endpoint doing a different thing -- so regenerating the
+// config silently broke both resources, and `make codegen-check` could not pass
+// on a clean tree.
+//
+// A record-addressing path ends at its id parameter; a sub-resource has static
+// segments after it. That distinction holds for every op here and does not
+// depend on knowing which sub-resources exist.
 func pickVerb(candidates []string, ops map[string]Op, methods ...string) *Op {
+	var fallback *Op
 	for _, c := range candidates {
 		op, ok := ops[c]
-		if !ok {
+		if !ok || !slices.Contains(methods, op.Method) {
 			continue
 		}
-		if slices.Contains(methods, op.Method) {
-			o := op
+		o := op
+		if addressesRecord(o.Path) {
 			return &o
 		}
+		if fallback == nil {
+			fallback = &o
+		}
 	}
-	return nil
+	// Every candidate is a sub-resource op. Returning one is still better than
+	// dropping the verb, and a create legitimately has no id in its path.
+	return fallback
+}
+
+// addressesRecord reports whether a path ends at a path parameter, i.e. names
+// the record itself rather than something beneath it.
+func addressesRecord(path string) bool {
+	p := strings.TrimSuffix(path, "/")
+	i := strings.LastIndexByte(p, '/')
+	if i < 0 {
+		return false
+	}
+	last := p[i+1:]
+	return strings.HasPrefix(last, "{") && strings.HasSuffix(last, "}")
 }
 
 func heuristic(name string, ops map[string]Op) *CRUD {
@@ -122,10 +157,12 @@ func Derive(src Source, opts Options) ([]ServiceConfig, error) {
 	for _, so := range svcs {
 		sc := ServiceConfig{Name: so.Name}
 		r := &CRUD{
-			Create: pickVerb(so.Create, ops, "POST"),
-			Read:   pickVerb(so.Read, ops, "GET"),
-			Update: pickVerb(so.Update, ops, "PATCH", "PUT"),
-			Delete: pickVerb(so.Delete, ops, "DELETE"),
+			// A raw create has no operationId to look up; the parser
+			// reconstructs it from the call itself.
+			Create: orRaw(pickVerb(so.Create, ops, "POST"), so.RawCreate),
+			Read:   orRaw(pickVerb(so.Read, ops, "GET"), so.RawRead),
+			Update: orRaw(pickVerb(so.Update, ops, "PATCH", "PUT"), so.RawUpdate),
+			Delete: orRaw(pickVerb(so.Delete, ops, "DELETE"), so.RawDelete),
 		}
 		if r.empty() {
 			if h := heuristic(so.Name, ops); !h.empty() {
@@ -475,4 +512,14 @@ func applyOverrides(configs []ServiceConfig, ov overridesFile) []ServiceConfig {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
+}
+
+// orRaw prefers a typed op, falling back to one reconstructed from a raw HTTP
+// call. Without it a resource using the raw_create archetype looked as though it
+// had no create at all, and the derived config reported it INCOMPLETE.
+func orRaw(typed, raw *Op) *Op {
+	if typed != nil {
+		return typed
+	}
+	return raw
 }

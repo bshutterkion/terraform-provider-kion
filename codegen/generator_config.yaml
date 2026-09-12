@@ -101,6 +101,9 @@ resources:
     update:
       path: /v3/app-role/{id}
       method: PATCH
+    delete:
+      path: /v1/app-role/{id}
+      method: DELETE
     schema:
       ignores: [status, record_id, data]
   aws_account:
@@ -132,7 +135,7 @@ resources:
       ignores: [status, record_id, data]
   azure_account:
     create:
-      path: /v3/account/__qs__/account-type/azure
+      path: /v3/account?account-type=azure
       method: POST
     read:
       path: /v3/account/{id}
@@ -506,6 +509,12 @@ resources:
     read:
       path: /v2/funding-source-note/{id}
       method: GET
+    update:
+      path: /v2/funding-source-note/{id}
+      method: PATCH
+    delete:
+      path: /v2/funding-source-note/{id}
+      method: DELETE
     schema:
       ignores: [status, record_id, data]
   funding_source_permission_mapping:
@@ -860,6 +869,9 @@ resources:
     read:
       path: /v3/project-note/{id}
       method: GET
+    update:
+      path: /v2/project-note/{id}
+      method: PATCH
     delete:
       path: /v3/project-note/{id}
       method: DELETE
@@ -917,9 +929,6 @@ resources:
     update:
       path: /beta/scope/{id}/criteria/{criteria_id}
       method: PATCH
-    delete:
-      path: /beta/scope/{scope_id}/criteria/{criteria_id}
-      method: DELETE
     schema:
       ignores: [status, record_id, data]
   service_catalog:
@@ -932,6 +941,9 @@ resources:
     update:
       path: /v3/service-catalog/{id}
       method: PATCH
+    delete:
+      path: /v2/aws-service-catalog/portfolio/{id}
+      method: DELETE
     schema:
       ignores: [status, record_id, data]
   service_control_policy:
@@ -959,6 +971,9 @@ resources:
     update:
       path: /v3/user/{id}
       method: PATCH
+    delete:
+      path: /v1/user/{id}
+      method: DELETE
     schema:
       ignores: [status, record_id, data]
   user_group:
@@ -986,6 +1001,9 @@ resources:
     update:
       path: /v3/webhook/{id}
       method: PATCH
+    delete:
+      path: /v1/webhook/{id}
+      method: DELETE
     schema:
       ignores: [status, record_id, data]
 

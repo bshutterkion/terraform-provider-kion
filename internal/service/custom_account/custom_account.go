@@ -49,11 +49,6 @@ func (r *custom_accountResource) Schema(ctx context.Context, _ resource.SchemaRe
 }
 
 func (r *custom_accountResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	resp.Diagnostics.Append(framework.RequireKionVersionInRange(r.Meta(), minKionVersion, maxKionVersion, "kion_custom_account")...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	conn := r.Meta().Client
 
 	var plan CustomAccountModel
@@ -118,11 +113,6 @@ func (r *custom_accountResource) Create(ctx context.Context, req resource.Create
 }
 
 func (r *custom_accountResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	resp.Diagnostics.Append(framework.RequireKionVersionInRange(r.Meta(), minKionVersion, maxKionVersion, "kion_custom_account")...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	conn := r.Meta().Client
 
 	var state CustomAccountModel
@@ -157,11 +147,6 @@ func (r *custom_accountResource) Read(ctx context.Context, req resource.ReadRequ
 }
 
 func (r *custom_accountResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	resp.Diagnostics.Append(framework.RequireKionVersionInRange(r.Meta(), minKionVersion, maxKionVersion, "kion_custom_account")...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	conn := r.Meta().Client
 
 	var plan CustomAccountModel
@@ -218,11 +203,6 @@ func (r *custom_accountResource) Update(ctx context.Context, req resource.Update
 }
 
 func (r *custom_accountResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	resp.Diagnostics.Append(framework.RequireKionVersionInRange(r.Meta(), minKionVersion, maxKionVersion, "kion_custom_account")...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
 	conn := r.Meta().Client
 
 	var state CustomAccountModel
