@@ -257,24 +257,33 @@ func (r *project_cloud_access_roleResource) Update(ctx context.Context, req reso
 	assocAddAccountIds, assocRemoveAccountIds := flex.Uint64SetDiff(ctx, state.AccountIds, plan.AccountIds, &resp.Diagnostics)
 	assocAddUserGroupIds, assocRemoveUserGroupIds := flex.Uint64SetDiff(ctx, state.UserGroupIds, plan.UserGroupIds, &resp.Diagnostics)
 	assocAddUserIds, assocRemoveUserIds := flex.Uint64SetDiff(ctx, state.UserIds, plan.UserIds, &resp.Diagnostics)
+	assocAddAwsIamPolicies, assocRemoveAwsIamPolicies := flex.Uint64SetDiff(ctx, state.AwsIamPolicies, plan.AwsIamPolicies, &resp.Diagnostics)
+	assocAddAzureRoleDefinitions, assocRemoveAzureRoleDefinitions := flex.Uint64SetDiff(ctx, state.AzureRoleDefinitions, plan.AzureRoleDefinitions, &resp.Diagnostics)
+	assocAddGcpIamRoles, assocRemoveGcpIamRoles := flex.Uint64SetDiff(ctx, state.GcpIamRoles, plan.GcpIamRoles, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if len(assocAddAccountIds) > 0 || len(assocAddUserGroupIds) > 0 || len(assocAddUserIds) > 0 {
+	if len(assocAddAccountIds) > 0 || len(assocAddUserGroupIds) > 0 || len(assocAddUserIds) > 0 || len(assocAddAwsIamPolicies) > 0 || len(assocAddAzureRoleDefinitions) > 0 || len(assocAddGcpIamRoles) > 0 {
 		if _, err := conn.PostProjectCloudAccessRoleAssociations(ctx, &generated.ProjectCloudAccessRoleAssociations{
-			AccountIds:   generated.OptNilUint64Array{Value: assocAddAccountIds, Set: true},
-			UserGroupIds: generated.OptNilUint64Array{Value: assocAddUserGroupIds, Set: true},
-			UserIds:      generated.OptNilUint64Array{Value: assocAddUserIds, Set: true},
+			AccountIds:           generated.OptNilUint64Array{Value: assocAddAccountIds, Set: true},
+			UserGroupIds:         generated.OptNilUint64Array{Value: assocAddUserGroupIds, Set: true},
+			UserIds:              generated.OptNilUint64Array{Value: assocAddUserIds, Set: true},
+			AWSIamPolicies:       generated.OptNilUint64Array{Value: assocAddAwsIamPolicies, Set: true},
+			AzureRoleDefinitions: generated.OptNilUint64Array{Value: assocAddAzureRoleDefinitions, Set: true},
+			GcpIamRoles:          generated.OptNilUint64Array{Value: assocAddGcpIamRoles, Set: true},
 		}, generated.PostProjectCloudAccessRoleAssociationsParams{ID: idInt}); err != nil {
 			resp.Diagnostics.AddError(fmt.Sprintf("adding associations to %s (ID: %d)", ResNameProjectCloudAccessRole, idInt), err.Error())
 			return
 		}
 	}
-	if len(assocRemoveAccountIds) > 0 || len(assocRemoveUserGroupIds) > 0 || len(assocRemoveUserIds) > 0 {
+	if len(assocRemoveAccountIds) > 0 || len(assocRemoveUserGroupIds) > 0 || len(assocRemoveUserIds) > 0 || len(assocRemoveAwsIamPolicies) > 0 || len(assocRemoveAzureRoleDefinitions) > 0 || len(assocRemoveGcpIamRoles) > 0 {
 		if _, err := conn.DeleteProjectCloudAccessRoleAssociations(ctx, &generated.ProjectCloudAccessRoleAssociations{
-			AccountIds:   generated.OptNilUint64Array{Value: assocRemoveAccountIds, Set: true},
-			UserGroupIds: generated.OptNilUint64Array{Value: assocRemoveUserGroupIds, Set: true},
-			UserIds:      generated.OptNilUint64Array{Value: assocRemoveUserIds, Set: true},
+			AccountIds:           generated.OptNilUint64Array{Value: assocRemoveAccountIds, Set: true},
+			UserGroupIds:         generated.OptNilUint64Array{Value: assocRemoveUserGroupIds, Set: true},
+			UserIds:              generated.OptNilUint64Array{Value: assocRemoveUserIds, Set: true},
+			AWSIamPolicies:       generated.OptNilUint64Array{Value: assocRemoveAwsIamPolicies, Set: true},
+			AzureRoleDefinitions: generated.OptNilUint64Array{Value: assocRemoveAzureRoleDefinitions, Set: true},
+			GcpIamRoles:          generated.OptNilUint64Array{Value: assocRemoveGcpIamRoles, Set: true},
 		}, generated.DeleteProjectCloudAccessRoleAssociationsParams{ID: idInt}); err != nil {
 			resp.Diagnostics.AddError(fmt.Sprintf("removing associations from %s (ID: %d)", ResNameProjectCloudAccessRole, idInt), err.Error())
 			return
