@@ -16,7 +16,6 @@ func AppRoleResourceSchema(ctx context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"disabled": schema.BoolAttribute{
-				Optional:            true,
 				Computed:            true,
 				Description:         "Whether the app role is disabled.",
 				MarkdownDescription: "Whether the app role is disabled.",

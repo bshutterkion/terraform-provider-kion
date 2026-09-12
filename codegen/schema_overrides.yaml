@@ -738,6 +738,16 @@ resources:
         type: bool
         computed_optional_required: computed
         description: Whether the app role is system-managed.
+      # Read-only, like system_managed. Kion's AppRoleCreate and AppRoleUpdate
+      # both carry only `name`; `disabled` appears in the RESPONSE model alone.
+      # It was settable, and the provider had no way to send it, so a
+      # configuration setting it was accepted and discarded -- confirmed against
+      # a live install, where PATCH {"disabled":true} answers 200 and the role
+      # reads back disabled=false.
+      disabled:
+        type: bool
+        computed_optional_required: computed
+        description: Whether the app role is disabled.
   project_note:
     description: "Manages a Kion Project Note."
     # Computed audit fields from the backend ProjectNote model.

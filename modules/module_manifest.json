@@ -427,11 +427,6 @@
       "path": "terraform-kion-app-role",
       "variables": [
         {
-          "attr": "disabled",
-          "var": "disabled",
-          "block": false
-        },
-        {
           "attr": "name",
           "var": "name",
           "block": false

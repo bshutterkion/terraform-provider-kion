@@ -40,13 +40,13 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
-| disabled | Whether the app role is disabled. | `bool` | `null` | no |
 | name | Name of the app role. | `string` | `null` | no |
 
 ## Outputs
 
 | Name | Description |
 | ---- | ----------- |
+| disabled | disabled of the kion\_app\_role. |
 | id | id of the kion\_app\_role. |
 | system\_managed | system\_managed of the kion\_app\_role. |
 <!-- END_TF_DOCS -->
