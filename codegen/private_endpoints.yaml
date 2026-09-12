@@ -99,6 +99,32 @@ resources:
   # and flatten had nothing to assign. kion_billing_rule imported as a bare id
   # with every attribute missing. The endpoint itself returns the whole record;
   # only the spec is silent, so the read is declared by hand here.
+  # Blended because the SDK cannot decode this response, not because the endpoint
+  # is private. AzureAccountLinkage types delete_finalized_at as OptString --
+  # optional but NOT nullable -- and Kion returns null for a linkage that has not
+  # been finalized, which is all of them:
+  #
+  #   decode AzureAccountLinkage: callback: decode field "delete_finalized_at":
+  #   unexpected byte 110 'n'
+  #
+  # So every create and every read of kion_account_linkage failed, on a field the
+  # provider does not even expose. The upstream spec needs OptNilString; reading
+  # raw sidesteps the typed decode entirely and costs nothing, since the model
+  # holds five attributes and the payload carries all of them.
+  account_linkage:
+    reason: SDK decode fails on a null delete_finalized_at (spec says non-nullable)
+    read:   { method: GET, path: "/v3/account-linkages/{id}", spec: public, raw: true }
+    read_shape:
+      scalars:
+        - { tf: id,              from: id,              kind: id }
+        - { tf: payer_id,        from: payer_id,        kind: int }
+        - { tf: user_id,         from: user_id,         kind: int }
+        - { tf: azure_object_id, from: azure_object_id, kind: string }
+        # Kion splits this into azure_username + azure_domain on store and never
+        # returns it as given, so reading it back would diff against the
+        # configured value forever.
+        - { tf: azure_principal_name, from: azure_principal_name, kind: string, write_only: true }
+
   billing_rule:
     reason: spec's BillingRule read schema is empty; the endpoint returns the record
     # Only the read. Create, update and delete have usable typed models and stay

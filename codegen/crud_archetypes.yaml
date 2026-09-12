@@ -143,6 +143,11 @@ project_permission_mapping:
   parent_field: project_id
   member_fields: [user_ids, user_groups_ids]
 
+# Blended because the SDK cannot decode the read response: the spec declares
+# delete_finalized_at non-nullable and Kion returns null. See private_endpoints.
+account_linkage:
+  kind: blended
+
 # Blended because the SPEC is empty, not because an endpoint is private: every
 # billing-rule verb is public, but the spec's BillingRule read schema has no
 # fields, so the typed flatten assigned nothing and an import produced a bare id.

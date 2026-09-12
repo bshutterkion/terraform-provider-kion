@@ -11,22 +11,31 @@ import (
 	"terraform-provider-kion/internal/acctest"
 )
 
-// payerEnv describes KION_ACC_PAYER_ID for the skip message. A linkage row
-// carries a foreign key to `payer`, so on an install with no billing source
-// every create fails on the constraint itself:
+// payerEnv describes KION_ACC_AZURE_PAYER_ID for the skip message.
+//
+// It must be an AZURE billing source, not just any one. A linkage row carries a
+// foreign key to `payer`, so on an install with no billing source every create
+// fails on the constraint itself:
 //
 //	Cannot add or update a child row: a foreign key constraint fails
 //	(`cloudtamer`.`user_azure_object_id`, CONSTRAINT `f_payer_id` …)
 //
-// That is an install that cannot run the test, not a provider defect (#62).
-const payerEnv = "the ID of a billing source on the target Kion; a linkage row references one by foreign key"
+// but a NON-Azure payer is worse than that, because it looks like it worked.
+// POST answers 201 with a record id, and the by-id read then answers 404 -- the
+// read only serves linkages under an Azure payer, so the record exists and is
+// unreachable. Against KION_ACC_PAYER_ID (the generic one) that surfaced as
+// "Not Found: The linkage you requested could not be found" on a resource the
+// apply had just created. The resource is Azure-specific: every attribute it
+// carries besides the two ids is an Azure identity.
+const payerEnv = "the ID of an AZURE billing source on the target Kion; a linkage under any other payer is created and then cannot be read back"
 
 func TestAccKionAccountLinkage_basic(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping long-running test in short mode")
 	}
 
-	payerID := acctest.RequireEnv(t, "KION_ACC_PAYER_ID", payerEnv)
+	payerID := acctest.RequireEnv(t, "KION_ACC_AZURE_PAYER_ID", payerEnv)
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	ctx := acctest.Context(t)
 	resourceName := "kion_account_linkage.test"
 
@@ -36,7 +45,7 @@ func TestAccKionAccountLinkage_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckAccountLinkageDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAccountLinkageConfig_basic(payerID),
+				Config: testAccAccountLinkageConfig_basic(rName, payerID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAccountLinkageExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -50,6 +59,13 @@ func TestAccKionAccountLinkage_basic(t *testing.T) {
 				ResourceName:      resourceName,
 				ImportState:       true,
 				ImportStateVerify: true,
+				// Kion stores a principal name split into azure_username and
+				// azure_domain and never returns it as given, so an import
+				// cannot recover it and a configuration generated from one has
+				// to supply it. Reconstructing username@domain would not help:
+				// it does not equal what was configured unless the practitioner
+				// wrote a fully-qualified name to begin with.
+				ImportStateVerifyIgnore: []string{"azure_principal_name"},
 			},
 		},
 	})
@@ -60,7 +76,8 @@ func TestAccKionAccountLinkage_update(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
-	payerID := acctest.RequireEnv(t, "KION_ACC_PAYER_ID", payerEnv)
+	payerID := acctest.RequireEnv(t, "KION_ACC_AZURE_PAYER_ID", payerEnv)
+	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
 	ctx := acctest.Context(t)
 	resourceName := "kion_account_linkage.test"
 
@@ -70,14 +87,14 @@ func TestAccKionAccountLinkage_update(t *testing.T) {
 		CheckDestroy:             testAccCheckAccountLinkageDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAccountLinkageConfig_basic(payerID),
+				Config: testAccAccountLinkageConfig_basic(rName, payerID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAccountLinkageExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 				),
 			},
 			{
-				Config: testAccAccountLinkageConfig_update(payerID),
+				Config: testAccAccountLinkageConfig_update(rName, payerID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAccountLinkageExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -87,6 +104,13 @@ func TestAccKionAccountLinkage_update(t *testing.T) {
 				ResourceName:      resourceName,
 				ImportState:       true,
 				ImportStateVerify: true,
+				// Kion stores a principal name split into azure_username and
+				// azure_domain and never returns it as given, so an import
+				// cannot recover it and a configuration generated from one has
+				// to supply it. Reconstructing username@domain would not help:
+				// it does not equal what was configured unless the practitioner
+				// wrote a fully-qualified name to begin with.
+				ImportStateVerifyIgnore: []string{"azure_principal_name"},
 			},
 		},
 	})
@@ -119,27 +143,31 @@ func testAccCheckAccountLinkageDestroy(_ context.Context) resource.TestCheckFunc
 	}
 }
 
-func testAccAccountLinkageConfig_basic(payerID string) string {
+// The Azure identity is randomized per run. Kion rejects a second linkage for
+// an identity already linked -- "Bad Request: This Azure account is already
+// linked" -- so a fixed value passes once and then fails on every rerun until
+// the leftover is deleted by hand.
+func testAccAccountLinkageConfig_basic(rName, payerID string) string {
 	return fmt.Sprintf(`
 resource "kion_account_linkage" "test" {
-  azure_object_id = "test-acc-value"
-  azure_principal_name = "test-acc-value"
+  azure_object_id = %[2]q
+  azure_principal_name = %[2]q
   payer_id = %[1]s
   user_id = 1
 }
-`, payerID)
+`, payerID, rName, rName+"-updated")
 }
 
 // The update step changes the Azure identity rather than payer_id or user_id:
 // both name records the install has to already hold, and only one of each is
 // known to exist.
-func testAccAccountLinkageConfig_update(payerID string) string {
+func testAccAccountLinkageConfig_update(rName, payerID string) string {
 	return fmt.Sprintf(`
 resource "kion_account_linkage" "test" {
-  azure_object_id = "test-acc-updated"
-  azure_principal_name = "test-acc-updated"
+  azure_object_id = %[3]q
+  azure_principal_name = %[3]q
   payer_id = %[1]s
   user_id = 1
 }
-`, payerID)
+`, payerID, rName, rName+"-updated")
 }

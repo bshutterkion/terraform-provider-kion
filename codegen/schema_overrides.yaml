@@ -1019,6 +1019,37 @@ resources:
   # to carry forward.
   account_linkage:
     description: "Manages a Kion Account Linkage, associating an account with a project."
+    # Kion publishes no update for a linkage, so the generated Update is a flat
+    # error: "kion_account_linkage cannot be updated in place; changes force
+    # replacement." Nothing made that happen, though -- no attribute required
+    # replacement, so Terraform planned an in-place update and every change to a
+    # linkage failed the apply instead of recreating it. (Kion itself does serve a
+    # PATCH; the public spec does not declare it, so the SDK has no method for it.)
+    attributes:
+      azure_object_id:
+        type: string
+        computed_optional_required: required
+        description: The Azure object ID of the user to link.
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
+      azure_principal_name:
+        type: string
+        computed_optional_required: required
+        description: The Azure principal name of the user to link.
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
+      payer_id:
+        type: int64
+        computed_optional_required: required
+        description: The ID of the Azure billing source the linkage belongs to.
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
+      user_id:
+        type: int64
+        computed_optional_required: required
+        description: The ID of the Kion user to link.
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
   billing_source_govcloud:
     description: "Manages the GovCloud information attached to an existing Kion commercial billing source. One per billing source, addressed by the commercial payer's id."
   funding_source_note:
