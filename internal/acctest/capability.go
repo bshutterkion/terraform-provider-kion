@@ -32,6 +32,13 @@ type Capabilities struct {
 	// BudgetMode is Kion's financial mode. Spend plans, and so any project
 	// carrying a project_funding block, are unavailable when it is set.
 	BudgetMode bool
+	// AccountCreationEnabled is an install-wide switch, independent of any
+	// payer's own account_creation_enabled. With it off, every create of a new
+	// cloud account is refused outright: "Creation of accounts has been disabled
+	// by your administrator."
+	AccountCreationEnabled bool
+	// AccountCacheEnabled is its twin for the account cache.
+	AccountCacheEnabled bool
 }
 
 // Cached together rather than as package-level vars so the error is plainly
@@ -100,7 +107,73 @@ func fetchCapabilities(getenv func(string) string) (_ Capabilities, err error) {
 	}
 
 	caps.BudgetMode = body.Data.BudgetMode
+
+	acctCaps, err := fetchAccountConfig(ctx, base, apiPath, token)
+	if err != nil {
+		return caps, err
+	}
+	caps.AccountCreationEnabled = acctCaps.creation
+	caps.AccountCacheEnabled = acctCaps.cache
+
 	return caps, nil
+}
+
+// fetchAccountConfig reads the install-wide account switches, which live on
+// their own endpoint rather than in /v3/app-config.
+func fetchAccountConfig(ctx context.Context, base, apiPath, token string) (_ struct{ creation, cache bool }, err error) {
+	var out struct{ creation, cache bool }
+
+	url := base + strings.TrimRight(apiPath, "/") + "/v3/app-config/account"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return out, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return out, fmt.Errorf("reading account config from %s: %w", url, err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = errors.Join(err, cerr)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return out, fmt.Errorf("reading account config from %s: HTTP %d", url, resp.StatusCode)
+	}
+
+	var body struct {
+		Data struct {
+			AccountCreationEnabled bool `json:"account_creation_enabled"`
+			AccountCacheEnabled    bool `json:"account_cache_enabled"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return out, fmt.Errorf("decoding account config: %w", err)
+	}
+	out.creation = body.Data.AccountCreationEnabled
+	out.cache = body.Data.AccountCacheEnabled
+	return out, nil
+}
+
+// RequireAccountCreation skips when the install refuses to create accounts.
+//
+// This is install-wide and independent of any payer's own switch, so a payer
+// reporting account_creation_enabled says nothing about it. Without the check,
+// every account resource fails with an API error rather than skipping, which is
+// the split the acctest workflow summary is built on.
+func RequireAccountCreation(t *testing.T) {
+	t.Helper()
+
+	caps, err := InstallCapabilities()
+	if err != nil {
+		t.Fatalf("could not determine whether the install allows account creation: %v", err)
+	}
+	if !caps.AccountCreationEnabled {
+		t.Skip("install has account creation disabled (app-config account_creation_enabled): no cloud account can be created")
+	}
 }
 
 // RequireSpendPlanMode skips when the install runs in budget mode.

@@ -3,7 +3,7 @@
 package idms_open_id
 
 // No acceptance-test sweeper is registered for kion_idms_open_id:
-// the API exposes neither a delete endpoint nor a resolvable collection endpoint.
+// no resolvable collection endpoint: list envelope OpenID holds no []OpenID items field (read payload).
 //
 // A registered sweeper that returned nil would report success to `make sweep`
 // while orphaned test-acc records accumulated, so none is registered at all.

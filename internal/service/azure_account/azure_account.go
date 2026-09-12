@@ -5,6 +5,7 @@ package azure_account
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -56,25 +57,37 @@ func (r *azure_accountResource) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 
-	input := &generated.AzureSubscriptionCreate{
-		AccountAlias:       flex.OptStringFromFramework(plan.AccountAlias),
-		AccountName:        flex.StringValueFromFramework(plan.AccountName),
-		AccountTypeID:      flex.OptNilUint64FromFramework(plan.AccountTypeId),
-		PayerID:            flex.NilUint64FromFramework(plan.PayerId),
-		ProjectID:          flex.NilUint64FromFramework(plan.ProjectId),
-		SkipAccessChecking: flex.OptNilBoolFromFramework(plan.SkipAccessChecking),
-		StartDatecode:      flex.StringValueFromFramework(plan.StartDatecode),
-		SubscriptionUUID:   flex.StringValueFromFramework(plan.SubscriptionUuid),
+	wire := azure_accountCreateWire{
+		AccountAlias:       plan.AccountAlias.ValueString(),
+		AccountName:        plan.AccountName.ValueString(),
+		AccountTypeId:      plan.AccountTypeId.ValueInt64(),
+		PayerId:            plan.PayerId.ValueInt64(),
+		ProjectId:          plan.ProjectId.ValueInt64(),
+		SkipAccessChecking: plan.SkipAccessChecking.ValueBool(),
+		StartDatecode:      plan.StartDatecode.ValueString(),
+		SubscriptionUuid:   plan.SubscriptionUuid.ValueString(),
 	}
-
-	out, err := conn.PostAzureSubscription(ctx, input, generated.PostAzureSubscriptionParams{AccountType: "azure"})
+	rawBody, err := json.Marshal(wire)
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameAzureAccount), err.Error())
 		return
 	}
-
-	id, diags := errs.CreatedID(out)
-	resp.Diagnostics.Append(diags...)
+	rawOut, err := r.Meta().RawPost(ctx, "/v3/account?account-type=azure", rawBody)
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameAzureAccount), err.Error())
+		return
+	}
+	var createdRaw struct {
+		RecordID int64 `json:"record_id"`
+	}
+	if err := json.Unmarshal(rawOut, &createdRaw); err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameAzureAccount), fmt.Sprintf("decoding response: %s", err))
+		return
+	}
+	// An id that decodes to zero is not a fallback to write to state: the record
+	// exists in Kion and nothing addressed as id 0 can ever refresh or delete it.
+	id, idDiags := errs.RawCreatedID(createdRaw.RecordID)
+	resp.Diagnostics.Append(idDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -223,6 +236,19 @@ func (r *azure_accountResource) Delete(ctx context.Context, req resource.DeleteR
 
 func (r *azure_accountResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+}
+
+// azure_accountCreateWire is the create body, keyed by the schema's own attribute
+// names. Only the create is raw; read, update and delete stay on the SDK.
+type azure_accountCreateWire struct {
+	AccountAlias       string `json:"account_alias,omitempty"`
+	AccountName        string `json:"account_name,omitempty"`
+	AccountTypeId      int64  `json:"account_type_id,omitempty"`
+	PayerId            int64  `json:"payer_id,omitempty"`
+	ProjectId          int64  `json:"project_id,omitempty"`
+	SkipAccessChecking bool   `json:"skip_access_checking,omitempty"`
+	StartDatecode      string `json:"start_datecode,omitempty"`
+	SubscriptionUuid   string `json:"subscription_uuid,omitempty"`
 }
 
 func flattenAzureAccount(apiObject any, model *AzureAccountModel) diag.Diagnostics {

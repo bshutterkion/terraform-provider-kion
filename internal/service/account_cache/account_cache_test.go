@@ -29,7 +29,7 @@ func TestAccKionAccountCache_basic(t *testing.T) {
 	resourceName := "kion_account_cache.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(t); acctest.RequireAccountCreation(t) },
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
@@ -66,7 +66,7 @@ func TestAccKionAccountCache_update(t *testing.T) {
 	resourceName := "kion_account_cache.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck:                 func() { acctest.PreCheck(t); acctest.RequireAccountCreation(t) },
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{

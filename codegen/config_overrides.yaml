@@ -409,6 +409,16 @@ resources:
     update:
       path: /v4/idms/open-id/{id}
       method: PATCH
+    # An OpenID IDMS is deleted through the generic IDMS route, which the /v4
+    # open-id path does not carry. Without this the generated Delete was a
+    # warning -- "kion_idms_open_id has no delete endpoint, so it is removed from
+    # Terraform state only and may still exist in Kion" -- so every destroy left
+    # a live identity provider behind. kion_idms already deletes this way.
+    # Verified against a live install: DELETE /v3/idms/{id} answers 200 and the
+    # record then reads 404.
+    delete:
+      path: /v3/idms/{id}
+      method: DELETE
   app_role:
     # By-id read + typed create body supplied via spec_additions.yaml.
     create:

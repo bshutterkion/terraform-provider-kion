@@ -5,6 +5,7 @@ package project_line_item
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -55,39 +56,35 @@ func (r *project_line_itemResource) Create(ctx context.Context, req resource.Cre
 		return
 	}
 
-	input := generated.OptProjectLineItemCreate{
-		Value: generated.ProjectLineItemCreate{
-			Amount:          flex.OptFloat64FromFramework(plan.Amount),
-			CategoryID:      flex.OptNilUint64FromFramework(plan.CategoryId),
-			Datecode:        flex.OptUint64FromFramework(plan.Datecode),
-			Description:     flex.OptStringFromFramework(plan.Description),
-			FundingSourceID: flex.OptNilUint64FromFramework(plan.FundingSourceId),
-			PayerID:         flex.OptNilUint64FromFramework(plan.PayerId),
-			ProjectID:       flex.OptNilUint64FromFramework(plan.ProjectId),
-		},
-		Set: true,
+	wire := project_line_itemCreateWire{
+		Amount:          plan.Amount.ValueFloat64(),
+		CategoryId:      plan.CategoryId.ValueInt64(),
+		Datecode:        plan.Datecode.ValueInt64(),
+		Description:     plan.Description.ValueString(),
+		FundingSourceId: plan.FundingSourceId.ValueInt64(),
+		PayerId:         plan.PayerId.ValueInt64(),
+		ProjectId:       plan.ProjectId.ValueInt64(),
 	}
-
-	out, err := conn.PostProjectLineItem(ctx, input)
+	rawBody, err := json.Marshal(wire)
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameProjectLineItem), err.Error())
 		return
 	}
-
-	created, ok := out.(*generated.ProjectLineItemResponse)
-	if !ok || !created.Data.Set {
-		resp.Diagnostics.Append(errs.UnexpectedResponse("creating "+ResNameProjectLineItem, out)...)
+	rawOut, err := r.Meta().RawPost(ctx, "/v3/project-line-item", rawBody)
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameProjectLineItem), err.Error())
 		return
 	}
-	if !created.Data.Value.ID.Set {
-		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameProjectLineItem), "the create response did not include an id")
+	var createdRaw struct {
+		RecordID int64 `json:"record_id"`
+	}
+	if err := json.Unmarshal(rawOut, &createdRaw); err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameProjectLineItem), fmt.Sprintf("decoding response: %s", err))
 		return
 	}
-	id := int64(created.Data.Value.ID.Value)
-	// Routed through the same guard as the raw path: .Set is true when the
-	// API returns an explicit 0, which is never a real Kion id. Recording it
-	// leaves a record that exists and that Terraform can never address.
-	id, idDiags := errs.RawCreatedID(id)
+	// An id that decodes to zero is not a fallback to write to state: the record
+	// exists in Kion and nothing addressed as id 0 can ever refresh or delete it.
+	id, idDiags := errs.RawCreatedID(createdRaw.RecordID)
 	resp.Diagnostics.Append(idDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -240,6 +237,18 @@ func (r *project_line_itemResource) Delete(ctx context.Context, req resource.Del
 
 func (r *project_line_itemResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+}
+
+// project_line_itemCreateWire is the create body, keyed by the schema's own attribute
+// names. Only the create is raw; read, update and delete stay on the SDK.
+type project_line_itemCreateWire struct {
+	Amount          float64 `json:"amount,omitempty"`
+	CategoryId      int64   `json:"category_id,omitempty"`
+	Datecode        int64   `json:"datecode,omitempty"`
+	Description     string  `json:"description,omitempty"`
+	FundingSourceId int64   `json:"funding_source_id,omitempty"`
+	PayerId         int64   `json:"payer_id,omitempty"`
+	ProjectId       int64   `json:"project_id,omitempty"`
 }
 
 func flattenProjectLineItem(apiObject any, model *ProjectLineItemModel) diag.Diagnostics {

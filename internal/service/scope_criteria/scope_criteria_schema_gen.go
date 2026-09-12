@@ -34,6 +34,9 @@ func ScopeCriteriaResourceSchema(ctx context.Context) schema.Schema {
 				Optional:            true,
 				Description:         "End month for the criteria period (YYYYMM format).",
 				MarkdownDescription: "End month for the criteria period (YYYYMM format).",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.RequiresReplace(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -55,6 +58,9 @@ func ScopeCriteriaResourceSchema(ctx context.Context) schema.Schema {
 				Required:            true,
 				Description:         "Start month for the criteria period (YYYYMM format).",
 				MarkdownDescription: "Start month for the criteria period (YYYYMM format).",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.RequiresReplace(),
+				},
 			},
 		},
 		Description: "Manages a Kion Scope Criteria, a versioned criteria record on a scope.",

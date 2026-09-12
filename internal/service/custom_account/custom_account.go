@@ -5,6 +5,7 @@ package custom_account
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -61,23 +62,35 @@ func (r *custom_accountResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	input := &generated.CustomAccountCreate{
-		AccountAlias:  flex.OptStringFromFramework(plan.AccountAlias),
-		AccountName:   flex.StringValueFromFramework(plan.AccountName),
-		AccountNumber: flex.StringValueFromFramework(plan.AccountNumber),
-		PayerID:       flex.NilUint64FromFramework(plan.PayerId),
-		ProjectID:     flex.NilUint64FromFramework(plan.ProjectId),
-		StartDatecode: flex.StringValueFromFramework(plan.StartDatecode),
+	wire := custom_accountCreateWire{
+		AccountAlias:  plan.AccountAlias.ValueString(),
+		AccountName:   plan.AccountName.ValueString(),
+		AccountNumber: plan.AccountNumber.ValueString(),
+		PayerId:       plan.PayerId.ValueInt64(),
+		ProjectId:     plan.ProjectId.ValueInt64(),
+		StartDatecode: plan.StartDatecode.ValueString(),
 	}
-
-	out, err := conn.PostCustomAccount(ctx, input)
+	rawBody, err := json.Marshal(wire)
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameCustomAccount), err.Error())
 		return
 	}
-
-	id, diags := errs.CreatedID(out)
-	resp.Diagnostics.Append(diags...)
+	rawOut, err := r.Meta().RawPost(ctx, "/v3/account?account-type=custom", rawBody)
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameCustomAccount), err.Error())
+		return
+	}
+	var createdRaw struct {
+		RecordID int64 `json:"record_id"`
+	}
+	if err := json.Unmarshal(rawOut, &createdRaw); err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameCustomAccount), fmt.Sprintf("decoding response: %s", err))
+		return
+	}
+	// An id that decodes to zero is not a fallback to write to state: the record
+	// exists in Kion and nothing addressed as id 0 can ever refresh or delete it.
+	id, idDiags := errs.RawCreatedID(createdRaw.RecordID)
+	resp.Diagnostics.Append(idDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -240,6 +253,17 @@ func (r *custom_accountResource) Delete(ctx context.Context, req resource.Delete
 
 func (r *custom_accountResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+}
+
+// custom_accountCreateWire is the create body, keyed by the schema's own attribute
+// names. Only the create is raw; read, update and delete stay on the SDK.
+type custom_accountCreateWire struct {
+	AccountAlias  string `json:"account_alias,omitempty"`
+	AccountName   string `json:"account_name,omitempty"`
+	AccountNumber string `json:"account_number,omitempty"`
+	PayerId       int64  `json:"payer_id,omitempty"`
+	ProjectId     int64  `json:"project_id,omitempty"`
+	StartDatecode string `json:"start_datecode,omitempty"`
 }
 
 func flattenCustomAccount(apiObject any, model *CustomAccountModel) diag.Diagnostics {

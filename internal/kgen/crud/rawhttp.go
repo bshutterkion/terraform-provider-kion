@@ -261,8 +261,17 @@ func rawModelFields(model []ModelField, readKinds map[string]string) (fields []r
 			f.WireType, f.FromExpr, f.ToExpr = "int64", "plan."+mf.GoName+".ValueInt64()", "types.Int64Value(w."+mf.GoName+")"
 		case "types.Bool":
 			f.WireType, f.FromExpr, f.ToExpr = "bool", "plan."+mf.GoName+".ValueBool()", "types.BoolValue(w."+mf.GoName+")"
+		case "types.Float64":
+			f.WireType, f.FromExpr, f.ToExpr = "float64", "plan."+mf.GoName+".ValueFloat64()", "types.Float64Value(w."+mf.GoName+")"
+		case "jsontypes.Normalized":
+			// A JSON document, sent as the object itself rather than a quoted
+			// string. jx.Raw is []byte, and a null attribute yields nil, which
+			// omitempty then drops from the body entirely.
+			f.WireType = "json.RawMessage"
+			f.FromExpr = "json.RawMessage(flex.NormalizedFromFramework(plan." + mf.GoName + "))"
+			f.ToExpr = "flex.NormalizedToFramework(jx.Raw(w." + mf.GoName + "))"
 		default:
-			return nil, "", fmt.Errorf("raw field %q has unsupported type %q (only scalar String/Int64/Bool)", mf.TFSDK, mf.Type)
+			return nil, "", fmt.Errorf("raw field %q has unsupported type %q (only scalar String/Int64/Float64/Bool or jsontypes.Normalized)", mf.TFSDK, mf.Type)
 		}
 		fields = append(fields, f)
 	}

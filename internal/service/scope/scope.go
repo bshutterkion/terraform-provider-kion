@@ -5,6 +5,7 @@ package scope
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -60,36 +61,35 @@ func (r *scopeResource) Create(ctx context.Context, req resource.CreateRequest, 
 		return
 	}
 
-	input := &generated.ScopeCreate{
-		Alias:         flex.OptStringFromFramework(plan.Alias),
-		Criteria:      flex.NormalizedFromFramework(plan.Criteria),
-		Description:   flex.OptStringFromFramework(plan.Description),
-		EndDatecode:   flex.OptUint64FromFramework(plan.EndDatecode),
-		Name:          flex.StringValueFromFramework(plan.Name),
-		ProjectID:     flex.OptNilUint64FromFramework(plan.ProjectId),
-		StartDatecode: flex.OptUint64FromFramework(plan.StartDatecode),
+	wire := scopeCreateWire{
+		Alias:         plan.Alias.ValueString(),
+		Criteria:      json.RawMessage(flex.NormalizedFromFramework(plan.Criteria)),
+		Description:   plan.Description.ValueString(),
+		EndDatecode:   plan.EndDatecode.ValueInt64(),
+		Name:          plan.Name.ValueString(),
+		ProjectId:     plan.ProjectId.ValueInt64(),
+		StartDatecode: plan.StartDatecode.ValueInt64(),
 	}
-
-	out, err := conn.PostScope(ctx, input)
+	rawBody, err := json.Marshal(wire)
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameScope), err.Error())
 		return
 	}
-
-	created, ok := out.(*generated.ScopeResponse)
-	if !ok || !created.Data.Set {
-		resp.Diagnostics.Append(errs.UnexpectedResponse("creating "+ResNameScope, out)...)
+	rawOut, err := r.Meta().RawPost(ctx, "/beta/scope", rawBody)
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameScope), err.Error())
 		return
 	}
-	if !created.Data.Value.ID.Set {
-		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameScope), "the create response did not include an id")
+	var createdRaw struct {
+		RecordID int64 `json:"record_id"`
+	}
+	if err := json.Unmarshal(rawOut, &createdRaw); err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameScope), fmt.Sprintf("decoding response: %s", err))
 		return
 	}
-	id := int64(created.Data.Value.ID.Value)
-	// Routed through the same guard as the raw path: .Set is true when the
-	// API returns an explicit 0, which is never a real Kion id. Recording it
-	// leaves a record that exists and that Terraform can never address.
-	id, idDiags := errs.RawCreatedID(id)
+	// An id that decodes to zero is not a fallback to write to state: the record
+	// exists in Kion and nothing addressed as id 0 can ever refresh or delete it.
+	id, idDiags := errs.RawCreatedID(createdRaw.RecordID)
 	resp.Diagnostics.Append(idDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -254,6 +254,18 @@ func (r *scopeResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 
 func (r *scopeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+}
+
+// scopeCreateWire is the create body, keyed by the schema's own attribute
+// names. Only the create is raw; read, update and delete stay on the SDK.
+type scopeCreateWire struct {
+	Alias         string          `json:"alias,omitempty"`
+	Criteria      json.RawMessage `json:"criteria,omitempty"`
+	Description   string          `json:"description,omitempty"`
+	EndDatecode   int64           `json:"end_datecode,omitempty"`
+	Name          string          `json:"name,omitempty"`
+	ProjectId     int64           `json:"project_id,omitempty"`
+	StartDatecode int64           `json:"start_datecode,omitempty"`
 }
 
 func flattenScope(apiObject any, model *ScopeModel) diag.Diagnostics {

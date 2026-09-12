@@ -36,11 +36,17 @@ func Resolve(m ServiceModel, sdkTypes map[string][]SDKField, flexFuncs map[strin
 			p.Nested = true
 			r.NestedAttrs = append(r.NestedAttrs, mf.TFSDK)
 		} else {
-			if !typesCompatible(mf.TFType, sf.GoType) {
+			if !typesCompatible(mf.TFType, sf.GoType) && !deliberateStringID(mf.TFSDK, mf.TFType, sf.GoType) {
 				r.TypeMismatch = append(r.TypeMismatch,
 					fmt.Sprintf("%s: schema %s vs SDK %s", mf.TFSDK, mf.TFType, sf.GoType))
 			}
-			p.FlexFn = strings.TrimPrefix(sf.GoType, "*") + "ToFramework"
+			// Exported: flex converters are StringToFramework, not
+			// stringToFramework. Concatenating the Go type name verbatim made
+			// every PRIMITIVE field a guaranteed false positive -- string, int,
+			// uint and float could never match, which was 48 of the 110 "missing
+			// converter" findings. SDK wrapper types (OptString, ...) already
+			// start with a capital, which is why only primitives showed.
+			p.FlexFn = exportedConverter(strings.TrimPrefix(sf.GoType, "*"))
 			p.HaveFlex = flexFuncs[p.FlexFn]
 			if !p.HaveFlex {
 				r.MissingFlex = append(r.MissingFlex,
@@ -134,4 +140,32 @@ done:
 	default:
 		return base
 	}
+}
+
+// exportedConverter builds the flex converter name for an SDK field type.
+// flex's converters are exported, so the type's first letter is capitalized:
+// "string" -> "StringToFramework", "OptString" -> "OptStringToFramework".
+func exportedConverter(goType string) string {
+	if goType == "" {
+		return "ToFramework"
+	}
+	return strings.ToUpper(goType[:1]) + goType[1:] + "ToFramework"
+}
+
+// deliberateStringID reports the one type mismatch this provider chooses on
+// purpose: every resource id is a Terraform string (the framework's
+// IDAttribute convention, and what the shipped SDKv2 provider used) while Kion
+// models ids as integers.
+//
+// It is 43 of the 51 TYPE findings. Reporting it drowns the other 8, each of
+// which is a real question about how an attribute is modeled.
+func deliberateStringID(tfsdk, tfType, sdkType string) bool {
+	if tfsdk != "id" || tfType != "types.String" {
+		return false
+	}
+	switch strings.TrimPrefix(strings.TrimPrefix(sdkType, "*"), "Opt") {
+	case "Uint64", "Int64", "Uint", "Int", "NilUint64", "NilInt64":
+		return true
+	}
+	return false
 }

@@ -203,6 +203,8 @@ type ResourceModel struct {
 	// ReadCompanion is a hand-authored function called after every flatten to
 	// read attributes the by-id GET does not return (archetype read_companion).
 	ReadCompanion string
+	// RawCreate routes only the create over raw HTTP; see the archetype key.
+	RawCreate *rawCreateData
 	// Rewritten holds model field names whose configured value Create and Update
 	// restore after the read-back; see the archetype's Rewritten.
 	Rewritten []string

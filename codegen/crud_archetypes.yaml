@@ -26,6 +26,11 @@
 
 scope_criteria:
   kind: compound_key_parent_read
+  # POST /beta/scope/{id}/criteria REPLACES the scope's single criteria record
+  # rather than adding to it, and the delete answers "A scope must retain at
+  # least one criteria record". The resource could be created and updated but
+  # never destroyed, so Terraform could not manage its lifecycle at all.
+  delete_retains: true
   parent_id_field: scope_id
   child_id_field: criteria_id
   child_id_param: CriteriaID
@@ -147,6 +152,51 @@ project_permission_mapping:
 # delete_finalized_at non-nullable and Kion returns null. See private_endpoints.
 account_linkage:
   kind: blended
+
+# Raw create only (#102), same cause as custom_account.
+azure_account:
+  kind: entity
+  raw_create:
+    method: POST
+    path: /v3/account?account-type=azure
+
+gcp_account:
+  kind: entity
+  raw_create:
+    method: POST
+    path: /v3/account?account-type=google-cloud
+
+# Raw create only (#102). PostCustomAccount requests
+# /v3/account/__qs__/account-type/custom -- the spec encodes the account-type
+# QUERY parameter as literal path segments around a __qs__ marker that nothing
+# converts back, so the URL does not exist and every create 404s. All 13
+# account-creation operations in the SDK have this. Read, update and delete use
+# /v3/account/{id} and are fine.
+custom_account:
+  kind: entity
+  raw_create:
+    method: POST
+    path: /v3/account?account-type=custom
+
+# Raw create only. POST /beta/scope answers {status, record_id}; the spec models
+# the response as {data: {...}}, so ScopeResponse carries no record_id field at
+# all and neither create-id strategy can reach the new id. The resource could not
+# be created. Read, update and delete are ordinary. See #103.
+scope:
+  kind: entity
+  raw_create:
+    method: POST
+    path: /beta/scope
+
+# Raw create only. POST /v3/project-line-item answers 201; the spec declares just
+# 200, so ogen refuses to decode a SUCCESSFUL create and the new record's id is
+# lost -- the resource could not be created at all. Read, update and delete are
+# ordinary and stay on the SDK. See #72 for the declared-vs-actual status family.
+project_line_item:
+  kind: entity
+  raw_create:
+    method: POST
+    path: /v3/project-line-item
 
 # Blended because the SPEC is empty, not because an endpoint is private: every
 # billing-rule verb is public, but the spec's BillingRule read schema has no

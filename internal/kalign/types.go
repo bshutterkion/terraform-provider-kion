@@ -58,9 +58,35 @@ type Resolved struct {
 	NestedAttrs   []string // nested model attrs needing a nested converter
 }
 
-// Findings counts the drift signals in a Resolved (0 means fully aligned).
+// Findings counts every drift signal in a Resolved, advisory ones included.
 func (r Resolved) Findings() int {
 	return len(r.MissingInSDK) + len(r.TypeMismatch) + len(r.MissingFlex)
+}
+
+// Actionable counts only the signals worth failing on.
+//
+// MissingInSDK ("no SDK field for schema attribute") is ADVISORY. It compares
+// one schema to one SDK struct, which is not how this provider binds: an
+// attribute can be perfectly bound and still have no same-named field on that
+// struct. Every one of the 118 findings is explained without a defect --
+//
+//	46  synthetic attributes (id, last_updated, labels)
+//	34  already recorded in codegen/unbound_attributes.yaml, where bindaudit
+//	    ratchets them
+//	38  bound through a mechanism the comparison cannot see: a rename
+//	    (account.email -> AccountEmail), a path parameter
+//	    (project_enforcement.project_id), a collapsed value
+//	    (custom_variable.default_value_string -> default_value), or a raw wire
+//	    struct that is not an SDK model at all (dashboard.config)
+//
+// -- so failing on it only trains people to ignore the tool. bindaudit and
+// fieldaudit already cover the two directions that matter.
+//
+// TypeMismatch and MissingFlex are real: a missing converter is a converter
+// that genuinely does not exist, which is a compile error waiting to happen the
+// next time kalign gen is used.
+func (r Resolved) Actionable() int {
+	return len(r.TypeMismatch) + len(r.MissingFlex)
 }
 
 // Source supplies the parsed inputs the aligner needs. The production

@@ -226,17 +226,34 @@ func (r *{{.Pkg}}Resource) Delete(ctx context.Context, req resource.DeleteReques
 	}
 	parentID := state.{{.ParentIDGo}}.ValueInt64()
 	childID := state.{{.ChildIDGo}}.ValueInt64()
+{{- if .DeleteRetains}}
+
+	// The API refuses to remove this record: its parent must always have one,
+	// and the create REPLACES rather than adds. Calling delete would fail every
+	// `terraform destroy`, so the record is forgotten instead -- with a warning,
+	// because silently reporting success would be its own lie.
+	_ = conn
+	resp.Diagnostics.AddWarning(
+		fmt.Sprintf("%s was removed from state but still exists", {{.ResConst}}),
+		fmt.Sprintf("Kion requires its parent to retain one, so there is no delete to make. "+
+			"Record %d on parent %d is unchanged; creating this resource again replaces it.", childID, parentID),
+	)
+}
+{{- else}}
 
 	out, err := conn.{{.DeleteMethod}}(ctx, {{.SDKAlias}}.{{.DeleteParams}}{ {{.DeleteParentArg}}: parentID, {{.DeleteChildArg}}: childID })
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("deleting %s (%d/%d)", {{.ResConst}}, parentID, childID), err.Error())
 		return
 	}
+{{- end}}
+{{- if not .DeleteRetains}}
 	if errs.IsNotFound(out) {
 		return
 	}
 	resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("deleting %s", {{.ResConst}}), out)...)
 }
+{{- end}}
 
 func (r *{{.Pkg}}Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	parts := strings.SplitN(req.ID, "/", 2)

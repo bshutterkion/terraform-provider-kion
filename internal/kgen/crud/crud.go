@@ -342,6 +342,17 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	}
 	if entityArch != nil {
 		rm.ReadCompanion = entityArch.ReadCompanion
+		if rc := entityArch.RawCreate; rc != nil {
+			verb, err := rawVerb(rc.Method)
+			if err != nil {
+				return 0, fmt.Errorf("%s raw_create: %w", name, err)
+			}
+			fields, idGo, err := rawModelFields(model, nil)
+			if err != nil {
+				return 0, fmt.Errorf("%s raw_create: %w", name, err)
+			}
+			rm.RawCreate = &rawCreateData{Method: verb, Path: rc.Path, Fields: fields, IDGo: idGo}
+		}
 		for _, tfName := range entityArch.Rewritten {
 			var goName string
 			for _, mf := range model {

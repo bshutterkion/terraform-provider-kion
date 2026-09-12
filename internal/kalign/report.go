@@ -30,12 +30,13 @@ func (ew *errWriter) Fprintln(a ...any) {
 }
 
 // checkOne writes a human-readable drift report for one resolved model to w and
-// returns the number of drift findings (0 means aligned).
+// returns the number of ACTIONABLE findings (0 means nothing to fix). DRIFT
+// lines are still printed, but are advisory; see Resolved.Actionable.
 func checkOne(w *errWriter, r Resolved) int {
 	w.Fprintf("\n=== %s (%s) ===\n", r.Model.Service, r.Model.Name)
 	if r.SDKType == "" {
 		w.Fprintln("  ! no SDK type overlaps this model's tfsdk fields")
-		return r.Findings()
+		return r.Actionable()
 	}
 	conf := ""
 	if r.LowConfidence {
@@ -53,7 +54,9 @@ func checkOne(w *errWriter, r Resolved) int {
 		w.Fprintf("    %s %s -> %s\n", mark, p.Model.TFSDK, p.SDK.GoType)
 	}
 	for _, miss := range r.MissingInSDK {
-		w.Fprintf("    DRIFT no SDK field for schema attribute %q\n", miss)
+		// Advisory: printed for a human reading the report, not counted. See
+		// Resolved.Actionable for why.
+		w.Fprintf("    DRIFT no SDK field for schema attribute %q (advisory)\n", miss)
 	}
 	for _, tm := range r.TypeMismatch {
 		w.Fprintf("    TYPE  %s\n", tm)
@@ -61,7 +64,7 @@ func checkOne(w *errWriter, r Resolved) int {
 	for _, mf := range r.MissingFlex {
 		w.Fprintf("    FLEX  missing converter %s\n", mf)
 	}
-	return r.Findings()
+	return r.Actionable()
 }
 
 // genOne writes the flatten (SDK -> Framework) converter for one resolved model
