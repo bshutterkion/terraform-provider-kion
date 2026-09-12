@@ -24,6 +24,7 @@ probed against four more, read-only:
 | QA | 3.16.3-dev | 11,955 | 47 | 16 | 2 | 3 |
 | local dev | dev | 9,077 | 42 | 21 | 2 | 3 |
 | production | 3.16.4 | 37,286 | 47 | 11 | 7 | 3 |
+| billing-connected local | dev | 7,803 | 39 | 25 | 2 | 2 |
 
 | | |
 |---|---|
@@ -33,6 +34,35 @@ probed against four more, read-only:
 
 Credentials come from `--api-key` or `KION_APIKEY`; none are recorded here. A
 local dev install serves its API at the root, so it needs `--api-prefix ""`.
+
+### The billing-connected local install (2026-09-11)
+
+Added while working #99. It is the install that raised `KION_ACC_*` discovery
+from 2/10 to 8/10, so it exercises paths the emptier ones skip. Its high `empty`
+count is a property of the install, not a regression: it holds little data.
+
+Its two errors are both #48 -- `kion_idms_group_association` and
+`kion_saml_group_association` fail on `GET /v3/idms/1/group-association`, which
+closes the connection. No other resource errored.
+
+`unsupported` is 2 rather than the 3 in the five-install table for the reason
+already recorded below: the third was `kion_custom_variable_override`, refused
+for a compound identity and since supported. The two that remain are the alias
+types, refused by design.
+
+Three rows changed meaning on this run, and each was a defect fixed rather than
+a difference between installs:
+
+- `kion_account_linkage` reads **ok** where it could not be read at all. The
+  SDK cannot decode the response -- `delete_finalized_at` is typed non-nullable
+  and Kion returns null -- so the read failed before reaching any record. It now
+  reads raw.
+- `kion_billing_rule` reads through a hand-declared shape. The spec's read
+  schema is empty, so it previously imported as a bare id with every attribute
+  missing. It shows `empty` here only because the install holds no billing rules.
+- `kion_funding_source` recovers `permission_scheme_id` again. The route it used
+  returns rows only for a scheme that already carries role permissions, so the
+  attribute came back null for any scheme created alongside its funding source.
 
 ### Read that table by column, not by row
 
