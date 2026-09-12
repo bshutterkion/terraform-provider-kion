@@ -51,7 +51,7 @@ func (r *ou_enforcementResource) Metadata(_ context.Context, req resource.Metada
 func (r *ou_enforcementResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
 	return []resource.ConfigValidator{
 		resourcevalidator.AtLeastOneOf(
-			path.MatchRoot("ugroup_ids"),
+			path.MatchRoot("user_group_ids"),
 			path.MatchRoot("user_ids"),
 		),
 	}
@@ -106,8 +106,6 @@ func flattenOuEnforcement(ctx context.Context, rec generated.OUEnforcement, mode
 	} else {
 		model.ServiceId = types.Int64Null()
 	}
-	ugroupIds, _ := flex.Uint64SliceToFrameworkSet(ctx, rec.UgroupIds.Value)
-	model.UgroupIds = ugroupIds
 	userIds, _ := flex.Uint64SliceToFrameworkSet(ctx, rec.UserIds.Value)
 	model.UserIds = userIds
 }
@@ -122,7 +120,7 @@ func (r *ou_enforcementResource) Create(ctx context.Context, req resource.Create
 	}
 	parentID := plan.OuId.ValueInt64()
 
-	ugroupIds, ugroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UgroupIds)
+	ugroupIds, ugroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserGroupIds)
 	resp.Diagnostics.Append(ugroupIdsDiags...)
 	userIds, userIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserIds)
 	resp.Diagnostics.Append(userIdsDiags...)
@@ -216,7 +214,7 @@ func (r *ou_enforcementResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
-	ugroupIds, ugroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UgroupIds)
+	ugroupIds, ugroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserGroupIds)
 	resp.Diagnostics.Append(ugroupIdsDiags...)
 	userIds, userIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserIds)
 	resp.Diagnostics.Append(userIdsDiags...)

@@ -71,8 +71,13 @@ type generator struct {
 	// configValidators is codegen/config_validators.yaml: cross-field API
 	// constraints an attribute-level schema cannot express.
 	configValidators ConfigValidatorPolicy
-	downgrades       []downgrade    // data sources that lost their filter block this run
-	dropped          []droppedField // fields a list data source could not project this run
+
+	// renames is codegen/renames.yaml, resource -> {api_attribute: tf_attribute}.
+	// The schemas generator applies it; crud needs it to bind, because a request
+	// body field is matched to a model attribute by the API's own name.
+	renames    map[string]map[string]string
+	downgrades []downgrade    // data sources that lost their filter block this run
+	dropped    []droppedField // fields a list data source could not project this run
 	// dataSources is the generator_config `data_sources` op-set, needed to reach
 	// a resource OTHER than the one being generated: a parent-scoped sweeper
 	// enumerates its parent's collection.
@@ -107,6 +112,12 @@ func (g *generator) generate(opts Options) (int, error) {
 		return 0, err
 	}
 	g.configValidators = cv
+
+	rn, err := loadRenames(root)
+	if err != nil {
+		return 0, err
+	}
+	g.renames = rn
 
 	cfgPath := opts.Config
 	if cfgPath == "" {
@@ -419,6 +430,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	if entityArch != nil {
 		rm.EmptyCollections = entityArch.EmptyCollections
 	}
+	rm.Renames = g.renames[name]
 	// A private delete only applies when the public spec published none; if the
 	// SDK has a typed delete the generator must keep using it.
 	if rm.Delete == nil {

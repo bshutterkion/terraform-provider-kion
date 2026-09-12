@@ -114,7 +114,7 @@ func (g *generator) resolveParentList(name string, ops resOps, idx sdkIndex, arc
 	}
 	d.CreateMethod, d.CreateBody, d.CreateBodyPtr = create.Method.Name, create.Body.Name, create.Method.BodyPtr
 	d.CreateBodyOpt, d.CreateParams = create.Method.BodyType, create.Method.ParamsType
-	if d.CreateBinds, d.CreateSliceBinds, err = bodyBinds(create.Body, byTF, "id", nil); err != nil {
+	if d.CreateBinds, d.CreateSliceBinds, err = bodyBinds(create.Body, byTF, "id", nil, g.renames[name]); err != nil {
 		return d, fmt.Errorf("%s create body: %w", name, err)
 	}
 
@@ -158,7 +158,7 @@ func (g *generator) resolveParentList(name string, ops resOps, idx sdkIndex, arc
 		d.HasUpdate = true
 		d.UpdateMethod, d.UpdateBody, d.UpdateBodyPtr = update.Method.Name, update.Body.Name, update.Method.BodyPtr
 		d.UpdateBodyOpt, d.UpdateParams = update.Method.BodyType, update.Method.ParamsType
-		if d.UpdateBinds, d.UpdateSliceBinds, err = bodyBinds(update.Body, byTF, "id", nil); err != nil {
+		if d.UpdateBinds, d.UpdateSliceBinds, err = bodyBinds(update.Body, byTF, "id", nil, g.renames[name]); err != nil {
 			return d, fmt.Errorf("%s update body: %w", name, err)
 		}
 	}

@@ -97,7 +97,7 @@ func FundingSourceEnforcementResourceSchema(ctx context.Context) schema.Schema {
 					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"ugroup_ids": schema.SetAttribute{
+			"user_group_ids": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
 				Computed:            true,
@@ -133,6 +133,6 @@ type FundingSourceEnforcementModel struct {
 	Threshold       types.Int64  `tfsdk:"threshold"`
 	Timeframe       types.String `tfsdk:"timeframe"`
 	Triggered       types.Bool   `tfsdk:"triggered"`
-	UgroupIds       types.Set    `tfsdk:"ugroup_ids"`
+	UserGroupIds    types.Set    `tfsdk:"user_group_ids"`
 	UserIds         types.Set    `tfsdk:"user_ids"`
 }
