@@ -722,10 +722,14 @@ resources:
         type: string
         computed_optional_required: computed
         description: When the dashboard was created.
+      # No UseStateForUnknown: the server stamps this on every update, so
+      # carrying the prior value into the plan and then receiving a new one
+      # fails the apply. See project_note's last_update_* for the same case.
       updated_at:
         type: string
         computed_optional_required: computed
         description: When the dashboard was last updated.
+        plan_modifiers: []
   app_role:
     description: "Manages a Kion App Role."
     # Computed read-only fields not in the create body.

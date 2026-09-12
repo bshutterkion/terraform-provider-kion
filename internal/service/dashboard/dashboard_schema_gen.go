@@ -78,9 +78,6 @@ func DashboardResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "When the dashboard was last updated.",
 				MarkdownDescription: "When the dashboard was last updated.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
 			},
 		},
 		Description: "Manages a Kion Dashboard.",
