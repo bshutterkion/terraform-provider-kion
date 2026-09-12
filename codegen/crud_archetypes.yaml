@@ -166,6 +166,20 @@ gcp_account:
     method: POST
     path: /v3/account?account-type=google-cloud
 
+# Raw create only (#102), same cause as custom_account: the SDK requests
+# /v3/account-cache/create/__qs__/account-type/aws, which does not exist.
+# organizational_unit is declared rather than derived -- rawModelFields maps
+# scalars only and refuses anything else rather than dropping it, which is why
+# this resource could not use the raw path until objects were supported.
+account_cache:
+  kind: entity
+  raw_create:
+    method: POST
+    path: /v3/account-cache/create?account-type=aws
+    objects:
+      - tf: organizational_unit
+        subs: [name, org_unit_id]
+
 # Raw create only (#102). PostCustomAccount requests
 # /v3/account/__qs__/account-type/custom -- the spec encodes the account-type
 # QUERY parameter as literal path segments around a __qs__ marker that nothing
