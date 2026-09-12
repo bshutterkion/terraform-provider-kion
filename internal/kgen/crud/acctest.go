@@ -22,8 +22,11 @@ var dataSourceTestTmpl string
 
 // testValues are the create/update sample attribute values for one resource.
 type testValues struct {
-	Create map[string]string `yaml:"create"`
-	Update map[string]string `yaml:"update"`
+	// EnvArgs names environment variables whose values the config needs; each
+	// becomes an extra parameter, readable as %[2]s, %[3]s, ... in order.
+	EnvArgs []string          `yaml:"env_args"`
+	Create  map[string]string `yaml:"create"`
+	Update  map[string]string `yaml:"update"`
 }
 
 type testValuesFile struct {
@@ -51,6 +54,11 @@ func loadTestValues(path, resource string) (testValues, bool, error) {
 type acctestAttr struct {
 	Name  string
 	Value string
+	// Quoted is false for an attribute the schema types as a number or bool.
+	// Every test value was a string until env_args arrived, so the template
+	// quoted unconditionally and a numeric value came out as "3" -- which
+	// Terraform coerces but `make ci-acctest-config` rejects.
+	Quoted bool
 }
 
 type acctestData struct {
@@ -65,6 +73,11 @@ type acctestData struct {
 	HasUpdate                 bool
 	BasicUsesRName            bool
 	UpdateUsesRName           bool
+	// EnvArgs are environment variables whose VALUES the config interpolates,
+	// in order, as %[2]s, %[3]s, ... A value the API requires but the schema
+	// marks optional (kion_category's payer_id) is install-specific, so it
+	// cannot be a literal in test_values.yaml.
+	EnvArgs []acctestEnvArg
 }
 
 func buildAcctestData(rm ResourceModel, tv testValues) (acctestData, error) {
@@ -82,21 +95,22 @@ func buildAcctestData(rm ResourceModel, tv testValues) (acctestData, error) {
 		ReadIDParam:  readIDParam,
 		IDParamType:  readIDType,
 	}
-	d.CreateAttrs = sortAttrs(tv.Create)
-	d.UpdateAttrs = sortAttrs(tv.Update)
+	d.CreateAttrs = sortAttrs(tv.Create, rm)
+	d.UpdateAttrs = sortAttrs(tv.Update, rm)
 	for _, a := range d.CreateAttrs {
 		d.AttrNames = append(d.AttrNames, a.Name)
 	}
 	d.HasUpdate = rm.Update != nil && len(tv.Update) > 0
+	d.EnvArgs = envArgsFor(tv.EnvArgs)
 	d.BasicUsesRName = usesFormatVerb(d.CreateAttrs)
 	d.UpdateUsesRName = usesFormatVerb(d.UpdateAttrs)
 	return d, nil
 }
 
-func sortAttrs(m map[string]string) []acctestAttr {
+func sortAttrs(m map[string]string, rm ResourceModel) []acctestAttr {
 	out := make([]acctestAttr, 0, len(m))
 	for k, v := range m {
-		out = append(out, acctestAttr{Name: k, Value: v})
+		out = append(out, acctestAttr{Name: k, Value: v, Quoted: attrIsString(rm, k)})
 	}
 	slices.SortFunc(out, func(a, b acctestAttr) int { return cmp.Compare(a.Name, b.Name) })
 	return out
@@ -139,4 +153,44 @@ func renderTest(name, tmpl string, rm ResourceModel, tv testValues) ([]byte, err
 		return nil, fmt.Errorf("format generated %s for %s: %w\n%s", name, rm.Name, err, buf.Bytes())
 	}
 	return src, nil
+}
+
+// acctestEnvArg pairs an environment variable with the Go parameter name the
+// generated config function receives it as.
+type acctestEnvArg struct {
+	Env   string // e.g. KION_ACC_BILLING_SOURCE_ID
+	Param string // e.g. billingSourceID
+}
+
+// envArgsFor derives parameter names from variable names. Computed here rather
+// than in the template: the templates are rendered with no FuncMap.
+func envArgsFor(envs []string) []acctestEnvArg {
+	out := make([]acctestEnvArg, 0, len(envs))
+	for _, e := range envs {
+		parts := strings.Split(strings.ToLower(strings.TrimPrefix(e, "KION_ACC_")), "_")
+		for i, p := range parts {
+			switch {
+			case p == "":
+			case i == 0:
+			case p == "id":
+				parts[i] = "ID"
+			default:
+				parts[i] = strings.ToUpper(p[:1]) + p[1:]
+			}
+		}
+		out = append(out, acctestEnvArg{Env: e, Param: strings.Join(parts, "")})
+	}
+	return out
+}
+
+// attrIsString reports whether the model types an attribute as a string, which
+// is what decides whether the generated HCL quotes its value.
+func attrIsString(rm ResourceModel, tfsdk string) bool {
+	for _, f := range rm.Fields {
+		if f.TFSDK == tfsdk {
+			return f.Type == "types.String"
+		}
+	}
+	// Unknown attributes keep the historical behavior.
+	return true
 }
