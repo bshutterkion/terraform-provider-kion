@@ -156,7 +156,7 @@ func (d *funding_sourceDataSource) readByID(ctx context.Context, conn *generated
 	}
 	api, ok := out.(*generated.FundingSourceResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameFundingSource, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameFundingSource, out)...)
 		return
 	}
 
@@ -224,7 +224,7 @@ func fetchAllFundingSource(ctx context.Context, conn *generated.Client) ([]gener
 	}
 	resp, ok := out.(*generated.FundingSourceListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameFundingSource, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameFundingSource, out)...)
 		return nil, diags
 	}
 	items := resp.Data

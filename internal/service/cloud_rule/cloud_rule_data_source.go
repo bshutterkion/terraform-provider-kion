@@ -163,7 +163,7 @@ func (d *cloud_ruleDataSource) readByID(ctx context.Context, conn *generated.Cli
 	}
 	api, ok := out.(*generated.CloudRuleResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameCloudRule, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameCloudRule, out)...)
 		return
 	}
 
@@ -233,7 +233,7 @@ func fetchAllCloudRule(ctx context.Context, conn *generated.Client) ([]generated
 	}
 	resp, ok := out.(*generated.CloudRuleListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameCloudRule, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameCloudRule, out)...)
 		return nil, diags
 	}
 	items := resp.Data

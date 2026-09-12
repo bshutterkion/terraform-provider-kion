@@ -823,9 +823,26 @@ type attributeOverride struct {
 	// set by the server on update, so carrying the prior state (null, for a note
 	// never updated) into the plan and then receiving a real value failed the
 	// apply outright.
-	PlanModifiers *[]string                    `yaml:"plan_modifiers"` // e.g. stringplanmodifier.UseStateForUnknown(); [] means none
-	CustomType    *customTypeOverride          `yaml:"custom_type"`    // wrap a scalar in a framework custom type (e.g. jsontypes.Normalized)
-	Attributes    map[string]attributeOverride `yaml:"attributes"`     // nested attributes for single_nested/set_nested/list_nested
+	PlanModifiers *[]string `yaml:"plan_modifiers"` // e.g. stringplanmodifier.UseStateForUnknown(); [] means none
+	// Validators are attribute-level validators, rendered exactly like
+	// PlanModifiers (the codegen spec's CustomValidator has the same
+	// imports + schema_definition shape as CustomPlanModifier).
+	//
+	// Validators DO reach the generated schemas already, but only from the
+	// OpenAPI spec's own pattern/maxLength -- and the spec carries almost none
+	// (3 enums, 16 patterns, 5 maxLength across 474 schemas). A limit the
+	// database enforces and the spec omits had no way in, so it surfaced as an
+	// opaque API error at apply time instead of a message at plan time.
+	// kion_scope.alias is the case: varchar(16), and Kion answers a longer one
+	// with a bare 500 "error creating scope".
+	//
+	// Import paths are derived the same way as plan modifiers, from the
+	// pkg.Func() prefix, so "stringvalidator.LengthAtMost(16)" resolves to
+	// terraform-plugin-framework-validators/stringvalidator.
+	Validators []string `yaml:"validators"`
+
+	CustomType *customTypeOverride          `yaml:"custom_type"` // wrap a scalar in a framework custom type (e.g. jsontypes.Normalized)
+	Attributes map[string]attributeOverride `yaml:"attributes"`  // nested attributes for single_nested/set_nested/list_nested
 }
 
 // customTypeOverride wraps a scalar attribute in a Terraform framework custom
@@ -1130,6 +1147,22 @@ func applyAttrOverride(attr map[string]any, ao attributeOverride) error {
 		}
 		typeObj["plan_modifiers"] = pms
 	}
+	if len(ao.Validators) > 0 {
+		vs := make([]any, 0, len(ao.Validators))
+		for _, v := range ao.Validators {
+			imp, err := validatorImport(v)
+			if err != nil {
+				return err
+			}
+			vs = append(vs, map[string]any{
+				"custom": map[string]any{
+					"imports":           []any{map[string]any{"path": imp}},
+					"schema_definition": v,
+				},
+			})
+		}
+		typeObj["validators"] = vs
+	}
 	if len(ao.Attributes) > 0 {
 		// Merge into the children the spec already produced rather than replacing
 		// them. This block used to build the list from scratch, so overriding one
@@ -1234,6 +1267,19 @@ func planModifierImport(call string) (string, error) {
 		return "", fmt.Errorf("plan modifier %q must be of the form pkg.Func()", call)
 	}
 	return planModifierBase + call[:dot], nil
+}
+
+// validatorBase is the import prefix for the framework's typed validator
+// packages (stringvalidator, int64validator, ...). They live in a separate
+// module from the plan modifiers, which is the only difference.
+const validatorBase = "github.com/hashicorp/terraform-plugin-framework-validators/"
+
+func validatorImport(call string) (string, error) {
+	dot := strings.IndexByte(call, '.')
+	if dot <= 0 {
+		return "", fmt.Errorf("validator %q must be of the form pkg.Func()", call)
+	}
+	return validatorBase + call[:dot], nil
 }
 
 func (g *generator) writeTest(path string, tmpl *template.Template, pkg, pascal, ctor string) error {

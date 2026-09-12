@@ -112,6 +112,9 @@ func TestResponseDiagnostics(t *testing.T) {
 		{"internal", &generated.InternalServerErrorResponse{Message: generated.NewOptString("i")}, true, "Internal Server Error: i"},
 		{"unprocessable", &generated.UnprocessableEntityResponse{Message: generated.NewOptString("e")}, true, "Unprocessable Entity: e"},
 		{"no message uses fallback", &generated.NotFoundResponse{}, true, "Not Found: no message"},
+		// Silence on success is the contract here: a delete that answers 200 OK
+		// must not be reported as a failure. A caller that has already decided
+		// the response is unusable uses UnexpectedResponse; see its test below.
 		{"non-error type is empty", &generated.CreatedResponse{}, false, ""},
 	}
 
@@ -124,6 +127,39 @@ func TestResponseDiagnostics(t *testing.T) {
 				assert.Equal(t, "op failed", diags.Errors()[0].Summary())
 				assert.Contains(t, diags.Errors()[0].Detail(), tc.wantDetail)
 			}
+		})
+	}
+}
+
+// UnexpectedResponse can never return empty, which is the whole point of it
+// existing separately: its callers have already decided the response is
+// unusable and `return` straight after, so an empty result there leaves the
+// operation looking successful with no state behind it.
+func TestUnexpectedResponse(t *testing.T) {
+	t.Parallel()
+
+	t.Run("renders a modeled error's own message", func(t *testing.T) {
+		t.Parallel()
+		diags := errs.UnexpectedResponse("op failed", &generated.BadRequestResponse{
+			Message: generated.NewOptString("b"),
+		})
+		require.True(t, diags.HasError())
+		assert.Contains(t, diags.Errors()[0].Detail(), "Bad Request: b")
+	})
+
+	for _, tc := range []struct {
+		name string
+		res  any
+	}{
+		{"success type", &generated.CreatedResponse{}},
+		{"nil", nil},
+	} {
+		t.Run(tc.name+" still errors", func(t *testing.T) {
+			t.Parallel()
+			diags := errs.UnexpectedResponse("op failed", tc.res)
+			require.True(t, diags.HasError(), "UnexpectedResponse must never return empty")
+			assert.Equal(t, "op failed", diags.Errors()[0].Summary())
+			assert.Contains(t, diags.Errors()[0].Detail(), "unexpected API response")
 		})
 	}
 }

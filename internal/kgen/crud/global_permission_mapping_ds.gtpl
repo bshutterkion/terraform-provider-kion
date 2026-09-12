@@ -100,7 +100,7 @@ func (d *globalPermissionMappingDataSource) Read(ctx context.Context, req dataso
 
 	listResp, ok := out.(*generated.GlobalUserMappingListResponse)
 	if !ok {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("reading %s", DSNameGlobalPermissionMapping), out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse(fmt.Sprintf("reading %s", DSNameGlobalPermissionMapping), out)...)
 		return
 	}
 

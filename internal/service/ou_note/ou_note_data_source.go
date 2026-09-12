@@ -82,7 +82,7 @@ func (d *ou_noteDataSource) Read(ctx context.Context, req datasource.ReadRequest
 
 	api, ok := out.(*generated.OUNoteResponse)
 	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameOuNote, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("reading "+DSNameOuNote, out)...)
 		return
 	}
 

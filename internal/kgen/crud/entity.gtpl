@@ -174,7 +174,7 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 
 	{{if eq .CreateIDMode "envelope"}}created, ok := out.(*{{.SDKAlias}}.{{.CreateRespType}})
 	if !ok || {{if .CreateDataPtr}}created.Data == nil{{else}}!created.Data.Set{{end}} {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("creating "+{{.ResConst}}, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("creating "+{{.ResConst}}, out)...)
 		return
 	}
 	{{if .CreateIDOpt}}if !created.Data{{if not .CreateDataPtr}}.Value{{end}}.{{.CreateIDSDKName}}.Set {

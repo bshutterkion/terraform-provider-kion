@@ -182,7 +182,7 @@ func (d *compliance_programDataSource) readByID(ctx context.Context, conn *gener
 	}
 	api, ok := out.(*generated.ComplianceProgramResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameComplianceProgram, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameComplianceProgram, out)...)
 		return
 	}
 
@@ -256,7 +256,7 @@ func fetchAllComplianceProgram(ctx context.Context, conn *generated.Client) ([]g
 		}
 		resp, ok := out.(*generated.PaginatedComplianceProgramListResponse)
 		if !ok {
-			diags.Append(errs.ResponseDiagnostics("listing "+DSNameComplianceProgram, out)...)
+			diags.Append(errs.UnexpectedResponse("listing "+DSNameComplianceProgram, out)...)
 			return nil, diags
 		}
 		if !resp.Data.Set {

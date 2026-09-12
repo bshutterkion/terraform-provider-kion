@@ -88,7 +88,7 @@ func (d *saml_group_associationDataSource) Read(ctx context.Context, req datasou
 
 	api, ok := out.(*generated.GroupAssociationResponse)
 	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameSamlGroupAssociation, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("reading "+DSNameSamlGroupAssociation, out)...)
 		return
 	}
 

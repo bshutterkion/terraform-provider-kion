@@ -848,6 +848,16 @@ resources:
           import: github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes
           type: jsontypes.NormalizedType{}
           value_type: jsontypes.Normalized
+      # alias is varchar(16) in Kion's own schema. The OpenAPI spec does not say
+      # so, and a longer value is answered with a bare 500 -- "error creating
+      # scope" -- naming neither the field nor the limit. Validating it here
+      # turns that into a plan-time message.
+      alias:
+        type: string
+        computed_optional_required: computed_optional
+        description: Alias of the scope in the application. Limited to 16 characters.
+        validators:
+          - stringvalidator.LengthAtMost(16)
   scope_criteria:
     # Compound-key sub-resource (see the compound-key/parent-read archetype).
     # Identity is (scope_id, criteria_id); the spec models neither of those as an

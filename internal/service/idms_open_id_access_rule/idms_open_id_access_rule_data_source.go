@@ -79,7 +79,7 @@ func (d *idms_open_id_access_ruleDataSource) Read(ctx context.Context, req datas
 
 	api, ok := out.(*generated.OIDAccessRuleResponse)
 	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameIdmsOpenIdAccessRule, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("reading "+DSNameIdmsOpenIdAccessRule, out)...)
 		return
 	}
 

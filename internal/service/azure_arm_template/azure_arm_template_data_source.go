@@ -186,7 +186,7 @@ func (d *azure_arm_templateDataSource) readByID(ctx context.Context, conn *gener
 	}
 	api, ok := out.(*generated.AzureARMTemplateResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameAzureArmTemplate, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameAzureArmTemplate, out)...)
 		return
 	}
 
@@ -258,7 +258,7 @@ func fetchAllAzureArmTemplate(ctx context.Context, conn *generated.Client) ([]ge
 	}
 	resp, ok := out.(*generated.AzureARMTemplateListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameAzureArmTemplate, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameAzureArmTemplate, out)...)
 		return nil, diags
 	}
 	items := resp.Data

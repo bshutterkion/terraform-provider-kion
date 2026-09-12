@@ -113,7 +113,7 @@ func (d *projectPermissionMappingDataSource) Read(ctx context.Context, req datas
 
 	listResp, ok := out.(*generated.ProjectUserMappingListResponse)
 	if !ok {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("reading %s", DSNameProjectPermissionMapping), out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse(fmt.Sprintf("reading %s", DSNameProjectPermissionMapping), out)...)
 		return
 	}
 

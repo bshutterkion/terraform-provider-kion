@@ -184,7 +184,7 @@ func (d *project_cloud_access_roleDataSource) readByID(ctx context.Context, conn
 	}
 	api, ok := out.(*generated.ProjectCloudAccessRoleResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameProjectCloudAccessRole, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameProjectCloudAccessRole, out)...)
 		return
 	}
 
@@ -260,7 +260,7 @@ func fetchAllProjectCloudAccessRole(ctx context.Context, conn *generated.Client)
 	}
 	resp, ok := out.(*generated.ProjectCloudAccessRoleListResponsePaginated)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameProjectCloudAccessRole, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameProjectCloudAccessRole, out)...)
 		return nil, diags
 	}
 	if !resp.Data.Set {

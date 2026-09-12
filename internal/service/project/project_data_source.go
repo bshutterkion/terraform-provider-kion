@@ -163,7 +163,7 @@ func (d *projectDataSource) readByID(ctx context.Context, conn *generated.Client
 	}
 	api, ok := out.(*generated.ProjectResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameProject, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameProject, out)...)
 		return
 	}
 
@@ -233,7 +233,7 @@ func fetchAllProject(ctx context.Context, conn *generated.Client) ([]generated.P
 	}
 	resp, ok := out.(*generated.ProjectListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameProject, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameProject, out)...)
 		return nil, diags
 	}
 	items := resp.Data

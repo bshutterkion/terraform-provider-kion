@@ -191,7 +191,7 @@ func (d *userDataSource) readByID(ctx context.Context, conn *generated.Client, d
 	}
 	api, ok := out.(*generated.UserResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameUser, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameUser, out)...)
 		return
 	}
 
@@ -263,7 +263,7 @@ func fetchAllUser(ctx context.Context, conn *generated.Client) ([]generated.User
 	}
 	resp, ok := out.(*generated.UserListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameUser, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameUser, out)...)
 		return nil, diags
 	}
 	items := resp.Data

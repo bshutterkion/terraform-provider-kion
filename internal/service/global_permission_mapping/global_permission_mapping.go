@@ -58,7 +58,7 @@ func global_permission_mappingFetch(ctx context.Context, conn *generated.Client)
 	}
 	resp, ok := out.(*generated.GlobalUserMappingListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("reading "+ResNameGlobalPermissionMapping, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+ResNameGlobalPermissionMapping, out)...)
 		return nil, false, diags
 	}
 	return resp.Data, true, diags

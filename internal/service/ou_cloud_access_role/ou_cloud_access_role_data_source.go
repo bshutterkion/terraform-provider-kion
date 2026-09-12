@@ -170,7 +170,7 @@ func (d *ou_cloud_access_roleDataSource) readByID(ctx context.Context, conn *gen
 	}
 	api, ok := out.(*generated.OUCloudAccessRoleResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameOuCloudAccessRole, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameOuCloudAccessRole, out)...)
 		return
 	}
 
@@ -242,7 +242,7 @@ func fetchAllOuCloudAccessRole(ctx context.Context, conn *generated.Client) ([]g
 	}
 	resp, ok := out.(*generated.OUCloudAccessRoleListResponsePaginated)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameOuCloudAccessRole, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameOuCloudAccessRole, out)...)
 		return nil, diags
 	}
 	if !resp.Data.Set {

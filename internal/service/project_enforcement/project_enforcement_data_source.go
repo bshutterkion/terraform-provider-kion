@@ -182,7 +182,7 @@ func (d *projectEnforcementDataSource) Read(ctx context.Context, req datasource.
 
 	apiResp, ok := out.(*generated.ProjectEnforcementResponse)
 	if !ok {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameProjectEnforcement, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("reading "+DSNameProjectEnforcement, out)...)
 		return
 	}
 

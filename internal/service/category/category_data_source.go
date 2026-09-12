@@ -142,7 +142,7 @@ func (d *categoryDataSource) readByID(ctx context.Context, conn *generated.Clien
 	}
 	api, ok := out.(*generated.CategoryResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameCategory, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameCategory, out)...)
 		return
 	}
 
@@ -206,7 +206,7 @@ func fetchAllCategory(ctx context.Context, conn *generated.Client) ([]generated.
 	}
 	resp, ok := out.(*generated.CategoryListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameCategory, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameCategory, out)...)
 		return nil, diags
 	}
 	items := resp.Data

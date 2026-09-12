@@ -79,7 +79,7 @@ func (d *compliance_familyDataSource) Read(ctx context.Context, req datasource.R
 
 	api, ok := out.(*generated.ComplianceFamilyResponse)
 	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameComplianceFamily, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("reading "+DSNameComplianceFamily, out)...)
 		return
 	}
 

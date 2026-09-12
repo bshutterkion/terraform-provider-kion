@@ -85,7 +85,7 @@ func (r *scope_criteriaResource) Create(ctx context.Context, req resource.Create
 
 	childID, ok := newScopeCriteriaID(out, existing)
 	if !ok {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("creating "+ResNameScopeCriteria, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("creating "+ResNameScopeCriteria, out)...)
 		if !resp.Diagnostics.HasError() {
 			resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameScopeCriteria), "could not determine the id of the newly created record")
 		}

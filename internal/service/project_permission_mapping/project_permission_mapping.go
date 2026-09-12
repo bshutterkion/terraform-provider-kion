@@ -59,7 +59,7 @@ func project_permission_mappingFetch(ctx context.Context, conn *generated.Client
 	}
 	resp, ok := out.(*generated.ProjectUserMappingListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("reading "+ResNameProjectPermissionMapping, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+ResNameProjectPermissionMapping, out)...)
 		return nil, false, diags
 	}
 	return resp.Data, true, diags

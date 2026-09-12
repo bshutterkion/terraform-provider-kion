@@ -78,7 +78,7 @@ func (r *scopeResource) Create(ctx context.Context, req resource.CreateRequest, 
 
 	created, ok := out.(*generated.ScopeResponse)
 	if !ok || !created.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("creating "+ResNameScope, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("creating "+ResNameScope, out)...)
 		return
 	}
 	if !created.Data.Value.ID.Set {

@@ -174,7 +174,7 @@ func (d *amiDataSource) readByID(ctx context.Context, conn *generated.Client, da
 	}
 	api, ok := out.(*generated.AMIResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameAmi, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameAmi, out)...)
 		return
 	}
 
@@ -246,7 +246,7 @@ func fetchAllAmi(ctx context.Context, conn *generated.Client) ([]generated.AMIWi
 	}
 	resp, ok := out.(*generated.AMIListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameAmi, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameAmi, out)...)
 		return nil, diags
 	}
 	items := resp.Data

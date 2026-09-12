@@ -151,7 +151,7 @@ func (d *gcp_iam_roleDataSource) readByID(ctx context.Context, conn *generated.C
 	}
 	api, ok := out.(*generated.GCPRoleResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameGcpIamRole, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameGcpIamRole, out)...)
 		return
 	}
 
@@ -213,7 +213,7 @@ func fetchAllGcpIamRole(ctx context.Context, conn *generated.Client) ([]generate
 	}
 	resp, ok := out.(*generated.GCPRoleListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameGcpIamRole, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameGcpIamRole, out)...)
 		return nil, diags
 	}
 	items := resp.Data

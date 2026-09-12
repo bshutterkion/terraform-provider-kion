@@ -59,7 +59,7 @@ func ou_permission_mappingFetch(ctx context.Context, conn *generated.Client, par
 	}
 	resp, ok := out.(*generated.OUUserMappingListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("reading "+ResNameOuPermissionMapping, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+ResNameOuPermissionMapping, out)...)
 		return nil, false, diags
 	}
 	return resp.Data, true, diags

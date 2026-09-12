@@ -210,7 +210,7 @@ func (d *azure_accountDataSource) readByID(ctx context.Context, conn *generated.
 	}
 	api, ok := out.(*generated.AccountResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameAzureAccount, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameAzureAccount, out)...)
 		return
 	}
 
@@ -282,7 +282,7 @@ func fetchAllAzureAccount(ctx context.Context, conn *generated.Client) ([]genera
 	}
 	resp, ok := out.(*generated.AccountListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameAzureAccount, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameAzureAccount, out)...)
 		return nil, diags
 	}
 	items := resp.Data

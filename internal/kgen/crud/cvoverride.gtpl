@@ -525,7 +525,7 @@ func flattenCustomVariableOverride(apiObject any, model *customVariableOverrideR
 
 	resp, ok := apiObject.(*generated.CustomVariableOverrideResponse)
 	if !ok {
-		return errs.ResponseDiagnostics("reading "+ResNameCustomVariableOverride, apiObject)
+		return errs.UnexpectedResponse("reading "+ResNameCustomVariableOverride, apiObject)
 	}
 
 	if !resp.Data.IsSet() {

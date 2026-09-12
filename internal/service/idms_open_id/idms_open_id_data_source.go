@@ -100,7 +100,7 @@ func (d *idms_open_idDataSource) Read(ctx context.Context, req datasource.ReadRe
 
 	api, ok := out.(*generated.OpenIDResponse)
 	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameIdmsOpenId, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("reading "+DSNameIdmsOpenId, out)...)
 		return
 	}
 

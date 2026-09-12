@@ -58,7 +58,7 @@ func readFundingSourceOwners(ctx context.Context, meta *conns.KionClient, id int
 	}
 	resp, ok := out.(*generated.FSUserMappingListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics(fmt.Sprintf("reading %s owners", ResNameFundingSource), out)...)
+		diags.Append(errs.UnexpectedResponse(fmt.Sprintf("reading %s owners", ResNameFundingSource), out)...)
 		return diags
 	}
 

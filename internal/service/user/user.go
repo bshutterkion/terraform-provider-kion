@@ -84,7 +84,7 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	created, ok := out.(*generated.UserCreatedResponse)
 	if !ok || !created.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("creating "+ResNameUser, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("creating "+ResNameUser, out)...)
 		return
 	}
 	if !created.Data.Value.ID.Set {

@@ -98,7 +98,7 @@ func (r *compliance_controlResource) Create(ctx context.Context, req resource.Cr
 
 	created, ok := out.(*generated.ComplianceControlResponse)
 	if !ok || !created.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("creating "+ResNameComplianceControl, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("creating "+ResNameComplianceControl, out)...)
 		return
 	}
 	if !created.Data.Value.ID.Set {

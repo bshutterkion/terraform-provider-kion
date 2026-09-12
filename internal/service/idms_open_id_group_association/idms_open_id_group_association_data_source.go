@@ -79,7 +79,7 @@ func (d *idms_open_id_group_associationDataSource) Read(ctx context.Context, req
 
 	api, ok := out.(*generated.OIDGroupAssociationResponse)
 	if !ok || !api.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameIdmsOpenIdGroupAssociation, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("reading "+DSNameIdmsOpenIdGroupAssociation, out)...)
 		return
 	}
 

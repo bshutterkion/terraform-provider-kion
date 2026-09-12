@@ -191,7 +191,7 @@ func (d *gcp_service_accountDataSource) readByID(ctx context.Context, conn *gene
 	}
 	api, ok := out.(*generated.GCPServiceAccountResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameGcpServiceAccount, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameGcpServiceAccount, out)...)
 		return
 	}
 
@@ -269,7 +269,7 @@ func fetchAllGcpServiceAccount(ctx context.Context, conn *generated.Client) ([]g
 	}
 	resp, ok := out.(*generated.GCPServiceAccountListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameGcpServiceAccount, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameGcpServiceAccount, out)...)
 		return nil, diags
 	}
 	items := resp.Data

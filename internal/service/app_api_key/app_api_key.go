@@ -70,7 +70,7 @@ func (r *app_api_keyResource) Create(ctx context.Context, req resource.CreateReq
 
 	created, ok := out.(*generated.AppAPIKeyCreatedResponse)
 	if !ok || !created.Data.Set {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics("creating "+ResNameAppApiKey, out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse("creating "+ResNameAppApiKey, out)...)
 		return
 	}
 	if !created.Data.Value.ID.Set {

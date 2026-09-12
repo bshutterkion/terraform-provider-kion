@@ -160,7 +160,7 @@ func (d *compliance_standardDataSource) readByID(ctx context.Context, conn *gene
 	}
 	api, ok := out.(*generated.ComplianceStandardResponse)
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameComplianceStandard, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+DSNameComplianceStandard, out)...)
 		return
 	}
 
@@ -228,7 +228,7 @@ func fetchAllComplianceStandard(ctx context.Context, conn *generated.Client) ([]
 	}
 	resp, ok := out.(*generated.ComplianceStandardListResponse)
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameComplianceStandard, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+DSNameComplianceStandard, out)...)
 		return nil, diags
 	}
 	items := resp.Data

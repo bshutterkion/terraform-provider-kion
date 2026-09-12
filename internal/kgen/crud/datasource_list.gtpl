@@ -141,7 +141,7 @@ func (d *{{.Pkg}}DataSource) readByID(ctx context.Context, conn *{{.SDKAlias}}.C
 	}
 	api, ok := out.(*{{.SDKAlias}}.{{.RespType}})
 	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+{{.DSConst}}, out)...)
+		diags.Append(errs.UnexpectedResponse("reading "+{{.DSConst}}, out)...)
 		return
 	}
 
@@ -219,7 +219,7 @@ func fetchAll{{.Pascal}}(ctx context.Context, conn *{{.SDKAlias}}.Client) ([]{{.
 		}
 		resp, ok := out.(*{{.SDKAlias}}.{{.ListRespType}})
 		if !ok {
-			diags.Append(errs.ResponseDiagnostics("listing "+{{.DSConst}}, out)...)
+			diags.Append(errs.UnexpectedResponse("listing "+{{.DSConst}}, out)...)
 			return nil, diags
 		}
 		{{- if .EnvelopeGuard}}
@@ -257,7 +257,7 @@ func fetchAll{{.Pascal}}(ctx context.Context, conn *{{.SDKAlias}}.Client) ([]{{.
 	}
 	resp, ok := out.(*{{.SDKAlias}}.{{.ListRespType}})
 	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+{{.DSConst}}, out)...)
+		diags.Append(errs.UnexpectedResponse("listing "+{{.DSConst}}, out)...)
 		return nil, diags
 	}
 	{{- if .EnvelopeGuard}}

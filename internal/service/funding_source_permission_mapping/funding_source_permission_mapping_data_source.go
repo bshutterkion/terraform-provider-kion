@@ -107,7 +107,7 @@ func (d *fundingSourcePermissionMappingDataSource) Read(ctx context.Context, req
 
 	listResp, ok := out.(*generated.FSUserMappingListResponse)
 	if !ok {
-		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("reading %s", DSNameFundingSourcePermissionMapping), out)...)
+		resp.Diagnostics.Append(errs.UnexpectedResponse(fmt.Sprintf("reading %s", DSNameFundingSourcePermissionMapping), out)...)
 		return
 	}
 

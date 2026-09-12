@@ -36,7 +36,7 @@ resource "kion_scope" "example" {
 
 ### Optional
 
-- `alias` (String) Alias of the scope in the application.
+- `alias` (String) Alias of the scope in the application. Limited to 16 characters.
 - `criteria` (String) The criteria for the scope, as a JSON-encoded string.
 - `description` (String) Description of the scope in the application.
 - `end_datecode` (Number) End datecode for the scope (YYYYMM format), if applicable.
