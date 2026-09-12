@@ -8,4 +8,8 @@ provider "kion" {
 
 run "plan" {
   command = plan
+
+  variables {
+    create_user_id = 1
+  }
 }

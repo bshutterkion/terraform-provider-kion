@@ -811,8 +811,19 @@ type attributeOverride struct {
 	// without an explicit override every generated schema exposed its secrets in
 	// cleartext, smtp_password, oauth_client_secret, tenant_client_secret,
 	// key_secret and private_key were all unmarked.
-	Sensitive     bool                         `yaml:"sensitive"`
-	PlanModifiers []string                     `yaml:"plan_modifiers"` // e.g. stringplanmodifier.UseStateForUnknown()
+	Sensitive bool `yaml:"sensitive"`
+	// PlanModifiers is a POINTER so that an explicitly empty list is
+	// distinguishable from an absent one. Every Computed attribute is given
+	// UseStateForUnknown by default (see applyUseStateForUnknownDefault), and the
+	// documented way to opt out is to declare your own -- but an attribute the
+	// server recomputes needs to declare NONE, and with a plain slice "none" and
+	// "unset" were the same value, so the opt-out could not be expressed at all.
+	//
+	// kion_project_note is what found it: last_update_user_id and updated_at are
+	// set by the server on update, so carrying the prior state (null, for a note
+	// never updated) into the plan and then receiving a real value failed the
+	// apply outright.
+	PlanModifiers *[]string                    `yaml:"plan_modifiers"` // e.g. stringplanmodifier.UseStateForUnknown(); [] means none
 	CustomType    *customTypeOverride          `yaml:"custom_type"`    // wrap a scalar in a framework custom type (e.g. jsontypes.Normalized)
 	Attributes    map[string]attributeOverride `yaml:"attributes"`     // nested attributes for single_nested/set_nested/list_nested
 }
@@ -910,10 +921,12 @@ func (g *generator) applySchemaOverrides(specPath, overridesPath string) error {
 
 // stdStringID is the AWS framework.IDAttribute() convention applied to every
 // resource id absent an explicit override.
+var stdStringIDModifiers = []string{"stringplanmodifier.UseStateForUnknown()"}
+
 var stdStringID = attributeOverride{
 	Type:                     "string",
 	ComputedOptionalRequired: "computed",
-	PlanModifiers:            []string{"stringplanmodifier.UseStateForUnknown()"},
+	PlanModifiers:            &stdStringIDModifiers,
 }
 
 // applyStringIDDefault retypes each resource's id attribute to the standard
@@ -1101,9 +1114,9 @@ func applyAttrOverride(attr map[string]any, ao attributeOverride) error {
 	if ao.Sensitive {
 		typeObj["sensitive"] = true
 	}
-	if len(ao.PlanModifiers) > 0 {
-		pms := make([]any, 0, len(ao.PlanModifiers))
-		for _, pm := range ao.PlanModifiers {
+	if ao.PlanModifiers != nil {
+		pms := make([]any, 0, len(*ao.PlanModifiers))
+		for _, pm := range *ao.PlanModifiers {
 			imp, err := planModifierImport(pm)
 			if err != nil {
 				return err

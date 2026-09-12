@@ -16,12 +16,9 @@ func ProjectNoteResourceSchema(ctx context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"create_user_id": schema.Int64Attribute{
-				Computed:            true,
+				Required:            true,
 				Description:         "ID of the user who created the note.",
 				MarkdownDescription: "ID of the user who created the note.",
-				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
-				},
 			},
 			"create_user_name": schema.StringAttribute{
 				Computed:            true,
@@ -51,17 +48,11 @@ func ProjectNoteResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "ID of the user who last updated the note.",
 				MarkdownDescription: "ID of the user who last updated the note.",
-				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
-				},
 			},
 			"last_update_user_name": schema.StringAttribute{
 				Computed:            true,
 				Description:         "Name of the user who last updated the note.",
 				MarkdownDescription: "Name of the user who last updated the note.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
 			},
 			"name": schema.StringAttribute{
 				Optional:            true,
@@ -94,9 +85,6 @@ func ProjectNoteResourceSchema(ctx context.Context) schema.Schema {
 				Computed:            true,
 				Description:         "When the note was last updated.",
 				MarkdownDescription: "When the note was last updated.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
 			},
 		},
 		Description: "Manages a Kion Project Note.",

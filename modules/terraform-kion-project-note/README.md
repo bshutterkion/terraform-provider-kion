@@ -9,6 +9,7 @@ Terraform module for `kion_project_note`, generated from the provider schema by
 module "project_note" {
   source = "..."
 
+  create_user_id = 1
 }
 ```
 
@@ -40,6 +41,7 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
+| create\_user\_id | ID of the user who created the note. | `number` | n/a | yes |
 | name | Name of the note. | `string` | `null` | no |
 | project\_id | ID of the project. | `number` | `null` | no |
 | text | Body text of the note. | `string` | `null` | no |
@@ -48,7 +50,6 @@ No modules.
 
 | Name | Description |
 | ---- | ----------- |
-| create\_user\_id | create\_user\_id of the kion\_project\_note. |
 | create\_user\_name | create\_user\_name of the kion\_project\_note. |
 | created\_at | created\_at of the kion\_project\_note. |
 | id | id of the kion\_project\_note. |

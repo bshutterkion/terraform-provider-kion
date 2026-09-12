@@ -746,22 +746,35 @@ resources:
         type: string
         computed_optional_required: computed
         description: The ID of the project note.
+      # Required, not computed: POST /v3/project-note rejects a body without it
+      # ("Key: 'ProjectNoteCreate.CreateUserID' … failed on the 'required' tag"),
+      # so marking it computed made kion_project_note impossible to create. The
+      # provider already sends it; only the schema forbade supplying it. The
+      # SDKv2 provider had it Required, so this is also a migration regression.
       create_user_id:
         type: int64
-        computed_optional_required: computed
+        computed_optional_required: required
         description: ID of the user who created the note.
       create_user_name:
         type: string
         computed_optional_required: computed
         description: Name of the user who created the note.
+      # No UseStateForUnknown on these two: the server sets them on update, so
+      # carrying the prior state into the plan (null, for a note never updated)
+      # and then receiving a real value fails the apply outright:
+      #   .last_update_user_id: was null, but now 1
+      #   .updated_at: was null, but now "2026-09-12T06:06:51Z"
+      # An empty plan_modifiers list is how an attribute opts out of the default.
       last_update_user_id:
         type: int64
         computed_optional_required: computed
         description: ID of the user who last updated the note.
+        plan_modifiers: []
       last_update_user_name:
         type: string
         computed_optional_required: computed
         description: Name of the user who last updated the note.
+        plan_modifiers: []
       created_at:
         type: string
         computed_optional_required: computed
@@ -770,6 +783,7 @@ resources:
         type: string
         computed_optional_required: computed
         description: When the note was last updated.
+        plan_modifiers: []
   compliance_control:
     description: "Manages a Kion Compliance Control."
     # DELETE is scoped by the parent program (/v4/compliance/program/{id}/control/

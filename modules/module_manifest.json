@@ -2998,6 +2998,11 @@
       "path": "terraform-kion-project-note",
       "variables": [
         {
+          "attr": "create_user_id",
+          "var": "create_user_id",
+          "block": false
+        },
+        {
           "attr": "name",
           "var": "name",
           "block": false
