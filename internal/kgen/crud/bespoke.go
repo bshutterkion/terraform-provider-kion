@@ -207,6 +207,10 @@ func (g *generator) generateCVOverride(dir, name string, force bool) (int, error
 type cloudAccountData struct {
 	Pkg, Recv, Pascal, ResName string
 	SchemaVersion              int
+	SDKAlias                   string
+	ResConst                   string
+	Labels                     *labelSyncBind
+	LabelsRespType             string
 }
 
 // generateCloudAccount emits the shared convert-and-move resource plus the
@@ -214,10 +218,20 @@ type cloudAccountData struct {
 func (g *generator) generateCloudAccount(dir, name string, force bool) (int, error) {
 	pascal := pascalCase(name)
 	data := cloudAccountData{
-		Pkg:     name,
-		Recv:    lowerCamelCase(name),
-		Pascal:  pascal,
-		ResName: spaceBeforeCaps(pascal),
+		Pkg:      name,
+		Recv:     lowerCamelCase(name),
+		Pascal:   pascal,
+		ResName:  spaceBeforeCaps(pascal),
+		SDKAlias: "generated",
+		ResConst: "ResName" + pascal,
+	}
+	if mc, ok := g.memberships[name]; ok && mc.Labels != nil {
+		lb, err := resolveLabelSync(*mc.Labels, nil)
+		if err != nil {
+			return 0, fmt.Errorf("%s labels: %w", name, err)
+		}
+		data.Labels = lb
+		data.LabelsRespType = labelsRespType(lb)
 	}
 	if _, ok := g.upgrades["kion_"+name]; ok {
 		data.SchemaVersion = 1

@@ -196,6 +196,31 @@ func (r *projectResource) Create(ctx context.Context, req resource.CreateRequest
 
 	plan.Id = types.StringValue(strconv.FormatInt(id, 10))
 
+	// Labels live on a sub-resource, not in the request body, so without this
+	// the attribute is accepted and silently discarded. Written BEFORE the
+	// read-back, which assigns only what the read payload carries.
+	labelList, labelDiags := flex.AssociateLabelsFromFramework(ctx, plan.Labels)
+	resp.Diagnostics.Append(labelDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	configuredLabels := plan.Labels
+	if labelList != nil {
+		labelOut, labelErr := conn.PutProjectLabels(ctx, &generated.AssociateLabels{
+			Labels: generated.OptNilAssociateLabelArray{Value: labelList, Set: true},
+		}, generated.PutProjectLabelsParams{ProjectID: id})
+		if labelErr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("setting labels on %s", ResNameProject), labelErr.Error())
+			return
+		}
+		// An error STATUS is a response variant, not a Go error: 422 "app label
+		// does not exist" would otherwise read as success.
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("setting labels on %s", ResNameProject), labelOut)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
 	// Read back the resource to populate computed fields.
 	readOut, readErr := conn.GetProject(ctx, generated.GetProjectParams{ID: id})
 	if readErr != nil {
@@ -207,6 +232,7 @@ func (r *projectResource) Create(ctx context.Context, req resource.CreateRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	plan.Labels = configuredLabels
 
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -297,6 +323,24 @@ func (r *projectResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
+	// Labels come from the sub-resource, not the read payload: a refresh that
+	// skipped this would never notice a change made outside Terraform.
+	labelsOut, labelsErr := conn.GetProjectLabels(ctx, generated.GetProjectLabelsParams{ProjectID: idInt})
+	if labelsErr != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("reading labels for %s", ResNameProject), labelsErr.Error())
+		return
+	}
+	if lr, ok := labelsOut.(*generated.ProjectLabelsResponse); ok {
+		labelMap, labelDiags := flex.LabelsToFramework(ctx, lr.Data, func(l generated.GetProjectLabel) (string, string) {
+			return l.Key, l.Value
+		})
+		resp.Diagnostics.Append(labelDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		state.Labels = labelMap
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -313,6 +357,27 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
+	}
+
+	// As in Create: written before the read-back, which does not carry labels.
+	labelList, labelDiags := flex.AssociateLabelsFromFramework(ctx, plan.Labels)
+	resp.Diagnostics.Append(labelDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	configuredLabels := plan.Labels
+	if labelList != nil {
+		labelOut, labelErr := conn.PutProjectLabels(ctx, &generated.AssociateLabels{
+			Labels: generated.OptNilAssociateLabelArray{Value: labelList, Set: true},
+		}, generated.PutProjectLabelsParams{ProjectID: idInt})
+		if labelErr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("setting labels on %s", ResNameProject), labelErr.Error())
+			return
+		}
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("setting labels on %s", ResNameProject), labelOut)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	input := &generated.ProjectUpdate{
@@ -350,6 +415,7 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	plan.Labels = configuredLabels
 
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {

@@ -46,7 +46,20 @@ type membershipSlice struct {
 // membershipConfig is one resource's membership declarations. Associations is a
 // list so a resource can sync several struct-bodied endpoints (e.g. user_group's
 // owners + viewers).
+// membershipLabels declares the per-resource label sub-resource. Kion carries
+// labels at GET/PUT /v3/<type>/{id}/labels, never in the resource's own request
+// body, so a resource exposing `labels` must sync them separately -- without
+// which the attribute is accepted and silently discarded.
+type membershipLabels struct {
+	Attr    string `yaml:"attr"`    // model attribute, always "labels" today
+	Get     string `yaml:"get"`     // SDK read op, e.g. GetOULabels
+	Put     string `yaml:"put"`     // SDK write op, e.g. PutOULabels
+	Params  string `yaml:"params"`  // params field holding the parent id
+	Element string `yaml:"element"` // per-resource record type the GET returns
+}
+
 type membershipConfig struct {
+	Labels       *membershipLabels        `yaml:"labels"`
 	Owners       *membershipOwners        `yaml:"owners"`
 	Associations []membershipAssociations `yaml:"associations"`
 	SliceMembers []membershipSlice        `yaml:"slice_members"`

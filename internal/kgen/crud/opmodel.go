@@ -207,6 +207,8 @@ type ResourceModel struct {
 	Owners *ownerMembershipBind
 	// Bulk association syncs (each a struct body of id-lists via one add/remove pair).
 	Assocs []*assocMembershipBind
+	// Labels is the per-resource label sub-resource, when the resource has one.
+	Labels *labelSyncBind
 	// Slice member syncs ([]int64 add/remove endpoints, e.g. user_group users).
 	SliceMembers []*sliceMemberBind
 }

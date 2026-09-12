@@ -35,6 +35,12 @@ resources:
         add: UpdateUGroupUsers
         remove: RemoveUGroupUsers
   ou:
+    labels:
+      attr: labels
+      get: GetOULabels
+      put: PutOULabels
+      params: OuID
+      element: GetOULabel
     owners:
       user_field: owner_user_ids
       group_field: owner_user_group_ids
@@ -87,6 +93,12 @@ resources:
         fields:
           - compliance_check_ids
   cloud_rule:
+    labels:
+      attr: labels
+      get: GetCloudRuleLabels
+      put: PutCloudRuleLabels
+      params: CloudRuleID
+      element: GetCloudRuleLabel
     owners:
       user_field: owner_user_ids
       group_field: owner_user_group_ids
@@ -113,3 +125,24 @@ resources:
           - ou_ids
           - project_ids
           - service_control_policy_ids
+  project:
+    labels:
+      attr: labels
+      get: GetProjectLabels
+      put: PutProjectLabels
+      params: ProjectID
+      element: GetProjectLabel
+  account:
+    labels:
+      attr: labels
+      get: GetAccountLabels
+      put: PutAccountLabels
+      params: AccountID
+      element: GetAccountLabel
+  aws_account:
+    labels:
+      attr: labels
+      get: GetAccountLabels
+      put: PutAccountLabels
+      params: AccountID
+      element: GetAccountLabel

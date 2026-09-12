@@ -341,11 +341,45 @@ func (r *{{.Recv}}Resource) Create(ctx context.Context, req resource.CreateReque
 		plan.Location = types.StringValue(accounthelper.LocationCache)
 	}
 
+{{- if .Labels}}
+
+	// Labels live on a sub-resource, not in the request body, so without this
+	// the attribute is accepted and silently discarded. Written BEFORE the
+	// read-back: that assigns only what the read payload carries, and labels
+	// are not in it, so reading plan.{{.Labels.ModelGo}} afterwards sees the
+	// null it left. A null map means "not configured"; an empty map clears.
+	labelList, labelDiags := flex.AssociateLabelsFromFramework(ctx, plan.{{.Labels.ModelGo}})
+	resp.Diagnostics.Append(labelDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	configuredLabels := plan.{{.Labels.ModelGo}}
+	if labelList != nil {
+		labelOut, labelErr := conn.{{.Labels.Put}}(ctx, &{{.SDKAlias}}.AssociateLabels{
+			Labels: {{.SDKAlias}}.OptNilAssociateLabelArray{Value: labelList, Set: true},
+		}, {{.SDKAlias}}.{{.Labels.Put}}Params{ {{.Labels.Params}}: plan.ID.ValueInt64()})
+		if labelErr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("setting labels on %s", {{.ResConst}}), labelErr.Error())
+			return
+		}
+		// An error STATUS is a response variant, not a Go error: 422 "app label
+		// does not exist" would otherwise read as success.
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("setting labels on %s", {{.ResConst}}), labelOut)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+{{- end}}
+
 	// Read back to populate computed fields.
 	resp.Diagnostics.Append(r.readIntoModel(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+{{- if .Labels}}
+	// readIntoModel nulls it: labels are not in the read payload.
+	plan.{{.Labels.ModelGo}} = configuredLabels
+{{- end}}
 
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -384,6 +418,26 @@ func (r *{{.Recv}}Resource) Read(ctx context.Context, req resource.ReadRequest, 
 	}
 
 	state.Location = types.StringValue(result.Location)
+{{- if .Labels}}
+
+	// Labels come from the sub-resource, not the read payload: a refresh that
+	// skipped this would never notice a change made outside Terraform.
+	labelsOut, labelsErr := r.Meta().Client.{{.Labels.Get}}(ctx, {{.SDKAlias}}.{{.Labels.Get}}Params{ {{.Labels.Params}}: state.ID.ValueInt64()})
+	if labelsErr != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("reading labels for %s", {{.ResConst}}), labelsErr.Error())
+		return
+	}
+	if lr, ok := labelsOut.(*{{.SDKAlias}}.{{.LabelsRespType}}); ok {
+		labelMap, labelDiags := flex.LabelsToFramework(ctx, lr.Data, func(l {{.SDKAlias}}.{{.Labels.Element}}) (string, string) {
+			return l.Key, l.Value
+		})
+		resp.Diagnostics.Append(labelDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		state.{{.Labels.ModelGo}} = labelMap
+	}
+{{- end}}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -514,11 +568,38 @@ func (r *{{.Recv}}Resource) Update(ctx context.Context, req resource.UpdateReque
 	plan.ID = types.Int64Value(currentID)
 	plan.Location = types.StringValue(currentLocation)
 
+{{- if .Labels}}
+
+	// As in Create: written before the read-back, which does not carry labels.
+	labelList, labelDiags := flex.AssociateLabelsFromFramework(ctx, plan.{{.Labels.ModelGo}})
+	resp.Diagnostics.Append(labelDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	configuredLabels := plan.{{.Labels.ModelGo}}
+	if labelList != nil {
+		labelOut, labelErr := conn.{{.Labels.Put}}(ctx, &{{.SDKAlias}}.AssociateLabels{
+			Labels: {{.SDKAlias}}.OptNilAssociateLabelArray{Value: labelList, Set: true},
+		}, {{.SDKAlias}}.{{.Labels.Put}}Params{ {{.Labels.Params}}: plan.ID.ValueInt64()})
+		if labelErr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("setting labels on %s", {{.ResConst}}), labelErr.Error())
+			return
+		}
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("setting labels on %s", {{.ResConst}}), labelOut)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+{{- end}}
+
 	resp.Diagnostics.Append(r.readIntoModel(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
+{{- if .Labels}}
+	plan.{{.Labels.ModelGo}} = configuredLabels
+{{- end}}
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
