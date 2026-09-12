@@ -31,6 +31,10 @@ func TestCheckOne_Clean(t *testing.T) {
 	}
 }
 
+// checkOne prints every finding but counts only the actionable ones. DRIFT is
+// advisory: it compares one schema to one SDK struct, which is not how this
+// provider binds, so an attribute can be perfectly bound and still appear
+// there. See Resolved.Actionable.
 func TestCheckOne_Findings(t *testing.T) {
 	r := sampleResolved()
 	r.MissingInSDK = []string{"ghost"}
@@ -38,8 +42,8 @@ func TestCheckOne_Findings(t *testing.T) {
 	r.MissingFlex = []string{"OptWeirdToFramework (for field \"weird\")"}
 	var b bytes.Buffer
 	n := checkOne(&errWriter{w: &b}, r)
-	if n != 3 {
-		t.Errorf("findings = %d, want 3", n)
+	if n != 2 {
+		t.Errorf("actionable findings = %d, want 2 (the DRIFT one is advisory)", n)
 	}
 	out := b.String()
 	for _, want := range []string{"DRIFT no SDK field", "TYPE  bad:", "FLEX  missing converter"} {
