@@ -898,6 +898,27 @@ resources:
         description: The ID of the criteria record within the scope.
         plan_modifiers:
           - int64planmodifier.UseStateForUnknown()
+      # The month window is replace-on-change, because that is what Kion does
+      # with it. A PATCH keeping the same window edits the record in place; one
+      # that moves it SPLITS the record into versions, so the scope ends up with
+      # a different record than the one Terraform is tracking and the apply
+      # fails with values from its sibling:
+      #   .start_month: was 202601, but now 202606
+      #   .end_month:   was 202606, but now 202612
+      # Replace-on-change expresses the versioning honestly: a new window is a
+      # new record.
+      start_month:
+        type: int64
+        computed_optional_required: required
+        description: First month the criteria applies to, as YYYYMM.
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
+      end_month:
+        type: int64
+        computed_optional_required: required
+        description: Last month the criteria applies to, as YYYYMM.
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
       criteria:
         # raw JSON in the backend; jx.Raw in the SDK. Modeled here as a
         # JSON string with semantic (not byte-for-byte) equality so a

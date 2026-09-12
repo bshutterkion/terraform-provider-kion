@@ -20,12 +20,27 @@ var dataSourceCompoundTmpl string
 // codegen/crud_archetypes.yaml, the shape the op-set and SDK AST cannot
 // express on their own (see the file's header comment).
 type archetype struct {
-	Kind          string   `yaml:"kind"`
-	ParentIDField string   `yaml:"parent_id_field"`
-	ChildIDField  string   `yaml:"child_id_field"`
-	ChildIDParam  string   `yaml:"child_id_param"`
-	Collection    string   `yaml:"collection"`
-	RecordIDField string   `yaml:"record_id_field"`
+	Kind          string `yaml:"kind"`
+	ParentIDField string `yaml:"parent_id_field"`
+	ChildIDField  string `yaml:"child_id_field"`
+	ChildIDParam  string `yaml:"child_id_param"`
+	Collection    string `yaml:"collection"`
+	RecordIDField string `yaml:"record_id_field"`
+	// DeleteRetains (kind: compound_key_parent_read) marks a record the API
+	// refuses to remove because its parent must always have one.
+	//
+	// kion_scope_criteria is the case: POST /beta/scope/{id}/criteria REPLACES
+	// the scope's single criteria record rather than adding to it, and the
+	// delete answers "A scope must retain at least one criteria record". So the
+	// resource could be created and updated but never destroyed -- `terraform
+	// destroy` failed, which means Terraform could not manage its lifecycle at
+	// all.
+	//
+	// With this set, Delete forgets the record instead of calling the API, and
+	// says so with a warning. Silently succeeding would be its own lie; the
+	// warning is what tells the practitioner the criteria is still on the scope,
+	// which is the only state it can be in.
+	DeleteRetains bool     `yaml:"delete_retains"`
 	JSONFields    []string `yaml:"json_fields"`
 	// EmptyCollections are attributes whose empty value the API stores and
 	// returns as null, so null and empty are one state on the wire. The read
@@ -169,11 +184,14 @@ type compoundData struct {
 	Gated              bool
 	TypeName           string // "kion_scope_criteria"
 
-	IDGo       string // composite-id model field ("Id")
-	ParentIDGo string // "ScopeId"
-	ParentIDTF string // "scope_id"
-	ChildIDGo  string // "CriteriaId"
-	ChildIDTF  string // "criteria_id"
+	IDGo string // composite-id model field ("Id")
+	// DeleteRetains: Delete forgets the record instead of calling the API,
+	// because the API refuses to remove it. See the archetype field.
+	DeleteRetains bool
+	ParentIDGo    string // "ScopeId"
+	ParentIDTF    string // "scope_id"
+	ChildIDGo     string // "CriteriaId"
+	ChildIDTF     string // "criteria_id"
 
 	// Parent read (extract child from a collection).
 	ReadMethod    string // "GetScopeByID"
@@ -225,16 +243,17 @@ type compoundData struct {
 func resolveCompound(name string, ops resOps, idx sdkIndex, arch archetype, model []ModelField, gated bool) (compoundData, error) {
 	pascal := pascalCase(name)
 	d := compoundData{
-		Pkg:      name,
-		Pascal:   pascal,
-		Model:    pascal + "Model",
-		SDKAlias: "generated",
-		ResConst: "ResName" + pascal,
-		ResName:  pascal + " Resource",
-		DSConst:  "DSName" + pascal,
-		DSName:   pascal + " Data Source",
-		Gated:    gated,
-		TypeName: "kion_" + name,
+		Pkg:           name,
+		Pascal:        pascal,
+		Model:         pascal + "Model",
+		SDKAlias:      "generated",
+		ResConst:      "ResName" + pascal,
+		ResName:       pascal + " Resource",
+		DeleteRetains: arch.DeleteRetains,
+		DSConst:       "DSName" + pascal,
+		DSName:        pascal + " Data Source",
+		Gated:         gated,
+		TypeName:      "kion_" + name,
 	}
 
 	// Model fields: locate the composite id, parent id, and child id; the rest

@@ -219,15 +219,16 @@ func (r *scope_criteriaResource) Delete(ctx context.Context, req resource.Delete
 	parentID := state.ScopeId.ValueInt64()
 	childID := state.CriteriaId.ValueInt64()
 
-	out, err := conn.DeleteScopeCriteria(ctx, generated.DeleteScopeCriteriaParams{ScopeID: parentID, CriteriaID: childID})
-	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("deleting %s (%d/%d)", ResNameScopeCriteria, parentID, childID), err.Error())
-		return
-	}
-	if errs.IsNotFound(out) {
-		return
-	}
-	resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("deleting %s", ResNameScopeCriteria), out)...)
+	// The API refuses to remove this record: its parent must always have one,
+	// and the create REPLACES rather than adds. Calling delete would fail every
+	// `terraform destroy`, so the record is forgotten instead -- with a warning,
+	// because silently reporting success would be its own lie.
+	_ = conn
+	resp.Diagnostics.AddWarning(
+		fmt.Sprintf("%s was removed from state but still exists", ResNameScopeCriteria),
+		fmt.Sprintf("Kion requires its parent to retain one, so there is no delete to make. "+
+			"Record %d on parent %d is unchanged; creating this resource again replaces it.", childID, parentID),
+	)
 }
 
 func (r *scope_criteriaResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
