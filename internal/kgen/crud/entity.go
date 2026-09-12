@@ -69,7 +69,11 @@ type entityData struct {
 	// publishes no delete. Without it the generator emits a Delete that only
 	// warns, so every record a configuration creates survives `terraform
 	// destroy`: present in Kion, absent from state, unreachable by Terraform.
-	RawDeletePath    string
+	RawDeletePath string
+	// ImportParentTF is the parent attribute an import id must carry because
+	// the read cannot recover it. Delete addresses the record through it, so a
+	// bare-id import leaves a resource whose delete targets parent 0.
+	ImportParentTF   string
 	SchemaVersion    int // >0 bumps resp.Schema.Version (state migration)
 	CreateMethod     string
 	CreateBodyOpt    string
@@ -211,30 +215,31 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 	}
 
 	d := entityData{
-		Owners:        rm.Owners,
-		Assocs:        rm.Assocs,
-		SliceMembers:  rm.SliceMembers,
-		UpdateIDExpr:  "idInt", // overwritten below when the op's param id type differs
-		DeleteIDExpr:  "idInt",
-		Pkg:           rm.Name,
-		Pascal:        rm.Pascal,
-		Model:         rm.Model,
-		ResConst:      "ResName" + rm.Pascal,
-		ResName:       rm.Pascal,
-		TypeName:      "kion_" + rm.Name,
-		IDGo:          rm.IDField.GoName,
-		ParentRead:    rm.ParentRead,
-		SDKAlias:      "generated",
-		CreateMethod:  rm.Create.Method.Name,
-		CreateBodyOpt: rm.Create.Method.BodyType,
-		ReadMethod:    rm.Read.Method.Name,
-		ReadParams:    rm.Read.Method.ParamsType,
-		RespType:      rm.Read.RespType,
-		Gated:         rm.Gated,
-		AtLeastOneOf:  rm.AtLeastOneOf,
-		RawDeletePath: rm.RawDeletePath,
-		SchemaVersion: rm.SchemaVersion,
-		ReadCompanion: rm.ReadCompanion,
+		Owners:         rm.Owners,
+		Assocs:         rm.Assocs,
+		SliceMembers:   rm.SliceMembers,
+		UpdateIDExpr:   "idInt", // overwritten below when the op's param id type differs
+		DeleteIDExpr:   "idInt",
+		Pkg:            rm.Name,
+		Pascal:         rm.Pascal,
+		Model:          rm.Model,
+		ResConst:       "ResName" + rm.Pascal,
+		ResName:        rm.Pascal,
+		TypeName:       "kion_" + rm.Name,
+		IDGo:           rm.IDField.GoName,
+		ParentRead:     rm.ParentRead,
+		SDKAlias:       "generated",
+		CreateMethod:   rm.Create.Method.Name,
+		CreateBodyOpt:  rm.Create.Method.BodyType,
+		ReadMethod:     rm.Read.Method.Name,
+		ReadParams:     rm.Read.Method.ParamsType,
+		RespType:       rm.Read.RespType,
+		Gated:          rm.Gated,
+		AtLeastOneOf:   rm.AtLeastOneOf,
+		RawDeletePath:  rm.RawDeletePath,
+		ImportParentTF: rm.ImportParentTF,
+		SchemaVersion:  rm.SchemaVersion,
+		ReadCompanion:  rm.ReadCompanion,
 	}
 
 	if rm.Create.Body == nil {
