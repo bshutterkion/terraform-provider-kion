@@ -146,10 +146,3 @@ resources:
       put: PutAccountLabels
       params: AccountID
       element: GetAccountLabel
-  funding_source:
-    labels:
-      attr: labels
-      get: GetFundingSourceLabels
-      put: PutFundingSourceLabels
-      params: FundingSourceID
-      element: GetFundingSourceLabel

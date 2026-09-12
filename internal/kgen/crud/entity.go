@@ -166,8 +166,11 @@ type entityData struct {
 	// main update body doesn't carry owners). nil for resources without one.
 	Owners *ownerMembershipBind
 	// Bulk association syncs + slice member syncs.
-	Assocs       []*assocMembershipBind
-	SliceMembers []*sliceMemberBind
+	Assocs []*assocMembershipBind
+	Labels *labelSyncBind
+	// LabelsRespType is the 200 payload of Labels.Get, e.g. OULabelsResponse.
+	LabelsRespType string
+	SliceMembers   []*sliceMemberBind
 }
 
 // qsPathMarker is the synthetic path segment fixspec inserts for query-string-
@@ -213,6 +216,8 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 	d := entityData{
 		Owners:         rm.Owners,
 		Assocs:         rm.Assocs,
+		Labels:         rm.Labels,
+		LabelsRespType: labelsRespType(rm.Labels),
 		SliceMembers:   rm.SliceMembers,
 		UpdateIDExpr:   "idInt", // overwritten below when the op's param id type differs
 		DeleteIDExpr:   "idInt",
@@ -573,4 +578,13 @@ func respBinds(fields []Field, byTF map[string]ModelField, idTF, prefix string, 
 		return nil, nil, fmt.Errorf("response field %q has unsupported type %q", f.JSONName, f.Type)
 	}
 	return out, sliceOut, nil
+}
+
+// labelsRespType names the 200 payload of the label read: GetOULabels returns
+// OULabelsResponse, GetAccountLabels returns AccountLabelsResponse.
+func labelsRespType(l *labelSyncBind) string {
+	if l == nil {
+		return ""
+	}
+	return strings.TrimPrefix(l.Get, "Get") + "Response"
 }

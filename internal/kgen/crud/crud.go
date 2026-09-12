@@ -405,6 +405,11 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 
 	// Owner association synced on Update via paired add/remove endpoints.
 	if mc, ok := g.memberships[name]; ok {
+		if mc.Labels != nil {
+			if rm.Labels, err = resolveLabelSync(*mc.Labels, byTF); err != nil {
+				return 0, fmt.Errorf("%s labels: %w", name, err)
+			}
+		}
 		if mc.Owners != nil {
 			if rm.Owners, err = resolveOwnerMembership(*mc.Owners, byTF); err != nil {
 				return 0, fmt.Errorf("%s owners: %w", name, err)

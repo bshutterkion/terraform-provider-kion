@@ -142,6 +142,36 @@ func (r *cloud_ruleResource) Create(ctx context.Context, req resource.CreateRequ
 
 	plan.Id = types.StringValue(strconv.FormatInt(id, 10))
 
+	// Labels live on a sub-resource, not in the request body, so without this
+	// the attribute is accepted and silently discarded. Captured from the plan
+	// BEFORE the read-back: flatten assigns only what the read payload carries,
+	// and labels are not in it, so reading plan.Labels afterwards
+	// sees the null flatten left and skips the write. A null map means "not
+	// configured" and is left alone; an empty map explicitly clears them.
+	labelList, labelDiags := flex.AssociateLabelsFromFramework(ctx, plan.Labels)
+	resp.Diagnostics.Append(labelDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	configuredLabels := plan.Labels
+	if labelList != nil {
+		labelOut, labelErr := conn.PutCloudRuleLabels(ctx, &generated.AssociateLabels{
+			Labels: generated.OptNilAssociateLabelArray{Value: labelList, Set: true},
+		}, generated.PutCloudRuleLabelsParams{CloudRuleID: id})
+		if labelErr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("setting labels on %s", ResNameCloudRule), labelErr.Error())
+			return
+		}
+		// An error STATUS is a response variant, not a Go error: Kion answers
+		// 422 "app label does not exist" for a key no kion_label defines, and
+		// checking only labelErr would report that as success and silently drop
+		// every label.
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("setting labels on %s", ResNameCloudRule), labelOut)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
 	// Read back the resource to populate computed fields.
 	readOut, readErr := conn.GetCloudRuleShow(ctx, generated.GetCloudRuleShowParams{ID: id})
 	if readErr != nil {
@@ -153,6 +183,8 @@ func (r *cloud_ruleResource) Create(ctx context.Context, req resource.CreateRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// flatten nulls it: labels are not in the read payload.
+	plan.Labels = configuredLabels
 
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -193,6 +225,23 @@ func (r *cloud_ruleResource) Read(ctx context.Context, req resource.ReadRequest,
 		return
 	}
 
+	// Labels come from the sub-resource, not the read payload, so a refresh
+	// that skipped this left the attribute holding whatever the plan said and
+	// never noticed a change made outside Terraform.
+	if labelsOut, labelsErr := conn.GetCloudRuleLabels(ctx, generated.GetCloudRuleLabelsParams{CloudRuleID: idInt}); labelsErr != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("reading labels for %s", ResNameCloudRule), labelsErr.Error())
+		return
+	} else if lr, ok := labelsOut.(*generated.CloudRuleLabelsResponse); ok {
+		labelMap, labelDiags := flex.LabelsToFramework(ctx, lr.Data, func(l generated.GetCloudRuleLabel) (string, string) {
+			return l.Key, l.Value
+		})
+		resp.Diagnostics.Append(labelDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		state.Labels = labelMap
+	}
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -215,6 +264,31 @@ func (r *cloud_ruleResource) Update(ctx context.Context, req resource.UpdateRequ
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
+	}
+
+	// As in Create: captured before the read-back, which does not carry labels.
+	labelList, labelDiags := flex.AssociateLabelsFromFramework(ctx, plan.Labels)
+	resp.Diagnostics.Append(labelDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	configuredLabels := plan.Labels
+	if labelList != nil {
+		labelOut, labelErr := conn.PutCloudRuleLabels(ctx, &generated.AssociateLabels{
+			Labels: generated.OptNilAssociateLabelArray{Value: labelList, Set: true},
+		}, generated.PutCloudRuleLabelsParams{CloudRuleID: idInt})
+		if labelErr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("setting labels on %s", ResNameCloudRule), labelErr.Error())
+			return
+		}
+		// An error STATUS is a response variant, not a Go error: Kion answers
+		// 422 "app label does not exist" for a key no kion_label defines, and
+		// checking only labelErr would report that as success and silently drop
+		// every label.
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("setting labels on %s", ResNameCloudRule), labelOut)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	input := &generated.CloudRuleUpdate{
@@ -336,6 +410,8 @@ func (r *cloud_ruleResource) Update(ctx context.Context, req resource.UpdateRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// flatten nulls it: labels are not in the read payload.
+	plan.Labels = configuredLabels
 
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
