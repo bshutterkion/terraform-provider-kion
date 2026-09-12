@@ -52,6 +52,12 @@ resources:
           - account_ids
           - user_group_ids
           - user_ids
+          # Create binds these; update did not, so changing a policy list on an
+          # existing role was accepted and silently discarded. The associations
+          # body carries all three.
+          - aws_iam_policies
+          - azure_role_definitions
+          - gcp_iam_roles
   ou_cloud_access_role:
     associations:
       - add: PostOUCloudAccessRoleAssociations
@@ -61,6 +67,10 @@ resources:
         fields:
           - user_group_ids
           - user_ids
+          # As above: bound at create, dropped on update.
+          - aws_iam_policies
+          - azure_role_definitions
+          - gcp_iam_roles
   compliance_standard:
     owners:
       user_field: owner_user_ids

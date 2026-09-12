@@ -243,22 +243,31 @@ func (r *ou_cloud_access_roleResource) Update(ctx context.Context, req resource.
 	// plan per id-list and add/remove via the bulk associations endpoints.
 	assocAddUserGroupIds, assocRemoveUserGroupIds := flex.Uint64SetDiff(ctx, state.UserGroupIds, plan.UserGroupIds, &resp.Diagnostics)
 	assocAddUserIds, assocRemoveUserIds := flex.Uint64SetDiff(ctx, state.UserIds, plan.UserIds, &resp.Diagnostics)
+	assocAddAwsIamPolicies, assocRemoveAwsIamPolicies := flex.Uint64SetDiff(ctx, state.AwsIamPolicies, plan.AwsIamPolicies, &resp.Diagnostics)
+	assocAddAzureRoleDefinitions, assocRemoveAzureRoleDefinitions := flex.Uint64SetDiff(ctx, state.AzureRoleDefinitions, plan.AzureRoleDefinitions, &resp.Diagnostics)
+	assocAddGcpIamRoles, assocRemoveGcpIamRoles := flex.Uint64SetDiff(ctx, state.GcpIamRoles, plan.GcpIamRoles, &resp.Diagnostics)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	if len(assocAddUserGroupIds) > 0 || len(assocAddUserIds) > 0 {
+	if len(assocAddUserGroupIds) > 0 || len(assocAddUserIds) > 0 || len(assocAddAwsIamPolicies) > 0 || len(assocAddAzureRoleDefinitions) > 0 || len(assocAddGcpIamRoles) > 0 {
 		if _, err := conn.PostOUCloudAccessRoleAssociations(ctx, &generated.OUCloudAccessRoleAssociations{
-			UserGroupIds: generated.OptNilUint64Array{Value: assocAddUserGroupIds, Set: true},
-			UserIds:      generated.OptNilUint64Array{Value: assocAddUserIds, Set: true},
+			UserGroupIds:         generated.OptNilUint64Array{Value: assocAddUserGroupIds, Set: true},
+			UserIds:              generated.OptNilUint64Array{Value: assocAddUserIds, Set: true},
+			AWSIamPolicies:       generated.OptNilUint64Array{Value: assocAddAwsIamPolicies, Set: true},
+			AzureRoleDefinitions: generated.OptNilUint64Array{Value: assocAddAzureRoleDefinitions, Set: true},
+			GcpIamRoles:          generated.OptNilUint64Array{Value: assocAddGcpIamRoles, Set: true},
 		}, generated.PostOUCloudAccessRoleAssociationsParams{ID: idInt}); err != nil {
 			resp.Diagnostics.AddError(fmt.Sprintf("adding associations to %s (ID: %d)", ResNameOuCloudAccessRole, idInt), err.Error())
 			return
 		}
 	}
-	if len(assocRemoveUserGroupIds) > 0 || len(assocRemoveUserIds) > 0 {
+	if len(assocRemoveUserGroupIds) > 0 || len(assocRemoveUserIds) > 0 || len(assocRemoveAwsIamPolicies) > 0 || len(assocRemoveAzureRoleDefinitions) > 0 || len(assocRemoveGcpIamRoles) > 0 {
 		if _, err := conn.DeleteOUCloudAccessRoleAssociations(ctx, &generated.OUCloudAccessRoleAssociations{
-			UserGroupIds: generated.OptNilUint64Array{Value: assocRemoveUserGroupIds, Set: true},
-			UserIds:      generated.OptNilUint64Array{Value: assocRemoveUserIds, Set: true},
+			UserGroupIds:         generated.OptNilUint64Array{Value: assocRemoveUserGroupIds, Set: true},
+			UserIds:              generated.OptNilUint64Array{Value: assocRemoveUserIds, Set: true},
+			AWSIamPolicies:       generated.OptNilUint64Array{Value: assocRemoveAwsIamPolicies, Set: true},
+			AzureRoleDefinitions: generated.OptNilUint64Array{Value: assocRemoveAzureRoleDefinitions, Set: true},
+			GcpIamRoles:          generated.OptNilUint64Array{Value: assocRemoveGcpIamRoles, Set: true},
 		}, generated.DeleteOUCloudAccessRoleAssociationsParams{ID: idInt}); err != nil {
 			resp.Diagnostics.AddError(fmt.Sprintf("removing associations from %s (ID: %d)", ResNameOuCloudAccessRole, idInt), err.Error())
 			return
