@@ -26,11 +26,34 @@ func (s stubSource) ClientMethods(file string) ([]crud.ClientMethod, error) {
 
 func (s stubSource) Structs(file string) (map[string]crud.Struct, error) {
 	fields := []crud.Field{{GoName: "Name", JSONName: "name", Type: "string"}}
-	// Only the named version and later carry the newer field.
-	if strings.Contains(file, s.newFieldFrom) {
+	// The named version AND LATER carry the newer field. Compared numerically,
+	// not by substring: a substring match means "only this version", which is
+	// the same thing only while the named version happens to be the newest --
+	// it stopped being true the moment v3_17 was tracked.
+	if versionAtLeast(file, s.newFieldFrom) {
 		fields = append(fields, crud.Field{GoName: "Shiny", JSONName: "shiny", Type: "OptString"})
 	}
 	return map[string]crud.Struct{"ThingCreate": {Name: "ThingCreate", Fields: fields}}, nil
+}
+
+// versionAtLeast reports whether the v3_NN in file is >= the v3_NN in want.
+func versionAtLeast(file, want string) bool {
+	minorOf := func(s string) int {
+		i := strings.Index(s, "v3_")
+		if i < 0 {
+			return -1
+		}
+		n := 0
+		for _, c := range s[i+3:] {
+			if c < '0' || c > '9' {
+				break
+			}
+			n = n*10 + int(c-'0')
+		}
+		return n
+	}
+	f, w := minorOf(file), minorOf(want)
+	return f >= 0 && w >= 0 && f >= w
 }
 
 func (s stubSource) MarkerImpls(string) (map[string][]string, error) { return nil, nil }

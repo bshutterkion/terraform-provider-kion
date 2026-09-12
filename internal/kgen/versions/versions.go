@@ -58,15 +58,38 @@ const (
 	defaultOverrides   = "codegen/config_overrides.yaml"
 )
 
-// trackedVersions are the SDK support versions, ascending. master is excluded.
-// Each entry maps a version directory name to its minor number.
-var trackedVersions = []version{
-	{dir: "v3_12", minor: 12},
-	{dir: "v3_13", minor: 13},
-	{dir: "v3_14", minor: 14},
-	{dir: "v3_15", minor: 15},
-	{dir: "v3_16", minor: 16},
+// TrackedVersion is one Kion release the provider generates version gates for.
+// Entries are ascending; master is excluded.
+type TrackedVersion struct {
+	Dir   string
+	Minor int
 }
+
+// TrackedVersions is the release window: the current Kion release plus three
+// back. kion-sdk-go ships exactly this set.
+//
+// A version listed here but absent from the SDK stops generation outright
+// (loadVersionOps errors on the missing client). One the SDK ships but this
+// omits is silently ignored, leaving resources gated against a window that
+// excludes the current release -- the quieter and more dangerous direction.
+//
+// Declared once and consumed by cmd/kversions rather than duplicated. The SDK
+// had this same set spread across nine places; a missed one caused a two-week
+// pipeline outage and a release that shipped without the new version.
+var TrackedVersions = []TrackedVersion{
+	{Dir: "v3_14", Minor: 14},
+	{Dir: "v3_15", Minor: 15},
+	{Dir: "v3_16", Minor: 16},
+	{Dir: "v3_17", Minor: 17},
+}
+
+var trackedVersions = func() []version {
+	out := make([]version, 0, len(TrackedVersions))
+	for _, tv := range TrackedVersions {
+		out = append(out, version{dir: tv.Dir, minor: tv.Minor})
+	}
+	return out
+}()
 
 type version struct {
 	dir   string

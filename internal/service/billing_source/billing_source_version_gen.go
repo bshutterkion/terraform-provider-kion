@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	minKionVersion = conns.MustParseKionVersion("3.14.0")
+	minKionVersion = conns.KionVersion{}
 	maxKionVersion = conns.KionVersion{} // unbounded
 )
 
