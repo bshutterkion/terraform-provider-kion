@@ -40,9 +40,9 @@ func renderSweep(rm ResourceModel) (out []byte, reason string, err error) {
 // generated file and for the end-of-run report.
 func sweepBlocker(rm ResourceModel) string {
 	switch {
-	case rm.Delete == nil && rm.sweepList() == nil:
+	case rm.Delete == nil && rm.RawDeletePath == "" && rm.sweepList() == nil:
 		return "the API exposes neither a delete endpoint nor a resolvable collection endpoint"
-	case rm.Delete == nil:
+	case rm.Delete == nil && rm.RawDeletePath == "":
 		return "the API exposes no delete endpoint, so orphans cannot be removed"
 	case rm.ListDowngrade != "":
 		return "no resolvable collection endpoint: " + rm.ListDowngrade
@@ -92,12 +92,15 @@ type realSweepData struct {
 	ListRespType               string
 	PageParam, CountParam      string
 	DeleteMethod, DeleteParams string
-	DeleteIDParam              string
-	DeleteIDType               string   // "int64" | "uint64", delete param id Go type
-	IDSDKGo                    string   // element id access path, e.g. "ID" or "Cft.Value.ID"
-	MatchExprs                 []string // string field accessors, e.g. "item.Key"
-	Prefix                     string
-	Parent                     *parentSweep // nil for a flat collection
+	// RawDeletePath sweeps through the private route when the public spec
+	// publishes no delete; the SDK has no method for it.
+	RawDeletePath string
+	DeleteIDParam string
+	DeleteIDType  string   // "int64" | "uint64", delete param id Go type
+	IDSDKGo       string   // element id access path, e.g. "ID" or "Cft.Value.ID"
+	MatchExprs    []string // string field accessors, e.g. "item.Key"
+	Prefix        string
+	Parent        *parentSweep // nil for a flat collection
 }
 
 func renderRealSweep(rm ResourceModel) ([]byte, error) {
@@ -142,7 +145,8 @@ func buildRealSweepData(rm ResourceModel) (realSweepData, error) {
 		ListRespType:  lm.RespType,
 		PageParam:     lm.PageParam,
 		CountParam:    lm.CountParam,
-		DeleteMethod:  rm.Delete.Method.Name,
+		RawDeletePath: rm.RawDeletePath,
+		DeleteMethod:  deleteMethodName(rm),
 		DeleteParams:  rm.Delete.Method.ParamsType,
 		DeleteIDParam: delIDParam,
 		DeleteIDType:  delIDType,
@@ -262,4 +266,13 @@ func parentIDField(elem string, idx sdkIndex) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// deleteMethodName is empty for a resource whose only delete is the private
+// route, so the sweeper template renders the raw call instead of an SDK one.
+func deleteMethodName(rm ResourceModel) string {
+	if rm.Delete == nil {
+		return ""
+	}
+	return rm.Delete.Method.Name
 }

@@ -64,7 +64,12 @@ type entityData struct {
 	Gated              bool   // emit RequireKionVersionInRange in Create
 	// AtLeastOneOf are attributes the API requires at least one of. Emitted as
 	// a resource-level ConfigValidator so the failure lands at plan time.
-	AtLeastOneOf     []string
+	AtLeastOneOf []string
+	// RawDeletePath is the private route to DELETE through when the public spec
+	// publishes no delete. Without it the generator emits a Delete that only
+	// warns, so every record a configuration creates survives `terraform
+	// destroy`: present in Kion, absent from state, unreachable by Terraform.
+	RawDeletePath    string
 	SchemaVersion    int // >0 bumps resp.Schema.Version (state migration)
 	CreateMethod     string
 	CreateBodyOpt    string
@@ -223,6 +228,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		RespType:      rm.Read.RespType,
 		Gated:         rm.Gated,
 		AtLeastOneOf:  rm.AtLeastOneOf,
+		RawDeletePath: rm.RawDeletePath,
 		SchemaVersion: rm.SchemaVersion,
 		ReadCompanion: rm.ReadCompanion,
 	}

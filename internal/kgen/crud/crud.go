@@ -416,6 +416,13 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	}
 
 	rm.AtLeastOneOf = g.configValidators.For(name)
+	// A private delete only applies when the public spec published none; if the
+	// SDK has a typed delete the generator must keep using it.
+	if rm.Delete == nil {
+		if pe, ok := g.privEnds[name]; ok && isRawOp(pe.Delete) {
+			rm.RawDeletePath = pe.Delete.Path
+		}
+	}
 
 	resourceGo, err := renderEntity(rm)
 	if err != nil {

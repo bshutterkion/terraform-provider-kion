@@ -10,7 +10,8 @@ import (
 	{{end}}"fmt"
 	{{if .RespSums}}"math"
 	{{end}}"strconv"
-
+	{{if .RawDeletePath}}"strings"
+	{{end}}
 	{{if or .RawValueHelpers .RespRawValues}}"github.com/go-faster/jx"
 	{{end}}{{if .HasNestedFlat}}"github.com/hashicorp/terraform-plugin-framework/attr"
 	{{end}}"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -524,6 +525,32 @@ func (r *{{.Pkg}}Resource) Delete(ctx context.Context, req resource.DeleteReques
 
 	diags := errs.ResponseDiagnostics(fmt.Sprintf("deleting %s", {{.ResConst}}), out)
 	resp.Diagnostics.Append(diags...)
+}
+{{else if .RawDeletePath}}
+// The public spec publishes no delete; this is the private route, declared in
+// codegen/private_endpoints.yaml. Reached over raw HTTP because the SDK is
+// generated from the public spec and so has no method for it.
+func (r *{{.Pkg}}Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	{{- if .Gated}}
+	resp.Diagnostics.Append(framework.RequireKionVersionInRange(r.Meta(), minKionVersion, maxKionVersion, "{{.TypeName}}")...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	{{end}}
+	var state {{.Model}}
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	id, err := strconv.ParseInt(state.{{.IDGo}}.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+	if err := r.Meta().RawDelete(ctx, strings.Replace("{{.RawDeletePath}}", "{id}", strconv.FormatInt(id, 10), 1)); err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("deleting %s (ID: %d)", {{.ResConst}}, id), err.Error())
+		return
+	}
 }
 {{else}}
 func (r *{{.Pkg}}Resource) Delete(_ context.Context, _ resource.DeleteRequest, resp *resource.DeleteResponse) {
