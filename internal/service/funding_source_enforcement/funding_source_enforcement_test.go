@@ -123,36 +123,18 @@ func testAccCheckFundingSourceEnforcementDestroy(_ context.Context) resource.Tes
 }
 
 func testAccFundingSourceEnforcementConfig_basic(rName string) string {
-	return fmt.Sprintf(`
-resource "kion_funding_source" "test_fs" {
-  amount = 1000.00
-  end_datecode = "2026-12"
-  name = "test-acc-fs-%[1]s"
-  owner_user_ids = [1]
-  permission_scheme_id = 4
-  start_datecode = "2026-01"
-}
-
+	return acctest.FundingSourceConfig(rName) + `
 resource "kion_funding_source_enforcement" "test" {
   funding_source_id = kion_funding_source.test_fs.id
   threshold = 100
   timeframe = "month"
   user_ids = [1]
 }
-`, rName)
+`
 }
 
 func testAccFundingSourceEnforcementConfig_update(rName string) string {
-	return fmt.Sprintf(`
-resource "kion_funding_source" "test_fs" {
-  amount = 1000.00
-  end_datecode = "2026-12"
-  name = "test-acc-fs-%[1]s"
-  owner_user_ids = [1]
-  permission_scheme_id = 4
-  start_datecode = "2026-01"
-}
-
+	return acctest.FundingSourceConfig(rName) + `
 resource "kion_funding_source_enforcement" "test" {
   funding_source_id = kion_funding_source.test_fs.id
   threshold = 200
@@ -160,5 +142,5 @@ resource "kion_funding_source_enforcement" "test" {
   cloud_rule_id = 2
   user_ids = [1]
 }
-`, rName)
+`
 }
