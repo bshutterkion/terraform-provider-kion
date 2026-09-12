@@ -72,6 +72,13 @@ record("KION_ACC_PAYER_ID", (aws_bs or {}).get("id"), "no AWS billing source on 
 record("KION_ACC_BILLING_SOURCE_ID", (bs[0] if bs else {}).get("id"), "no billing source at all")
 record("KION_ACC_AZURE_PAYER_ID", (azure_bs or {}).get("id"), "no Azure billing source on this install")
 
+# kion_custom_account needs a payer of the CUSTOM type, not any payer. Creating
+# a custom account under an AWS one is refused -- "The account is of a different
+# type than the payer" -- which reads as a provider fault and is not one.
+custom_bs = next((b for b in bs if any("custom" in k for k in b)), None)
+record("KION_ACC_CUSTOM_PAYER_ID", (custom_bs or {}).get("id"),
+       "no custom (other cloud) billing source on this install")
+
 # --- accounts ---
 accts = items(get("/v3/account?count=500"))
 

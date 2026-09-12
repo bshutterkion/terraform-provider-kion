@@ -15,9 +15,12 @@ func TestAccKionCustomAccountDataSource_basic(t *testing.T) {
 		t.Skip("skipping long-running test in short mode")
 	}
 
-	payerID := os.Getenv("KION_ACC_PAYER_ID")
+	// A custom account needs a payer of the CUSTOM type. Under an AWS one Kion
+	// refuses it -- "The account is of a different type than the payer" -- which
+	// reads as a provider fault and is not one.
+	payerID := os.Getenv("KION_ACC_CUSTOM_PAYER_ID")
 	if payerID == "" {
-		t.Skip("KION_ACC_PAYER_ID must be set to the ID of an existing Kion AWS billing source")
+		t.Skip("KION_ACC_CUSTOM_PAYER_ID must be set to a custom (other cloud) billing source; an AWS one is refused")
 	}
 
 	accountNumber := os.Getenv("KION_ACC_CUSTOM_ACCOUNT_NUMBER")
