@@ -10,7 +10,7 @@ import (
 	{{end}}"fmt"
 	{{if .RespSums}}"math"
 	{{end}}"strconv"
-	{{if .RawDeletePath}}"strings"
+	{{if or .RawDeletePath .ImportParentTF}}"strings"
 	{{end}}
 	{{if or .RawValueHelpers .RespRawValues}}"github.com/go-faster/jx"
 	{{end}}{{if .HasNestedFlat}}"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -562,9 +562,28 @@ func (r *{{.Pkg}}Resource) Delete(_ context.Context, _ resource.DeleteRequest, r
 	)
 }
 {{end}}
+{{if .ImportParentTF}}// The read is by record id alone and its payload does not carry
+// {{.ImportParentTF}}, so the parent cannot be recovered afterwards -- and delete
+// addresses the record through it. Importing a bare id therefore produced a
+// resource whose delete targeted parent 0. The import id carries both.
 func (r *{{.Pkg}}Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	parts := strings.SplitN(req.ID, "/", 2)
+	if len(parts) != 2 {
+		resp.Diagnostics.AddError("Invalid import ID", `expected "{{.ImportParentTF}}/id"`)
+		return
+	}
+	parentID, perr := strconv.ParseInt(parts[0], 10, 64)
+	if perr != nil {
+		resp.Diagnostics.AddError("Invalid import ID", `expected "{{.ImportParentTF}}/id" with an integer parent id`)
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("{{.ImportParentTF}}"), parentID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[1])...)
+}
+{{else}}func (r *{{.Pkg}}Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
 }
+{{end}}
 
 func flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}ctx context.Context, {{end}}apiObject any, model *{{.Model}}) diag.Diagnostics {
 	{{- if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}

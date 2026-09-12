@@ -292,7 +292,8 @@
         "parent_id_field": "compliance_program_id"
       },
       "import_id": {
-        "format": "id"
+        "format": "parent_slash_key",
+        "key_field": "id"
       }
     },
     {

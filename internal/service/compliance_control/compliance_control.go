@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -272,8 +273,23 @@ func (r *compliance_controlResource) Delete(ctx context.Context, req resource.De
 	resp.Diagnostics.Append(diags...)
 }
 
+// The read is by record id alone and its payload does not carry
+// program_id, so the parent cannot be recovered afterwards -- and delete
+// addresses the record through it. Importing a bare id therefore produced a
+// resource whose delete targeted parent 0. The import id carries both.
 func (r *compliance_controlResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+	parts := strings.SplitN(req.ID, "/", 2)
+	if len(parts) != 2 {
+		resp.Diagnostics.AddError("Invalid import ID", `expected "program_id/id"`)
+		return
+	}
+	parentID, perr := strconv.ParseInt(parts[0], 10, 64)
+	if perr != nil {
+		resp.Diagnostics.AddError("Invalid import ID", `expected "program_id/id" with an integer parent id`)
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("program_id"), parentID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[1])...)
 }
 
 func flattenComplianceControl(ctx context.Context, apiObject any, model *ComplianceControlModel) diag.Diagnostics {

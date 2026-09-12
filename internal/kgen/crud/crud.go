@@ -416,6 +416,11 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	}
 
 	rm.AtLeastOneOf = g.configValidators.For(name)
+	// An entity whose delete needs a parent the read does not return must carry
+	// that parent in its import id.
+	if entityArch != nil && entityArch.DeleteExtraField != "" {
+		rm.ImportParentTF = entityArch.DeleteExtraField
+	}
 	// A private delete only applies when the public spec published none; if the
 	// SDK has a typed delete the generator must keep using it.
 	if rm.Delete == nil {
