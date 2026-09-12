@@ -3,7 +3,7 @@
 package webhook
 
 // No acceptance-test sweeper is registered for kion_webhook:
-// the API exposes no delete endpoint, so orphans cannot be removed.
+// no collection endpoint is configured, so test resources cannot be enumerated.
 //
 // A registered sweeper that returned nil would report success to `make sweep`
 // while orphaned test-acc records accumulated, so none is registered at all.

@@ -340,3 +340,21 @@ resources:
     update: { method: PATCH,  path: "/v3/ou-note/{id}", spec: public }
     delete: { method: DELETE, path: "/v3/ou-note/{id}", spec: public }
     private_twin_delete: { method: DELETE, path: "/v2/ou-note/{id}" }
+
+  # The public spec publishes no delete for either, so the generator emitted a
+  # Delete that warns and removes the resource from state only -- every webhook
+  # and user a configuration created survived `terraform destroy`, unreferenced
+  # and undeletable through Terraform. The private route exists and works;
+  # verified on a live 3.16 install, create -> GET 200 -> DELETE 200 -> GET 404.
+  webhook:
+    reason: public spec has no delete; the private v1 route deletes for real
+    create: { method: POST,   path: "/v3/webhook",      spec: public }
+    read:   { method: GET,    path: "/v3/webhook/{id}", spec: public }
+    update: { method: PATCH,  path: "/v3/webhook/{id}", spec: public }
+    delete: { method: DELETE, path: "/v1/webhook/{id}", spec: private }
+
+  user:
+    reason: public spec has no delete; the private v1 route deletes for real
+    create: { method: POST,   path: "/v3/user",      spec: public }
+    read:   { method: GET,    path: "/v3/user/{id}", spec: public }
+    delete: { method: DELETE, path: "/v1/user/{id}", spec: private }

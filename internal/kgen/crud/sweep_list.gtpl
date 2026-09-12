@@ -5,7 +5,8 @@ package {{.Pkg}}
 import (
 	"context"
 	"fmt"
-	"strings"
+	{{if and (not .DeleteMethod) .RawDeletePath}}"strconv"
+	{{end}}"strings"
 
 	"terraform-provider-kion/internal/conns"
 
@@ -125,7 +126,11 @@ func sweep{{.Pascal}}(_ string) error {
 {{- end}}
 
 	for _, id := range ids {
+{{- if and (not .DeleteMethod) .RawDeletePath}}
+		if err := conn.RawDelete(ctx, strings.Replace("{{.RawDeletePath}}", "{id}", strconv.FormatInt(id, 10), 1)); err != nil {
+{{- else}}
 		if _, err := conn.Client.{{.DeleteMethod}}(ctx, {{.SDKAlias}}.{{.DeleteParams}}{ {{.DeleteIDParam}}: {{if eq .DeleteIDType "uint64"}}uint64(id){{else}}id{{end}}}); err != nil {
+{{- end}}
 			return fmt.Errorf("deleting {{.ResourceType}} (%d): %w", id, err)
 		}
 	}

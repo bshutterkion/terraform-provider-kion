@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -225,13 +226,24 @@ func (r *webhookResource) Update(ctx context.Context, req resource.UpdateRequest
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
-func (r *webhookResource) Delete(_ context.Context, _ resource.DeleteRequest, resp *resource.DeleteResponse) {
-	// kion_webhook has no delete endpoint. Terraform removes it from state; the
-	// resource may continue to exist in Kion.
-	resp.Diagnostics.AddWarning(
-		"No delete API",
-		"kion_webhook has no delete endpoint, so it is removed from Terraform state only and may still exist in Kion.",
-	)
+// The public spec publishes no delete; this is the private route, declared in
+// codegen/private_endpoints.yaml. Reached over raw HTTP because the SDK is
+// generated from the public spec and so has no method for it.
+func (r *webhookResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state WebhookModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	id, err := strconv.ParseInt(state.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+	if err := r.Meta().RawDelete(ctx, strings.Replace("/v1/webhook/{id}", "{id}", strconv.FormatInt(id, 10), 1)); err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("deleting %s (ID: %d)", ResNameWebhook, id), err.Error())
+		return
+	}
 }
 
 func (r *webhookResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
