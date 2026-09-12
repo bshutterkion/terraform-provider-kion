@@ -1029,25 +1029,25 @@ resources:
       azure_object_id:
         type: string
         computed_optional_required: required
-        description: The Azure object ID of the user to link.
+        description: Azure Object ID of the user (UUID format).
         plan_modifiers:
           - stringplanmodifier.RequiresReplace()
       azure_principal_name:
         type: string
         computed_optional_required: required
-        description: The Azure principal name of the user to link.
+        description: Azure Principal Name (UPN) of the user.
         plan_modifiers:
           - stringplanmodifier.RequiresReplace()
       payer_id:
         type: int64
         computed_optional_required: required
-        description: The ID of the Azure billing source the linkage belongs to.
+        description: ID of the payer this linkage is associated with.
         plan_modifiers:
           - int64planmodifier.RequiresReplace()
       user_id:
         type: int64
         computed_optional_required: required
-        description: The ID of the Kion user to link.
+        description: ID of the Kion user to link.
         plan_modifiers:
           - int64planmodifier.RequiresReplace()
   billing_source_govcloud:

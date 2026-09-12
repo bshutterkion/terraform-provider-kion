@@ -17,16 +17,16 @@ func AccountLinkageResourceSchema(ctx context.Context) schema.Schema {
 		Attributes: map[string]schema.Attribute{
 			"azure_object_id": schema.StringAttribute{
 				Required:            true,
-				Description:         "The Azure object ID of the user to link.",
-				MarkdownDescription: "The Azure object ID of the user to link.",
+				Description:         "Azure Object ID of the user (UUID format).",
+				MarkdownDescription: "Azure Object ID of the user (UUID format).",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"azure_principal_name": schema.StringAttribute{
 				Required:            true,
-				Description:         "The Azure principal name of the user to link.",
-				MarkdownDescription: "The Azure principal name of the user to link.",
+				Description:         "Azure Principal Name (UPN) of the user.",
+				MarkdownDescription: "Azure Principal Name (UPN) of the user.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
@@ -41,16 +41,16 @@ func AccountLinkageResourceSchema(ctx context.Context) schema.Schema {
 			},
 			"payer_id": schema.Int64Attribute{
 				Required:            true,
-				Description:         "The ID of the Azure billing source the linkage belongs to.",
-				MarkdownDescription: "The ID of the Azure billing source the linkage belongs to.",
+				Description:         "ID of the payer this linkage is associated with.",
+				MarkdownDescription: "ID of the payer this linkage is associated with.",
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.RequiresReplace(),
 				},
 			},
 			"user_id": schema.Int64Attribute{
 				Required:            true,
-				Description:         "The ID of the Kion user to link.",
-				MarkdownDescription: "The ID of the Kion user to link.",
+				Description:         "ID of the Kion user to link.",
+				MarkdownDescription: "ID of the Kion user to link.",
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.RequiresReplace(),
 				},
