@@ -142,11 +142,14 @@ type ResourceModel struct {
 	// ParentRead gives a no_read resource a real read over a private
 	// collection; see parentread.go.
 	ParentRead *parentReadData
-	Name       string       // snake, e.g. "label"
-	Pascal     string       // "Label"
-	Model      string       // model type, e.g. "LabelModel"
-	IDField    ModelField   // the tfsdk:"id" model field
-	Fields     []ModelField // model fields excluding id
+	Name       string // snake, e.g. "label"
+	// AtLeastOneOf are attributes codegen/config_validators.yaml says the API
+	// requires at least one of, emitted as a resource-level ConfigValidator.
+	AtLeastOneOf []string
+	Pascal       string       // "Label"
+	Model        string       // model type, e.g. "LabelModel"
+	IDField      ModelField   // the tfsdk:"id" model field
+	Fields       []ModelField // model fields excluding id
 	// RecordSubFields are the sub-attributes of a record-wrapper object attribute
 	// (azure_policy's AzurePolicyValue{description,name,parameters,policy}),
 	// promoted to top-level ModelFields. Non-empty only when the model nests the

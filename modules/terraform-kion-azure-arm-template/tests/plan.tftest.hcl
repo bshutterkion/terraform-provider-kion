@@ -12,6 +12,7 @@ run "plan" {
   variables {
     deployment_mode          = 1
     name                     = "example"
+    owner_user_ids           = []
     resource_group_name      = "example"
     resource_group_region_id = 1
     template                 = "example"

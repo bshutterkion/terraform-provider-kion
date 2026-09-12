@@ -67,8 +67,12 @@ type generator struct {
 	// data source must withhold. Loaded once per run alongside the other
 	// codegen inputs above.
 	fieldPolicy FieldPolicy
-	downgrades  []downgrade    // data sources that lost their filter block this run
-	dropped     []droppedField // fields a list data source could not project this run
+
+	// configValidators is codegen/config_validators.yaml: cross-field API
+	// constraints an attribute-level schema cannot express.
+	configValidators ConfigValidatorPolicy
+	downgrades       []downgrade    // data sources that lost their filter block this run
+	dropped          []droppedField // fields a list data source could not project this run
 	// dataSources is the generator_config `data_sources` op-set, needed to reach
 	// a resource OTHER than the one being generated: a parent-scoped sweeper
 	// enumerates its parent's collection.
@@ -97,6 +101,12 @@ func (g *generator) generate(opts Options) (int, error) {
 		return 0, err
 	}
 	g.fieldPolicy = policy
+
+	cv, err := LoadConfigValidators(root)
+	if err != nil {
+		return 0, err
+	}
+	g.configValidators = cv
 
 	cfgPath := opts.Config
 	if cfgPath == "" {
@@ -405,6 +415,8 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		}
 	}
 
+	rm.AtLeastOneOf = g.configValidators.For(name)
+
 	resourceGo, err := renderEntity(rm)
 	if err != nil {
 		return 0, err
@@ -416,7 +428,11 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		if !ok {
 			return 0, fmt.Errorf("%s: resource_template %q is not registered in resourceTemplates", name, entityArch.ResourceTemplate)
 		}
-		if resourceGo, err = execGoTemplate(name+":"+name+".go", tmpl, nil, name+".go"); err != nil {
+		// A verbatim body still needs the cross-field constraints: they are
+		// authored per resource, not derived, so a hand-written template would
+		// otherwise silently drop the validator the declaration promises.
+		tmplData := struct{ AtLeastOneOf []string }{AtLeastOneOf: rm.AtLeastOneOf}
+		if resourceGo, err = execGoTemplate(name+":"+name+".go", tmpl, tmplData, name+".go"); err != nil {
 			return 0, err
 		}
 	}

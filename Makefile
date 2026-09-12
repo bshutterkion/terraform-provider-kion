@@ -223,7 +223,7 @@ changelog-release: ## Cut a release section: make changelog-release RELEASE_VERS
 .PHONY: refresh-spec
 refresh-spec: ## Copy the OpenAPI spec from the kion-sdk monorepo (override SDK_SPEC=<path>)
 	@echo "$(BLUE)Refreshing $(OPENAPI_SPEC) from $(SDK_SPEC)...$(RESET)"
-	@test -f "$(SDK_SPEC)" || (echo "$(RED)Spec not found at $(SDK_SPEC). Set SDK_SPEC to a local SDK spec checkout.$(RESET)"; exit 1)/openapi3.json$(RESET)" && exit 1)
+	@test -f "$(SDK_SPEC)" || (echo "$(RED)Spec not found at $(SDK_SPEC). Set SDK_SPEC to a local SDK spec checkout.$(RESET)"; exit 1)
 	@mkdir -p "$(dir $(OPENAPI_SPEC))"
 	@cp "$(SDK_SPEC)" "$(OPENAPI_SPEC)"
 	@echo "$(GREEN)✓ $(OPENAPI_SPEC) updated$(RESET)"

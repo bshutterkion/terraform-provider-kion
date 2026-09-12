@@ -13,7 +13,8 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/types"
+	{{if .AtLeastOneOf}}"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	{{end}}	"github.com/hashicorp/terraform-plugin-framework/types"
 	{{.SDKAlias}} "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
 	"terraform-provider-kion/internal/errs"
@@ -27,6 +28,9 @@ var (
 	_ resource.Resource                = &{{.Pkg}}Resource{}
 	_ resource.ResourceWithConfigure   = &{{.Pkg}}Resource{}
 	_ resource.ResourceWithImportState = &{{.Pkg}}Resource{}
+{{- if .AtLeastOneOf}}
+	_ resource.ResourceWithConfigValidators = &{{.Pkg}}Resource{}
+{{- end}}
 )
 
 // New{{.Pascal}}Resource returns a new instance of the resource.
@@ -42,6 +46,20 @@ func (r *{{.Pkg}}Resource) Metadata(_ context.Context, req resource.MetadataRequ
 	resp.TypeName = req.ProviderTypeName + "_{{.Pkg}}"
 }
 
+{{if .AtLeastOneOf}}// ConfigValidators expresses a constraint the API enforces across attributes,
+// which the schema cannot: neither attribute is Required on its own, so without
+// this the configuration reaches the API and comes back as a validation error
+// naming the Go struct field rather than the Terraform attribute.
+func (r *{{.Pkg}}Resource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		resourcevalidator.AtLeastOneOf(
+{{- range .AtLeastOneOf}}
+			path.MatchRoot("{{.}}"),
+{{- end}}
+		),
+	}
+}
+{{end}}
 func (r *{{.Pkg}}Resource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = {{.Pascal}}ResourceSchema(ctx)
 }

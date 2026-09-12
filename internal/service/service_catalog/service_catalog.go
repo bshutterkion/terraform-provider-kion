@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -22,9 +23,10 @@ import (
 const ResNameServiceCatalog = "ServiceCatalog"
 
 var (
-	_ resource.Resource                = &service_catalogResource{}
-	_ resource.ResourceWithConfigure   = &service_catalogResource{}
-	_ resource.ResourceWithImportState = &service_catalogResource{}
+	_ resource.Resource                     = &service_catalogResource{}
+	_ resource.ResourceWithConfigure        = &service_catalogResource{}
+	_ resource.ResourceWithImportState      = &service_catalogResource{}
+	_ resource.ResourceWithConfigValidators = &service_catalogResource{}
 )
 
 // NewServiceCatalogResource returns a new instance of the resource.
@@ -38,6 +40,19 @@ type service_catalogResource struct {
 
 func (r *service_catalogResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_service_catalog"
+}
+
+// ConfigValidators expresses a constraint the API enforces across attributes,
+// which the schema cannot: neither attribute is Required on its own, so without
+// this the configuration reaches the API and comes back as a validation error
+// naming the Go struct field rather than the Terraform attribute.
+func (r *service_catalogResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		resourcevalidator.AtLeastOneOf(
+			path.MatchRoot("owner_user_group_ids"),
+			path.MatchRoot("owner_user_ids"),
+		),
+	}
 }
 
 func (r *service_catalogResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {

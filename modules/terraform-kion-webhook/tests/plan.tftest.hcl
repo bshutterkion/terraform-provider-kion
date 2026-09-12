@@ -12,6 +12,7 @@ run "plan" {
   variables {
     callout_url        = "https://example.com"
     name               = "example"
+    owner_user_ids     = []
     timeout_in_seconds = 1
   }
 }

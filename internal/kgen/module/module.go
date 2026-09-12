@@ -227,7 +227,7 @@ func write(dir, typeName, providerVersion string, fields []field, outputs []stri
 		filepath.Join(dir, "versions.tf"):                     versionsTF(providerVersion),
 		filepath.Join(dir, "README.md"):                       readme(typeName, fields),
 		filepath.Join(dir, "examples", "complete", "main.tf"): exampleTF(fields),
-		filepath.Join(dir, "tests", "plan.tftest.hcl"):        testHCL(fields),
+		filepath.Join(dir, "tests", "plan.tftest.hcl"):        testHCL(typeName, fields),
 		filepath.Join(dir, ".gitignore"):                      gitignore(),
 	}
 	for path, content := range files {
@@ -345,7 +345,42 @@ func exampleTF(fields []field) string {
 // testHCL emits a plan-only test: it needs no credentials, so it runs in CI on
 // every change, and it still exercises the provider's own validation (required
 // attributes, conflicting sets, type coercion).
-func testHCL(fields []field) string {
+// atLeastOneOfByType mirrors codegen/config_validators.yaml: a resource-level
+// AtLeastOneOf rejects a plan that sets none of the listed attributes, and none
+// of them is Required, so a test built from Required fields alone does not
+// satisfy it. Only the first attribute of each pair is needed.
+//
+// Duplicated here rather than read from the YAML because kgen module builds
+// from the provider schema alone and takes no codegen inputs; a test guards the
+// two against drifting apart.
+var atLeastOneOfByType = map[string]string{
+	"kion_ami": "owner_user_ids",
+	// Back-compat aliases render their own module and carry the same
+	// constraint as the resource they alias.
+	"kion_aws_cloudformation_template": "owner_user_ids",
+	"kion_aws_iam_policy":              "owner_user_ids",
+	"kion_azure_arm_template":          "owner_user_ids",
+	"kion_azure_policy":                "owner_users",
+	"kion_azure_role":                  "owner_user_ids",
+	"kion_cft":                         "owner_user_ids",
+	"kion_cloud_rule":                  "owner_user_ids",
+	"kion_compliance_check":            "owner_user_ids",
+	"kion_compliance_standard":         "owner_user_ids",
+	"kion_funding_source":              "owner_user_ids",
+	"kion_funding_source_enforcement":  "user_ids",
+	"kion_gcp_iam_role":                "role_permissions",
+	"kion_iam_policy":                  "owner_user_ids",
+	"kion_ou":                          "owner_user_ids",
+	"kion_ou_enforcement":              "user_ids",
+	"kion_project":                     "owner_user_ids",
+	"kion_project_enforcement":         "user_ids",
+	"kion_service_catalog":             "owner_user_ids",
+	"kion_service_control_policy":      "owner_user_ids",
+	"kion_user_group":                  "owner_user_ids",
+	"kion_webhook":                     "owner_user_ids",
+}
+
+func testHCL(typeName string, fields []field) string {
 	var b strings.Builder
 	// The provider does not contact Kion during Configure, so a placeholder
 	// endpoint is enough to plan. Keeps the test runnable with no credentials.
@@ -353,9 +388,10 @@ func testHCL(fields []field) string {
 		"# never contacted, so no Kion credentials are required.\n\n" +
 		"provider \"kion\" {\n  api_url = \"http://127.0.0.1:1\"\n  api_key = \"test\"\n}\n\n")
 	b.WriteString("run \"plan\" {\n  command = plan\n")
+	need := atLeastOneOfByType[typeName]
 	var req []field
 	for _, f := range fields {
-		if f.Required {
+		if f.Required || (need != "" && f.Name == need) {
 			req = append(req, f)
 		}
 	}

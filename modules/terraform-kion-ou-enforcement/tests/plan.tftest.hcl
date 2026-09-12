@@ -13,5 +13,6 @@ run "plan" {
     ou_id     = 1
     threshold = 1
     timeframe = "example"
+    user_ids  = []
   }
 }

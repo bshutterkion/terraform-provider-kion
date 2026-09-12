@@ -10,9 +10,10 @@ run "plan" {
   command = plan
 
   variables {
-    account_id   = 1
-    name         = "example"
-    portfolio_id = "example"
-    region       = "example"
+    account_id     = 1
+    name           = "example"
+    owner_user_ids = []
+    portfolio_id   = "example"
+    region         = "example"
   }
 }

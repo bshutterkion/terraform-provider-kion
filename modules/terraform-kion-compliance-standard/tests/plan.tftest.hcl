@@ -12,5 +12,6 @@ run "plan" {
   variables {
     created_by_user_id = 1
     name               = "example"
+    owner_user_ids     = []
   }
 }

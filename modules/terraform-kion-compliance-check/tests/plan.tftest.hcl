@@ -13,5 +13,6 @@ run "plan" {
     cloud_provider_id        = 1
     compliance_check_type_id = 1
     name                     = "example"
+    owner_user_ids           = []
   }
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -22,9 +23,10 @@ import (
 const ResNameAzureRole = "AzureRole"
 
 var (
-	_ resource.Resource                = &azure_roleResource{}
-	_ resource.ResourceWithConfigure   = &azure_roleResource{}
-	_ resource.ResourceWithImportState = &azure_roleResource{}
+	_ resource.Resource                     = &azure_roleResource{}
+	_ resource.ResourceWithConfigure        = &azure_roleResource{}
+	_ resource.ResourceWithImportState      = &azure_roleResource{}
+	_ resource.ResourceWithConfigValidators = &azure_roleResource{}
 )
 
 // NewAzureRoleResource returns a new instance of the resource.
@@ -38,6 +40,19 @@ type azure_roleResource struct {
 
 func (r *azure_roleResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_azure_role"
+}
+
+// ConfigValidators expresses a constraint the API enforces across attributes,
+// which the schema cannot: neither attribute is Required on its own, so without
+// this the configuration reaches the API and comes back as a validation error
+// naming the Go struct field rather than the Terraform attribute.
+func (r *azure_roleResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		resourcevalidator.AtLeastOneOf(
+			path.MatchRoot("owner_user_group_ids"),
+			path.MatchRoot("owner_user_ids"),
+		),
+	}
 }
 
 func (r *azure_roleResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {

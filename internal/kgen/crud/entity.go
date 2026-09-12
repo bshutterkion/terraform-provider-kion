@@ -62,13 +62,16 @@ type entityData struct {
 	IDParamType        string // "int64" | "uint64". The read/update/delete param id Go type
 	IDParseBits        int    // strconv bit size for the record id. See idParseBits
 	Gated              bool   // emit RequireKionVersionInRange in Create
-	SchemaVersion      int    // >0 bumps resp.Schema.Version (state migration)
-	CreateMethod       string
-	CreateBodyOpt      string
-	CreateBody         string
-	CreateBodyPtr      bool
-	CreateBinds        []fieldBind
-	CreateSliceBinds   []sliceBind
+	// AtLeastOneOf are attributes the API requires at least one of. Emitted as
+	// a resource-level ConfigValidator so the failure lands at plan time.
+	AtLeastOneOf     []string
+	SchemaVersion    int // >0 bumps resp.Schema.Version (state migration)
+	CreateMethod     string
+	CreateBodyOpt    string
+	CreateBody       string
+	CreateBodyPtr    bool
+	CreateBinds      []fieldBind
+	CreateSliceBinds []sliceBind
 	// Literal query-string discriminator params (ogen's __qs__ factory-create
 	// routes, e.g. POST /v3/account/__qs__/account-type/google-cloud): the create
 	// call takes a params struct whose single field is a compile-time constant
@@ -219,6 +222,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		ReadParams:    rm.Read.Method.ParamsType,
 		RespType:      rm.Read.RespType,
 		Gated:         rm.Gated,
+		AtLeastOneOf:  rm.AtLeastOneOf,
 		SchemaVersion: rm.SchemaVersion,
 		ReadCompanion: rm.ReadCompanion,
 	}
