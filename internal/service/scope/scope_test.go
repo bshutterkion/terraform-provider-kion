@@ -41,6 +41,15 @@ func TestAccKionScope_basic(t *testing.T) {
 				ResourceName:      resourceName,
 				ImportState:       true,
 				ImportStateVerify: true,
+				// The by-id read returns the criteria under criteria_records[],
+				// expanded into Kion's own default structure -- a configured {}
+				// comes back carrying version, account_criteria and logic. It is
+				// not mapped back onto the attribute, so managed state keeps what
+				// was configured and stays stable; an import has nothing to start
+				// from and leaves it null. A configuration generated from an
+				// import therefore has to supply criteria, which the API accepts
+				// as absent.
+				ImportStateVerifyIgnore: []string{"criteria"},
 			},
 		},
 	})
@@ -80,6 +89,15 @@ func TestAccKionScope_update(t *testing.T) {
 				ResourceName:      resourceName,
 				ImportState:       true,
 				ImportStateVerify: true,
+				// The by-id read returns the criteria under criteria_records[],
+				// expanded into Kion's own default structure -- a configured {}
+				// comes back carrying version, account_criteria and logic. It is
+				// not mapped back onto the attribute, so managed state keeps what
+				// was configured and stays stable; an import has nothing to start
+				// from and leaves it null. A configuration generated from an
+				// import therefore has to supply criteria, which the API accepts
+				// as absent.
+				ImportStateVerifyIgnore: []string{"criteria"},
 			},
 		},
 	})

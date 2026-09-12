@@ -148,6 +148,26 @@ project_permission_mapping:
 account_linkage:
   kind: blended
 
+# Raw create only. POST /beta/scope answers {status, record_id}; the spec models
+# the response as {data: {...}}, so ScopeResponse carries no record_id field at
+# all and neither create-id strategy can reach the new id. The resource could not
+# be created. Read, update and delete are ordinary. See #103.
+scope:
+  kind: entity
+  raw_create:
+    method: POST
+    path: /beta/scope
+
+# Raw create only. POST /v3/project-line-item answers 201; the spec declares just
+# 200, so ogen refuses to decode a SUCCESSFUL create and the new record's id is
+# lost -- the resource could not be created at all. Read, update and delete are
+# ordinary and stay on the SDK. See #72 for the declared-vs-actual status family.
+project_line_item:
+  kind: entity
+  raw_create:
+    method: POST
+    path: /v3/project-line-item
+
 # Blended because the SPEC is empty, not because an endpoint is private: every
 # billing-rule verb is public, but the spec's BillingRule read schema has no
 # fields, so the typed flatten assigned nothing and an import produced a bare id.

@@ -64,6 +64,19 @@ type archetype struct {
 	// permission scheme). Which endpoints those are, and how to read an
 	// attribute back out of them, is knowledge no spec carries.
 	ReadCompanion string `yaml:"read_companion"`
+	// RawCreate (kind: entity) routes ONLY the create over raw HTTP, leaving
+	// read, update and delete on the SDK.
+	//
+	// It exists for a create whose typed client cannot be used while the rest of
+	// the resource is perfectly ordinary. Two causes so far, both spec defects
+	// rather than private endpoints: a declared status the server does not send
+	// (POST /v3/project-line-item answers 201, the spec declares only 200, so
+	// ogen refuses to decode a SUCCESSFUL create and the new record's id is
+	// lost), and a response shape that does not match what the server sends.
+	//
+	// The body is built from the model's scalar attributes, keyed by their
+	// tfsdk names, and the id is read from the {"record_id": N} envelope.
+	RawCreate *rawOp `yaml:"raw_create"`
 	// Rewritten (kind: entity) names attributes the API stores in a canonical
 	// form of its own and echoes back rewritten, so the read-back after a write
 	// does not textually match what the practitioner configured. Terraform

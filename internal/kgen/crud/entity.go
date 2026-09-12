@@ -152,6 +152,8 @@ type entityData struct {
 	// ReadCompanion is a hand-authored function called after every flatten, for
 	// attributes the by-id read does not return at all (see archetype).
 	ReadCompanion string
+	// RawCreate routes only the create over raw HTTP; see the archetype key.
+	RawCreate *rawCreateData
 	// Rewritten holds the model field names of attributes the API canonicalizes
 	// and echoes back rewritten; Create and Update restore the configured value
 	// after the read-back. See archetype's Rewritten.
@@ -250,6 +252,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		SchemaVersion:  rm.SchemaVersion,
 		ReadCompanion:  rm.ReadCompanion,
 		Rewritten:      rm.Rewritten,
+		RawCreate:      rm.RawCreate,
 	}
 
 	if rm.Create.Body == nil {
@@ -602,4 +605,13 @@ func labelsRespType(l *labelSyncBind) string {
 		return ""
 	}
 	return strings.TrimPrefix(l.Get, "Get") + "Response"
+}
+
+// rawCreateData is a create routed over raw HTTP on an otherwise-typed resource.
+// The wire struct is flat and keyed by tfsdk names, like the raw archetype's.
+type rawCreateData struct {
+	Method string // conns verb, e.g. "RawPost"
+	Path   string
+	Fields []rawField
+	IDGo   string // model field holding the id
 }

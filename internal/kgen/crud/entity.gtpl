@@ -6,7 +6,7 @@ package {{.Pkg}}
 import (
 	{{if .RespRawValues}}"bytes"
 	{{end}}"context"
-	{{if or .RawValueHelpers .RespRawValues}}"encoding/json"
+	{{if or .RawValueHelpers .RespRawValues .RawCreate}}"encoding/json"
 	{{end}}"fmt"
 	{{if .RespSums}}"math"
 	{{end}}"strconv"
@@ -123,7 +123,35 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 
-	{{end}}input := {{if .CreateBodyPtr}}&{{.SDKAlias}}.{{.CreateBody}}{
+	{{end}}{{if .RawCreate}}wire := {{.Pkg}}CreateWire{
+		{{- range .RawCreate.Fields}}
+		{{.ModelGo}}: {{.FromExpr}},
+		{{- end}}
+	}
+	rawBody, err := json.Marshal(wire)
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", {{.ResConst}}), err.Error())
+		return
+	}
+	rawOut, err := r.Meta().{{.RawCreate.Method}}(ctx, "{{.RawCreate.Path}}", rawBody)
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", {{.ResConst}}), err.Error())
+		return
+	}
+	var createdRaw struct {
+		RecordID int64 `json:"record_id"`
+	}
+	if err := json.Unmarshal(rawOut, &createdRaw); err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", {{.ResConst}}), fmt.Sprintf("decoding response: %s", err))
+		return
+	}
+	// An id that decodes to zero is not a fallback to write to state: the record
+	// exists in Kion and nothing addressed as id 0 can ever refresh or delete it.
+	id, idDiags := errs.RawCreatedID(createdRaw.RecordID)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}{{else}}input := {{if .CreateBodyPtr}}&{{.SDKAlias}}.{{.CreateBody}}{
 		{{- range .CreateBinds}}
 		{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 		{{- end}}
@@ -193,7 +221,7 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
-	}{{end}}
+	}{{end}}{{end}}
 
 	plan.{{.IDGo}} = types.StringValue(strconv.FormatInt(id, 10))
 
@@ -714,7 +742,15 @@ func (r *{{.Pkg}}Resource) ImportState(ctx context.Context, req resource.ImportS
 }
 {{end}}
 
-func flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}ctx context.Context, {{end}}apiObject any, model *{{.Model}}) diag.Diagnostics {
+{{if .RawCreate}}// {{.Pkg}}CreateWire is the create body, keyed by the schema's own attribute
+// names. Only the create is raw; read, update and delete stay on the SDK.
+type {{.Pkg}}CreateWire struct {
+	{{- range .RawCreate.Fields}}
+	{{.ModelGo}} {{.WireType}} `json:"{{.JSON}},omitempty"`
+	{{- end}}
+}
+
+{{end}}func flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}ctx context.Context, {{end}}apiObject any, model *{{.Model}}) diag.Diagnostics {
 	{{- if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}
 	var diags diag.Diagnostics
 	{{- end}}
