@@ -460,7 +460,19 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		// A verbatim body still needs the cross-field constraints: they are
 		// authored per resource, not derived, so a hand-written template would
 		// otherwise silently drop the validator the declaration promises.
-		tmplData := struct{ AtLeastOneOf []string }{AtLeastOneOf: rm.AtLeastOneOf}
+		tmplData := struct {
+			AtLeastOneOf   []string
+			SDKAlias       string
+			ResConst       string
+			Labels         *labelSyncBind
+			LabelsRespType string
+		}{
+			AtLeastOneOf:   rm.AtLeastOneOf,
+			SDKAlias:       "generated",
+			ResConst:       "ResName" + pascalCase(name),
+			Labels:         rm.Labels,
+			LabelsRespType: labelsRespType(rm.Labels),
+		}
 		if resourceGo, err = execGoTemplate(name+":"+name+".go", tmpl, tmplData, name+".go"); err != nil {
 			return 0, err
 		}

@@ -340,11 +340,40 @@ func (r *accountResource) Create(ctx context.Context, req resource.CreateRequest
 		plan.Location = types.StringValue(accounthelper.LocationCache)
 	}
 
+	// Labels live on a sub-resource, not in the request body, so without this
+	// the attribute is accepted and silently discarded. Written BEFORE the
+	// read-back: that assigns only what the read payload carries, and labels
+	// are not in it, so reading plan.Labels afterwards sees the
+	// null it left. A null map means "not configured"; an empty map clears.
+	labelList, labelDiags := flex.AssociateLabelsFromFramework(ctx, plan.Labels)
+	resp.Diagnostics.Append(labelDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	configuredLabels := plan.Labels
+	if labelList != nil {
+		labelOut, labelErr := conn.PutAccountLabels(ctx, &generated.AssociateLabels{
+			Labels: generated.OptNilAssociateLabelArray{Value: labelList, Set: true},
+		}, generated.PutAccountLabelsParams{AccountID: plan.ID.ValueInt64()})
+		if labelErr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("setting labels on %s", ResNameAccount), labelErr.Error())
+			return
+		}
+		// An error STATUS is a response variant, not a Go error: 422 "app label
+		// does not exist" would otherwise read as success.
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("setting labels on %s", ResNameAccount), labelOut)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
 	// Read back to populate computed fields.
 	resp.Diagnostics.Append(r.readIntoModel(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// readIntoModel nulls it: labels are not in the read payload.
+	plan.Labels = configuredLabels
 
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -383,6 +412,24 @@ func (r *accountResource) Read(ctx context.Context, req resource.ReadRequest, re
 	}
 
 	state.Location = types.StringValue(result.Location)
+
+	// Labels come from the sub-resource, not the read payload: a refresh that
+	// skipped this would never notice a change made outside Terraform.
+	labelsOut, labelsErr := r.Meta().Client.GetAccountLabels(ctx, generated.GetAccountLabelsParams{AccountID: state.ID.ValueInt64()})
+	if labelsErr != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("reading labels for %s", ResNameAccount), labelsErr.Error())
+		return
+	}
+	if lr, ok := labelsOut.(*generated.AccountLabelsResponse); ok {
+		labelMap, labelDiags := flex.LabelsToFramework(ctx, lr.Data, func(l generated.GetAccountLabel) (string, string) {
+			return l.Key, l.Value
+		})
+		resp.Diagnostics.Append(labelDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		state.Labels = labelMap
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -513,11 +560,32 @@ func (r *accountResource) Update(ctx context.Context, req resource.UpdateRequest
 	plan.ID = types.Int64Value(currentID)
 	plan.Location = types.StringValue(currentLocation)
 
+	// As in Create: written before the read-back, which does not carry labels.
+	labelList, labelDiags := flex.AssociateLabelsFromFramework(ctx, plan.Labels)
+	resp.Diagnostics.Append(labelDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	configuredLabels := plan.Labels
+	if labelList != nil {
+		labelOut, labelErr := conn.PutAccountLabels(ctx, &generated.AssociateLabels{
+			Labels: generated.OptNilAssociateLabelArray{Value: labelList, Set: true},
+		}, generated.PutAccountLabelsParams{AccountID: plan.ID.ValueInt64()})
+		if labelErr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("setting labels on %s", ResNameAccount), labelErr.Error())
+			return
+		}
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("setting labels on %s", ResNameAccount), labelOut)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
 	resp.Diagnostics.Append(r.readIntoModel(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
+	plan.Labels = configuredLabels
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
