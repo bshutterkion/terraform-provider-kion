@@ -27,6 +27,12 @@ type archetype struct {
 	Collection    string   `yaml:"collection"`
 	RecordIDField string   `yaml:"record_id_field"`
 	JSONFields    []string `yaml:"json_fields"`
+	// EmptyCollections are attributes whose empty value the API stores and
+	// returns as null, so null and empty are one state on the wire. The read
+	// collapses both to an empty collection; keeping them distinct makes a
+	// configured `[]` diff for ever, and fails the apply outright when the
+	// attribute is Required or explicitly set.
+	EmptyCollections []string `yaml:"empty_collections"`
 	// Asymmetric 2-param delete (kind: entity). See ResourceModel.DeleteRecordParam.
 	DeleteRecordParam string `yaml:"delete_record_param"`
 	DeleteExtraParam  string `yaml:"delete_extra_param"`

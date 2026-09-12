@@ -68,6 +68,15 @@ funding_source:
 
 compliance_control:
   kind: entity
+  # Kion stores an empty id list as null and returns null, so null and empty are
+  # one state on the wire. Keeping them distinct made a configured `[]` fail the
+  # apply outright: "was cty.SetValEmpty(cty.Number), but now null".
+  empty_collections:
+    - arm_template_definition_ids
+    - aws_cloudformation_policy_ids
+    - azure_policy_definition_ids
+    - cloud_provider_policy_ids
+    - compliance_check_ids
   # DELETE /v4/compliance/program/{id}/control/{controlID}: controlID is the
   # record id; id is the parent program id, sourced from the program_id attribute.
   delete_record_param: ControlID

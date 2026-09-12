@@ -201,6 +201,10 @@ func renderEntity(rm ResourceModel) ([]byte, error) {
 // buildEntityData maps a ResourceModel onto the template payload, refusing the
 // resource (error) when a field or id shape is outside the entity archetype.
 func buildEntityData(rm ResourceModel) (entityData, error) {
+	emptyColl := make(map[string]bool, len(rm.EmptyCollections))
+	for _, a := range rm.EmptyCollections {
+		emptyColl[a] = true
+	}
 	byTF := map[string]ModelField{rm.IDField.TFSDK: rm.IDField}
 	for _, f := range rm.Fields {
 		byTF[f.TFSDK] = f
@@ -363,7 +367,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		if rm.Read.RespDataPtr {
 			topPrefix = "v.Data."
 		}
-		if d.RespBinds, d.RespSliceBinds, err = respBinds(rm.Read.RespFields, byTF, rm.IDField.TFSDK, topPrefix, rm.ReadNested.Names); err != nil {
+		if d.RespBinds, d.RespSliceBinds, err = respBinds(rm.Read.RespFields, byTF, rm.IDField.TFSDK, topPrefix, rm.ReadNested.Names, emptyColl); err != nil {
 			return d, fmt.Errorf("%s flatten: %w", rm.Name, err)
 		}
 		// Record-wrapper: the payload nests the bulk of the record under a
@@ -374,7 +378,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 			if rm.Read.RespWrapperOpt {
 				wrapPrefix += "Value."
 			}
-			wb, wsb, werr := respBinds(rm.Read.RespWrapperFields, byTF, rm.IDField.TFSDK, wrapPrefix, rm.ReadNested.Names)
+			wb, wsb, werr := respBinds(rm.Read.RespWrapperFields, byTF, rm.IDField.TFSDK, wrapPrefix, rm.ReadNested.Names, emptyColl)
 			if werr != nil {
 				return d, fmt.Errorf("%s flatten (wrapper %s): %w", rm.Name, rm.Read.RespWrapperGo, werr)
 			}
@@ -518,7 +522,10 @@ func idOptKind(t string) (opt, ok bool) {
 // v.Data. for a pointer envelope, or v.Data.Value.<Wrapper>.Value. for a record
 // nested under a wrapper sub-object). Results are NOT sorted here, the caller
 // merges top-level + wrapper binds and sorts once.
-func respBinds(fields []Field, byTF map[string]ModelField, idTF, prefix string, skip map[string]bool) ([]respBind, []sliceRespBind, error) {
+// emptyColl names attributes whose empty value the API returns as null; their
+// flatten uses the OrEmpty converter so a configured empty collection does not
+// come back null and diff for ever.
+func respBinds(fields []Field, byTF map[string]ModelField, idTF, prefix string, skip map[string]bool, emptyColl map[string]bool) ([]respBind, []sliceRespBind, error) {
 	var out []respBind
 	var sliceOut []sliceRespBind
 	for _, f := range fields {
@@ -551,6 +558,9 @@ func respBinds(fields []Field, byTF map[string]ModelField, idTF, prefix string, 
 			path := prefix + f.GoName
 			if wrap != "" {
 				path += ".Value" // unwrap the nil-aware slice wrapper
+			}
+			if emptyColl[mf.TFSDK] {
+				flatten += "OrEmpty"
 			}
 			sliceOut = append(sliceOut, sliceRespBind{ModelGo: mf.GoName, Func: flatten, SDKPath: path, Var: lowerFirst(f.GoName)})
 			continue
