@@ -632,6 +632,9 @@ resources:
     update:
       path: /v4/idms/open-id/{id}
       method: PATCH
+    delete:
+      path: /v3/idms/{id}
+      method: DELETE
     schema:
       ignores: [status, record_id, data]
   idms_open_id_access_rule:

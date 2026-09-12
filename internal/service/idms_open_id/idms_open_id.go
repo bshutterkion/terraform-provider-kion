@@ -236,13 +236,33 @@ func (r *idms_open_idResource) Update(ctx context.Context, req resource.UpdateRe
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
-func (r *idms_open_idResource) Delete(_ context.Context, _ resource.DeleteRequest, resp *resource.DeleteResponse) {
-	// kion_idms_open_id has no delete endpoint. Terraform removes it from state; the
-	// resource may continue to exist in Kion.
-	resp.Diagnostics.AddWarning(
-		"No delete API",
-		"kion_idms_open_id has no delete endpoint, so it is removed from Terraform state only and may still exist in Kion.",
-	)
+func (r *idms_open_idResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	conn := r.Meta().Client
+
+	var state IdmsOpenIdModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	idInt, err := strconv.ParseInt(state.Id.ValueString(), 10, 64)
+	if err != nil {
+		resp.Diagnostics.AddError("Invalid ID", err.Error())
+		return
+	}
+
+	out, err := conn.DeleteIDMS(ctx, generated.DeleteIDMSParams{ID: idInt})
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("deleting %s (ID: %d)", ResNameIdmsOpenId, idInt), err.Error())
+		return
+	}
+
+	if errs.IsNotFound(out) {
+		return
+	}
+
+	diags := errs.ResponseDiagnostics(fmt.Sprintf("deleting %s", ResNameIdmsOpenId), out)
+	resp.Diagnostics.Append(diags...)
 }
 
 func (r *idms_open_idResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
