@@ -898,27 +898,6 @@ resources:
         description: The ID of the criteria record within the scope.
         plan_modifiers:
           - int64planmodifier.UseStateForUnknown()
-      # The month window is replace-on-change, because that is what Kion does
-      # with it. A PATCH keeping the same window edits the record in place; one
-      # that moves it SPLITS the record into versions, so the scope ends up with
-      # a different record than the one Terraform is tracking and the apply
-      # fails with values from its sibling:
-      #   .start_month: was 202601, but now 202606
-      #   .end_month:   was 202606, but now 202612
-      # Replace-on-change expresses the versioning honestly: a new window is a
-      # new record.
-      start_month:
-        type: int64
-        computed_optional_required: required
-        description: First month the criteria applies to, as YYYYMM.
-        plan_modifiers:
-          - int64planmodifier.RequiresReplace()
-      end_month:
-        type: int64
-        computed_optional_required: required
-        description: Last month the criteria applies to, as YYYYMM.
-        plan_modifiers:
-          - int64planmodifier.RequiresReplace()
       criteria:
         # raw JSON in the backend; jx.Raw in the SDK. Modeled here as a
         # JSON string with semantic (not byte-for-byte) equality so a
@@ -930,14 +909,23 @@ resources:
           import: github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes
           type: jsontypes.NormalizedType{}
           value_type: jsontypes.Normalized
+      # Replace-on-change, because that is what Kion does with the window. A
+      # PATCH keeping it edits the record in place; one that moves it SPLITS the
+      # record into versions, so the scope ends up holding a different record
+      # than the one Terraform tracks and the apply fails with a sibling's
+      # values. See the note in the acceptance test.
       start_month:
         type: int64
         computed_optional_required: required
         description: Start month for the criteria period (YYYYMM format).
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
       end_month:
         type: int64
         computed_optional_required: optional
         description: End month for the criteria period (YYYYMM format).
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
 
   # kion_account shares cloud_account.gtpl with kion_aws_account, so it shares the
   # schema too. See the anchor on aws_account.attributes above.
@@ -1022,10 +1010,97 @@ resources:
     attributes:
   compliance_family:
     description: "Manages a Kion Compliance Family."
+    # No update endpoint: the generated Update raises a diagnostic saying
+    # changes force replacement. Nothing made that happen, though -- without
+    # RequiresReplace, Terraform planned an in-place update and every change
+    # failed the apply instead of recreating the resource. #75.
+    attributes:
+      compliance_program_id:
+        type: int64
+        computed_optional_required: required
+        description: "ComplianceProgramID of the compliance family."
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
+      description:
+        type: string
+        computed_optional_required: computed_optional
+        description: "Description for the compliance family in the application."
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
+      name:
+        type: string
+        computed_optional_required: required
+        description: "Name of the compliance family in the application."
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
   compliance_level:
     description: "Manages a Kion Compliance Level."
+    # No update endpoint: the generated Update raises a diagnostic saying
+    # changes force replacement. Nothing made that happen, though -- without
+    # RequiresReplace, Terraform planned an in-place update and every change
+    # failed the apply instead of recreating the resource. #75.
+    attributes:
+      compliance_program_id:
+        type: int64
+        computed_optional_required: required
+        description: "ComplianceProgramID of the compliance level."
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
+      description:
+        type: string
+        computed_optional_required: computed_optional
+        description: "Description for the compliance level in the application."
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
+      name:
+        type: string
+        computed_optional_required: required
+        description: "Name of the compliance level in the application."
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
   compliance_program:
     description: "Manages a Kion Compliance Program."
+    # No update endpoint: the generated Update raises a diagnostic saying
+    # changes force replacement. Nothing made that happen, though -- without
+    # RequiresReplace, Terraform planned an in-place update and every change
+    # failed the apply instead of recreating the resource. #75.
+    attributes:
+      description:
+        type: string
+        computed_optional_required: computed_optional
+        description: "Description for the Compliance Program in the application."
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
+      grouping_type:
+        type: string
+        computed_optional_required: computed_optional
+        description: "GroupType of the Compliance Program in the application."
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
+      name:
+        type: string
+        computed_optional_required: required
+        description: "Name of the Compliance Program in the application.\nThis is the proper name of the program meant for formal page/card/document titles in the UI."
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
+      terse_name:
+        type: string
+        computed_optional_required: computed_optional
+        description: "TerseName of the Compliance Program in the application.\nThis is a concise name meant for easy identification and small UI spaces like program icons."
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
+      verbose_name:
+        type: string
+        computed_optional_required: computed_optional
+        description: "VerboseName of the Compliance Program in the application.\nThis is a more detailed program name meant to suppliment the Name or TerseName in specific contexts."
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
+      version:
+        type: string
+        computed_optional_required: required
+        description: "Version of the Compliance Program in the application."
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
   custom_account:
     description: "Attaches a custom account to a project in Kion. If project_id is provided, the account will be added to the corresponding project, otherwise the account will be added to the account cache. Once added, an account can be moved between projects or in and out of the account cache by changing the project_id. When importing existing Kion accounts into terraform state, you can use one of these methods:  Default import (tries project first, then cache): terraform import kion_custom_account.example 123 Explicit project account import: terraform import kion_custom_account.example account_id=123 Explicit cache account import: terraform import kion_custom_account.example account_cache_id=123"
   forecast:
@@ -1117,10 +1192,56 @@ resources:
     description: "Manages a Kion OpenID Connect identity management system (IDMS)."
   ou_cloud_access_role_exemption:
     description: "Manages a Kion OU Cloud Access Role Exemption."
+    # No update endpoint: the generated Update raises a diagnostic saying
+    # changes force replacement. Nothing made that happen, though -- without
+    # RequiresReplace, Terraform planned an in-place update and every change
+    # failed the apply instead of recreating the resource. #75.
+    attributes:
+      ou_cloud_access_role_id:
+        type: int64
+        computed_optional_required: computed_optional
+        description: "ID of the ou cloud access role in the application being exempted from."
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
+      ou_id:
+        type: int64
+        computed_optional_required: computed_optional
+        description: "ID of the ou in the application."
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
+      reason:
+        type: string
+        computed_optional_required: computed_optional
+        description: "Reason the Cloud Access Role is being exempted."
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
   ou_note:
     description: "Manages a Kion OU Note."
   project_cloud_access_role_exemption:
     description: "Manages a Kion Project Cloud Access Role Exemption."
+    # No update endpoint: the generated Update raises a diagnostic saying
+    # changes force replacement. Nothing made that happen, though -- without
+    # RequiresReplace, Terraform planned an in-place update and every change
+    # failed the apply instead of recreating the resource. #75.
+    attributes:
+      ou_cloud_access_role_id:
+        type: int64
+        computed_optional_required: computed_optional
+        description: "ID of the ou cloud access role in the application being exempted from."
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
+      project_id:
+        type: int64
+        computed_optional_required: computed_optional
+        description: "ID of the project in the application."
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
+      reason:
+        type: string
+        computed_optional_required: computed_optional
+        description: "Reason the Cloud Access Role is being exempted."
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
   service_catalog:
     description: "Manages a Kion Service Catalog portfolio."
 

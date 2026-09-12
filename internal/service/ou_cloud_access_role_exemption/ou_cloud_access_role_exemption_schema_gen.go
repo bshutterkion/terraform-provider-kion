@@ -29,7 +29,7 @@ func OuCloudAccessRoleExemptionResourceSchema(ctx context.Context) schema.Schema
 				Description:         "ID of the ou cloud access role in the application being exempted from.",
 				MarkdownDescription: "ID of the ou cloud access role in the application being exempted from.",
 				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
+					int64planmodifier.RequiresReplace(),
 				},
 			},
 			"ou_id": schema.Int64Attribute{
@@ -38,7 +38,7 @@ func OuCloudAccessRoleExemptionResourceSchema(ctx context.Context) schema.Schema
 				Description:         "ID of the ou in the application.",
 				MarkdownDescription: "ID of the ou in the application.",
 				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
+					int64planmodifier.RequiresReplace(),
 				},
 			},
 			"reason": schema.StringAttribute{
@@ -47,7 +47,7 @@ func OuCloudAccessRoleExemptionResourceSchema(ctx context.Context) schema.Schema
 				Description:         "Reason the Cloud Access Role is being exempted.",
 				MarkdownDescription: "Reason the Cloud Access Role is being exempted.",
 				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 		},
