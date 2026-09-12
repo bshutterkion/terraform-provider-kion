@@ -42,8 +42,14 @@ func TestAccKionComplianceControl_basic(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:      resourceName,
-				ImportState:       true,
+				ResourceName: resourceName,
+				ImportState:  true,
+				// program_id is not in the read payload and delete addresses the
+				// control through it, so the import id carries both.
+				ImportStateIdFunc: func(s *terraform.State) (string, error) {
+					rs := s.RootModule().Resources[resourceName]
+					return rs.Primary.Attributes["program_id"] + "/" + rs.Primary.ID, nil
+				},
 				ImportStateVerify: true,
 			},
 		},
@@ -79,8 +85,14 @@ func TestAccKionComplianceControl_update(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:      resourceName,
-				ImportState:       true,
+				ResourceName: resourceName,
+				ImportState:  true,
+				// program_id is not in the read payload and delete addresses the
+				// control through it, so the import id carries both.
+				ImportStateIdFunc: func(s *terraform.State) (string, error) {
+					rs := s.RootModule().Resources[resourceName]
+					return rs.Primary.Attributes["program_id"] + "/" + rs.Primary.ID, nil
+				},
 				ImportStateVerify: true,
 			},
 		},

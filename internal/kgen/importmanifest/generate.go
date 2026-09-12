@@ -44,6 +44,9 @@ type archetypeInfo struct {
 	Collection    string
 	ParentIDField string
 	ChildIDField  string
+	// DeleteExtraField marks an entity whose delete addresses the record
+	// through a parent the read does not return, so its import id is compound.
+	DeleteExtraField string
 }
 
 // parentOverrides corrects resources, verified against a real install, where
@@ -357,7 +360,7 @@ func Build(readPaths, dataSourcePaths, privateListPaths, privateResourcePaths ma
 				// 405s. Handing those "<parent>/<id>" made Read parse the whole
 				// string as an integer, which is 652 of the 667 "Invalid ID"
 				// failures a verification run produced.
-				if importStateSplits(archetype) {
+				if importStateSplits(archetype) || info.DeleteExtraField != "" {
 					r.ImportID.Format = FormatParentSlashKey
 					if r.ImportID.KeyField == "" {
 						r.ImportID.KeyField = "id"
@@ -667,6 +670,13 @@ func loadArchetypeKinds(fsw kfs.FS, path string) (map[string]archetypeInfo, erro
 		Collection    string `yaml:"collection"`
 		ParentIDField string `yaml:"parent_id_field"`
 		ChildIDField  string `yaml:"child_id_field"`
+		// An entity whose delete addresses the record through a parent the read
+		// does not return takes a compound import id, because the parent cannot
+		// be recovered afterwards. entity.gtpl keys its splitting ImportState on
+		// the same field, and the two must agree: a manifest id the resource's
+		// ImportState cannot parse is exactly the mismatch that produced 652
+		// "Invalid ID" failures in a verification run.
+		DeleteExtraField string `yaml:"delete_extra_field"`
 	}
 	if err := yaml.Unmarshal(raw, &doc); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
@@ -674,12 +684,13 @@ func loadArchetypeKinds(fsw kfs.FS, path string) (map[string]archetypeInfo, erro
 	out := make(map[string]archetypeInfo, len(doc))
 	for kind, entry := range doc {
 		out[kind] = archetypeInfo{
-			Kind:          entry.Kind,
-			KeyField:      entry.KeyField,
-			ParentField:   entry.ParentField,
-			Collection:    entry.Collection,
-			ParentIDField: entry.ParentIDField,
-			ChildIDField:  entry.ChildIDField,
+			Kind:             entry.Kind,
+			KeyField:         entry.KeyField,
+			ParentField:      entry.ParentField,
+			Collection:       entry.Collection,
+			ParentIDField:    entry.ParentIDField,
+			ChildIDField:     entry.ChildIDField,
+			DeleteExtraField: entry.DeleteExtraField,
 		}
 	}
 	return out, nil
