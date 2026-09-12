@@ -57,7 +57,7 @@ variable "trigger_planned_amount_type" {
   default     = null
 }
 
-variable "ugroup_ids" {
+variable "user_group_ids" {
   description = "List of user group IDs that will receive notifications from the enforcement. Is required if no user IDs are listed."
   type        = set(number)
   default     = null

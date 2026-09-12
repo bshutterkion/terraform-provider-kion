@@ -1922,8 +1922,8 @@
           "block": false
         },
         {
-          "attr": "ugroup_ids",
-          "var": "ugroup_ids",
+          "attr": "user_group_ids",
+          "var": "user_group_ids",
           "block": false
         },
         {
@@ -2594,8 +2594,8 @@
           "block": false
         },
         {
-          "attr": "ugroup_ids",
-          "var": "ugroup_ids",
+          "attr": "user_group_ids",
+          "var": "user_group_ids",
           "block": false
         },
         {

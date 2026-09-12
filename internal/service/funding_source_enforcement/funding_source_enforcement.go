@@ -51,7 +51,7 @@ func (r *funding_source_enforcementResource) Metadata(_ context.Context, req res
 func (r *funding_source_enforcementResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
 	return []resource.ConfigValidator{
 		resourcevalidator.AtLeastOneOf(
-			path.MatchRoot("ugroup_ids"),
+			path.MatchRoot("user_group_ids"),
 			path.MatchRoot("user_ids"),
 		),
 	}
@@ -100,6 +100,8 @@ func flattenFundingSourceEnforcement(ctx context.Context, rec generated.FundingS
 	} else {
 		model.CloudRuleId = types.Int64Null()
 	}
+	userGroupIds, _ := flex.Uint64SliceToFrameworkSet(ctx, rec.UserGroupIds.Value)
+	model.UserGroupIds = userGroupIds
 	userIds, _ := flex.Uint64SliceToFrameworkSet(ctx, rec.UserIds.Value)
 	model.UserIds = userIds
 }
@@ -114,7 +116,7 @@ func (r *funding_source_enforcementResource) Create(ctx context.Context, req res
 	}
 	parentID := plan.FundingSourceId.ValueInt64()
 
-	ugroupIds, ugroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UgroupIds)
+	ugroupIds, ugroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserGroupIds)
 	resp.Diagnostics.Append(ugroupIdsDiags...)
 	userIds, userIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserIds)
 	resp.Diagnostics.Append(userIdsDiags...)

@@ -73,7 +73,7 @@ funding_source:
 funding_source_enforcement:
   body: FundingSourceEnforcementCreate
   at_least_one_of:
-    - ugroup_ids
+    - user_group_ids
     - user_ids
 
 gcp_iam_role:
@@ -97,7 +97,7 @@ ou:
 ou_enforcement:
   body: OUEnforcementCreate
   at_least_one_of:
-    - ugroup_ids
+    - user_group_ids
     - user_ids
 
 project:
