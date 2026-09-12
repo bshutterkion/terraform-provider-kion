@@ -114,6 +114,7 @@ func (r *azure_roleResource) Create(ctx context.Context, req resource.CreateRequ
 		return
 	}
 	configuredRolePermissions := plan.RolePermissions
+
 	resp.Diagnostics.Append(flattenAzureRole(ctx, readOut, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -156,6 +157,7 @@ func (r *azure_roleResource) Read(ctx context.Context, req resource.ReadRequest,
 		return
 	}
 	priorRolePermissions := state.RolePermissions
+
 	resp.Diagnostics.Append(flattenAzureRole(ctx, out, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -214,6 +216,7 @@ func (r *azure_roleResource) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 	configuredRolePermissions := plan.RolePermissions
+
 	resp.Diagnostics.Append(flattenAzureRole(ctx, readOut, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return

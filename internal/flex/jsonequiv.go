@@ -10,7 +10,7 @@ import (
 //
 // It exists for attributes a Kion endpoint stores in a canonical form of its
 // own. kion_azure_role is the case: role_permissions is parsed into Azure's
-// Permissions struct and re-marshalled, so a configured
+// Permissions struct and re-marshaled, so a configured
 //
 //	{"actions":["…"],"notActions":[]}
 //

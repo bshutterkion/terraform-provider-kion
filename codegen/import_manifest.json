@@ -178,7 +178,7 @@
     {
       "tf_type": "kion_billing_rule",
       "kind": "billing_rule",
-      "archetype": "entity",
+      "archetype": "blended",
       "read_shape": "generic",
       "readable": true,
       "list_path": "/v3/billing-rule",

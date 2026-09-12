@@ -155,7 +155,7 @@ type entityData struct {
 	// Rewritten holds the model field names of attributes the API canonicalizes
 	// and echoes back rewritten; Create and Update restore the configured value
 	// after the read-back. See archetype's Rewritten.
-	Rewritten []string
+	Rewritten     []string
 	HasNestedFlat bool // obj/arr flattens present (drives the attr import)
 	HasIDProj     bool // id-projection flattens present
 	RespRawValues []rawValueFlat

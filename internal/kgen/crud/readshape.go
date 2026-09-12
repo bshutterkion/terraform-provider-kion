@@ -11,9 +11,21 @@ import (
 // an array that must be exploded into flat model rows. Declared in
 // codegen/private_endpoints.yaml under a resource's `read_shape`.
 type readShape struct {
-	Scalars []readShapeSub    `yaml:"scalars"` // model scalar attrs at dotted json paths under data
-	Objects []readShapeObject `yaml:"objects"` // nested single-object attrs
-	Explode *readShapeExplode `yaml:"explode"` // one array-exploded list attr
+	Scalars []readShapeSub    `yaml:"scalars"`  // model scalar attrs at dotted json paths under data
+	Objects []readShapeObject `yaml:"objects"`  // nested single-object attrs
+	Explode *readShapeExplode `yaml:"explode"`  // one array-exploded list attr
+	IDLists []readShapeIDList `yaml:"id_lists"` // set attrs projected from an array of objects
+}
+
+// readShapeIDList projects one field out of every element of a JSON array into
+// a set of ids. Kion routinely answers with the expanded record where the model
+// holds only the ids that were sent -- kion_billing_rule's billing_source_ids
+// comes back as billing_criteria.payers[] = [{id, name}, ...]. The typed path
+// already has this (see idProjFlat); this is the same idea for a raw read.
+type readShapeIDList struct {
+	TF    string `yaml:"tf"`    // model attr, e.g. billing_source_ids
+	From  string `yaml:"from"`  // dotted json path to the []object under data
+	Field string `yaml:"field"` // the id field on each element, e.g. id
 }
 
 // readShapeSub is one leaf mapping: a model tfsdk attr (or nested sub-attr) from
@@ -70,6 +82,8 @@ func kindWire(kind string) (string, error) {
 		return "struct {\n\t\tInt   int64 `json:\"Int\"`\n\t\tValid bool  `json:\"Valid\"`\n\t}", nil
 	case "null_string":
 		return "struct {\n\t\tString string `json:\"String\"`\n\t\tValid  bool   `json:\"Valid\"`\n\t}", nil
+	case "float":
+		return "float64", nil
 	case "bool":
 		return "bool", nil
 	}
@@ -96,6 +110,8 @@ func kindConv(kind, expr string) (string, error) {
 		return "flex.NullIntToFramework(" + expr + ".Int, " + expr + ".Valid)", nil
 	case "null_string":
 		return "flex.NullStringToFramework(" + expr + ".String, " + expr + ".Valid)", nil
+	case "float":
+		return "types.Float64Value(" + expr + ")", nil
 	case "bool":
 		return "types.BoolValue(" + expr + ")", nil
 	}
@@ -188,6 +204,14 @@ func buildWireTree(s readShape) (*wireNode, error) {
 			return nil, err
 		}
 		elem.child(s.Explode.Each.From).leaf = "[]" + ew
+	}
+	for _, l := range s.IDLists {
+		elem := data
+		for k := range strings.SplitSeq(l.From, ".") {
+			elem = elem.child(k)
+		}
+		elem.slice = true
+		elem.child(l.Field).leaf = "uint64"
 	}
 	return data, nil
 }
@@ -284,6 +308,20 @@ func buildNestedFlatten(s readShape, byTF map[string]ModelField) (string, error)
 		fmt.Fprintf(&b, "})\ndiags.Append(elDiags...)\n%sElems = append(%sElems, el)\n}\n}\n", mf.GoName, mf.GoName)
 		fmt.Fprintf(&b, "%sList, %sListDiags := types.ListValueFrom(ctx, %s{}.Type(ctx), %sElems)\n", mf.GoName, mf.GoName, e.ValueType, mf.GoName)
 		fmt.Fprintf(&b, "diags.Append(%sListDiags...)\nm.%s = %sList\n", mf.GoName, mf.GoName, mf.GoName)
+	}
+	for _, l := range s.IDLists {
+		mf, ok := byTF[l.TF]
+		if !ok {
+			return "", fmt.Errorf("read_shape id_list %q not in model", l.TF)
+		}
+		// Non-nil even when empty: an absent array means "none", which flattens
+		// to an empty set rather than null, so a configured [] does not diff.
+		fmt.Fprintf(&b, "%sIDs := make([]uint64, 0, len(w.Data.%s))\n", mf.GoName, goPath(l.From))
+		fmt.Fprintf(&b, "for _, row := range w.Data.%s {\n%sIDs = append(%sIDs, row.%s)\n}\n",
+			goPath(l.From), mf.GoName, mf.GoName, pascalCase(l.Field))
+		fmt.Fprintf(&b, "%sSet, %sSetDiags := flex.Uint64SliceToFrameworkSetOrEmpty(ctx, %sIDs)\n",
+			mf.GoName, mf.GoName, mf.GoName)
+		fmt.Fprintf(&b, "diags.Append(%sSetDiags...)\nm.%s = %sSet\n", mf.GoName, mf.GoName, mf.GoName)
 	}
 	return b.String(), nil
 }

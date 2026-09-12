@@ -94,6 +94,31 @@ resources:
   # (/v2/app-policy) because the public v3 GetByID omits the roles mapping. The
   # private read returns permission_roles as {permission_id, role_ids[]}, which
   # explodes into the model's flat roles pairs {permission_id, role_id}.
+  # Blended for an unusual reason: every verb here is PUBLIC, but the spec's
+  # BillingRule read schema is EMPTY, so the SDK's typed model carries no fields
+  # and flatten had nothing to assign. kion_billing_rule imported as a bare id
+  # with every attribute missing. The endpoint itself returns the whole record;
+  # only the spec is silent, so the read is declared by hand here.
+  billing_rule:
+    reason: spec's BillingRule read schema is empty; the endpoint returns the record
+    # Only the read. Create, update and delete have usable typed models and stay
+    # on the SDK; declaring a path here is what makes an op raw.
+    read:   { method: GET,    path: "/v3/billing-rule/{id}", spec: public, raw: true }
+    read_shape:
+      scalars:
+        - { tf: id,          from: id,          kind: id }
+        - { tf: name,        from: name,        kind: string }
+        - { tf: description, from: description, kind: string }
+        # The model says rule_type/rule_value; the wire says type/value.
+        - { tf: rule_type,   from: type,        kind: int }
+        - { tf: rule_value,  from: value,       kind: float }
+        - { tf: start_month, from: start_month, kind: int }
+        # sql.NullInt64, serialized {"Int":0,"Valid":false}.
+        - { tf: end_month,   from: end_month,   kind: null_int }
+      # Sent as a list of ids, returned as the expanded payers.
+      id_lists:
+        - { tf: billing_source_ids, from: "billing_criteria.payers", field: id }
+
   permission_scheme:
     reason: public read omits the roles mapping; private /v2/app-policy has it
     create: { method: POST,   path: "/v3/permission-scheme",      spec: public }

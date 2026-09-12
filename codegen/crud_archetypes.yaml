@@ -143,6 +143,13 @@ project_permission_mapping:
   parent_field: project_id
   member_fields: [user_ids, user_groups_ids]
 
+# Blended because the SPEC is empty, not because an endpoint is private: every
+# billing-rule verb is public, but the spec's BillingRule read schema has no
+# fields, so the typed flatten assigned nothing and an import produced a bare id.
+# The read is declared by hand in private_endpoints.yaml.
+billing_rule:
+  kind: blended
+
 # Blended: typed public create/update via the SDK, private by-id read + delete
 # over raw HTTP (no public by-id GET or DELETE for app-role).
 app_role:

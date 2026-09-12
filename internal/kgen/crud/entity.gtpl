@@ -240,6 +240,7 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 {{- range .Rewritten}}
 	configured{{.}} := plan.{{.}}
 {{- end}}
+
 	resp.Diagnostics.Append(flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}ctx, {{end}}readOut, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -305,6 +306,7 @@ func (r *{{.Pkg}}Resource) Read(ctx context.Context, req resource.ReadRequest, r
 {{- range .Rewritten}}
 	prior{{.}} := state.{{.}}
 {{- end}}
+
 	resp.Diagnostics.Append(flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}ctx, {{end}}out, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -583,6 +585,7 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 {{- range .Rewritten}}
 	configured{{.}} := plan.{{.}}
 {{- end}}
+
 	resp.Diagnostics.Append(flatten{{.Pascal}}({{if or .HasRespSlices .HasNestedFlat .HasIDProj .RespRawValues}}ctx, {{end}}readOut, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
