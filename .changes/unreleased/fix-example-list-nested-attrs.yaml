@@ -1,3 +1,27 @@
 kind: BUG FIXES
-body: "Generated examples render a list- or set-nested attribute as `attr = [{ … }]` instead of `attr = { … }`. The old form is configuration Terraform refuses to load -- \"Inappropriate value for attribute: list of object required\" -- so the example for every resource carrying one was wrong: `kion_project`, `kion_cft`, `kion_aws_cloudformation_template`, `kion_idms_open_id`, `kion_ou_cloud_access_role`, `kion_permission_scheme` and `kion_project_cloud_access_role`. It went unnoticed because those attributes are all Optional, so the broken lines were emitted commented out; `kion_automation_policy` has a Required one, which renders live and made it visible. A map-nested attribute still renders as a bare object, because its keys are the practitioner's to choose and the schema cannot supply one. Separately, `kgen service` now indents the import it adds to `internal/provider/service_packages.go`; it wrote the line hard against the margin, so scaffolding a resource left the repository failing its own `gofmt` check."
+body: >-
+  Generated examples are configuration Terraform will actually load. Two
+  defects made them otherwise. A list- or set-nested attribute rendered as
+  `attr = { … }` rather than `attr = [{ … }]`, which Terraform rejects with
+  "Inappropriate value for attribute: list of object required" -- wrong for
+  every resource carrying one (`kion_project`, `kion_cft`,
+  `kion_aws_cloudformation_template`, `kion_idms_open_id`,
+  `kion_ou_cloud_access_role`, `kion_permission_scheme` and
+  `kion_project_cloud_access_role`), and unnoticed because those attributes are
+  all Optional and so were emitted commented out; `kion_automation_policy` has
+  a Required one, which renders live and made it visible. A map-nested
+  attribute still renders as a bare object, because its keys are the
+  practitioner's to choose and the schema cannot supply one. Separately,
+  placeholder values now satisfy the attribute's own validators, by trying
+  candidates rather than guessing: `engine` on `kion_automation_policy` emitted
+  1 against an enum accepting only 0, and the datecode attributes on
+  `kion_azure_account`, `kion_custom_account`, `kion_gcp_account`,
+  `kion_billing_source`, `kion_billing_source_aws`, `kion_billing_source_gcp`
+  and `kion_billing_source_oci` emitted the literal example string against a
+  four-digit-year-and-month pattern. Several of those are Required, so the
+  example was live configuration the provider rejected at plan time rather than
+  a commented hint. Finally, `kgen service` now indents the import it adds to
+  `internal/provider/service_packages.go`; it wrote the line hard against the
+  margin, so scaffolding a resource left the repository failing its own gofmt
+  check.
 time: 2026-09-15T13:10:00Z

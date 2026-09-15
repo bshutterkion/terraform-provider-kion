@@ -7,12 +7,16 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	dsschema "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	rsschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"terraform-provider-kion/internal/provider"
 )
@@ -594,12 +598,23 @@ func isResourceComputedOnly(attr rsschema.Attribute) bool {
 	}
 }
 
+// resourcePlaceholder returns a literal for attr. Where the attribute carries
+// validators, the literal is the first candidate they accept: the generic
+// "example" fails a regex-constrained attribute, and 1 fails an enum whose only
+// member is 0, so the canonical example for those resources documented a value
+// the provider rejects at plan time. Candidates are tried in preference order
+// and the first is used when none validate, which keeps the old output for
+// every unconstrained attribute.
 func resourcePlaceholder(attr rsschema.Attribute) string {
-	switch attr.(type) {
+	switch a := attr.(type) {
 	case rsschema.StringAttribute:
-		return `"example"`
+		return strconv.Quote(firstValid(stringCandidates, func(c string) bool {
+			return stringValidates(a.Validators, c)
+		}))
 	case rsschema.Int64Attribute:
-		return "1"
+		return strconv.FormatInt(firstValid(int64Candidates, func(c int64) bool {
+			return int64Validates(a.Validators, c)
+		}), 10)
 	case rsschema.BoolAttribute:
 		return "false"
 	case rsschema.Float64Attribute:
@@ -613,6 +628,70 @@ func resourcePlaceholder(attr rsschema.Attribute) string {
 	default:
 		return `"example"`
 	}
+}
+
+// Candidate placeholder values, in preference order. The first entry is what
+// the generator has always emitted; the rest exist so a constrained attribute
+// gets something its own schema accepts. The date forms cover the datecode
+// attributes seven resources carry (`^\d{4}-(0[1-9]|1[0-2])$`), and 0 covers an
+// enum whose only accepted member is zero.
+var (
+	stringCandidates = []string{"example", "2026-01", "2026-01-01"}
+	int64Candidates  = []int64{1, 0, 2}
+)
+
+// firstValid returns the first candidate ok accepts, or the first candidate
+// when none are accepted -- an example is better than no example, and the
+// attribute's own validators will say what is wrong.
+func firstValid[T any](candidates []T, ok func(T) bool) T {
+	for _, c := range candidates {
+		if ok(c) {
+			return c
+		}
+	}
+	return candidates[0]
+}
+
+// stringValidates reports whether every validator accepts v. A validator that
+// reads beyond ConfigValue (a cross-field check, say) sees a zero request here;
+// those are recovered from and treated as accepting, since this is generating a
+// placeholder rather than validating a real configuration.
+func stringValidates(vs []validator.String, v string) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = true
+		}
+	}()
+	for _, val := range vs {
+		resp := &validator.StringResponse{}
+		val.ValidateString(context.Background(), validator.StringRequest{
+			Path:        path.Root("placeholder"),
+			ConfigValue: types.StringValue(v),
+		}, resp)
+		if resp.Diagnostics.HasError() {
+			return false
+		}
+	}
+	return true
+}
+
+func int64Validates(vs []validator.Int64, v int64) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = true
+		}
+	}()
+	for _, val := range vs {
+		resp := &validator.Int64Response{}
+		val.ValidateInt64(context.Background(), validator.Int64Request{
+			Path:        path.Root("placeholder"),
+			ConfigValue: types.Int64Value(v),
+		}, resp)
+		if resp.Diagnostics.HasError() {
+			return false
+		}
+	}
+	return true
 }
 
 // --- Data source attribute helpers ---
