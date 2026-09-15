@@ -6,6 +6,13 @@
 // the whole collection -- a truncation the caller cannot detect, because the
 // response looks exactly like a complete small collection.
 //
+// Not every collection endpoint behaves that way, and the difference is not
+// visible from the path. A handler calling the backend's
+// CreatePaginationQueryWithDefaults caps an unpaged request at ten (e.g.
+// /v1/automation-policy); one calling CreatePaginationQuery leaves the limit
+// unset and returns everything (e.g. /v2/funding-source/{id}/funding-source-note,
+// which is why its read needs no paging). Check which before assuming either.
+//
 // The control flow is here; decoding is not. Callers differ in what a page
 // contains (untyped records for the import tool, a typed wire struct for a
 // resource) and in how the envelope is unwrapped, which for the import tool
