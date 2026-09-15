@@ -435,6 +435,64 @@ func (r *cloud_ruleResource) Delete(ctx context.Context, req resource.DeleteRequ
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
 	}
+	// Detach before deleting. Kion refuses to delete a record something else
+	// still points at, and Terraform cannot order around it: these associations
+	// are attributes of this resource, not separate resources with their own
+	// destroy. Without this a destroy fails and leaves the record behind.
+	detachAutomationPolicyIds, detachAutomationPolicyIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, state.AutomationPolicyIds)
+	resp.Diagnostics.Append(detachAutomationPolicyIdsDiags...)
+	detachAzureArmTemplateDefinitionIds, detachAzureArmTemplateDefinitionIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, state.AzureArmTemplateDefinitionIds)
+	resp.Diagnostics.Append(detachAzureArmTemplateDefinitionIdsDiags...)
+	detachAzurePolicyDefinitionIds, detachAzurePolicyDefinitionIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, state.AzurePolicyDefinitionIds)
+	resp.Diagnostics.Append(detachAzurePolicyDefinitionIdsDiags...)
+	detachAzureRoleDefinitionIds, detachAzureRoleDefinitionIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, state.AzureRoleDefinitionIds)
+	resp.Diagnostics.Append(detachAzureRoleDefinitionIdsDiags...)
+	detachCftIds, detachCftIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, state.CftIds)
+	resp.Diagnostics.Append(detachCftIdsDiags...)
+	detachComplianceStandardIds, detachComplianceStandardIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, state.ComplianceStandardIds)
+	resp.Diagnostics.Append(detachComplianceStandardIdsDiags...)
+	detachGcpIamRoleIds, detachGcpIamRoleIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, state.GcpIamRoleIds)
+	resp.Diagnostics.Append(detachGcpIamRoleIdsDiags...)
+	detachIamPolicyIds, detachIamPolicyIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, state.IamPolicyIds)
+	resp.Diagnostics.Append(detachIamPolicyIdsDiags...)
+	detachInternalAmiIds, detachInternalAmiIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, state.InternalAmiIds)
+	resp.Diagnostics.Append(detachInternalAmiIdsDiags...)
+	detachInternalPortfolioIds, detachInternalPortfolioIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, state.InternalPortfolioIds)
+	resp.Diagnostics.Append(detachInternalPortfolioIdsDiags...)
+	detachOuIds, detachOuIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, state.OuIds)
+	resp.Diagnostics.Append(detachOuIdsDiags...)
+	detachProjectIds, detachProjectIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, state.ProjectIds)
+	resp.Diagnostics.Append(detachProjectIdsDiags...)
+	detachServiceControlPolicyIds, detachServiceControlPolicyIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, state.ServiceControlPolicyIds)
+	resp.Diagnostics.Append(detachServiceControlPolicyIdsDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if len(detachAutomationPolicyIds) > 0 || len(detachAzureArmTemplateDefinitionIds) > 0 || len(detachAzurePolicyDefinitionIds) > 0 || len(detachAzureRoleDefinitionIds) > 0 || len(detachCftIds) > 0 || len(detachComplianceStandardIds) > 0 || len(detachGcpIamRoleIds) > 0 || len(detachIamPolicyIds) > 0 || len(detachInternalAmiIds) > 0 || len(detachInternalPortfolioIds) > 0 || len(detachOuIds) > 0 || len(detachProjectIds) > 0 || len(detachServiceControlPolicyIds) > 0 {
+		detachOut, detachErr := conn.DeleteCloudRuleAssociations(ctx, &generated.CloudRuleAssociations{
+			AutomationPolicyIds:           generated.OptNilUint64Array{Value: detachAutomationPolicyIds, Set: true},
+			AzureArmTemplateDefinitionIds: generated.OptNilUint64Array{Value: detachAzureArmTemplateDefinitionIds, Set: true},
+			AzurePolicyDefinitionIds:      generated.OptNilUint64Array{Value: detachAzurePolicyDefinitionIds, Set: true},
+			AzureRoleDefinitionIds:        generated.OptNilUint64Array{Value: detachAzureRoleDefinitionIds, Set: true},
+			CftIds:                        generated.OptNilUint64Array{Value: detachCftIds, Set: true},
+			ComplianceStandardIds:         generated.OptNilUint64Array{Value: detachComplianceStandardIds, Set: true},
+			GcpIamRoleIds:                 generated.OptNilUint64Array{Value: detachGcpIamRoleIds, Set: true},
+			IamPolicyIds:                  generated.OptNilUint64Array{Value: detachIamPolicyIds, Set: true},
+			InternalAmiIds:                generated.OptNilUint64Array{Value: detachInternalAmiIds, Set: true},
+			InternalPortfolioIds:          generated.OptNilUint64Array{Value: detachInternalPortfolioIds, Set: true},
+			OuIds:                         generated.OptNilUint64Array{Value: detachOuIds, Set: true},
+			ProjectIds:                    generated.OptNilUint64Array{Value: detachProjectIds, Set: true},
+			ServiceControlPolicyIds:       generated.OptNilUint64Array{Value: detachServiceControlPolicyIds, Set: true},
+		}, generated.DeleteCloudRuleAssociationsParams{ID: idInt})
+		if detachErr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("detaching %s associations before delete (ID: %d)", ResNameCloudRule, idInt), detachErr.Error())
+			return
+		}
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("detaching %s associations before delete", ResNameCloudRule), detachOut)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
 
 	out, err := conn.DeleteCloudRule(ctx, generated.DeleteCloudRuleParams{ID: idInt})
 	if err != nil {

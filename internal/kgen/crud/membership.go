@@ -32,6 +32,17 @@ type membershipAssociations struct {
 	Body   string   `yaml:"body"`   // associations body struct, e.g. CloudRuleAssociations
 	Ptr    bool     `yaml:"ptr"`    // endpoint takes *Body rather than Opt<Body>
 	Fields []string `yaml:"fields"` // model attrs (each an int id list; tfsdk name == body json name)
+	// DetachBeforeDelete makes Delete remove these associations first.
+	//
+	// Kion refuses to delete a record something else still points at --
+	// "this cloud rule is in use, and cannot be deleted" -- and Terraform has no
+	// way to know that: the associations are attributes of THIS resource, not
+	// separate resources it can order a destroy around. So `terraform destroy`
+	// failed and left the record behind, needing a manual API call to unpick.
+	//
+	// Observed in the live migration harness, where destroying a cloud rule
+	// attached to an OU, a project and a compliance standard failed outright.
+	DetachBeforeDelete bool `yaml:"detach_before_delete"`
 }
 
 // membershipSlice declares a member id-list synced via []int64 add/remove
@@ -115,6 +126,8 @@ type assocMembershipBind struct {
 	AddParams    string
 	RemoveParams string
 	Fields       []assocField
+	// DetachBeforeDelete: Delete removes these associations before deleting.
+	DetachBeforeDelete bool
 }
 
 // resolveAssocMembership maps a membershipAssociations config onto the model +
@@ -150,6 +163,7 @@ func resolveAssocMembership(ma membershipAssociations, byTF map[string]ModelFiel
 	return &assocMembershipBind{
 		AddMethod: ma.Add, RemoveMethod: ma.Remove, Body: ma.Body, BodyOpt: "Opt" + ma.Body, Ptr: ma.Ptr,
 		AddParams: ma.Add + "Params", RemoveParams: ma.Remove + "Params", Fields: fields,
+		DetachBeforeDelete: ma.DetachBeforeDelete,
 	}, nil
 }
 

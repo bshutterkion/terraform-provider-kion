@@ -111,6 +111,10 @@ resources:
         remove: DeleteCloudRuleAssociations
         body: CloudRuleAssociations
         ptr: true
+        # Kion refuses to delete a cloud rule that is still attached to anything
+        # -- "this cloud rule is in use, and cannot be deleted" -- so destroy
+        # fails and leaves it behind. Found by the live migration harness.
+        detach_before_delete: true
         fields:
           - automation_policy_ids
           - azure_arm_template_definition_ids
