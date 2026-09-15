@@ -68,6 +68,11 @@ references:
 
   # --- cloud access ---
   cloud_rule_id: kion_cloud_rule
+  cloud_rule_ids: kion_cloud_rule
+  # Now a managed resource, so a cloud rule's attached policies rewrite into
+  # references like any other foreign key. This lived in not_references until
+  # kion_automation_policy existed.
+  automation_policy_ids: kion_automation_policy
   ou_cloud_access_role_id: kion_ou_cloud_access_role
   iam_policy_ids: kion_iam_policy
   gcp_iam_role_ids: kion_gcp_iam_role
@@ -129,12 +134,12 @@ not_references:
   service_external_id: external identifier Kion generates for a service
 
   # Credentials / opaque handles.
+  key_id: the AWS access key id used to read the billing bucket, not a Kion record
   client_id: OpenID client id, configured at the provider
   oauth_client_id: oauth client id in the service account's project
   unique_id: client id used with a key to authenticate
 
   # Targets this provider does not manage as a resource.
-  automation_policy_ids: automation policies are not exposed by the SDK
   cloud_provider_policy_ids: no single resource type behind this set
 
   # Polymorphic: the entity may be an account, OU, or project, so the target

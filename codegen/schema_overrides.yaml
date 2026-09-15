@@ -23,6 +23,28 @@
 
 resources:
 
+  # The spec fragment in spec_additions.yaml cannot express which fields the
+  # backend actually insists on, so required-ness is declared here. Both of
+  # these are enforced server-side: a create with no name is rejected as a
+  # duplicate of the unnamed policy, and an empty provider-policy list fails
+  # with "At least one cloud service provider policy must be selected".
+  automation_policy:
+    description: "Manages a Kion Automation Policy."
+    attributes:
+      name:
+        type: string
+        computed_optional_required: required
+        description: Name of the automation policy. Must be unique.
+      cloud_provider_policies:
+        computed_optional_required: required
+        description: The provider-specific policies this automation policy runs. At least one is required.
+      engine:
+        type: int64
+        computed_optional_required: computed_optional
+        description: "Engine that runs the policy. 0 (Kion) is the only accepted value; the API defines 1 for Cloud Custodian but rejects it."
+        validators:
+          - int64validator.OneOf(0)
+
   # --- JSON-valued attributes -------------------------------------------
   # These carry JSON as a string. The API's rendering never matches what a
   # practitioner wrote, so every plan reported a change "# whitespace changes"

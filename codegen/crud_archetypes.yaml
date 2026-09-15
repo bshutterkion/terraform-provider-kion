@@ -363,3 +363,12 @@ gcp_regions:
 # Fully-private note (no public surface), all CRUD over raw HTTP against /v2.
 funding_source_note:
   kind: raw_http
+
+# Fully-private automation policy, all CRUD over raw HTTP against /v1. Its own
+# kind rather than raw_http: that archetype takes scalar attributes only, and
+# this body is an envelope (the policy's scalars nest under "automation_policy",
+# the rest are its siblings) carrying a nested object and a list of objects that
+# itself holds two string lists, each an array of one-key objects on the wire.
+# The schema still comes from the schema stage like every other resource.
+automation_policy:
+  kind: automation_policy

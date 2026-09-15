@@ -31,6 +31,9 @@ var cvOverrideDataSourceTmpl string
 //go:embed cloud_account.gtpl
 var cloudAccountResourceTmpl string
 
+//go:embed automation_policy.gtpl
+var automationPolicyResourceTmpl string
+
 //go:embed cloud_account_ds_account.gtpl
 var cloudAccountDSAccountTmpl string
 
@@ -154,6 +157,13 @@ const (
 	// resource (gcp_regions). Its data source body is emitted verbatim; its
 	// schema still comes from the schema stage.
 	datasourceOnlyKind = "datasource_only"
+
+	// automationPolicyKind is the private /v1 automation policy. raw_http cannot
+	// express it: that archetype supports scalar attributes only, and this body
+	// is an envelope whose siblings include a nested object (scheduled_frequency)
+	// and a list of objects (cloud_provider_policies) that itself carries two
+	// string lists, each an array of one-key objects on the wire.
+	automationPolicyKind = "automation_policy"
 )
 
 // datasourceOnlyTemplates maps a datasource_only package to its verbatim data
@@ -180,7 +190,7 @@ var resourceTemplates = map[string]string{
 // `resources`), so the generate loop merges them in explicitly.
 func isBespokeKind(kind string) bool {
 	switch kind {
-	case singletonKind, cloudAccountKind, cvOverrideKind, datasourceOnlyKind:
+	case singletonKind, cloudAccountKind, cvOverrideKind, datasourceOnlyKind, automationPolicyKind:
 		return true
 	default:
 		return false
@@ -198,6 +208,15 @@ func (g *generator) generateCVOverride(dir, name string, force bool) (int, error
 	return g.emitBespoke(dir, name, nil, []bespokeFile{
 		{cvOverrideResourceTmpl, name + ".go"},
 		{cvOverrideDataSourceTmpl, name + "_data_source.go"},
+	}, force)
+}
+
+// generateAutomationPolicy emits the resource only. GET /v1/automation-policy
+// would support a data source, so its absence is a gap rather than a limit of
+// the API; service_package.go records that in the package itself.
+func (g *generator) generateAutomationPolicy(dir, name string, force bool) (int, error) {
+	return g.emitBespoke(dir, name, nil, []bespokeFile{
+		{automationPolicyResourceTmpl, name + ".go"},
 	}, force)
 }
 

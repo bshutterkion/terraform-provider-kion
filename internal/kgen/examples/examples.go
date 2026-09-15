@@ -209,12 +209,16 @@ func dataSourceSchemaToTF(typeName string, s dsschema.Schema) string {
 //
 // commented renders the whole block behind "# " for an optional attribute,
 // matching how optional scalars are emitted.
-func renderNestedResourceAttr(name string, nested map[string]rsschema.Attribute, indent string, commented bool) []string {
+func renderNestedResourceAttr(name string, nested map[string]rsschema.Attribute, indent string, commented, collection bool) []string {
 	prefix := ""
 	if commented {
 		prefix = "# "
 	}
-	lines := []string{fmt.Sprintf("%s%s%s = {", indent, prefix, name)}
+	openTok, closeTok := "{", "}"
+	if collection {
+		openTok, closeTok = "[{", "}]"
+	}
+	lines := []string{fmt.Sprintf("%s%s%s = %s", indent, prefix, name, openTok)}
 	inner := indent + "  "
 	req, opt := renderResourceAttrs(nested, inner)
 	// Inside an already-commented block the sub-attributes are commented twice
@@ -232,24 +236,30 @@ func renderNestedResourceAttr(name string, nested map[string]rsschema.Attribute,
 	}
 	lines = append(lines, clean(req)...)
 	lines = append(lines, clean(opt)...)
-	lines = append(lines, fmt.Sprintf("%s%s}", indent, prefix))
+	lines = append(lines, fmt.Sprintf("%s%s%s", indent, prefix, closeTok))
 	return lines
 }
 
-// nestedResourceAttrs returns the child attributes of a nested attribute, and
-// whether attr was nested at all.
-func nestedResourceAttrs(attr rsschema.Attribute) (map[string]rsschema.Attribute, bool) {
+// nestedResourceAttrs returns the child attributes of a nested attribute,
+// whether attr was nested at all, and whether it holds a COLLECTION of those
+// objects rather than a single one. A list or set renders as `attr = [{ … }]`;
+// rendering it as `attr = { … }` produces configuration Terraform rejects with
+// "Inappropriate value for attribute: list of object required", which is what
+// every generated example for a list-nested attribute used to say.
+func nestedResourceAttrs(attr rsschema.Attribute) (attrs map[string]rsschema.Attribute, nested, collection bool) {
 	switch a := attr.(type) {
 	case rsschema.SingleNestedAttribute:
-		return a.Attributes, true
+		return a.Attributes, true, false
 	case rsschema.ListNestedAttribute:
-		return a.NestedObject.Attributes, true
+		return a.NestedObject.Attributes, true, true
 	case rsschema.SetNestedAttribute:
-		return a.NestedObject.Attributes, true
+		return a.NestedObject.Attributes, true, true
 	case rsschema.MapNestedAttribute:
-		return a.NestedObject.Attributes, true
+		// A map is keyed by a name the schema cannot supply, so it stays a bare
+		// object: the practitioner writes their own keys inside it.
+		return a.NestedObject.Attributes, true, false
 	}
-	return nil, false
+	return nil, false, false
 }
 
 func renderResourceAttrs(attrs map[string]rsschema.Attribute, indent string) (required, optional []string) {
@@ -279,11 +289,11 @@ func renderResourceAttrs(attrs map[string]rsschema.Attribute, indent string) (re
 		if isResourceComputedOnly(attr) {
 			continue
 		}
-		if nested, isNested := nestedResourceAttrs(attr); isNested {
+		if nested, isNested, isCollection := nestedResourceAttrs(attr); isNested {
 			if isResourceRequired(attr) {
-				required = append(required, renderNestedResourceAttr(name, nested, indent, false)...)
+				required = append(required, renderNestedResourceAttr(name, nested, indent, false, isCollection)...)
 			} else if isResourceOptional(attr) {
-				optional = append(optional, renderNestedResourceAttr(name, nested, indent, true)...)
+				optional = append(optional, renderNestedResourceAttr(name, nested, indent, true, isCollection)...)
 			}
 			continue
 		}

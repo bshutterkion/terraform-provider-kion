@@ -151,6 +151,15 @@ resources:
   kion_custom_variable: {}
   kion_webhook: {}
 
+  # --- list → set container change (values unchanged) ------------------------
+  # Same case as the two above, the other way round: a JSON array decodes as
+  # either container, so the transform is empty and the entry exists to record
+  # that the change was looked at. kion_app_config widens supported_aws_regions
+  # (list→set of string); kion_project_enforcement widens user_ids and
+  # user_group_ids (list→set of number).
+  kion_app_config: {}
+  kion_project_enforcement: {}
+
   # --- azure_policy: owner blocks → id lists (scalar policy fields handled by
   # kmigrate / provider Read) ---------------------------------------------------
   # The new schema keeps the names owner_users / owner_user_groups but retypes

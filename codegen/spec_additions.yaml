@@ -136,6 +136,117 @@ paths:
               schema:
                 $ref: "#/components/schemas/FundingSourceNoteResponse"
 
+  # Private update/delete routes that generator_config.yaml names but nothing
+  # typed. tfplugingen resolves EVERY path a resource declares, not just the
+  # create and read it builds the schema from, so an untyped delete fails the
+  # whole run: `make generate-schemas` aborted with six "path not found in
+  # OpenAPI spec" errors and wrote nothing. Nothing caught it, because the spec
+  # is gitignored and CI therefore cannot run schema generation at all.
+  #
+  # These carry no request or response body on purpose. They exist so the path
+  # resolves; the schema still comes from each resource's create and read.
+  /v2/project-note/{id}:
+    patch:
+      operationId: PatchProjectNote
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectNoteCreate"
+      responses:
+        "200":
+          description: OK
+  /v1/app-role/{id}:
+    delete:
+      operationId: DeleteAppRole
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+  /v1/user/{id}:
+    delete:
+      operationId: DeleteUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+  /v1/webhook/{id}:
+    delete:
+      operationId: DeleteWebhook
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+  /v2/aws-service-catalog/portfolio/{id}:
+    delete:
+      operationId: DeleteServiceCatalogPortfolio
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+
+  # automation_policy: nothing public at all -- the spec carries an
+  # AutomationPolicy component (4 fields) but no path that uses it. Every op is
+  # internal /v1. The wire body is an envelope: the policy's own scalars sit
+  # under "automation_policy" and everything else is a sibling, so the schema
+  # here is the FLATTENED view the practitioner writes and the bespoke template
+  # does the nesting. See codegen/private_endpoints.yaml.
+  /v1/automation-policy:
+    post:
+      operationId: PostAutomationPolicy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AutomationPolicyCreate"
+      responses:
+        "201":
+          description: Created
+  /v1/automation-policy/{id}:
+    get:
+      operationId: GetAutomationPolicy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutomationPolicyResponse"
+
 components:
   schemas:
     DashboardCreate:
@@ -218,6 +329,81 @@ components:
         create_user_name: { type: string }
         last_update_user_id: { type: integer }
         last_update_user_name: { type: string }
+        created_at: { type: string }
+        updated_at: { type: string }
+
+    # automation_policy. The spec already carries an `AutomationPolicy`
+    # component of four fields with no path using it; this overwrites it with
+    # the full record, per the add-or-overwrite rule above.
+    #
+    # This is the FLATTENED shape, not the wire shape. On the wire the policy's
+    # own scalars are nested under an "automation_policy" key and the rest are
+    # siblings of it; cloud_provider.id is an object; and resources/regions are
+    # arrays of one-key objects ({"resource":"ec2"}). Writing that literally
+    # would make the practitioner mirror an envelope they have no reason to know
+    # about, so the schema is flat and the bespoke template owns the nesting.
+    #
+    # app_labels is deliberately absent: the API accepts it, but binding it
+    # needs the label record shape, and an attribute the request body does not
+    # carry is input accepted and discarded (see bind-check).
+    AutomationPolicyCreate:
+      type: object
+      properties:
+        name: { type: string, description: Name of the automation policy. }
+        description: { type: string, description: Description of the automation policy. }
+        engine: { type: integer, format: uint8, description: "Engine that runs the policy. 0 = Kion. Cloud Custodian (1) is defined but rejected by the API." }
+        enabled: { type: boolean, description: Whether the policy is enabled. }
+        owner_user_ids: { type: array, items: { type: integer }, description: IDs of the users who own the policy. }
+        owner_user_group_ids: { type: array, items: { type: integer }, description: IDs of the user groups that own the policy. }
+        cloud_rule_ids: { type: array, items: { type: integer }, description: IDs of the cloud rules the policy is attached to. }
+        scheduled_frequency: { $ref: "#/components/schemas/AutomationPolicyScheduledFrequency" }
+        cloud_provider_policies:
+          type: array
+          description: The provider-specific policies this automation policy runs. At least one is required.
+          items: { $ref: "#/components/schemas/AutomationPolicyCloudProviderPolicy" }
+    AutomationPolicyScheduledFrequency:
+      type: object
+      description: When the policy runs. Omit for a policy that only runs on demand.
+      properties:
+        type: { type: integer, format: uint8, description: "Frequency type. 0 = daily, 1 = weekly, 2 = monthly, 3 = quarterly, 4 = interval." }
+        days_of_week: { type: array, items: { type: integer }, description: "Days of the week to run on, 0 = Sunday. Weekly only." }
+        days_of_month: { type: array, items: { type: integer }, description: Days of the month to run on. Monthly only. }
+        quarterly_recurrence: { type: integer, format: uint8, description: Which month of the quarter to run in. Quarterly only. }
+        weekly_recurrence: { type: integer, format: uint8, description: Run every N weeks. Weekly only. }
+        hour: { type: integer, description: Hour of the day to run at, 0-23, in time_zone_identifier. }
+        minute: { type: integer, description: Minute of the hour to run at, 0-59. }
+        time_zone_identifier: { type: string, description: "IANA time zone the hour and minute are interpreted in, for example America/New_York." }
+        interval_hours: { type: integer, format: uint8, description: Run every N hours. Interval only. }
+        start_date: { type: string, description: Date the schedule starts. }
+        end_date: { type: string, description: Date the schedule stops. }
+    AutomationPolicyCloudProviderPolicy:
+      type: object
+      properties:
+        cloud_provider_id: { type: integer, description: "ID of the cloud provider this policy targets." }
+        apply_to_all_regions: { type: boolean, description: Whether the policy applies to every region rather than the listed ones. }
+        policy: { type: string, description: The policy body. }
+        resources: { type: array, items: { type: string }, description: "Resource types the policy acts on, for example ec2." }
+        regions: { type: array, items: { type: string }, description: Regions the policy runs in when apply_to_all_regions is false. }
+    AutomationPolicyResponse:
+      type: object
+      properties:
+        data: { $ref: "#/components/schemas/AutomationPolicy" }
+    AutomationPolicy:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        description: { type: string }
+        engine: { type: integer, format: uint8 }
+        enabled: { type: boolean }
+        owner_user_ids: { type: array, items: { type: integer } }
+        owner_user_group_ids: { type: array, items: { type: integer } }
+        cloud_rule_ids: { type: array, items: { type: integer } }
+        scheduled_frequency: { $ref: "#/components/schemas/AutomationPolicyScheduledFrequency" }
+        cloud_provider_policies:
+          type: array
+          items: { $ref: "#/components/schemas/AutomationPolicyCloudProviderPolicy" }
+        created_by_user_id: { type: integer }
         created_at: { type: string }
         updated_at: { type: string }
 
