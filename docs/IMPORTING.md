@@ -18,7 +18,7 @@ commit.
 ```sh
 # macOS on Apple silicon; substitute your platform
 # (darwin/linux/windows x amd64/arm64)
-V=1.2.0
+V=1.1.1
 curl -fsSLO "https://github.com/kionsoftware/terraform-provider-kion/releases/download/v${V}/kion-import_${V}_darwin_arm64.zip"
 unzip -j "kion-import_${V}_darwin_arm64.zip" kion-import && chmod +x kion-import
 ```
