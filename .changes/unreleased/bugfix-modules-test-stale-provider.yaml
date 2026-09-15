@@ -1,2 +1,0 @@
-kind: BUG FIXES
-body: "`make modules-test` no longer tests a stale provider. It copies `modules/` into a scratch tree, and a developer who has run terraform directly in `modules/` leaves a `.terraform/` directory and a lock file behind; copied along, terraform reuses the provider cached there instead of the one just built. The run then silently measures an old binary -- locally 12 of 72 modules failed against a schema the working tree had already changed, while CI, which generates a fresh tree, passed all 72. The copy now drops those artifacts."

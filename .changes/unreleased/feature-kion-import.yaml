@@ -1,3 +1,0 @@
-kind: FEATURES
-body: "`kion-import` brings an existing Kion installation under Terraform management. It walks every resource the provider supports and writes a file of `import` blocks, which you hand to `terraform plan -generate-config-out` to generate the configuration and to `terraform apply` to build the state. The provider's own `Read` and `ImportState` do the serializing, so the generated state is correct by construction. The tool appends `/api` to the URL you give it, so `--url https://kion.example.com` is enough; `--api-prefix \"\"` removes it for an app served at the root. Resources it cannot read are reported with the reason rather than omitted, and `--probe` reports what each resource returned without writing anything."
-time: 2026-08-24T23:28:26Z
