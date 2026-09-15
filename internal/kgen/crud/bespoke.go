@@ -34,6 +34,9 @@ var cloudAccountResourceTmpl string
 //go:embed automation_policy.gtpl
 var automationPolicyResourceTmpl string
 
+//go:embed automation_policy_ds.gtpl
+var automationPolicyDataSourceTmpl string
+
 //go:embed cloud_account_ds_account.gtpl
 var cloudAccountDSAccountTmpl string
 
@@ -211,12 +214,14 @@ func (g *generator) generateCVOverride(dir, name string, force bool) (int, error
 	}, force)
 }
 
-// generateAutomationPolicy emits the resource only. GET /v1/automation-policy
-// would support a data source, so its absence is a gap rather than a limit of
-// the API; service_package.go records that in the package itself.
+// generateAutomationPolicy emits the resource and its data source. The data
+// source pages the index itself rather than deriving from the list templates,
+// which all speak to the SDK; this endpoint is private and serves ten records
+// unless told otherwise.
 func (g *generator) generateAutomationPolicy(dir, name string, force bool) (int, error) {
 	return g.emitBespoke(dir, name, nil, []bespokeFile{
 		{automationPolicyResourceTmpl, name + ".go"},
+		{automationPolicyDataSourceTmpl, name + "_data_source.go"},
 	}, force)
 }
 

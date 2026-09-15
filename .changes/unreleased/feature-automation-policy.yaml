@@ -1,3 +1,40 @@
 kind: FEATURES
-body: "`kion_automation_policy` manages Kion automation policies, which had no Terraform representation at all -- neither provider exposed them, so scheduling work had to go through a generic REST provider against the private API by hand. Every endpoint is internal `/v1`: the public spec carries an `AutomationPolicy` component but no path that uses it, so the request and response shapes are transcribed in `codegen/spec_additions.yaml` the way `funding_source_note`'s already were. The schema is the flat view a practitioner writes -- `name`, `engine`, `enabled`, owner and cloud-rule ids, a `scheduled_frequency` object and a `cloud_provider_policies` list -- while the wire body is an envelope that nests the policy's own scalars under `automation_policy` and renders `resources` and `regions` as arrays of one-key objects. That nesting is why it has its own archetype rather than reusing `raw_http`, which supports scalar attributes only. `name` and `cloud_provider_policies` are Required because the backend enforces both (a create with an empty policy list is rejected with \"At least one cloud service provider policy must be selected\"), and `engine` validates to `0` at plan time, since the API defines Cloud Custodian as `1` but rejects it. `scheduled_frequency`'s `start_date` and `end_date` cross the wire as `sql.NullTime` objects rather than bare strings -- the defect that made `project_note` and `dashboard` undecodable -- and are read tolerantly and written in the form the backend parses. Attaching policies to a cloud rule already worked through `kion_cloud_rule.automation_policy_ids`; now that they are a managed resource, `kion-import rewrite-refs` turns those literal ids into references, and `kion-import` enumerates policies into import blocks."
+body: >-
+  `kion_automation_policy` manages Kion automation policies, which had no
+  Terraform representation at all -- neither provider exposed them, so
+  scheduling work had to go through a generic REST provider against the private
+  API by hand. Every endpoint is internal `/v1`: the public spec carries an
+  `AutomationPolicy` component but no path that uses it, so the request and
+  response shapes are transcribed in `codegen/spec_additions.yaml` the way
+  `funding_source_note`'s already were. The schema is the flat view a
+  practitioner writes -- `name`, `engine`, `enabled`, owner and cloud-rule ids,
+  a `scheduled_frequency` object and a `cloud_provider_policies` list -- while
+  the wire body is an envelope that nests the policy's own scalars under
+  `automation_policy` and renders `resources` and `regions` as arrays of
+  one-key objects. That nesting is why it has its own archetype rather than
+  reusing `raw_http`, which supports scalar attributes only. `name` and
+  `cloud_provider_policies` are Required because the backend enforces both (a
+  create with an empty policy list is rejected with "At least one cloud service
+  provider policy must be selected"), and `engine` validates to 0 at plan time,
+  since the API defines Cloud Custodian as 1 but rejects it.
+  `scheduled_frequency`'s `start_date` and `end_date` cross the wire as
+  `sql.NullTime` objects rather than bare strings -- the defect that made
+  `project_note` and `dashboard` undecodable -- and are read tolerantly and
+  written in the form the backend parses.
+
+
+  A matching `kion_automation_policy` data source looks a policy up by `id` or
+  by `filter` blocks, the same dual-mode shape the generated list data sources
+  use. It pages the index rather than reading it once: the endpoint serves ten
+  records unless asked otherwise, so a single request would report the first ten
+  policies as the whole collection, and a scheduling setup of a dozen or more
+  policies is the normal case rather than an edge one. The walk is now
+  `internal/paging`, shared with `kion-import`, which had the only other
+  implementation of it.
+
+
+  Attaching policies to a cloud rule already worked through
+  `kion_cloud_rule.automation_policy_ids`; now that they are a managed resource,
+  `kion-import rewrite-refs` turns those literal ids into references, and
+  `kion-import` enumerates policies into import blocks.
 time: 2026-09-15T13:00:00Z
