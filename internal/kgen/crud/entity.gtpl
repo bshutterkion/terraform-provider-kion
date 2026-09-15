@@ -681,6 +681,39 @@ func (r *{{.Pkg}}Resource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 
+{{- range .Assocs}}{{if .DetachBeforeDelete}}
+	// Detach before deleting. Kion refuses to delete a record something else
+	// still points at, and Terraform cannot order around it: these associations
+	// are attributes of this resource, not separate resources with their own
+	// destroy. Without this a destroy fails and leaves the record behind.
+	{{- range .Fields}}
+	detach{{.ModelGo}}, detach{{.ModelGo}}Diags := flex.Uint64SliceFromFramework{{.Coll}}(ctx, state.{{.ModelGo}})
+	resp.Diagnostics.Append(detach{{.ModelGo}}Diags...)
+	{{- end}}
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if {{range $i, $f := .Fields}}{{if $i}} || {{end}}len(detach{{$f.ModelGo}}) > 0{{end}} {
+		detachOut, detachErr := conn.{{.RemoveMethod}}(ctx, {{if .Ptr}}&{{$.SDKAlias}}.{{.Body}}{
+			{{- range .Fields}}
+			{{.BodyGo}}: {{$.SDKAlias}}.OptNilUint64Array{Value: detach{{.ModelGo}}, Set: true},
+			{{- end}}
+		}{{else}}{{$.SDKAlias}}.{{.BodyOpt}}{Value: {{$.SDKAlias}}.{{.Body}}{
+			{{- range .Fields}}
+			{{.BodyGo}}: {{$.SDKAlias}}.OptNilUint64Array{Value: detach{{.ModelGo}}, Set: true},
+			{{- end}}
+		}, Set: true}{{end}}, {{$.SDKAlias}}.{{.RemoveParams}}{ID: idInt})
+		if detachErr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("detaching %s associations before delete (ID: %d)", {{$.ResConst}}, idInt), detachErr.Error())
+			return
+		}
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("detaching %s associations before delete", {{$.ResConst}}), detachOut)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+{{end}}{{end}}
+
 	out, err := conn.{{.DeleteMethod}}(ctx, {{.SDKAlias}}.{{.DeleteParams}}{ {{if .DeleteExtraParam}}{{.DeleteExtraParam}}: state.{{.DeleteExtraFieldGo}}.ValueInt64(), {{end}}{{.DeleteIDParam}}: {{.DeleteIDExpr}}})
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("deleting %s (ID: %d)", {{.ResConst}}, idInt), err.Error())
