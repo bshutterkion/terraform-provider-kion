@@ -102,6 +102,14 @@ release:
     - glob: codegen/state_upgrades.yaml
       name_template: "state_upgrades_{{ .Version }}.yaml"
 
-# Release notes come from the changie version file via --release-notes.
+# Release notes come from the changie version file via --release-notes, which
+# is read by the changelog pipe -- so the pipe must NOT be disabled. `changelog:
+# disable: true` looks like the right way to say "we supply our own notes", but
+# it makes Skip() return true, Run() never executes, and the flag is silently
+# ignored: v1.0.0 through v1.1.0 all published with an empty body. The flag
+# already suppresses generated notes on its own (Run() loads the file, assigns
+# it, and returns before buildChangelog), so there is nothing left to disable.
+#
+# A missing notes file now fails the release instead of quietly shipping an
+# empty one, which is the behaviour the workflow's existence check assumed.
 changelog:
-  disable: true
