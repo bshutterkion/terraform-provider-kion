@@ -8,6 +8,25 @@ configuration and `terraform apply` writes the state, both through the provider'
 own Read. What Terraform cannot do is discover what exists in Kion, and that is
 the only job this tool has.
 
+## Get it
+
+`kion-import` ships in the release, as a single binary with no runtime or
+dependencies. It carries the import manifest inside it, so there is nothing else
+to fetch — and so a binary can never be paired with a manifest from a different
+commit.
+
+```sh
+# macOS on Apple silicon; substitute your platform
+# (darwin/linux/windows x amd64/arm64)
+V=1.2.0
+curl -fsSLO "https://github.com/kionsoftware/terraform-provider-kion/releases/download/v${V}/kion-import_${V}_darwin_arm64.zip"
+unzip -j "kion-import_${V}_darwin_arm64.zip" kion-import && chmod +x kion-import
+```
+
+Releases up to and including v1.1.0 do not carry it; from a checkout of those,
+build it with `go build -o bin/kion-import ./cmd/kion-import` (or `make
+build-tools`, which builds it alongside the other dev tools).
+
 ```sh
 export KION_URL=https://kion.example.com
 export KION_APIKEY=…

@@ -55,10 +55,34 @@ builds:
       - arm64
     binary: kmigrate
 
+  # kion-import enumerates a live install into import blocks. Same reasoning and
+  # same platforms as kmigrate: a one-shot tool run against an install, and not
+  # `go install`able for the same bare-module-path reason. It needs no companion
+  # file in the release -- codegen/embed.go compiles import_manifest.json into
+  # the binary, precisely so a shipped binary cannot be paired with a manifest
+  # from a different commit.
+  - id: kion-import
+    main: ./cmd/kion-import
+    env:
+      - CGO_ENABLED=0
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+    ldflags:
+      - "-s -w"
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    binary: kion-import
+
 archives:
   # The Registry matches provider archives by exact filename, so this template
-  # must stay untouched. `ids` is what keeps kmigrate out of it now that there
-  # is more than one build.
+  # must stay untouched. `ids` is what keeps the other binaries out of it now
+  # that there is more than one build.
   - id: provider
     ids: [provider]
     formats: [zip]
@@ -69,8 +93,13 @@ archives:
     formats: [zip]
     name_template: "kmigrate_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
+  - id: kion-import
+    ids: [kion-import]
+    formats: [zip]
+    name_template: "kion-import_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
 # SHA256SUMS covers every artifact, so signing it (below) transitively covers
-# kmigrate and the state-upgrade config too. The Registry ignores lines that do
+# kmigrate, kion-import and the state-upgrade config too. The Registry ignores lines that do
 # not match a provider archive name. It already tolerates the manifest entry
 # here, which is the precedent for adding more.
 checksum:
