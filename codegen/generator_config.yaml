@@ -106,6 +106,15 @@ resources:
       method: DELETE
     schema:
       ignores: [status, record_id, data]
+  automation_policy:
+    create:
+      path: /v1/automation-policy
+      method: POST
+    read:
+      path: /v1/automation-policy/{id}
+      method: GET
+    schema:
+      ignores: [status, record_id, data]
   aws_account:
     create:
       path: /v3/account-cache/create/__qs__/account-type/aws
@@ -135,7 +144,7 @@ resources:
       ignores: [status, record_id, data]
   azure_account:
     create:
-      path: /v3/account?account-type=azure
+      path: /v3/account/__qs__/account-type/azure
       method: POST
     read:
       path: /v3/account/{id}
@@ -1393,4 +1402,4 @@ data_sources:
     schema:
       ignores: [status, record_id]
 
-# summary: 70 generatable (27 implemented, 43 stub), 0 incomplete; 64 data sources
+# summary: 71 generatable (26 implemented, 45 stub), 0 incomplete; 64 data sources

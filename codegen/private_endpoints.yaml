@@ -90,6 +90,28 @@ resources:
       list_path: "/v2/funding-source/{parent_id}/funding-source-note"
       parent_tf: funding_source_id
 
+  # No public surface at all: the spec carries an AutomationPolicy component but
+  # no path that uses it, so every op is the internal /v1 route. Update is PUT,
+  # not PATCH, and it is a full replace -- the backend rebuilds the provider
+  # policies from the body rather than merging, so the template always sends the
+  # complete record.
+  #
+  # The body is an envelope (scalars under "automation_policy", the rest as its
+  # siblings) and the schema is flat, so this resource uses its own template
+  # rather than raw_http, which supports scalar attributes only.
+  automation_policy:
+    reason: no public spec surface; all CRUD is internal /v1
+    create: { method: POST,   path: "/v1/automation-policy",      spec: private }
+    read:   { method: GET,    path: "/v1/automation-policy/{id}", spec: private }
+    update: { method: PUT,    path: "/v1/automation-policy/{id}", spec: private }
+    delete: { method: DELETE, path: "/v1/automation-policy/{id}", spec: private }
+    # ScheduledFrequency renders start_date/end_date through domain/util.NullTime,
+    # which has no MarshalJSON, so they arrive as {"Time":…,"Valid":false} rather
+    # than a bare string -- the same defect that made project_note and dashboard
+    # undecodable (#48). These are nested under scheduled_frequency, so the
+    # template handles them directly rather than through read_kinds, which keys
+    # on top-level attributes.
+
   # Blended. Public v3 create/update/delete; the by-id read is private /v2
   # (/v2/app-policy) because the public v3 GetByID omits the roles mapping. The
   # private read returns permission_roles as {permission_id, role_ids[]}, which

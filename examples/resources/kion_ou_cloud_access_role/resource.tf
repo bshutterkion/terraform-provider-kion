@@ -8,13 +8,13 @@ resource "kion_ou_cloud_access_role" "example" {
   # aws_iam_permissions_boundary = 1
   # aws_iam_policies             = []
   # aws_iam_role_name            = "example"
-  # aws_session_tags = {
+  # aws_session_tags = [{
   #   cloud_access_role_id    = 1
   #   id                      = 1
   #   ou_cloud_access_role_id = 1
   #   tag_key                 = "example"
   #   tag_value               = "example"
-  # }
+  # }]
   # azure_role_definitions       = []
   # gcp_iam_roles                = []
   # last_updated                 = "example"

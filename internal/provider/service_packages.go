@@ -9,6 +9,7 @@ import (
 	"terraform-provider-kion/internal/service/app_api_key"
 	"terraform-provider-kion/internal/service/app_config"
 	"terraform-provider-kion/internal/service/app_role"
+	"terraform-provider-kion/internal/service/automation_policy"
 	"terraform-provider-kion/internal/service/aws_account"
 	"terraform-provider-kion/internal/service/aws_resource_tag"
 	"terraform-provider-kion/internal/service/azure_account"
@@ -86,6 +87,7 @@ func ServicePackages() []conns.ServicePackage {
 		app_api_key.NewServicePackage(),
 		app_config.NewServicePackage(),
 		app_role.NewServicePackage(),
+		automation_policy.NewServicePackage(),
 		aws_account.NewServicePackage(),
 		aws_resource_tag.NewServicePackage(),
 		azure_account.NewServicePackage(),

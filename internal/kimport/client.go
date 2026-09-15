@@ -16,12 +16,15 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"terraform-provider-kion/internal/paging"
 )
 
 const (
-	pageSize  = 100
-	bodyLimit = 512  // max bytes to include in error messages
-	maxPages  = 1000 // hard cap to prevent infinite paging loops
+	// pageSize and the walk's page cap live in internal/paging, so this tool and
+	// the provider's own raw list reads ask for the same thing.
+	pageSize  = paging.DefaultPageSize
+	bodyLimit = 512 // max bytes to include in error messages
 )
 
 // Lister is the read seam the enumerators depend on, so they can be tested
@@ -308,42 +311,28 @@ func soleArrayValue(raw json.RawMessage) (json.RawMessage, bool) {
 }
 
 // List GETs path, unwrapping and paging as needed.
+//
+// The walk itself is internal/paging; this supplies the unwrapping, which is
+// specific to the shapes the import tool meets (bare arrays, named collections,
+// doubly-nested envelopes) and to the padding records some collections return.
+// dropBlanks runs per page, BEFORE paging compares what it holds against the
+// reported total: counting padding as records made page 1 look complete and
+// silently lost every record only reachable on page 2.
 func (c *Client) List(ctx context.Context, path string) ([]map[string]any, error) {
-	body, err := c.get(ctx, path, 1)
-	if err != nil {
-		return nil, err
-	}
-	records, total, err := unwrap(body)
-	if err != nil {
-		return nil, fmt.Errorf("GET %s: %w", path, err)
-	}
-	records = dropBlanks(records)
-	if total < 0 {
-		return records, nil // not a paginated envelope
-	}
-
-	for page := 2; len(records) < total; page++ {
-		// Enforce hard cap to prevent infinite loops
-		if page > maxPages {
-			return records, fmt.Errorf("GET %s: paging exceeded max pages (%d)", path, maxPages)
-		}
+	return paging.All(ctx, "GET "+path, func(ctx context.Context, page int) (paging.Page[map[string]any], error) {
 		body, err := c.get(ctx, path, page)
 		if err != nil {
-			return records, err
+			return paging.Page[map[string]any]{}, err
 		}
-		batch, _, err := unwrap(body)
-		// An unwrap error on any page is reported with the partial records gathered so far
+		records, total, err := unwrap(body)
 		if err != nil {
-			return records, fmt.Errorf("GET %s (page %d): %w", path, page, err)
+			if page == 1 {
+				return paging.Page[map[string]any]{}, fmt.Errorf("GET %s: %w", path, err)
+			}
+			return paging.Page[map[string]any]{}, fmt.Errorf("GET %s (page %d): %w", path, page, err)
 		}
-		batch = dropBlanks(batch)
-		// Empty batch is a legitimate stop signal
-		if len(batch) == 0 {
-			break
-		}
-		records = append(records, batch...)
-	}
-	return records, nil
+		return paging.Page[map[string]any]{Items: dropBlanks(records), Total: total}, nil
+	})
 }
 
 // dropBlanks removes zero-valued padding records.

@@ -15,7 +15,7 @@ Manages a Kion OCI Billing Source.
 ```terraform
 resource "kion_billing_source_oci" "example" {
   # Required
-  billing_start_date = "example"
+  billing_start_date = "2026-01"
 
   # Optional
   # account_type_id         = 1

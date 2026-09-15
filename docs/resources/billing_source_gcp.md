@@ -24,7 +24,7 @@ resource "kion_billing_source_gcp" "example" {
       # table_format    = "example"
       # table_name      = "example"
     }
-    billing_start_date = "example"
+    billing_start_date = "2026-01"
     gcp_id             = "example"
     name               = "example"
     service_account_id = 1

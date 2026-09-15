@@ -2,7 +2,7 @@ resource "kion_billing_source_aws" "example" {
   # Required
   account_type_id    = 1
   aws_account_number = "example"
-  billing_start_date = "example"
+  billing_start_date = "2026-01"
   linked_role        = "example"
   name               = "example"
 

@@ -151,6 +151,10 @@ func RegisterServicePackage(projectRoot, pkgName string) error {
 
 	text := string(content)
 	importPath := fmt.Sprintf(`"terraform-provider-kion/internal/service/%s"`, pkgName)
+	// Inserted verbatim, so it carries its own indentation: without the tab the
+	// import lands hard against the margin and the file fails gofmt, which is a
+	// scaffold leaving the repository in a state its own CI rejects.
+	importLine := "\t" + importPath
 	registrationEntry := fmt.Sprintf("\t\t%s.NewServicePackage(),", pkgName)
 
 	// Check if already registered
@@ -159,7 +163,7 @@ func RegisterServicePackage(projectRoot, pkgName string) error {
 	}
 
 	// Insert import in sorted position
-	text, err = insertSorted(text, importPath, `"terraform-provider-kion/internal/service/`)
+	text, err = insertSorted(text, importLine, `"terraform-provider-kion/internal/service/`)
 	if err != nil {
 		return fmt.Errorf("inserting import: %w", err)
 	}

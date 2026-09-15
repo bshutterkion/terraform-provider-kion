@@ -510,6 +510,17 @@ resources:
       path: /v3/ou/{id}/enforcement
       method: GET
 
+  # Derivation emits the literal query string `/v3/account?account-type=azure`,
+  # which matches no path in the spec, so tfplugingen cannot resolve it and the
+  # whole schema run fails -- nothing is written for any resource. The spec
+  # models these factory-creates as synthetic /__qs__/ segments (the SDK's own
+  # convention; see queryStringPathMarker in the generated client), which is the
+  # form the custom and google-cloud siblings already carry.
+  azure_account:
+    create:
+      path: /v3/account/__qs__/account-type/azure
+      method: POST
+
   # Served entirely over raw HTTP (internal/conns), so its CRUD calls no SDK op
   # and derivation sees nothing. See codegen/private_endpoints.yaml.
   funding_source_note:
@@ -518,6 +529,16 @@ resources:
       method: POST
     read:
       path: /v2/funding-source-note/{id}
+      method: GET
+
+  # Also entirely raw HTTP, for the same reason. The spec has an AutomationPolicy
+  # component but no path using it, so derivation has nothing to find either.
+  automation_policy:
+    create:
+      path: /v1/automation-policy
+      method: POST
+    read:
+      path: /v1/automation-policy/{id}
       method: GET
 
 data_sources:

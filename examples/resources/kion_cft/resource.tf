@@ -10,10 +10,10 @@ resource "kion_cft" "example" {
   # owner_user_ids         = []
   # region                 = "example"
   # sns_arns               = "example"
-  # tags = {
+  # tags = [{
   #   tag_key   = "example"
   #   tag_value = "example"
-  # }
+  # }]
   # template_parameters    = "example"
   # termination_protection = false
 }

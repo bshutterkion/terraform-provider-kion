@@ -17,7 +17,7 @@ resource "kion_billing_source" "example" {
   #   tenant_cloud_partition_id      = 1
   #   tenant_domain                  = "example"
   # }
-  # billing_start_date = "example"
+  # billing_start_date = "2026-01"
   # name               = "example"
   # skip_validation    = false
 }

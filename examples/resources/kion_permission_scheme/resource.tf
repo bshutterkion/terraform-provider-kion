@@ -4,8 +4,8 @@ resource "kion_permission_scheme" "example" {
   type = "example"
 
   # Optional
-  # roles = {
+  # roles = [{
   #   permission_id = 1
   #   role_id       = 1
-  # }
+  # }]
 }

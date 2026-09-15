@@ -1,10 +1,10 @@
 resource "kion_idms_open_id" "example" {
   # Optional
-  # access_rules = {
+  # access_rules = [{
   #   assertion_name             = "example"
   #   assertion_regex            = "example"
   #   cloudtamer_access_level_id = 1
-  # }
+  # }]
   # authorization_endpoint = "example"
   # client_id              = "example"
   # email_claim            = "example"

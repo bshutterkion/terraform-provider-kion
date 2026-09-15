@@ -434,6 +434,57 @@
       ]
     },
     {
+      "tf_type": "kion_automation_policy",
+      "path": "terraform-kion-automation-policy",
+      "variables": [
+        {
+          "attr": "cloud_provider_policies",
+          "var": "cloud_provider_policies",
+          "block": false
+        },
+        {
+          "attr": "cloud_rule_ids",
+          "var": "cloud_rule_ids",
+          "block": false
+        },
+        {
+          "attr": "description",
+          "var": "description",
+          "block": false
+        },
+        {
+          "attr": "enabled",
+          "var": "enabled",
+          "block": false
+        },
+        {
+          "attr": "engine",
+          "var": "engine",
+          "block": false
+        },
+        {
+          "attr": "name",
+          "var": "name",
+          "block": false
+        },
+        {
+          "attr": "owner_user_group_ids",
+          "var": "owner_user_group_ids",
+          "block": false
+        },
+        {
+          "attr": "owner_user_ids",
+          "var": "owner_user_ids",
+          "block": false
+        },
+        {
+          "attr": "scheduled_frequency",
+          "var": "scheduled_frequency",
+          "block": false
+        }
+      ]
+    },
+    {
       "tf_type": "kion_aws_account",
       "path": "terraform-kion-aws-account",
       "variables": [

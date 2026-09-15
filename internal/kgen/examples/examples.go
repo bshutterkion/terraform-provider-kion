@@ -7,12 +7,16 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	dsschema "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	rsschema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 
 	"terraform-provider-kion/internal/provider"
 )
@@ -209,12 +213,16 @@ func dataSourceSchemaToTF(typeName string, s dsschema.Schema) string {
 //
 // commented renders the whole block behind "# " for an optional attribute,
 // matching how optional scalars are emitted.
-func renderNestedResourceAttr(name string, nested map[string]rsschema.Attribute, indent string, commented bool) []string {
+func renderNestedResourceAttr(name string, nested map[string]rsschema.Attribute, indent string, commented, collection bool) []string {
 	prefix := ""
 	if commented {
 		prefix = "# "
 	}
-	lines := []string{fmt.Sprintf("%s%s%s = {", indent, prefix, name)}
+	openTok, closeTok := "{", "}"
+	if collection {
+		openTok, closeTok = "[{", "}]"
+	}
+	lines := []string{fmt.Sprintf("%s%s%s = %s", indent, prefix, name, openTok)}
 	inner := indent + "  "
 	req, opt := renderResourceAttrs(nested, inner)
 	// Inside an already-commented block the sub-attributes are commented twice
@@ -232,24 +240,30 @@ func renderNestedResourceAttr(name string, nested map[string]rsschema.Attribute,
 	}
 	lines = append(lines, clean(req)...)
 	lines = append(lines, clean(opt)...)
-	lines = append(lines, fmt.Sprintf("%s%s}", indent, prefix))
+	lines = append(lines, fmt.Sprintf("%s%s%s", indent, prefix, closeTok))
 	return lines
 }
 
-// nestedResourceAttrs returns the child attributes of a nested attribute, and
-// whether attr was nested at all.
-func nestedResourceAttrs(attr rsschema.Attribute) (map[string]rsschema.Attribute, bool) {
+// nestedResourceAttrs returns the child attributes of a nested attribute,
+// whether attr was nested at all, and whether it holds a COLLECTION of those
+// objects rather than a single one. A list or set renders as `attr = [{ … }]`;
+// rendering it as `attr = { … }` produces configuration Terraform rejects with
+// "Inappropriate value for attribute: list of object required", which is what
+// every generated example for a list-nested attribute used to say.
+func nestedResourceAttrs(attr rsschema.Attribute) (attrs map[string]rsschema.Attribute, nested, collection bool) {
 	switch a := attr.(type) {
 	case rsschema.SingleNestedAttribute:
-		return a.Attributes, true
+		return a.Attributes, true, false
 	case rsschema.ListNestedAttribute:
-		return a.NestedObject.Attributes, true
+		return a.NestedObject.Attributes, true, true
 	case rsschema.SetNestedAttribute:
-		return a.NestedObject.Attributes, true
+		return a.NestedObject.Attributes, true, true
 	case rsschema.MapNestedAttribute:
-		return a.NestedObject.Attributes, true
+		// A map is keyed by a name the schema cannot supply, so it stays a bare
+		// object: the practitioner writes their own keys inside it.
+		return a.NestedObject.Attributes, true, false
 	}
-	return nil, false
+	return nil, false, false
 }
 
 func renderResourceAttrs(attrs map[string]rsschema.Attribute, indent string) (required, optional []string) {
@@ -279,11 +293,11 @@ func renderResourceAttrs(attrs map[string]rsschema.Attribute, indent string) (re
 		if isResourceComputedOnly(attr) {
 			continue
 		}
-		if nested, isNested := nestedResourceAttrs(attr); isNested {
+		if nested, isNested, isCollection := nestedResourceAttrs(attr); isNested {
 			if isResourceRequired(attr) {
-				required = append(required, renderNestedResourceAttr(name, nested, indent, false)...)
+				required = append(required, renderNestedResourceAttr(name, nested, indent, false, isCollection)...)
 			} else if isResourceOptional(attr) {
-				optional = append(optional, renderNestedResourceAttr(name, nested, indent, true)...)
+				optional = append(optional, renderNestedResourceAttr(name, nested, indent, true, isCollection)...)
 			}
 			continue
 		}
@@ -584,12 +598,23 @@ func isResourceComputedOnly(attr rsschema.Attribute) bool {
 	}
 }
 
+// resourcePlaceholder returns a literal for attr. Where the attribute carries
+// validators, the literal is the first candidate they accept: the generic
+// "example" fails a regex-constrained attribute, and 1 fails an enum whose only
+// member is 0, so the canonical example for those resources documented a value
+// the provider rejects at plan time. Candidates are tried in preference order
+// and the first is used when none validate, which keeps the old output for
+// every unconstrained attribute.
 func resourcePlaceholder(attr rsschema.Attribute) string {
-	switch attr.(type) {
+	switch a := attr.(type) {
 	case rsschema.StringAttribute:
-		return `"example"`
+		return strconv.Quote(firstValid(stringCandidates, func(c string) bool {
+			return stringValidates(a.Validators, c)
+		}))
 	case rsschema.Int64Attribute:
-		return "1"
+		return strconv.FormatInt(firstValid(int64Candidates, func(c int64) bool {
+			return int64Validates(a.Validators, c)
+		}), 10)
 	case rsschema.BoolAttribute:
 		return "false"
 	case rsschema.Float64Attribute:
@@ -603,6 +628,70 @@ func resourcePlaceholder(attr rsschema.Attribute) string {
 	default:
 		return `"example"`
 	}
+}
+
+// Candidate placeholder values, in preference order. The first entry is what
+// the generator has always emitted; the rest exist so a constrained attribute
+// gets something its own schema accepts. The date forms cover the datecode
+// attributes seven resources carry (`^\d{4}-(0[1-9]|1[0-2])$`), and 0 covers an
+// enum whose only accepted member is zero.
+var (
+	stringCandidates = []string{"example", "2026-01", "2026-01-01"}
+	int64Candidates  = []int64{1, 0, 2}
+)
+
+// firstValid returns the first candidate ok accepts, or the first candidate
+// when none are accepted -- an example is better than no example, and the
+// attribute's own validators will say what is wrong.
+func firstValid[T any](candidates []T, ok func(T) bool) T {
+	for _, c := range candidates {
+		if ok(c) {
+			return c
+		}
+	}
+	return candidates[0]
+}
+
+// stringValidates reports whether every validator accepts v. A validator that
+// reads beyond ConfigValue (a cross-field check, say) sees a zero request here;
+// those are recovered from and treated as accepting, since this is generating a
+// placeholder rather than validating a real configuration.
+func stringValidates(vs []validator.String, v string) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = true
+		}
+	}()
+	for _, val := range vs {
+		resp := &validator.StringResponse{}
+		val.ValidateString(context.Background(), validator.StringRequest{
+			Path:        path.Root("placeholder"),
+			ConfigValue: types.StringValue(v),
+		}, resp)
+		if resp.Diagnostics.HasError() {
+			return false
+		}
+	}
+	return true
+}
+
+func int64Validates(vs []validator.Int64, v int64) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = true
+		}
+	}()
+	for _, val := range vs {
+		resp := &validator.Int64Response{}
+		val.ValidateInt64(context.Background(), validator.Int64Request{
+			Path:        path.Root("placeholder"),
+			ConfigValue: types.Int64Value(v),
+		}, resp)
+		if resp.Diagnostics.HasError() {
+			return false
+		}
+	}
+	return true
 }
 
 // --- Data source attribute helpers ---

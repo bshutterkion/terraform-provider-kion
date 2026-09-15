@@ -61,8 +61,9 @@ var ConfigDrops = map[string][]string{
 // TestReadOnlyDropsArePresentAndComputed keeps this in step with the snapshots,
 // both ways round: every entry must be settable in old and read-only in new, and
 // every attribute the snapshots show becoming read-only must have an entry.
-var ReadOnlyDrops = map[string][]string{
-	// The old resource made the note's author a required input; the new one takes
-	// it from the authenticated caller and reports it back.
-	"kion_project_note": {"create_user_id"},
-}
+// Empty is a valid state: it means no old settable attribute has become
+// read-only in the new schema. It held kion_project_note's create_user_id while
+// the new schema had that attribute computed, but the new provider requires it
+// again -- it is Required in both snapshots -- so it carries straight across and
+// dropping it would strip a required argument out of a working configuration.
+var ReadOnlyDrops = map[string][]string{}

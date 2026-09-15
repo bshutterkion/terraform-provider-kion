@@ -83,6 +83,18 @@
       }
     },
     {
+      "tf_type": "kion_automation_policy",
+      "kind": "automation_policy",
+      "archetype": "automation_policy",
+      "read_shape": "generic",
+      "readable": true,
+      "list_path": "/v1/automation-policy",
+      "name_field": "name",
+      "import_id": {
+        "format": "id"
+      }
+    },
+    {
       "tf_type": "kion_aws_account",
       "kind": "aws_account",
       "archetype": "cloud_account",
@@ -196,6 +208,58 @@
       "list_path": "/v4/billing-source",
       "name_field": "name",
       "require_valid_field": "custom_billing_source",
+      "import_id": {
+        "format": "id"
+      }
+    },
+    {
+      "tf_type": "kion_billing_source_aws",
+      "kind": "billing_source_aws",
+      "archetype": "blended",
+      "read_shape": "generic",
+      "readable": true,
+      "list_path": "/v4/billing-source",
+      "name_field": "name",
+      "import_id": {
+        "format": "id"
+      }
+    },
+    {
+      "tf_type": "kion_billing_source_gcp",
+      "kind": "billing_source_gcp",
+      "archetype": "blended",
+      "read_shape": "generic",
+      "readable": true,
+      "list_path": "/v4/billing-source",
+      "import_id": {
+        "format": "id"
+      }
+    },
+    {
+      "tf_type": "kion_billing_source_govcloud",
+      "kind": "billing_source_govcloud",
+      "archetype": "entity",
+      "read_shape": "parent_list",
+      "readable": true,
+      "name_field": "name",
+      "parent": {
+        "kind": "billing_source",
+        "list_path": "/v3/billing-source",
+        "child_path": "/v3/billing-source/{parent_id}/govcloud",
+        "parent_id_field": "billing_source_id"
+      },
+      "import_id": {
+        "format": "id"
+      }
+    },
+    {
+      "tf_type": "kion_billing_source_oci",
+      "kind": "billing_source_oci",
+      "archetype": "blended",
+      "read_shape": "generic",
+      "readable": true,
+      "list_path": "/v4/billing-source",
+      "name_field": "name",
       "import_id": {
         "format": "id"
       }

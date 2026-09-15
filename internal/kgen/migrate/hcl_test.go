@@ -58,10 +58,11 @@ resource "kion_project" "pr" {
 	}
 }
 
-// TestRewriteFile_readOnlyDrops covers the ReadOnlyDrops pass: an attribute the
-// new schema kept but made computed has to leave the config, or Terraform
-// rejects the block with "Invalid Configuration for Read-Only Attribute". The
-// surrounding settable attributes must survive untouched.
+// TestRewriteFile_readOnlyDrops covers the ConfigDrops pass on a block that also
+// carries an attribute the new schema still takes. last_updated is gone from the
+// new schema and has to leave the config; create_user_id is Required in both
+// providers, so removing it would strip a required argument out of a working
+// configuration. The surrounding settable attributes must survive untouched.
 func TestRewriteFile_readOnlyDrops(t *testing.T) {
 	src := `resource "kion_project_note" "n" {
   name           = "note"
@@ -76,25 +77,28 @@ func TestRewriteFile_readOnlyDrops(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := string(out)
-	if strings.Contains(got, "create_user_id") {
-		t.Errorf("create_user_id is read-only in the new schema but was not dropped:\n%s", got)
-	}
 	if strings.Contains(got, "last_updated") {
 		t.Errorf("last_updated not dropped:\n%s", got)
 	}
-	for _, keep := range []string{"name", "project_id", "text"} {
+	for _, keep := range []string{"name", "project_id", "text", "create_user_id"} {
 		if !strings.Contains(got, keep) {
 			t.Errorf("settable attribute %q was removed:\n%s", keep, got)
 		}
 	}
 	var reported bool
 	for _, c := range changes {
-		if strings.Contains(c, "create_user_id") && strings.Contains(c, "read-only") {
+		if strings.Contains(c, "last_updated") {
 			reported = true
 		}
 	}
 	if !reported {
-		t.Errorf("the read-only drop was not reported to the practitioner: %v", changes)
+		t.Errorf("the drop was not reported to the practitioner: %v", changes)
+	}
+	// create_user_id must not be reported either, since it is not touched.
+	for _, c := range changes {
+		if strings.Contains(c, "create_user_id") {
+			t.Errorf("create_user_id is Required in both providers and must be left alone: %v", changes)
+		}
 	}
 }
 
