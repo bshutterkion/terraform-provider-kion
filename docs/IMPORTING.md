@@ -268,7 +268,7 @@ The rewritten config is at .import-check/main.tf
 It is plan-only and needs no credentials — the provider is never contacted.
 The mirror exists because `terraform init` skips `dev_overrides`, and
 validating a module call requires init. It also needs no published provider,
-which matters while `1.0.0` is not on the registry.
+which matters while this provider is not on the registry.
 
 `make import-modules` does the rewrite alone, without the check.
 

@@ -32,7 +32,7 @@ tool to run, and nothing is changed until you review and apply.
    ```sh
    # macOS on Apple silicon; substitute your platform
    # (darwin/linux/windows x amd64/arm64)
-   V=1.0.1
+   V=1.1.1
    curl -fsSLO "https://github.com/kionsoftware/terraform-provider-kion/releases/download/v${V}/kmigrate_${V}_darwin_arm64.zip"
    unzip -j "kmigrate_${V}_darwin_arm64.zip" kmigrate && chmod +x kmigrate
    ```
