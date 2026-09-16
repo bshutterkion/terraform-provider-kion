@@ -294,6 +294,19 @@ jobs:
   # regenerated because CI enforced them, docs/ and examples/ were not because
   # nothing did, and the registry pages described behaviour the release no
   # longer had.
+  crud:
+    name: Service packages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - run: make crud-check
+
   docs:
     name: Docs and examples
     runs-on: ubuntu-latest
@@ -437,6 +450,7 @@ jobs:
       - lint
       - test-unit
       - modules
+      - crud
       - docs
       - acctest-config
       - internal-refs

@@ -453,7 +453,7 @@ clean: ## Remove build artifacts (binary, release bin/, coverage files)
 #==============================================================================
 
 .PHONY: ci
-ci: ci-fmt ci-vet ci-lint ci-test ci-acctest-config ci-docs ci-modules ci-internal-refs ci-secrets ## Run every CI check that can run locally (all of ci.yml except CodeQL)
+ci: ci-fmt ci-vet ci-lint ci-test ci-acctest-config ci-crud ci-docs ci-modules ci-internal-refs ci-secrets ## Run every CI check that can run locally (all of ci.yml except CodeQL)
 	@echo ""
 	@echo "$(GREEN)All CI checks passed$(RESET)"
 	@echo "$(YELLOW)note: CodeQL runs only on GitHub and was not checked here.$(RESET)"
@@ -510,6 +510,9 @@ ci-test: ## Run unit tests with coverage (matches test:unit CI job)
 # Each installs its pinned tool first, so a missing binary is a slow run rather
 # than a skipped check that still prints a pass.
 .PHONY: ci-docs
+ci-crud: ## Check internal/service/ is not stale (matches crud CI job)
+	@$(MAKE) --no-print-directory crud-check
+
 ci-docs: install-tfplugindocs ## Check docs/ and examples/ are not stale (matches docs CI job)
 	@echo "$(BLUE)Checking docs/ and examples/ are current...$(RESET)"
 	@$(MAKE) --no-print-directory docs-check
@@ -584,6 +587,17 @@ modules: ## Generate the per-resource Terraform modules and their docs
 # `make docs` writes in place, unlike modules-check's scratch directory, so the
 # check is to regenerate and then ask git whether anything moved.
 .PHONY: docs-check
+crud-check: ## Fail if internal/service/ differs from freshly generated output
+	@echo "$(BLUE)Checking internal/service/ is current...$(RESET)"
+	@$(MAKE) --no-print-directory crud-force >/dev/null
+	@if ! git diff --quiet -- internal/service; then \
+		echo "$(RED)FAIL: internal/service/ differs from generated output. Regenerate and commit:$(RESET)"; \
+		echo "  make crud-force"; \
+		git --no-pager diff --stat -- internal/service; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)✓ internal/service/ matches generated output$(RESET)"
+
 docs-check: ## Fail if docs/ or examples/ differ from freshly generated output
 	@command -v tfplugindocs >/dev/null || (echo "$(RED)tfplugindocs not found: make install-tfplugindocs$(RESET)" && exit 1)
 	@$(MAKE) --no-print-directory docs >/dev/null
