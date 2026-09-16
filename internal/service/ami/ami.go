@@ -174,6 +174,12 @@ func (r *amiResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
+	var state AmiModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
@@ -209,6 +215,32 @@ func (r *amiResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// Sync owners: the update body does not carry them, so diff prior state vs
+	// plan and add/remove via the dedicated owner endpoints.
+	addOwnerUsers, removeOwnerUsers := flex.Uint64SetDiff(ctx, state.OwnerUserIds, plan.OwnerUserIds, &resp.Diagnostics)
+	addOwnerGroups, removeOwnerGroups := flex.Uint64SetDiff(ctx, state.OwnerUserGroupIds, plan.OwnerUserGroupIds, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if len(addOwnerUsers) > 0 || len(addOwnerGroups) > 0 {
+		if _, err := conn.AMIAddOwners(ctx, &generated.AMIOwners{
+			OwnerUserIds:      generated.OptNilUint64Array{Value: addOwnerUsers, Set: true},
+			OwnerUserGroupIds: generated.OptNilUint64Array{Value: addOwnerGroups, Set: true},
+		}, generated.AMIAddOwnersParams{ID: idInt}); err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("adding owners to %s (ID: %d)", ResNameAmi, idInt), err.Error())
+			return
+		}
+	}
+	if len(removeOwnerUsers) > 0 || len(removeOwnerGroups) > 0 {
+		if _, err := conn.AMIRemoveOwners(ctx, &generated.AMIOwners{
+			OwnerUserIds:      generated.OptNilUint64Array{Value: removeOwnerUsers, Set: true},
+			OwnerUserGroupIds: generated.OptNilUint64Array{Value: removeOwnerGroups, Set: true},
+		}, generated.AMIRemoveOwnersParams{ID: idInt}); err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("removing owners from %s (ID: %d)", ResNameAmi, idInt), err.Error())
+			return
+		}
 	}
 
 	// Read back the resource to get the latest state.
