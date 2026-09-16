@@ -201,17 +201,25 @@ func isBespokeKind(kind string) bool {
 }
 
 func (g *generator) generateSingleton(dir, name string, force bool) (int, error) {
-	return g.emitBespoke(dir, name, nil, []bespokeFile{
+	n, err := g.emitBespoke(dir, name, nil, []bespokeFile{
 		{singletonResourceTmpl, name + ".go"},
 		{singletonDataSourceTmpl, name + "_data_source.go"},
 	}, force)
+	if err != nil {
+		return n, err
+	}
+	return n, g.emitCompanions(dir, name, force)
 }
 
 func (g *generator) generateCVOverride(dir, name string, force bool) (int, error) {
-	return g.emitBespoke(dir, name, nil, []bespokeFile{
+	n, err := g.emitBespoke(dir, name, nil, []bespokeFile{
 		{cvOverrideResourceTmpl, name + ".go"},
 		{cvOverrideDataSourceTmpl, name + "_data_source.go"},
 	}, force)
+	if err != nil {
+		return n, err
+	}
+	return n, g.emitCompanions(dir, name, force)
 }
 
 // generateAutomationPolicy emits the resource and its data source. The data
@@ -219,10 +227,14 @@ func (g *generator) generateCVOverride(dir, name string, force bool) (int, error
 // which all speak to the SDK; this endpoint is private and serves ten records
 // unless told otherwise.
 func (g *generator) generateAutomationPolicy(dir, name string, force bool) (int, error) {
-	return g.emitBespoke(dir, name, nil, []bespokeFile{
+	n, err := g.emitBespoke(dir, name, nil, []bespokeFile{
 		{automationPolicyResourceTmpl, name + ".go"},
 		{automationPolicyDataSourceTmpl, name + "_data_source.go"},
 	}, force)
+	if err != nil {
+		return n, err
+	}
+	return n, g.emitCompanions(dir, name, force)
 }
 
 // cloudAccountData parameterizes the shared account/aws_account resource
@@ -270,6 +282,9 @@ func (g *generator) generateCloudAccount(dir, name string, force bool) (int, err
 	}, force); err != nil {
 		return 0, err
 	}
+	if err := g.emitCompanions(dir, name, force); err != nil {
+		return 0, err
+	}
 	// Emit the shared accounthelper package once (when generating account).
 	if name == "account" {
 		if err := g.emitAccountHelper(filepath.Join(filepath.Dir(dir), "accounthelper"), force); err != nil {
@@ -298,17 +313,22 @@ func (g *generator) generateDatasourceOnly(dir, name string, force bool) (int, e
 	if !ok {
 		return 0, fmt.Errorf("%s: datasource_only archetype but no template registered", name)
 	}
-	return g.emitBespoke(dir, name, nil, []bespokeFile{
+	n, err := g.emitBespoke(dir, name, nil, []bespokeFile{
 		{tmpl, name + "_data_source.go"},
 	}, force)
+	if err != nil {
+		return n, err
+	}
+	return n, g.emitCompanions(dir, name, force)
 }
 
 // emitCompanions writes the hand-authored companion files kept beside a
 // generated resource (data source, its helpers, alias registrations), if any
 // are registered for name.
 func (g *generator) emitCompanions(dir, name string, force bool) error {
-	files, ok := companionsByName[name]
-	if !ok {
+	files := append([]bespokeFile(nil), companionsByName[name]...)
+	files = append(files, companionTestsByName[name]...)
+	if len(files) == 0 {
 		return nil
 	}
 	_, err := g.emitBespoke(dir, name, nil, files, force)

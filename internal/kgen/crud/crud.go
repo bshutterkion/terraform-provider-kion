@@ -628,11 +628,18 @@ func (g *generator) generateCompound(dir, name string, ops resOps, idx sdkIndex,
 		{filepath.Join(dir, name+"_data_source.go"), dataSourceGo},
 		{filepath.Join(dir, "sweep.go"), sweepGo},
 	}
-	fmt.Fprintf(os.Stderr, "kgen crud: %s: compound archetype; acceptance tests skipped (need a parent FK fixture)\n", name)
 	for _, f := range files {
 		if err := g.writeFile(f.path, f.data, force); err != nil {
 			return 0, err
 		}
+	}
+	// A compound resource derives no test; scope_criteria keeps one as a
+	// companion, emitted here so a wipe reproduces it.
+	if _, ok := companionTestsByName[name]; !ok {
+		fmt.Fprintf(os.Stderr, "kgen crud: %s: compound archetype; no acceptance test derived or registered\n", name)
+	}
+	if err := g.emitCompanions(dir, name, force); err != nil {
+		return 0, err
 	}
 	return 1, nil
 }

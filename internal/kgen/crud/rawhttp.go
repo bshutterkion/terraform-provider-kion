@@ -366,5 +366,8 @@ func (g *generator) generateRaw(dir, name string, ops rawResourceOps, model []Mo
 	} else {
 		fmt.Fprintf(os.Stderr, "kgen crud: %s: no test_values entry; skipping acceptance tests\n", name)
 	}
+	if err := g.emitCompanions(dir, name, force); err != nil {
+		return 0, err
+	}
 	return 1, nil
 }
