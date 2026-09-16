@@ -904,3 +904,24 @@ resources:
       project_id: "hcl:kion_project.test_project.id"
       user_groups_ids: "hcl:[kion_user_group.test_group.id]"
       user_ids: "hcl:[1]"
+  dashboard:
+    create:
+      config: "hcl:jsonencode({})"
+      description: "test-acc dashboard"
+      is_default: "false"
+      name: "%[1]s"
+    update:
+      config: "hcl:jsonencode({})"
+      description: "test-acc dashboard, updated"
+      is_default: "false"
+      name: "%[1]s"
+  funding_source_note:
+    fixtures: [FundingSourceConfig]
+    create:
+      funding_source_id: "hcl:kion_funding_source.test_fs.id"
+      name: "test-acc-note"
+      text: "test-acc note body"
+    update:
+      funding_source_id: "hcl:kion_funding_source.test_fs.id"
+      name: "test-acc-note"
+      text: "test-acc note body, updated"

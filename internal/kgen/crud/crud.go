@@ -318,7 +318,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 			if !ok {
 				return 0, fmt.Errorf("%s: raw_http archetype but no codegen/private_endpoints.yaml entry", name)
 			}
-			return g.generateRaw(dir, name, pe, model, gated, force)
+			return g.generateRaw(dir, name, pe, model, tvPath, gated, force)
 		case blendedKind:
 			pe, ok := g.privEnds[name]
 			if !ok {

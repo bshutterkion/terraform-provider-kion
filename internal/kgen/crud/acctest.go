@@ -216,6 +216,22 @@ func buildAssocTestData(a assocData, tv testValues) assocTestData {
 	return out
 }
 
+// buildRawTestData reuses the blended payload: a raw_http resource reads
+// through the same kind of private route.
+func buildRawTestData(r rawData, model []ModelField, tv testValues) blendedTestData {
+	sa := map[string]bool{}
+	for _, mf := range model {
+		sa[mf.TFSDK] = mf.Type == "types.String"
+	}
+	out := blendedTestData{
+		acctestData: acctestData{Pkg: r.Pkg, Pascal: r.Pascal, SDKAlias: "generated"},
+		TypeName:    r.TypeName,
+		RawRead:     &rawReadData{Method: r.ReadMethod, Path: r.ReadPath},
+	}
+	fillConfig(&out.acctestData, tv, sa, r.HasUpdate)
+	return out
+}
+
 // buildParentListTestData fills the same payload from a parent_list resolution,
 // whose read is a list under the parent rather than a get by id.
 func buildParentListTestData(pl parentListData, tv testValues) acctestData {

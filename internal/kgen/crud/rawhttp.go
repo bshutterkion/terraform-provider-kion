@@ -328,7 +328,7 @@ func applyReadKind(f *rawField, kind string, mf ModelField) error {
 
 // generateRaw writes a raw-http resource + resource-only service_package (raw
 // resources don't emit a data source).
-func (g *generator) generateRaw(dir, name string, ops rawResourceOps, model []ModelField, gated, force bool) (int, error) {
+func (g *generator) generateRaw(dir, name string, ops rawResourceOps, model []ModelField, tvPath string, gated, force bool) (int, error) {
 	d, err := resolveRaw(name, ops, model)
 	if err != nil {
 		return 0, err
@@ -350,6 +350,21 @@ func (g *generator) generateRaw(dir, name string, ops rawResourceOps, model []Mo
 		if err := g.writeFile(f.path, f.data, force); err != nil {
 			return 0, err
 		}
+	}
+	tv, hasTV, err := loadTestValues(tvPath, name)
+	if err != nil {
+		return 0, err
+	}
+	if hasTV {
+		test, err := execGoTemplate("blendedtest", blendedTestTmpl, buildRawTestData(d, model, tv), name+"_test.go")
+		if err != nil {
+			return 0, err
+		}
+		if err := g.writeFile(filepath.Join(dir, name+"_test.go"), test, force); err != nil {
+			return 0, err
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "kgen crud: %s: no test_values entry; skipping acceptance tests\n", name)
 	}
 	return 1, nil
 }
