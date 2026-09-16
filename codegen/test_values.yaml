@@ -925,3 +925,62 @@ resources:
       funding_source_id: "hcl:kion_funding_source.test_fs.id"
       name: "test-acc-note"
       text: "test-acc note body, updated"
+  app_role:
+    create:
+      name: "%[1]s"
+    update:
+      name: "%[1]s-upd"
+  billing_rule:
+    env_args: [KION_ACC_BILLING_SOURCE_ID]
+    create:
+      billing_source_ids: "hcl:[%[2]s]"
+      description: "test-acc billing rule"
+      name: "%[1]s"
+      rule_type: "2"
+      rule_value: "5.0"
+      start_month: "202501"
+    update:
+      billing_source_ids: "hcl:[%[2]s]"
+      description: "test-acc billing rule updated"
+      name: "%[1]s"
+      rule_type: "2"
+      rule_value: "10.0"
+      start_month: "202501"
+  permission_scheme:
+    create:
+      name: "%[1]s"
+      type: "ou"
+    update:
+      name: "%[1]s-updated"
+      type: "ou"
+  project_note:
+    fixtures: [FundingSourceConfig]
+    prereqs: |
+      resource "kion_permission_scheme" "test_pn_perm" {
+        name = "%[1]s-pn-perm"
+        type = "project"
+      }
+
+      resource "kion_project" "test" {
+        name                 = "%[1]s-project"
+        ou_id                = kion_ou.test_fs_ou.id
+        permission_scheme_id = kion_permission_scheme.test_pn_perm.id
+        owner_user_ids       = [1]
+
+        budget = [{
+          amount             = 500
+          start_datecode     = "2026-01"
+          end_datecode       = "2026-12"
+          funding_source_ids = [kion_funding_source.test_fs.id]
+        }]
+      }
+    create:
+      create_user_id: "1"
+      name: "%[1]s"
+      project_id: "hcl:kion_project.test.id"
+      text: "test-acc project note"
+    update:
+      create_user_id: "1"
+      name: "%[1]s"
+      project_id: "hcl:kion_project.test.id"
+      text: "test-acc project note, updated"
