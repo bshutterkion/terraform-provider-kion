@@ -699,3 +699,77 @@ resources:
       name: "%[1]s"
       project_id: "hcl:kion_project.test.id"
       start_datecode: "202601"
+  funding_source_enforcement:
+    fixtures: [FundingSourceConfig]
+    create:
+      funding_source_id: "hcl:kion_funding_source.test_fs.id"
+      threshold: "100"
+      timeframe: "month"
+      user_ids: "hcl:[1]"
+    update:
+      cloud_rule_id: "2"
+      funding_source_id: "hcl:kion_funding_source.test_fs.id"
+      threshold: "200"
+      timeframe: "month"
+      user_ids: "hcl:[1]"
+  ou_enforcement:
+    prereqs: |
+      resource "kion_ou" "test_ou" {
+        name = "test-acc-ou-%[1]s"
+        owner_user_ids = [1]
+        parent_ou_id = 0
+        permission_scheme_id = 2
+      }
+    create:
+      ou_id: "hcl:kion_ou.test_ou.id"
+      threshold: "100"
+      timeframe: "month"
+      user_ids: "hcl:[1]"
+    update:
+      cloud_rule_id: "2"
+      ou_id: "hcl:kion_ou.test_ou.id"
+      threshold: "200"
+      timeframe: "month"
+      user_ids: "hcl:[1]"
+  project_enforcement:
+    prereqs: |
+      resource "kion_permission_scheme" "test_perm" {
+        name = "%[1]s-perm"
+        type = "ou"
+      }
+      resource "kion_ou" "test_ou" {
+        name                 = "%[1]s-ou"
+        parent_ou_id         = 0
+        permission_scheme_id = kion_permission_scheme.test_perm.id
+        owner_user_ids       = [1]
+      }
+      resource "kion_permission_scheme" "test_perm_project" {
+        name = "%[1]s-perm-project"
+        type = "project"
+      }
+      resource "kion_project" "test_project" {
+        name                 = "%[1]s-project"
+        ou_id                = kion_ou.test_ou.id
+        permission_scheme_id = kion_permission_scheme.test_perm_project.id
+        owner_user_ids       = [1]
+      }
+    create:
+      amount_type: "custom"
+      description: "test-acc project enforcement"
+      enabled: "true"
+      project_id: "hcl:kion_project.test_project.id"
+      spend_option: "spend"
+      threshold: "1000"
+      threshold_type: "dollar"
+      timeframe: "month"
+      user_ids: "hcl:[1]"
+    update:
+      amount_type: "custom"
+      description: "test-acc project enforcement updated"
+      enabled: "true"
+      project_id: "hcl:kion_project.test_project.id"
+      spend_option: "spend"
+      threshold: "2000"
+      threshold_type: "dollar"
+      timeframe: "month"
+      user_ids: "hcl:[1]"

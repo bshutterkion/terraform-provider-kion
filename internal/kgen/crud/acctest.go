@@ -94,13 +94,23 @@ type acctestData struct {
 	CreateAttrs               []acctestAttr
 	UpdateAttrs               []acctestAttr
 	HasUpdate                 bool
-	BasicUsesRName            bool
-	UpdateUsesRName           bool
+	// BasicUsesRName is whether the inline HCL has a verb to interpolate, so it
+	// must go through Sprintf; NeedsRName is whether the function takes rName at
+	// all, which a fixture call needs even with nothing to interpolate.
+	BasicUsesRName   bool
+	UpdateUsesRName  bool
+	BasicNeedsRName  bool
+	UpdateNeedsRName bool
 	// Prereqs is HCL for the parent resources the resource under test needs,
 	// emitted ahead of it in both the basic and update configurations.
 	Prereqs   string
 	Fixtures  []string
 	ExtraArgs []string
+	// Parent-list fields: these resources have no by-id GET, so Exists and
+	// Destroy list the parent's children and look for the record.
+	ParentParam, ParentCast, ParentIDTF string
+	ResponseType, RecordIDGo            string
+	RecordIDOpt                         bool
 	// EnvArgs are environment variables whose VALUES the config interpolates,
 	// in order, as %[2]s, %[3]s, ... A value the API requires but the schema
 	// marks optional (kion_category's payer_id) is install-specific, so it
@@ -136,9 +146,54 @@ func buildAcctestData(rm ResourceModel, tv testValues) (acctestData, error) {
 	setCheckExprs(d.UpdateAttrs, d.EnvArgs, d.ExtraArgs)
 	d.Prereqs = strings.TrimRight(tv.Prereqs, "\n")
 	prereqVerb := strings.Contains(d.Prereqs, "%")
-	d.BasicUsesRName = usesFormatVerb(d.CreateAttrs) || prereqVerb || len(d.Fixtures) > 0
-	d.UpdateUsesRName = usesFormatVerb(d.UpdateAttrs) || prereqVerb || len(d.Fixtures) > 0
+	d.BasicUsesRName = usesFormatVerb(d.CreateAttrs) || prereqVerb
+	d.UpdateUsesRName = usesFormatVerb(d.UpdateAttrs) || prereqVerb
+	d.BasicNeedsRName = d.BasicUsesRName || len(d.Fixtures) > 0
+	d.UpdateNeedsRName = d.UpdateUsesRName || len(d.Fixtures) > 0
 	return d, nil
+}
+
+// buildParentListTestData fills the same payload from a parent_list resolution,
+// whose read is a list under the parent rather than a get by id.
+func buildParentListTestData(pl parentListData, tv testValues) acctestData {
+	d := acctestData{
+		Pkg: pl.Pkg, Pascal: pl.Pascal, ResourceType: pl.TypeName, SDKAlias: pl.SDKAlias,
+		ReadMethod: pl.ReadMethod, ReadParams: pl.ReadParams,
+		ParentParam: pl.ParentParam, ParentCast: pl.ParentCast, ParentIDTF: pl.ParentIDTF,
+		ResponseType: pl.ResponseType, RecordIDGo: pl.RecordIDGo, RecordIDOpt: pl.RecordIDOpt,
+	}
+	d.CreateAttrs = sortAttrsByType(tv.Create, pl.StringAttrs)
+	d.UpdateAttrs = sortAttrsByType(tv.Update, pl.StringAttrs)
+	for _, a := range d.CreateAttrs {
+		d.AttrNames = append(d.AttrNames, a.Name)
+	}
+	d.HasUpdate = pl.HasUpdate && len(tv.Update) > 0
+	d.EnvArgs = envArgsFor(tv.EnvArgs)
+	d.Fixtures, d.ExtraArgs = tv.Fixtures, tv.ExtraArgs
+	setCheckExprs(d.CreateAttrs, d.EnvArgs, d.ExtraArgs)
+	setCheckExprs(d.UpdateAttrs, d.EnvArgs, d.ExtraArgs)
+	d.Prereqs = strings.TrimRight(tv.Prereqs, "\n")
+	verb := strings.Contains(d.Prereqs, "%")
+	d.BasicUsesRName = usesFormatVerb(d.CreateAttrs) || verb
+	d.UpdateUsesRName = usesFormatVerb(d.UpdateAttrs) || verb
+	d.BasicNeedsRName = d.BasicUsesRName || len(d.Fixtures) > 0
+	d.UpdateNeedsRName = d.UpdateUsesRName || len(d.Fixtures) > 0
+	return d
+}
+
+// sortAttrsByType is sortAttrs against a set of string-typed attribute names,
+// for archetypes that carry no ResourceModel.
+func sortAttrsByType(m map[string]string, stringAttrs map[string]bool) []acctestAttr {
+	out := make([]acctestAttr, 0, len(m))
+	for k, v := range m {
+		if expr, ok := strings.CutPrefix(v, hclPrefix); ok {
+			out = append(out, acctestAttr{Name: k, Value: expr, IsHCL: true})
+			continue
+		}
+		out = append(out, acctestAttr{Name: k, Value: v, Quoted: stringAttrs[k]})
+	}
+	slices.SortFunc(out, func(a, b acctestAttr) int { return cmp.Compare(a.Name, b.Name) })
+	return out
 }
 
 func sortAttrs(m map[string]string, rm ResourceModel) []acctestAttr {

@@ -3,7 +3,7 @@
 package {{.Pkg}}_test
 
 import (
-	{{if .BasicUsesRName}}"fmt"
+	{{if .BasicNeedsRName}}"fmt"
 	{{end}}{{if .EnvArgs}}"os"
 	{{end}}"testing"
 
@@ -37,7 +37,7 @@ func TestAccKion{{.Pascal}}DataSource_basic(t *testing.T) {
 	})
 }
 
-func testAcc{{.Pascal}}DataSourceConfig_basic({{if .BasicUsesRName}}rName{{else}}_{{end}} string{{range .EnvArgs}}, {{.Param}} string{{end}}) string {
+func testAcc{{.Pascal}}DataSourceConfig_basic({{if .BasicNeedsRName}}rName{{else}}_{{end}} string{{range .EnvArgs}}, {{.Param}} string{{end}}) string {
 	return {{range .Fixtures}}acctest.{{.}}(rName) + {{end}}{{if .BasicUsesRName}}fmt.Sprintf(`
 {{- if .Prereqs}}
 {{.Prereqs}}

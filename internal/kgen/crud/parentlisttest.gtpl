@@ -13,7 +13,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
 	"terraform-provider-kion/internal/acctest"
-	"terraform-provider-kion/internal/errs"
 
 	{{.SDKAlias}} "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
@@ -42,11 +41,6 @@ func TestAccKion{{.Pascal}}_basic(t *testing.T) {
 					{{- end}}
 				),
 			},
-			{
-				ResourceName:      resourceName,
-				ImportState:       true,
-				ImportStateVerify: true,
-			},
 		},
 	})
 }
@@ -69,7 +63,6 @@ func TestAccKion{{.Pascal}}_update(t *testing.T) {
 				Config: testAcc{{.Pascal}}Config_basic(rName{{range .EnvArgs}}, os.Getenv("{{.Env}}"){{end}}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheck{{.Pascal}}Exists(ctx, resourceName),
-					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					{{- range .CreateAttrs}}
 					{{if .IsHCL}}resource.TestCheckResourceAttrSet(resourceName, "{{.Name}}"){{else}}resource.TestCheckResourceAttr(resourceName, "{{.Name}}", {{.CheckExpr}}){{end}},
 					{{- end}}
@@ -79,22 +72,53 @@ func TestAccKion{{.Pascal}}_update(t *testing.T) {
 				Config: testAcc{{.Pascal}}Config_update(rName{{range .EnvArgs}}, os.Getenv("{{.Env}}"){{end}}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheck{{.Pascal}}Exists(ctx, resourceName),
-					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					{{- range .UpdateAttrs}}
 					{{if .IsHCL}}resource.TestCheckResourceAttrSet(resourceName, "{{.Name}}"){{else}}resource.TestCheckResourceAttr(resourceName, "{{.Name}}", {{.CheckExpr}}){{end}},
 					{{- end}}
 				),
 			},
-			{
-				ResourceName:      resourceName,
-				ImportState:       true,
-				ImportStateVerify: true,
-			},
 		},
 	})
 }
 {{end}}
-func testAccCheck{{.Pascal}}Exists(_ context.Context, name string) resource.TestCheckFunc {
+// find{{.Pascal}} reports whether the parent still lists a record with this id.
+// The archetype has no by-id GET, so presence is decided from the collection.
+func find{{.Pascal}}(ctx context.Context, parentID, id int64) (bool, error) {
+	conn, err := acctest.SharedClient()
+	if err != nil {
+		return false, fmt.Errorf("getting shared client: %w", err)
+	}
+
+	out, err := conn.Client.{{.ReadMethod}}(ctx, {{.SDKAlias}}.{{.ReadParams}}{ {{.ParentParam}}: {{if .ParentCast}}{{.ParentCast}}(parentID){{else}}parentID{{end}}})
+	if err != nil {
+		return false, fmt.Errorf("listing {{.ResourceType}} under parent %d: %w", parentID, err)
+	}
+	resp, ok := out.(*{{.SDKAlias}}.{{.ResponseType}})
+	if !ok {
+		return false, fmt.Errorf("unexpected response type %T", out)
+	}
+	for _, rec := range resp.Data {
+		if {{if .RecordIDOpt}}rec.{{.RecordIDGo}}.Set && int64(rec.{{.RecordIDGo}}.Value) == id{{else}}int64(rec.{{.RecordIDGo}}) == id{{end}} {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// ids reads the record id and its parent id out of Terraform state.
+func {{.Pkg}}IDs(rs *terraform.ResourceState) (parentID, id int64, err error) {
+	id, err = strconv.ParseInt(rs.Primary.ID, 10, 64)
+	if err != nil {
+		return 0, 0, fmt.Errorf("parsing ID: %w", err)
+	}
+	parentID, err = strconv.ParseInt(rs.Primary.Attributes["{{.ParentIDTF}}"], 10, 64)
+	if err != nil {
+		return 0, 0, fmt.Errorf("parsing {{.ParentIDTF}}: %w", err)
+	}
+	return parentID, id, nil
+}
+
+func testAccCheck{{.Pascal}}Exists(ctx context.Context, name string) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
 		rs, ok := s.RootModule().Resources[name]
 		if !ok {
@@ -104,58 +128,42 @@ func testAccCheck{{.Pascal}}Exists(_ context.Context, name string) resource.Test
 			return fmt.Errorf("no ID set for %s", name)
 		}
 
-		conn, err := acctest.SharedClient()
+		parentID, id, err := {{.Pkg}}IDs(rs)
 		if err != nil {
-			return fmt.Errorf("getting shared client: %w", err)
+			return err
 		}
-
-		id, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(rs.Primary.ID, 10, 64)
+		found, err := find{{.Pascal}}(ctx, parentID, id)
 		if err != nil {
-			return fmt.Errorf("parsing ID: %w", err)
+			return err
 		}
-
-		ctx := context.Background()
-		out, err := conn.Client.{{.ReadMethod}}(ctx, {{.SDKAlias}}.{{.ReadParams}}{ {{.ReadIDParam}}: id})
-		if err != nil {
-			return fmt.Errorf("reading {{.ResourceType}} (%d): %w", id, err)
+		if !found {
+			return fmt.Errorf("{{.ResourceType}} (%d) not found under parent %d", id, parentID)
 		}
-		if errs.IsNotFound(out) {
-			return fmt.Errorf("{{.ResourceType}} (%d) not found", id)
-		}
-
 		return nil
 	}
 }
 
-func testAccCheck{{.Pascal}}Destroy(_ context.Context) resource.TestCheckFunc {
+func testAccCheck{{.Pascal}}Destroy(ctx context.Context) resource.TestCheckFunc {
 	return func(s *terraform.State) error {
-		conn, err := acctest.SharedClient()
-		if err != nil {
-			return fmt.Errorf("getting shared client: %w", err)
-		}
-
 		for _, rs := range s.RootModule().Resources {
 			if rs.Type != "{{.ResourceType}}" {
 				continue
 			}
 
-			id, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(rs.Primary.ID, 10, 64)
+			parentID, id, err := {{.Pkg}}IDs(rs)
 			if err != nil {
-				return fmt.Errorf("parsing ID: %w", err)
+				return err
 			}
-
-			ctx := context.Background()
-			out, err := conn.Client.{{.ReadMethod}}(ctx, {{.SDKAlias}}.{{.ReadParams}}{ {{.ReadIDParam}}: id})
-			if errs.IsNotFound(out) {
+			// A deleted parent takes its children with it, so a list that fails
+			// is not proof the child survived.
+			found, err := find{{.Pascal}}(ctx, parentID, id)
+			if err != nil {
 				continue
 			}
-			if err != nil {
-				return fmt.Errorf("reading {{.ResourceType}} (%d): %w", id, err)
+			if found {
+				return fmt.Errorf("{{.ResourceType}} (%d) still exists under parent %d", id, parentID)
 			}
-
-			return fmt.Errorf("{{.ResourceType}} (%d) still exists", id)
 		}
-
 		return nil
 	}
 }

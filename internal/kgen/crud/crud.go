@@ -326,7 +326,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 			}
 			return g.generateBlended(dir, name, ops, idx, pe, model, gated, force)
 		case parentListKind:
-			return g.generateParentList(dir, name, ops, idx, *arch, model, gated, force)
+			return g.generateParentList(dir, name, ops, idx, *arch, model, tvPath, gated, force)
 		case entityKind:
 			entityArch = arch // normal entity path, with archetype tweaks applied below
 		default:
