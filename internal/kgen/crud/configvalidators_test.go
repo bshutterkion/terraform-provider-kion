@@ -1,6 +1,7 @@
 package crud_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -124,6 +125,68 @@ func TestConfigValidatorAttributesExist(t *testing.T) {
 		for _, a := range d.AtLeastOneOf {
 			assert.Truef(t, attrs[a],
 				"%s: config_validators.yaml names %q, which its resource schema does not declare", pkg, a)
+		}
+	}
+}
+
+// TestRequiredWhenMatchDeclaration is the other half of
+// TestConfigValidatorsMatchDeclaration: that one reads path.MatchRoot, which
+// required_when does not emit, so without this a dropped rule passes both.
+func TestRequiredWhenMatchDeclaration(t *testing.T) {
+	t.Parallel()
+
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "codegen", "config_validators.yaml"))
+	require.NoError(t, err)
+
+	var declared map[string]struct {
+		RequiredWhen []struct {
+			Attribute string   `yaml:"attribute"`
+			Equals    int64    `yaml:"equals"`
+			Require   []string `yaml:"require"`
+		} `yaml:"required_when"`
+	}
+	require.NoError(t, yaml.Unmarshal(raw, &declared))
+
+	// framework.RequiredWhenInt64("attr", N, followed by the required names.
+	call := regexp.MustCompile(`framework\.RequiredWhenInt64\("([a-z0-9_]+)",\s*(\d+),([^)]*)\)`)
+	name := regexp.MustCompile(`"([a-z0-9_]+)"`)
+
+	root := filepath.Join("..", "..", "service")
+	for pkg, d := range declared {
+		if len(d.RequiredWhen) == 0 {
+			continue
+		}
+		files, err := filepath.Glob(filepath.Join(root, pkg, "*.go"))
+		require.NoError(t, err)
+
+		emitted := map[string][]string{} // "attr=N" -> required names
+		for _, f := range files {
+			if strings.HasSuffix(f, "_test.go") {
+				continue
+			}
+			src, err := os.ReadFile(f)
+			require.NoError(t, err)
+			for _, m := range call.FindAllStringSubmatch(string(src), -1) {
+				var req []string
+				for _, n := range name.FindAllStringSubmatch(m[3], -1) {
+					req = append(req, n[1])
+				}
+				sort.Strings(req)
+				emitted[m[1]+"="+m[2]] = req
+			}
+		}
+
+		for _, rw := range d.RequiredWhen {
+			key := fmt.Sprintf("%s=%d", rw.Attribute, rw.Equals)
+			want := append([]string(nil), rw.Require...)
+			sort.Strings(want)
+			got, ok := emitted[key]
+			assert.Truef(t, ok,
+				"%s declares required_when %s but its resource emits no matching validator; run `make crud-force`",
+				pkg, key)
+			if ok {
+				assert.Equalf(t, want, got, "%s %s: declared and emitted differ", pkg, key)
+			}
 		}
 	}
 }

@@ -23,9 +23,10 @@ import (
 const ResNameProjectCloudAccessRole = "ProjectCloudAccessRole"
 
 var (
-	_ resource.Resource                = &project_cloud_access_roleResource{}
-	_ resource.ResourceWithConfigure   = &project_cloud_access_roleResource{}
-	_ resource.ResourceWithImportState = &project_cloud_access_roleResource{}
+	_ resource.Resource                     = &project_cloud_access_roleResource{}
+	_ resource.ResourceWithConfigure        = &project_cloud_access_roleResource{}
+	_ resource.ResourceWithImportState      = &project_cloud_access_roleResource{}
+	_ resource.ResourceWithConfigValidators = &project_cloud_access_roleResource{}
 )
 
 // NewProjectCloudAccessRoleResource returns a new instance of the resource.
@@ -39,6 +40,25 @@ type project_cloud_access_roleResource struct {
 
 func (r *project_cloud_access_roleResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_project_cloud_access_role"
+}
+
+// ConfigValidators expresses constraints the API enforces across attributes,
+// which the schema cannot: an attribute required only for some value of another
+// is not Required on its own, so without this the configuration reaches the API
+// and comes back as a validation error naming the Go struct field rather than
+// the Terraform attribute.
+func (r *project_cloud_access_roleResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		framework.RequiredWhenInt64("cloud_access_role_type_id", 2,
+			"aws_iam_role_trust_policy",
+		),
+		framework.RequiredWhenInt64("cloud_access_role_type_id", 3,
+			"aws_trusted_account_numbers",
+		),
+		framework.RequiredWhenInt64("cloud_access_role_type_id", 4,
+			"aws_trusted_services",
+		),
+	}
 }
 
 func (r *project_cloud_access_roleResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -76,6 +96,10 @@ func (r *project_cloud_access_roleResource) Create(ctx context.Context, req reso
 	}
 	aWSIamPolicies, aWSIamPoliciesDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.AwsIamPolicies)
 	resp.Diagnostics.Append(aWSIamPoliciesDiags...)
+	aWSTrustedAccountNumbers, aWSTrustedAccountNumbersDiags := flex.StringSliceFromFramework(ctx, plan.AwsTrustedAccountNumbers)
+	resp.Diagnostics.Append(aWSTrustedAccountNumbersDiags...)
+	aWSTrustedServices, aWSTrustedServicesDiags := flex.StringSliceFromFramework(ctx, plan.AwsTrustedServices)
+	resp.Diagnostics.Append(aWSTrustedServicesDiags...)
 	accountIds, accountIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.AccountIds)
 	resp.Diagnostics.Append(accountIdsDiags...)
 	azureRoleDefinitions, azureRoleDefinitionsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.AzureRoleDefinitions)
@@ -93,10 +117,14 @@ func (r *project_cloud_access_roleResource) Create(ctx context.Context, req reso
 	}
 
 	input := &generated.ProjectCloudAccessRoleCreate{
+		AWSCreateInstanceProfile:  flex.OptNilBoolFromFramework(plan.AwsCreateInstanceProfile),
 		AWSIamPath:                flex.OptStringFromFramework(plan.AwsIamPath),
 		AWSIamPermissionsBoundary: flex.OptNilUint64FromFramework(plan.AwsIamPermissionsBoundary),
 		AWSIamRoleName:            flex.OptStringFromFramework(plan.AwsIamRoleName),
+		AWSIamRoleTrustPolicy:     flex.OptStringFromFramework(plan.AwsIamRoleTrustPolicy),
+		AWSPartition:              flex.OptStringFromFramework(plan.AwsPartition),
 		ApplyToAllAccounts:        flex.OptNilBoolFromFramework(plan.ApplyToAllAccounts),
+		CloudAccessRoleTypeID:     flex.OptNilUint64FromFramework(plan.CloudAccessRoleTypeId),
 		FutureAccounts:            flex.OptNilBoolFromFramework(plan.FutureAccounts),
 		LongTermAccessKeys:        flex.OptNilBoolFromFramework(plan.LongTermAccessKeys),
 		Name:                      flex.StringValueFromFramework(plan.Name),
@@ -104,6 +132,8 @@ func (r *project_cloud_access_roleResource) Create(ctx context.Context, req reso
 		ShortTermAccessKeys:       flex.OptNilBoolFromFramework(plan.ShortTermAccessKeys),
 		WebAccess:                 flex.OptNilBoolFromFramework(plan.WebAccess),
 		AWSIamPolicies:            generated.OptNilUint64Array{Value: aWSIamPolicies, Set: true},
+		AWSTrustedAccountNumbers:  generated.OptNilStringArray{Value: aWSTrustedAccountNumbers, Set: true},
+		AWSTrustedServices:        generated.OptNilStringArray{Value: aWSTrustedServices, Set: true},
 		AccountIds:                generated.OptNilUint64Array{Value: accountIds, Set: true},
 		AzureRoleDefinitions:      generated.OptNilUint64Array{Value: azureRoleDefinitions, Set: true},
 		CloudProviderIds:          generated.OptNilUint64Array{Value: cloudProviderIds, Set: true},
@@ -219,6 +249,10 @@ func (r *project_cloud_access_roleResource) Update(ctx context.Context, req reso
 			TagValue:            flex.OptStringFromFramework(elem.TagValue),
 		})
 	}
+	aWSTrustedAccountNumbers, aWSTrustedAccountNumbersDiags := flex.StringSliceFromFramework(ctx, plan.AwsTrustedAccountNumbers)
+	resp.Diagnostics.Append(aWSTrustedAccountNumbersDiags...)
+	aWSTrustedServices, aWSTrustedServicesDiags := flex.StringSliceFromFramework(ctx, plan.AwsTrustedServices)
+	resp.Diagnostics.Append(aWSTrustedServicesDiags...)
 	cloudProviderIds, cloudProviderIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.CloudProviderIds)
 	resp.Diagnostics.Append(cloudProviderIdsDiags...)
 	if resp.Diagnostics.HasError() {
@@ -226,13 +260,18 @@ func (r *project_cloud_access_roleResource) Update(ctx context.Context, req reso
 	}
 
 	input := &generated.ProjectCloudAccessRoleUpdate{
+		AWSCreateInstanceProfile:  flex.OptNilBoolFromFramework(plan.AwsCreateInstanceProfile),
 		AWSIamPermissionsBoundary: flex.OptNilUint64FromFramework(plan.AwsIamPermissionsBoundary),
+		AWSIamRoleTrustPolicy:     flex.OptStringFromFramework(plan.AwsIamRoleTrustPolicy),
+		AWSPartition:              flex.OptStringFromFramework(plan.AwsPartition),
 		ApplyToAllAccounts:        flex.OptNilBoolFromFramework(plan.ApplyToAllAccounts),
 		FutureAccounts:            flex.OptNilBoolFromFramework(plan.FutureAccounts),
 		LongTermAccessKeys:        flex.OptNilBoolFromFramework(plan.LongTermAccessKeys),
 		Name:                      flex.StringValueFromFramework(plan.Name),
 		ShortTermAccessKeys:       flex.OptNilBoolFromFramework(plan.ShortTermAccessKeys),
 		WebAccess:                 flex.OptNilBoolFromFramework(plan.WebAccess),
+		AWSTrustedAccountNumbers:  generated.OptNilStringArray{Value: aWSTrustedAccountNumbers, Set: true},
+		AWSTrustedServices:        generated.OptNilStringArray{Value: aWSTrustedServices, Set: true},
 		CloudProviderIds:          generated.OptNilUint64Array{Value: cloudProviderIds, Set: true},
 		AWSSessionTags:            generated.OptNilAWSSessionTagArray{Value: aWSSessionTags, Set: true},
 	}
@@ -349,8 +388,12 @@ func flattenProjectCloudAccessRole(ctx context.Context, apiObject any, model *Pr
 	case *generated.ProjectCloudAccessRoleResponse:
 		if v.Data.Set {
 			model.ApplyToAllAccounts = flex.OptNilBoolToFramework(v.Data.Value.ProjectCloudAccessRole.Value.ApplyToAllAccounts)
+			model.AwsCreateInstanceProfile = flex.OptNilBoolToFramework(v.Data.Value.ProjectCloudAccessRole.Value.AWSCreateInstanceProfile)
 			model.AwsIamPath = flex.OptStringToFramework(v.Data.Value.ProjectCloudAccessRole.Value.AWSIamPath)
 			model.AwsIamRoleName = flex.OptStringToFramework(v.Data.Value.ProjectCloudAccessRole.Value.AWSIamRoleName)
+			model.AwsIamRoleTrustPolicy = flex.OptStringToFramework(v.Data.Value.ProjectCloudAccessRole.Value.AWSIamRoleTrustPolicy)
+			model.AwsPartition = flex.OptStringToFramework(v.Data.Value.ProjectCloudAccessRole.Value.AWSPartition)
+			model.CloudAccessRoleTypeId = flex.OptNilUint64ToFramework(v.Data.Value.ProjectCloudAccessRole.Value.CloudAccessRoleTypeID)
 			model.FutureAccounts = flex.OptNilBoolToFramework(v.Data.Value.ProjectCloudAccessRole.Value.FutureAccounts)
 			if v.Data.Value.ProjectCloudAccessRole.Value.ID.Set {
 				model.Id = types.StringValue(strconv.FormatUint(v.Data.Value.ProjectCloudAccessRole.Value.ID.Value, 10))
@@ -360,6 +403,12 @@ func flattenProjectCloudAccessRole(ctx context.Context, apiObject any, model *Pr
 			model.ProjectId = flex.OptNilUint64ToFramework(v.Data.Value.ProjectCloudAccessRole.Value.ProjectID)
 			model.ShortTermAccessKeys = flex.OptNilBoolToFramework(v.Data.Value.ProjectCloudAccessRole.Value.ShortTermAccessKeys)
 			model.WebAccess = flex.OptNilBoolToFramework(v.Data.Value.ProjectCloudAccessRole.Value.WebAccess)
+			aWSTrustedAccountNumbers, aWSTrustedAccountNumbersDiags := flex.StringSliceToFramework(ctx, v.Data.Value.ProjectCloudAccessRole.Value.AWSTrustedAccountNumbers.Value)
+			diags.Append(aWSTrustedAccountNumbersDiags...)
+			model.AwsTrustedAccountNumbers = aWSTrustedAccountNumbers
+			aWSTrustedServices, aWSTrustedServicesDiags := flex.StringSliceToFramework(ctx, v.Data.Value.ProjectCloudAccessRole.Value.AWSTrustedServices.Value)
+			diags.Append(aWSTrustedServicesDiags...)
+			model.AwsTrustedServices = aWSTrustedServices
 			cloudProviderIds, cloudProviderIdsDiags := flex.Uint64SliceToFrameworkSet(ctx, v.Data.Value.CloudProviderIds.Value)
 			diags.Append(cloudProviderIdsDiags...)
 			model.CloudProviderIds = cloudProviderIds

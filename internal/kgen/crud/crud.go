@@ -487,6 +487,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	}
 
 	rm.AtLeastOneOf = g.configValidators.For(name)
+	rm.RequiredWhen = g.configValidators.RequiredWhenFor(name)
 	if entityArch != nil {
 		rm.EmptyCollections = entityArch.EmptyCollections
 		// An entity whose delete needs a parent the read does not return must
@@ -520,12 +521,14 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		// otherwise silently drop the validator the declaration promises.
 		tmplData := struct {
 			AtLeastOneOf   []string
+			RequiredWhen   []RequiredWhen
 			SDKAlias       string
 			ResConst       string
 			Labels         *labelSyncBind
 			LabelsRespType string
 		}{
 			AtLeastOneOf:   rm.AtLeastOneOf,
+			RequiredWhen:   rm.RequiredWhen,
 			SDKAlias:       "generated",
 			ResConst:       "ResName" + pascalCase(name),
 			Labels:         rm.Labels,

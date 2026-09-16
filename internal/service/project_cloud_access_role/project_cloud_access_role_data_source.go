@@ -30,16 +30,20 @@ var (
 
 // listObjectAttrTypes is the schema of an entry inside the `list` attribute.
 var listObjectAttrTypes = map[string]attr.Type{
-	"id":                     types.Int64Type,
-	"apply_to_all_accounts":  types.BoolType,
-	"aws_iam_path":           types.StringType,
-	"aws_iam_role_name":      types.StringType,
-	"future_accounts":        types.BoolType,
-	"long_term_access_keys":  types.BoolType,
-	"name":                   types.StringType,
-	"project_id":             types.Int64Type,
-	"short_term_access_keys": types.BoolType,
-	"web_access":             types.BoolType,
+	"id":                          types.Int64Type,
+	"apply_to_all_accounts":       types.BoolType,
+	"aws_create_instance_profile": types.BoolType,
+	"aws_iam_path":                types.StringType,
+	"aws_iam_role_name":           types.StringType,
+	"aws_iam_role_trust_policy":   types.StringType,
+	"aws_partition":               types.StringType,
+	"cloud_access_role_type_id":   types.Int64Type,
+	"future_accounts":             types.BoolType,
+	"long_term_access_keys":       types.BoolType,
+	"name":                        types.StringType,
+	"project_id":                  types.Int64Type,
+	"short_term_access_keys":      types.BoolType,
+	"web_access":                  types.BoolType,
 }
 
 // NewProjectCloudAccessRoleDataSource returns a new instance of the data source.
@@ -70,10 +74,22 @@ func (d *project_cloud_access_roleDataSource) Schema(_ context.Context, _ dataso
 			"apply_to_all_accounts": schema.BoolAttribute{
 				Computed: true,
 			},
+			"aws_create_instance_profile": schema.BoolAttribute{
+				Computed: true,
+			},
 			"aws_iam_path": schema.StringAttribute{
 				Computed: true,
 			},
 			"aws_iam_role_name": schema.StringAttribute{
+				Computed: true,
+			},
+			"aws_iam_role_trust_policy": schema.StringAttribute{
+				Computed: true,
+			},
+			"aws_partition": schema.StringAttribute{
+				Computed: true,
+			},
+			"cloud_access_role_type_id": schema.Int64Attribute{
 				Computed: true,
 			},
 			"future_accounts": schema.BoolAttribute{
@@ -105,10 +121,22 @@ func (d *project_cloud_access_roleDataSource) Schema(_ context.Context, _ dataso
 						"apply_to_all_accounts": schema.BoolAttribute{
 							Computed: true,
 						},
+						"aws_create_instance_profile": schema.BoolAttribute{
+							Computed: true,
+						},
 						"aws_iam_path": schema.StringAttribute{
 							Computed: true,
 						},
 						"aws_iam_role_name": schema.StringAttribute{
+							Computed: true,
+						},
+						"aws_iam_role_trust_policy": schema.StringAttribute{
+							Computed: true,
+						},
+						"aws_partition": schema.StringAttribute{
+							Computed: true,
+						},
+						"cloud_access_role_type_id": schema.Int64Attribute{
 							Computed: true,
 						},
 						"future_accounts": schema.BoolAttribute{
@@ -191,8 +219,12 @@ func (d *project_cloud_access_roleDataSource) readByID(ctx context.Context, conn
 	lbl := api.Data.Value
 	data.Id = flex.OptUint64ToFramework(lbl.ProjectCloudAccessRole.Value.ID)
 	data.ApplyToAllAccounts = flex.OptNilBoolToFramework(lbl.ProjectCloudAccessRole.Value.ApplyToAllAccounts)
+	data.AwsCreateInstanceProfile = flex.OptNilBoolToFramework(lbl.ProjectCloudAccessRole.Value.AWSCreateInstanceProfile)
 	data.AwsIamPath = flex.OptStringToFramework(lbl.ProjectCloudAccessRole.Value.AWSIamPath)
 	data.AwsIamRoleName = flex.OptStringToFramework(lbl.ProjectCloudAccessRole.Value.AWSIamRoleName)
+	data.AwsIamRoleTrustPolicy = flex.OptStringToFramework(lbl.ProjectCloudAccessRole.Value.AWSIamRoleTrustPolicy)
+	data.AwsPartition = flex.OptStringToFramework(lbl.ProjectCloudAccessRole.Value.AWSPartition)
+	data.CloudAccessRoleTypeId = flex.OptNilUint64ToFramework(lbl.ProjectCloudAccessRole.Value.CloudAccessRoleTypeID)
 	data.FutureAccounts = flex.OptNilBoolToFramework(lbl.ProjectCloudAccessRole.Value.FutureAccounts)
 	data.LongTermAccessKeys = flex.OptNilBoolToFramework(lbl.ProjectCloudAccessRole.Value.LongTermAccessKeys)
 	data.Name = flex.OptStringToFramework(lbl.ProjectCloudAccessRole.Value.Name)
@@ -237,8 +269,12 @@ func (d *project_cloud_access_roleDataSource) readByFilter(ctx context.Context, 
 	// Scalar fields stay null in filter mode.
 	data.Id = types.Int64Null()
 	data.ApplyToAllAccounts = types.BoolNull()
+	data.AwsCreateInstanceProfile = types.BoolNull()
 	data.AwsIamPath = types.StringNull()
 	data.AwsIamRoleName = types.StringNull()
+	data.AwsIamRoleTrustPolicy = types.StringNull()
+	data.AwsPartition = types.StringNull()
+	data.CloudAccessRoleTypeId = types.Int64Null()
 	data.FutureAccounts = types.BoolNull()
 	data.LongTermAccessKeys = types.BoolNull()
 	data.Name = types.StringNull()
@@ -277,15 +313,19 @@ func fetchAllProjectCloudAccessRole(ctx context.Context, conn *generated.Client)
 // project_cloud_access_roleToRow converts an element into the map filter.Match expects.
 func project_cloud_access_roleToRow(lbl generated.ProjectCloudAccessRoleFull) map[string]any {
 	row := map[string]any{
-		"apply_to_all_accounts":  lbl.ProjectCloudAccessRole.Value.ApplyToAllAccounts.Or(false),
-		"aws_iam_path":           lbl.ProjectCloudAccessRole.Value.AWSIamPath.Or(""),
-		"aws_iam_role_name":      lbl.ProjectCloudAccessRole.Value.AWSIamRoleName.Or(""),
-		"future_accounts":        lbl.ProjectCloudAccessRole.Value.FutureAccounts.Or(false),
-		"long_term_access_keys":  lbl.ProjectCloudAccessRole.Value.LongTermAccessKeys.Or(false),
-		"name":                   lbl.ProjectCloudAccessRole.Value.Name.Or(""),
-		"project_id":             int64(lbl.ProjectCloudAccessRole.Value.ProjectID.Or(0)),
-		"short_term_access_keys": lbl.ProjectCloudAccessRole.Value.ShortTermAccessKeys.Or(false),
-		"web_access":             lbl.ProjectCloudAccessRole.Value.WebAccess.Or(false),
+		"apply_to_all_accounts":       lbl.ProjectCloudAccessRole.Value.ApplyToAllAccounts.Or(false),
+		"aws_create_instance_profile": lbl.ProjectCloudAccessRole.Value.AWSCreateInstanceProfile.Or(false),
+		"aws_iam_path":                lbl.ProjectCloudAccessRole.Value.AWSIamPath.Or(""),
+		"aws_iam_role_name":           lbl.ProjectCloudAccessRole.Value.AWSIamRoleName.Or(""),
+		"aws_iam_role_trust_policy":   lbl.ProjectCloudAccessRole.Value.AWSIamRoleTrustPolicy.Or(""),
+		"aws_partition":               lbl.ProjectCloudAccessRole.Value.AWSPartition.Or(""),
+		"cloud_access_role_type_id":   int64(lbl.ProjectCloudAccessRole.Value.CloudAccessRoleTypeID.Or(0)),
+		"future_accounts":             lbl.ProjectCloudAccessRole.Value.FutureAccounts.Or(false),
+		"long_term_access_keys":       lbl.ProjectCloudAccessRole.Value.LongTermAccessKeys.Or(false),
+		"name":                        lbl.ProjectCloudAccessRole.Value.Name.Or(""),
+		"project_id":                  int64(lbl.ProjectCloudAccessRole.Value.ProjectID.Or(0)),
+		"short_term_access_keys":      lbl.ProjectCloudAccessRole.Value.ShortTermAccessKeys.Or(false),
+		"web_access":                  lbl.ProjectCloudAccessRole.Value.WebAccess.Or(false),
 	}
 	if lbl.ProjectCloudAccessRole.Value.ID.Set {
 		row["id"] = int64(lbl.ProjectCloudAccessRole.Value.ID.Value)
@@ -302,16 +342,20 @@ func buildProjectCloudAccessRoleList(ctx context.Context, items []generated.Proj
 			idVal = types.Int64Value(int64(lbl.ProjectCloudAccessRole.Value.ID.Value))
 		}
 		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
-			"id":                     idVal,
-			"apply_to_all_accounts":  types.BoolValue(lbl.ProjectCloudAccessRole.Value.ApplyToAllAccounts.Or(false)),
-			"aws_iam_path":           types.StringValue(lbl.ProjectCloudAccessRole.Value.AWSIamPath.Or("")),
-			"aws_iam_role_name":      types.StringValue(lbl.ProjectCloudAccessRole.Value.AWSIamRoleName.Or("")),
-			"future_accounts":        types.BoolValue(lbl.ProjectCloudAccessRole.Value.FutureAccounts.Or(false)),
-			"long_term_access_keys":  types.BoolValue(lbl.ProjectCloudAccessRole.Value.LongTermAccessKeys.Or(false)),
-			"name":                   types.StringValue(lbl.ProjectCloudAccessRole.Value.Name.Or("")),
-			"project_id":             types.Int64Value(int64(lbl.ProjectCloudAccessRole.Value.ProjectID.Or(0))),
-			"short_term_access_keys": types.BoolValue(lbl.ProjectCloudAccessRole.Value.ShortTermAccessKeys.Or(false)),
-			"web_access":             types.BoolValue(lbl.ProjectCloudAccessRole.Value.WebAccess.Or(false)),
+			"id":                          idVal,
+			"apply_to_all_accounts":       types.BoolValue(lbl.ProjectCloudAccessRole.Value.ApplyToAllAccounts.Or(false)),
+			"aws_create_instance_profile": types.BoolValue(lbl.ProjectCloudAccessRole.Value.AWSCreateInstanceProfile.Or(false)),
+			"aws_iam_path":                types.StringValue(lbl.ProjectCloudAccessRole.Value.AWSIamPath.Or("")),
+			"aws_iam_role_name":           types.StringValue(lbl.ProjectCloudAccessRole.Value.AWSIamRoleName.Or("")),
+			"aws_iam_role_trust_policy":   types.StringValue(lbl.ProjectCloudAccessRole.Value.AWSIamRoleTrustPolicy.Or("")),
+			"aws_partition":               types.StringValue(lbl.ProjectCloudAccessRole.Value.AWSPartition.Or("")),
+			"cloud_access_role_type_id":   types.Int64Value(int64(lbl.ProjectCloudAccessRole.Value.CloudAccessRoleTypeID.Or(0))),
+			"future_accounts":             types.BoolValue(lbl.ProjectCloudAccessRole.Value.FutureAccounts.Or(false)),
+			"long_term_access_keys":       types.BoolValue(lbl.ProjectCloudAccessRole.Value.LongTermAccessKeys.Or(false)),
+			"name":                        types.StringValue(lbl.ProjectCloudAccessRole.Value.Name.Or("")),
+			"project_id":                  types.Int64Value(int64(lbl.ProjectCloudAccessRole.Value.ProjectID.Or(0))),
+			"short_term_access_keys":      types.BoolValue(lbl.ProjectCloudAccessRole.Value.ShortTermAccessKeys.Or(false)),
+			"web_access":                  types.BoolValue(lbl.ProjectCloudAccessRole.Value.WebAccess.Or(false)),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags
@@ -322,16 +366,20 @@ func buildProjectCloudAccessRoleList(ctx context.Context, items []generated.Proj
 }
 
 type project_cloud_access_roleDataSourceModel struct {
-	Id                  types.Int64    `tfsdk:"id"`
-	ApplyToAllAccounts  types.Bool     `tfsdk:"apply_to_all_accounts"`
-	AwsIamPath          types.String   `tfsdk:"aws_iam_path"`
-	AwsIamRoleName      types.String   `tfsdk:"aws_iam_role_name"`
-	FutureAccounts      types.Bool     `tfsdk:"future_accounts"`
-	LongTermAccessKeys  types.Bool     `tfsdk:"long_term_access_keys"`
-	Name                types.String   `tfsdk:"name"`
-	ProjectId           types.Int64    `tfsdk:"project_id"`
-	ShortTermAccessKeys types.Bool     `tfsdk:"short_term_access_keys"`
-	WebAccess           types.Bool     `tfsdk:"web_access"`
-	Filter              []filter.Model `tfsdk:"filter"`
-	List                types.List     `tfsdk:"list"`
+	Id                       types.Int64    `tfsdk:"id"`
+	ApplyToAllAccounts       types.Bool     `tfsdk:"apply_to_all_accounts"`
+	AwsCreateInstanceProfile types.Bool     `tfsdk:"aws_create_instance_profile"`
+	AwsIamPath               types.String   `tfsdk:"aws_iam_path"`
+	AwsIamRoleName           types.String   `tfsdk:"aws_iam_role_name"`
+	AwsIamRoleTrustPolicy    types.String   `tfsdk:"aws_iam_role_trust_policy"`
+	AwsPartition             types.String   `tfsdk:"aws_partition"`
+	CloudAccessRoleTypeId    types.Int64    `tfsdk:"cloud_access_role_type_id"`
+	FutureAccounts           types.Bool     `tfsdk:"future_accounts"`
+	LongTermAccessKeys       types.Bool     `tfsdk:"long_term_access_keys"`
+	Name                     types.String   `tfsdk:"name"`
+	ProjectId                types.Int64    `tfsdk:"project_id"`
+	ShortTermAccessKeys      types.Bool     `tfsdk:"short_term_access_keys"`
+	WebAccess                types.Bool     `tfsdk:"web_access"`
+	Filter                   []filter.Model `tfsdk:"filter"`
+	List                     types.List     `tfsdk:"list"`
 }

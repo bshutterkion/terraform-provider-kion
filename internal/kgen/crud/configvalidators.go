@@ -21,6 +21,16 @@ const ConfigValidatorsPath = "codegen/config_validators.yaml"
 type ConfigValidator struct {
 	Body         string   `yaml:"body"`
 	AtLeastOneOf []string `yaml:"at_least_one_of"`
+	// RequiredWhen covers a constraint conditional on another attribute's
+	// value, which none of the framework's own validators express.
+	RequiredWhen []RequiredWhen `yaml:"required_when"`
+}
+
+// RequiredWhen requires Require once the Attribute attribute equals Equals.
+type RequiredWhen struct {
+	Attribute string   `yaml:"attribute"`
+	Equals    int64    `yaml:"equals"`
+	Require   []string `yaml:"require"`
 }
 
 // ConfigValidatorPolicy answers what a package's resource must validate.
@@ -43,10 +53,22 @@ func LoadConfigValidators(root string) (ConfigValidatorPolicy, error) {
 		return ConfigValidatorPolicy{}, fmt.Errorf("parsing %s: %w", ConfigValidatorsPath, err)
 	}
 	for pkg, v := range entries {
-		if len(v.AtLeastOneOf) < 2 {
+		if len(v.AtLeastOneOf) > 0 && len(v.AtLeastOneOf) < 2 {
 			return ConfigValidatorPolicy{}, fmt.Errorf(
 				"%s: %s.at_least_one_of needs at least two attributes, got %d",
 				ConfigValidatorsPath, pkg, len(v.AtLeastOneOf))
+		}
+		if len(v.AtLeastOneOf) == 0 && len(v.RequiredWhen) == 0 {
+			return ConfigValidatorPolicy{}, fmt.Errorf(
+				"%s: %s declares neither at_least_one_of nor required_when",
+				ConfigValidatorsPath, pkg)
+		}
+		for _, rw := range v.RequiredWhen {
+			if rw.Attribute == "" || len(rw.Require) == 0 {
+				return ConfigValidatorPolicy{}, fmt.Errorf(
+					"%s: %s.required_when needs an attribute and at least one require entry",
+					ConfigValidatorsPath, pkg)
+			}
 		}
 	}
 	return ConfigValidatorPolicy{byPkg: entries}, nil
@@ -55,4 +77,9 @@ func LoadConfigValidators(root string) (ConfigValidatorPolicy, error) {
 // For returns the attributes pkg must require at least one of, or nil.
 func (p ConfigValidatorPolicy) For(pkg string) []string {
 	return p.byPkg[pkg].AtLeastOneOf
+}
+
+// RequiredWhenFor returns pkg's value-conditional constraints, or nil.
+func (p ConfigValidatorPolicy) RequiredWhenFor(pkg string) []RequiredWhen {
+	return p.byPkg[pkg].RequiredWhen
 }

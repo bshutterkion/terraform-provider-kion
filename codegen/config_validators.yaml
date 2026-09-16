@@ -135,3 +135,32 @@ webhook:
   at_least_one_of:
     - owner_user_group_ids
     - owner_user_ids
+
+# Cloud access role types. Each non-User type needs the field that describes who
+# may assume the role; the API rejects the create without it. 1 = User (needs
+# nothing extra), 2 = Custom Trust, 3 = Account, 4 = Service.
+ou_cloud_access_role:
+  body: OUCloudAccessRoleCreate
+  required_when:
+    - attribute: cloud_access_role_type_id
+      equals: 2
+      require: [aws_iam_role_trust_policy]
+    - attribute: cloud_access_role_type_id
+      equals: 3
+      require: [aws_trusted_account_numbers]
+    - attribute: cloud_access_role_type_id
+      equals: 4
+      require: [aws_trusted_services]
+
+project_cloud_access_role:
+  body: ProjectCloudAccessRoleCreate
+  required_when:
+    - attribute: cloud_access_role_type_id
+      equals: 2
+      require: [aws_iam_role_trust_policy]
+    - attribute: cloud_access_role_type_id
+      equals: 3
+      require: [aws_trusted_account_numbers]
+    - attribute: cloud_access_role_type_id
+      equals: 4
+      require: [aws_trusted_services]

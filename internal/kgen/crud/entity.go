@@ -65,6 +65,8 @@ type entityData struct {
 	// AtLeastOneOf are attributes the API requires at least one of. Emitted as
 	// a resource-level ConfigValidator so the failure lands at plan time.
 	AtLeastOneOf []string
+	// RequiredWhen are attributes required only for a given value of another.
+	RequiredWhen []RequiredWhen
 	// RawDeletePath is the private route to DELETE through when the public spec
 	// publishes no delete. Without it the generator emits a Delete that only
 	// warns, so every record a configuration creates survives `terraform
@@ -247,6 +249,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		RespType:       rm.Read.RespType,
 		Gated:          rm.Gated,
 		AtLeastOneOf:   rm.AtLeastOneOf,
+		RequiredWhen:   rm.RequiredWhen,
 		RawDeletePath:  rm.RawDeletePath,
 		ImportParentTF: rm.ImportParentTF,
 		SchemaVersion:  rm.SchemaVersion,

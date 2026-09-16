@@ -30,14 +30,18 @@ var (
 
 // listObjectAttrTypes is the schema of an entry inside the `list` attribute.
 var listObjectAttrTypes = map[string]attr.Type{
-	"id":                     types.Int64Type,
-	"aws_iam_path":           types.StringType,
-	"aws_iam_role_name":      types.StringType,
-	"long_term_access_keys":  types.BoolType,
-	"name":                   types.StringType,
-	"ou_id":                  types.Int64Type,
-	"short_term_access_keys": types.BoolType,
-	"web_access":             types.BoolType,
+	"id":                          types.Int64Type,
+	"aws_create_instance_profile": types.BoolType,
+	"aws_iam_path":                types.StringType,
+	"aws_iam_role_name":           types.StringType,
+	"aws_iam_role_trust_policy":   types.StringType,
+	"aws_partition":               types.StringType,
+	"cloud_access_role_type_id":   types.Int64Type,
+	"long_term_access_keys":       types.BoolType,
+	"name":                        types.StringType,
+	"ou_id":                       types.Int64Type,
+	"short_term_access_keys":      types.BoolType,
+	"web_access":                  types.BoolType,
 }
 
 // NewOuCloudAccessRoleDataSource returns a new instance of the data source.
@@ -65,10 +69,22 @@ func (d *ou_cloud_access_roleDataSource) Schema(_ context.Context, _ datasource.
 				Optional:    true,
 				Computed:    true,
 			},
+			"aws_create_instance_profile": schema.BoolAttribute{
+				Computed: true,
+			},
 			"aws_iam_path": schema.StringAttribute{
 				Computed: true,
 			},
 			"aws_iam_role_name": schema.StringAttribute{
+				Computed: true,
+			},
+			"aws_iam_role_trust_policy": schema.StringAttribute{
+				Computed: true,
+			},
+			"aws_partition": schema.StringAttribute{
+				Computed: true,
+			},
+			"cloud_access_role_type_id": schema.Int64Attribute{
 				Computed: true,
 			},
 			"long_term_access_keys": schema.BoolAttribute{
@@ -94,10 +110,22 @@ func (d *ou_cloud_access_roleDataSource) Schema(_ context.Context, _ datasource.
 						"id": schema.Int64Attribute{
 							Computed: true,
 						},
+						"aws_create_instance_profile": schema.BoolAttribute{
+							Computed: true,
+						},
 						"aws_iam_path": schema.StringAttribute{
 							Computed: true,
 						},
 						"aws_iam_role_name": schema.StringAttribute{
+							Computed: true,
+						},
+						"aws_iam_role_trust_policy": schema.StringAttribute{
+							Computed: true,
+						},
+						"aws_partition": schema.StringAttribute{
+							Computed: true,
+						},
+						"cloud_access_role_type_id": schema.Int64Attribute{
 							Computed: true,
 						},
 						"long_term_access_keys": schema.BoolAttribute{
@@ -176,8 +204,12 @@ func (d *ou_cloud_access_roleDataSource) readByID(ctx context.Context, conn *gen
 
 	lbl := api.Data.Value
 	data.Id = flex.OptUint64ToFramework(lbl.OuCloudAccessRole.Value.ID)
+	data.AwsCreateInstanceProfile = flex.OptNilBoolToFramework(lbl.OuCloudAccessRole.Value.AWSCreateInstanceProfile)
 	data.AwsIamPath = flex.OptStringToFramework(lbl.OuCloudAccessRole.Value.AWSIamPath)
 	data.AwsIamRoleName = flex.OptStringToFramework(lbl.OuCloudAccessRole.Value.AWSIamRoleName)
+	data.AwsIamRoleTrustPolicy = flex.OptStringToFramework(lbl.OuCloudAccessRole.Value.AWSIamRoleTrustPolicy)
+	data.AwsPartition = flex.OptStringToFramework(lbl.OuCloudAccessRole.Value.AWSPartition)
+	data.CloudAccessRoleTypeId = flex.OptNilUint64ToFramework(lbl.OuCloudAccessRole.Value.CloudAccessRoleTypeID)
 	data.LongTermAccessKeys = flex.OptNilBoolToFramework(lbl.OuCloudAccessRole.Value.LongTermAccessKeys)
 	data.Name = flex.OptStringToFramework(lbl.OuCloudAccessRole.Value.Name)
 	data.OuId = flex.OptNilUint64ToFramework(lbl.OuCloudAccessRole.Value.OuID)
@@ -220,8 +252,12 @@ func (d *ou_cloud_access_roleDataSource) readByFilter(ctx context.Context, conn 
 
 	// Scalar fields stay null in filter mode.
 	data.Id = types.Int64Null()
+	data.AwsCreateInstanceProfile = types.BoolNull()
 	data.AwsIamPath = types.StringNull()
 	data.AwsIamRoleName = types.StringNull()
+	data.AwsIamRoleTrustPolicy = types.StringNull()
+	data.AwsPartition = types.StringNull()
+	data.CloudAccessRoleTypeId = types.Int64Null()
 	data.LongTermAccessKeys = types.BoolNull()
 	data.Name = types.StringNull()
 	data.OuId = types.Int64Null()
@@ -259,13 +295,17 @@ func fetchAllOuCloudAccessRole(ctx context.Context, conn *generated.Client) ([]g
 // ou_cloud_access_roleToRow converts an element into the map filter.Match expects.
 func ou_cloud_access_roleToRow(lbl generated.OUCloudAccessRoleFull) map[string]any {
 	row := map[string]any{
-		"aws_iam_path":           lbl.OuCloudAccessRole.Value.AWSIamPath.Or(""),
-		"aws_iam_role_name":      lbl.OuCloudAccessRole.Value.AWSIamRoleName.Or(""),
-		"long_term_access_keys":  lbl.OuCloudAccessRole.Value.LongTermAccessKeys.Or(false),
-		"name":                   lbl.OuCloudAccessRole.Value.Name.Or(""),
-		"ou_id":                  int64(lbl.OuCloudAccessRole.Value.OuID.Or(0)),
-		"short_term_access_keys": lbl.OuCloudAccessRole.Value.ShortTermAccessKeys.Or(false),
-		"web_access":             lbl.OuCloudAccessRole.Value.WebAccess.Or(false),
+		"aws_create_instance_profile": lbl.OuCloudAccessRole.Value.AWSCreateInstanceProfile.Or(false),
+		"aws_iam_path":                lbl.OuCloudAccessRole.Value.AWSIamPath.Or(""),
+		"aws_iam_role_name":           lbl.OuCloudAccessRole.Value.AWSIamRoleName.Or(""),
+		"aws_iam_role_trust_policy":   lbl.OuCloudAccessRole.Value.AWSIamRoleTrustPolicy.Or(""),
+		"aws_partition":               lbl.OuCloudAccessRole.Value.AWSPartition.Or(""),
+		"cloud_access_role_type_id":   int64(lbl.OuCloudAccessRole.Value.CloudAccessRoleTypeID.Or(0)),
+		"long_term_access_keys":       lbl.OuCloudAccessRole.Value.LongTermAccessKeys.Or(false),
+		"name":                        lbl.OuCloudAccessRole.Value.Name.Or(""),
+		"ou_id":                       int64(lbl.OuCloudAccessRole.Value.OuID.Or(0)),
+		"short_term_access_keys":      lbl.OuCloudAccessRole.Value.ShortTermAccessKeys.Or(false),
+		"web_access":                  lbl.OuCloudAccessRole.Value.WebAccess.Or(false),
 	}
 	if lbl.OuCloudAccessRole.Value.ID.Set {
 		row["id"] = int64(lbl.OuCloudAccessRole.Value.ID.Value)
@@ -282,14 +322,18 @@ func buildOuCloudAccessRoleList(ctx context.Context, items []generated.OUCloudAc
 			idVal = types.Int64Value(int64(lbl.OuCloudAccessRole.Value.ID.Value))
 		}
 		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
-			"id":                     idVal,
-			"aws_iam_path":           types.StringValue(lbl.OuCloudAccessRole.Value.AWSIamPath.Or("")),
-			"aws_iam_role_name":      types.StringValue(lbl.OuCloudAccessRole.Value.AWSIamRoleName.Or("")),
-			"long_term_access_keys":  types.BoolValue(lbl.OuCloudAccessRole.Value.LongTermAccessKeys.Or(false)),
-			"name":                   types.StringValue(lbl.OuCloudAccessRole.Value.Name.Or("")),
-			"ou_id":                  types.Int64Value(int64(lbl.OuCloudAccessRole.Value.OuID.Or(0))),
-			"short_term_access_keys": types.BoolValue(lbl.OuCloudAccessRole.Value.ShortTermAccessKeys.Or(false)),
-			"web_access":             types.BoolValue(lbl.OuCloudAccessRole.Value.WebAccess.Or(false)),
+			"id":                          idVal,
+			"aws_create_instance_profile": types.BoolValue(lbl.OuCloudAccessRole.Value.AWSCreateInstanceProfile.Or(false)),
+			"aws_iam_path":                types.StringValue(lbl.OuCloudAccessRole.Value.AWSIamPath.Or("")),
+			"aws_iam_role_name":           types.StringValue(lbl.OuCloudAccessRole.Value.AWSIamRoleName.Or("")),
+			"aws_iam_role_trust_policy":   types.StringValue(lbl.OuCloudAccessRole.Value.AWSIamRoleTrustPolicy.Or("")),
+			"aws_partition":               types.StringValue(lbl.OuCloudAccessRole.Value.AWSPartition.Or("")),
+			"cloud_access_role_type_id":   types.Int64Value(int64(lbl.OuCloudAccessRole.Value.CloudAccessRoleTypeID.Or(0))),
+			"long_term_access_keys":       types.BoolValue(lbl.OuCloudAccessRole.Value.LongTermAccessKeys.Or(false)),
+			"name":                        types.StringValue(lbl.OuCloudAccessRole.Value.Name.Or("")),
+			"ou_id":                       types.Int64Value(int64(lbl.OuCloudAccessRole.Value.OuID.Or(0))),
+			"short_term_access_keys":      types.BoolValue(lbl.OuCloudAccessRole.Value.ShortTermAccessKeys.Or(false)),
+			"web_access":                  types.BoolValue(lbl.OuCloudAccessRole.Value.WebAccess.Or(false)),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags
@@ -300,14 +344,18 @@ func buildOuCloudAccessRoleList(ctx context.Context, items []generated.OUCloudAc
 }
 
 type ou_cloud_access_roleDataSourceModel struct {
-	Id                  types.Int64    `tfsdk:"id"`
-	AwsIamPath          types.String   `tfsdk:"aws_iam_path"`
-	AwsIamRoleName      types.String   `tfsdk:"aws_iam_role_name"`
-	LongTermAccessKeys  types.Bool     `tfsdk:"long_term_access_keys"`
-	Name                types.String   `tfsdk:"name"`
-	OuId                types.Int64    `tfsdk:"ou_id"`
-	ShortTermAccessKeys types.Bool     `tfsdk:"short_term_access_keys"`
-	WebAccess           types.Bool     `tfsdk:"web_access"`
-	Filter              []filter.Model `tfsdk:"filter"`
-	List                types.List     `tfsdk:"list"`
+	Id                       types.Int64    `tfsdk:"id"`
+	AwsCreateInstanceProfile types.Bool     `tfsdk:"aws_create_instance_profile"`
+	AwsIamPath               types.String   `tfsdk:"aws_iam_path"`
+	AwsIamRoleName           types.String   `tfsdk:"aws_iam_role_name"`
+	AwsIamRoleTrustPolicy    types.String   `tfsdk:"aws_iam_role_trust_policy"`
+	AwsPartition             types.String   `tfsdk:"aws_partition"`
+	CloudAccessRoleTypeId    types.Int64    `tfsdk:"cloud_access_role_type_id"`
+	LongTermAccessKeys       types.Bool     `tfsdk:"long_term_access_keys"`
+	Name                     types.String   `tfsdk:"name"`
+	OuId                     types.Int64    `tfsdk:"ou_id"`
+	ShortTermAccessKeys      types.Bool     `tfsdk:"short_term_access_keys"`
+	WebAccess                types.Bool     `tfsdk:"web_access"`
+	Filter                   []filter.Model `tfsdk:"filter"`
+	List                     types.List     `tfsdk:"list"`
 }

@@ -42,10 +42,11 @@ func (r *cloud_ruleResource) Metadata(_ context.Context, req resource.MetadataRe
 	resp.TypeName = req.ProviderTypeName + "_cloud_rule"
 }
 
-// ConfigValidators expresses a constraint the API enforces across attributes,
-// which the schema cannot: neither attribute is Required on its own, so without
-// this the configuration reaches the API and comes back as a validation error
-// naming the Go struct field rather than the Terraform attribute.
+// ConfigValidators expresses constraints the API enforces across attributes,
+// which the schema cannot: an attribute required only for some value of another
+// is not Required on its own, so without this the configuration reaches the API
+// and comes back as a validation error naming the Go struct field rather than
+// the Terraform attribute.
 func (r *cloud_ruleResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
 	return []resource.ConfigValidator{
 		resourcevalidator.AtLeastOneOf(

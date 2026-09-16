@@ -5,6 +5,8 @@ package ou_cloud_access_role
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
@@ -13,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
@@ -24,6 +27,15 @@ import (
 func OuCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
+			"aws_create_instance_profile": schema.BoolAttribute{
+				Optional:            true,
+				Computed:            true,
+				Description:         "If true, an IAM instance profile is created for this role. Applies only\nto non-User CAR types (Custom Trust, Account, Service). Will default to\nfalse if not set.",
+				MarkdownDescription: "If true, an IAM instance profile is created for this role. Applies only\nto non-User CAR types (Custom Trust, Account, Service). Will default to\nfalse if not set.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
+			},
 			"aws_iam_path": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
@@ -59,6 +71,27 @@ func OuCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "AWS IAM role name corresponding to the cloud access role.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"aws_iam_role_trust_policy": schema.StringAttribute{
+				Optional:            true,
+				Computed:            true,
+				Description:         "AWS IAM role trust policy JSON. Required when cloud_access_role_type_id = 2\n(Custom Trust). Rejected for other types.",
+				MarkdownDescription: "AWS IAM role trust policy JSON. Required when cloud_access_role_type_id = 2\n(Custom Trust). Rejected for other types.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"aws_partition": schema.StringAttribute{
+				Optional:            true,
+				Computed:            true,
+				Description:         "AWS partition a non-User role syncs to. Defaults to aws when omitted.",
+				MarkdownDescription: "AWS partition a non-User role syncs to. Defaults to aws when omitted.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+				Validators: []validator.String{
+					stringvalidator.OneOf("aws", "aws-us-gov", "aws-iso", "aws-iso-b"),
 				},
 			},
 			"aws_session_tags": schema.ListNestedAttribute{
@@ -109,6 +142,26 @@ func OuCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 					listplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"aws_trusted_account_numbers": schema.ListAttribute{
+				ElementType:         types.StringType,
+				Optional:            true,
+				Computed:            true,
+				Description:         "AWS account IDs this role trusts. Required when\ncloud_access_role_type_id = 3 (Account). Currently supports only one\n12-digit AWS account number.",
+				MarkdownDescription: "AWS account IDs this role trusts. Required when\ncloud_access_role_type_id = 3 (Account). Currently supports only one\n12-digit AWS account number.",
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"aws_trusted_services": schema.ListAttribute{
+				ElementType:         types.StringType,
+				Optional:            true,
+				Computed:            true,
+				Description:         "AWS service principals this role trusts. Required when\ncloud_access_role_type_id = 4 (Service).",
+				MarkdownDescription: "AWS service principals this role trusts. Required when\ncloud_access_role_type_id = 4 (Service).",
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
+			},
 			"azure_role_definitions": schema.SetAttribute{
 				ElementType:         types.Int64Type,
 				Optional:            true,
@@ -117,6 +170,18 @@ func OuCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "IDs of the Azure Role Definitions attached to this role.",
 				PlanModifiers: []planmodifier.Set{
 					setplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"cloud_access_role_type_id": schema.Int64Attribute{
+				Optional:            true,
+				Computed:            true,
+				Description:         "Type of the cloud access role. 1 User (default), 2 Custom Trust, 3 Account, 4 Service. Non-User types are AWS only. Changing this forces a new role: the update body carries no role type, so the API would accept the change and ignore it.",
+				MarkdownDescription: "Type of the cloud access role. 1 User (default), 2 Custom Trust, 3 Account, 4 Service. Non-User types are AWS only. Changing this forces a new role: the update body carries no role type, so the API would accept the change and ignore it.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.RequiresReplace(),
+				},
+				Validators: []validator.Int64{
+					int64validator.OneOf(1, 2, 3, 4),
 				},
 			},
 			"gcp_iam_roles": schema.SetAttribute{
@@ -209,12 +274,18 @@ func OuCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 }
 
 type OuCloudAccessRoleModel struct {
+	AwsCreateInstanceProfile  types.Bool   `tfsdk:"aws_create_instance_profile"`
 	AwsIamPath                types.String `tfsdk:"aws_iam_path"`
 	AwsIamPermissionsBoundary types.Int64  `tfsdk:"aws_iam_permissions_boundary"`
 	AwsIamPolicies            types.Set    `tfsdk:"aws_iam_policies"`
 	AwsIamRoleName            types.String `tfsdk:"aws_iam_role_name"`
+	AwsIamRoleTrustPolicy     types.String `tfsdk:"aws_iam_role_trust_policy"`
+	AwsPartition              types.String `tfsdk:"aws_partition"`
 	AwsSessionTags            types.List   `tfsdk:"aws_session_tags"`
+	AwsTrustedAccountNumbers  types.List   `tfsdk:"aws_trusted_account_numbers"`
+	AwsTrustedServices        types.List   `tfsdk:"aws_trusted_services"`
 	AzureRoleDefinitions      types.Set    `tfsdk:"azure_role_definitions"`
+	CloudAccessRoleTypeId     types.Int64  `tfsdk:"cloud_access_role_type_id"`
 	GcpIamRoles               types.Set    `tfsdk:"gcp_iam_roles"`
 	Id                        types.String `tfsdk:"id"`
 	LastUpdated               types.String `tfsdk:"last_updated"`

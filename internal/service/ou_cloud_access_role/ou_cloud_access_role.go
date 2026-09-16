@@ -23,9 +23,10 @@ import (
 const ResNameOuCloudAccessRole = "OuCloudAccessRole"
 
 var (
-	_ resource.Resource                = &ou_cloud_access_roleResource{}
-	_ resource.ResourceWithConfigure   = &ou_cloud_access_roleResource{}
-	_ resource.ResourceWithImportState = &ou_cloud_access_roleResource{}
+	_ resource.Resource                     = &ou_cloud_access_roleResource{}
+	_ resource.ResourceWithConfigure        = &ou_cloud_access_roleResource{}
+	_ resource.ResourceWithImportState      = &ou_cloud_access_roleResource{}
+	_ resource.ResourceWithConfigValidators = &ou_cloud_access_roleResource{}
 )
 
 // NewOuCloudAccessRoleResource returns a new instance of the resource.
@@ -39,6 +40,25 @@ type ou_cloud_access_roleResource struct {
 
 func (r *ou_cloud_access_roleResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_ou_cloud_access_role"
+}
+
+// ConfigValidators expresses constraints the API enforces across attributes,
+// which the schema cannot: an attribute required only for some value of another
+// is not Required on its own, so without this the configuration reaches the API
+// and comes back as a validation error naming the Go struct field rather than
+// the Terraform attribute.
+func (r *ou_cloud_access_roleResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		framework.RequiredWhenInt64("cloud_access_role_type_id", 2,
+			"aws_iam_role_trust_policy",
+		),
+		framework.RequiredWhenInt64("cloud_access_role_type_id", 3,
+			"aws_trusted_account_numbers",
+		),
+		framework.RequiredWhenInt64("cloud_access_role_type_id", 4,
+			"aws_trusted_services",
+		),
+	}
 }
 
 func (r *ou_cloud_access_roleResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
@@ -76,6 +96,10 @@ func (r *ou_cloud_access_roleResource) Create(ctx context.Context, req resource.
 	}
 	aWSIamPolicies, aWSIamPoliciesDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.AwsIamPolicies)
 	resp.Diagnostics.Append(aWSIamPoliciesDiags...)
+	aWSTrustedAccountNumbers, aWSTrustedAccountNumbersDiags := flex.StringSliceFromFramework(ctx, plan.AwsTrustedAccountNumbers)
+	resp.Diagnostics.Append(aWSTrustedAccountNumbersDiags...)
+	aWSTrustedServices, aWSTrustedServicesDiags := flex.StringSliceFromFramework(ctx, plan.AwsTrustedServices)
+	resp.Diagnostics.Append(aWSTrustedServicesDiags...)
 	azureRoleDefinitions, azureRoleDefinitionsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.AzureRoleDefinitions)
 	resp.Diagnostics.Append(azureRoleDefinitionsDiags...)
 	gcpIamRoles, gcpIamRolesDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.GcpIamRoles)
@@ -89,15 +113,21 @@ func (r *ou_cloud_access_roleResource) Create(ctx context.Context, req resource.
 	}
 
 	input := &generated.OUCloudAccessRoleCreate{
+		AWSCreateInstanceProfile:  flex.OptNilBoolFromFramework(plan.AwsCreateInstanceProfile),
 		AWSIamPath:                flex.OptStringFromFramework(plan.AwsIamPath),
 		AWSIamPermissionsBoundary: flex.OptNilUint64FromFramework(plan.AwsIamPermissionsBoundary),
 		AWSIamRoleName:            flex.OptStringFromFramework(plan.AwsIamRoleName),
+		AWSIamRoleTrustPolicy:     flex.OptStringFromFramework(plan.AwsIamRoleTrustPolicy),
+		AWSPartition:              flex.OptStringFromFramework(plan.AwsPartition),
+		CloudAccessRoleTypeID:     flex.OptNilUint64FromFramework(plan.CloudAccessRoleTypeId),
 		LongTermAccessKeys:        flex.OptNilBoolFromFramework(plan.LongTermAccessKeys),
 		Name:                      flex.StringValueFromFramework(plan.Name),
 		OuID:                      flex.NilUint64FromFramework(plan.OuId),
 		ShortTermAccessKeys:       flex.OptNilBoolFromFramework(plan.ShortTermAccessKeys),
 		WebAccess:                 flex.OptNilBoolFromFramework(plan.WebAccess),
 		AWSIamPolicies:            generated.OptNilUint64Array{Value: aWSIamPolicies, Set: true},
+		AWSTrustedAccountNumbers:  generated.OptNilStringArray{Value: aWSTrustedAccountNumbers, Set: true},
+		AWSTrustedServices:        generated.OptNilStringArray{Value: aWSTrustedServices, Set: true},
 		AzureRoleDefinitions:      generated.OptNilUint64Array{Value: azureRoleDefinitions, Set: true},
 		GcpIamRoles:               generated.OptNilUint64Array{Value: gcpIamRoles, Set: true},
 		UserGroupIds:              generated.OptNilUint64Array{Value: userGroupIds, Set: true},
@@ -211,16 +241,25 @@ func (r *ou_cloud_access_roleResource) Update(ctx context.Context, req resource.
 			TagValue:            flex.OptStringFromFramework(elem.TagValue),
 		})
 	}
+	aWSTrustedAccountNumbers, aWSTrustedAccountNumbersDiags := flex.StringSliceFromFramework(ctx, plan.AwsTrustedAccountNumbers)
+	resp.Diagnostics.Append(aWSTrustedAccountNumbersDiags...)
+	aWSTrustedServices, aWSTrustedServicesDiags := flex.StringSliceFromFramework(ctx, plan.AwsTrustedServices)
+	resp.Diagnostics.Append(aWSTrustedServicesDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
 	input := &generated.OUCloudAccessRoleUpdate{
+		AWSCreateInstanceProfile:  flex.OptNilBoolFromFramework(plan.AwsCreateInstanceProfile),
 		AWSIamPermissionsBoundary: flex.OptNilUint64FromFramework(plan.AwsIamPermissionsBoundary),
+		AWSIamRoleTrustPolicy:     flex.OptStringFromFramework(plan.AwsIamRoleTrustPolicy),
+		AWSPartition:              flex.OptStringFromFramework(plan.AwsPartition),
 		LongTermAccessKeys:        flex.OptNilBoolFromFramework(plan.LongTermAccessKeys),
 		Name:                      flex.OptStringFromFramework(plan.Name),
 		ShortTermAccessKeys:       flex.OptNilBoolFromFramework(plan.ShortTermAccessKeys),
 		WebAccess:                 flex.OptNilBoolFromFramework(plan.WebAccess),
+		AWSTrustedAccountNumbers:  generated.OptNilStringArray{Value: aWSTrustedAccountNumbers, Set: true},
+		AWSTrustedServices:        generated.OptNilStringArray{Value: aWSTrustedServices, Set: true},
 		AWSSessionTags:            generated.OptNilAWSSessionTagArray{Value: aWSSessionTags, Set: true},
 	}
 
@@ -332,8 +371,12 @@ func flattenOuCloudAccessRole(ctx context.Context, apiObject any, model *OuCloud
 	switch v := apiObject.(type) {
 	case *generated.OUCloudAccessRoleResponse:
 		if v.Data.Set {
+			model.AwsCreateInstanceProfile = flex.OptNilBoolToFramework(v.Data.Value.OuCloudAccessRole.Value.AWSCreateInstanceProfile)
 			model.AwsIamPath = flex.OptStringToFramework(v.Data.Value.OuCloudAccessRole.Value.AWSIamPath)
 			model.AwsIamRoleName = flex.OptStringToFramework(v.Data.Value.OuCloudAccessRole.Value.AWSIamRoleName)
+			model.AwsIamRoleTrustPolicy = flex.OptStringToFramework(v.Data.Value.OuCloudAccessRole.Value.AWSIamRoleTrustPolicy)
+			model.AwsPartition = flex.OptStringToFramework(v.Data.Value.OuCloudAccessRole.Value.AWSPartition)
+			model.CloudAccessRoleTypeId = flex.OptNilUint64ToFramework(v.Data.Value.OuCloudAccessRole.Value.CloudAccessRoleTypeID)
 			if v.Data.Value.OuCloudAccessRole.Value.ID.Set {
 				model.Id = types.StringValue(strconv.FormatUint(v.Data.Value.OuCloudAccessRole.Value.ID.Value, 10))
 			}
@@ -342,6 +385,12 @@ func flattenOuCloudAccessRole(ctx context.Context, apiObject any, model *OuCloud
 			model.OuId = flex.OptNilUint64ToFramework(v.Data.Value.OuCloudAccessRole.Value.OuID)
 			model.ShortTermAccessKeys = flex.OptNilBoolToFramework(v.Data.Value.OuCloudAccessRole.Value.ShortTermAccessKeys)
 			model.WebAccess = flex.OptNilBoolToFramework(v.Data.Value.OuCloudAccessRole.Value.WebAccess)
+			aWSTrustedAccountNumbers, aWSTrustedAccountNumbersDiags := flex.StringSliceToFramework(ctx, v.Data.Value.OuCloudAccessRole.Value.AWSTrustedAccountNumbers.Value)
+			diags.Append(aWSTrustedAccountNumbersDiags...)
+			model.AwsTrustedAccountNumbers = aWSTrustedAccountNumbers
+			aWSTrustedServices, aWSTrustedServicesDiags := flex.StringSliceToFramework(ctx, v.Data.Value.OuCloudAccessRole.Value.AWSTrustedServices.Value)
+			diags.Append(aWSTrustedServicesDiags...)
+			model.AwsTrustedServices = aWSTrustedServices
 			var aWSSessionTagsValsElems []AwsSessionTagsValue
 			for _, elem := range v.Data.Value.AWSSessionTags.Value {
 				aWSSessionTagsValsEl, aWSSessionTagsValsD := NewAwsSessionTagsValue(AwsSessionTagsValue{}.AttributeTypes(ctx), map[string]attr.Value{
