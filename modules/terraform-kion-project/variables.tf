@@ -37,8 +37,8 @@ variable "labels" {
 }
 
 variable "move_ou_settings" {
-  description = "Settings applied when moving the project between OUs."
-  type        = set(object({ cloud_rule_setting = optional(string), financial_setting = optional(string) }))
+  description = "How to handle the project's cloud rules, financial history and budgets when `ou_id` changes. Ignored unless the project moves."
+  type        = set(object({ cloud_rule_setting = optional(string), financial_setting = optional(string), spend_plan_setting = optional(string) }))
   default     = null
 }
 

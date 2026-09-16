@@ -653,19 +653,32 @@ resources:
         type: string
         computed_optional_required: computed_optional
         description: The last time this resource was updated.
+      # Read when ou_id changes: POST /v3/project/{id}/move takes all three and
+      # they decide what happens to data the project already has, so none is
+      # inferable. Omitted settings take the option that preserves what exists.
       move_ou_settings:
         type: set_nested
         computed_optional_required: computed_optional
-        description: Settings applied when moving the project between OUs.
+        description: "How to handle the project's cloud rules, financial history and budgets when `ou_id` changes. Ignored unless the project moves."
         attributes:
           cloud_rule_setting:
             type: string
             computed_optional_required: computed_optional
-            description: Cloud-rule handling for the move (JSON).
+            description: "`convert` rewrites the project's cloud rules for the destination OU, `remove` strips them. Defaults to `convert`."
+            validators:
+              - stringvalidator.OneOf("convert", "remove")
           financial_setting:
             type: string
             computed_optional_required: computed_optional
-            description: Financial handling for the move (JSON).
+            description: "`preserve` leaves financial history on the current OU, `move` takes it to the new one. Defaults to `preserve`."
+            validators:
+              - stringvalidator.OneOf("preserve", "move")
+          spend_plan_setting:
+            type: string
+            computed_optional_required: computed_optional
+            description: "`keep` moves past, current and future budgets with the project, `create` starts a new budget and leaves the existing ones behind. Defaults to `keep`."
+            validators:
+              - stringvalidator.OneOf("keep", "create")
       budget:
         type: set_nested
         computed_optional_required: computed_optional

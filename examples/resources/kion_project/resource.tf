@@ -25,6 +25,7 @@ resource "kion_project" "example" {
   # move_ou_settings = [{
   #   cloud_rule_setting = "example"
   #   financial_setting  = "example"
+  #   spend_plan_setting = "example"
   # }]
   # owner_user_group_ids = []
   # owner_user_ids       = []
