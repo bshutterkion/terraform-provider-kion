@@ -153,21 +153,15 @@ func buildAcctestData(rm ResourceModel, tv testValues) (acctestData, error) {
 	return d, nil
 }
 
-// buildParentListTestData fills the same payload from a parent_list resolution,
-// whose read is a list under the parent rather than a get by id.
-func buildParentListTestData(pl parentListData, tv testValues) acctestData {
-	d := acctestData{
-		Pkg: pl.Pkg, Pascal: pl.Pascal, ResourceType: pl.TypeName, SDKAlias: pl.SDKAlias,
-		ReadMethod: pl.ReadMethod, ReadParams: pl.ReadParams,
-		ParentParam: pl.ParentParam, ParentCast: pl.ParentCast, ParentIDTF: pl.ParentIDTF,
-		ResponseType: pl.ResponseType, RecordIDGo: pl.RecordIDGo, RecordIDOpt: pl.RecordIDOpt,
-	}
-	d.CreateAttrs = sortAttrsByType(tv.Create, pl.StringAttrs)
-	d.UpdateAttrs = sortAttrsByType(tv.Update, pl.StringAttrs)
+// fillConfig populates the configuration half of the payload, shared by every
+// archetype's test builder; the probe half differs per archetype.
+func fillConfig(d *acctestData, tv testValues, stringAttrs map[string]bool, hasUpdate bool) {
+	d.CreateAttrs = sortAttrsByType(tv.Create, stringAttrs)
+	d.UpdateAttrs = sortAttrsByType(tv.Update, stringAttrs)
 	for _, a := range d.CreateAttrs {
 		d.AttrNames = append(d.AttrNames, a.Name)
 	}
-	d.HasUpdate = pl.HasUpdate && len(tv.Update) > 0
+	d.HasUpdate = hasUpdate && len(tv.Update) > 0
 	d.EnvArgs = envArgsFor(tv.EnvArgs)
 	d.Fixtures, d.ExtraArgs = tv.Fixtures, tv.ExtraArgs
 	setCheckExprs(d.CreateAttrs, d.EnvArgs, d.ExtraArgs)
@@ -178,6 +172,39 @@ func buildParentListTestData(pl parentListData, tv testValues) acctestData {
 	d.UpdateUsesRName = usesFormatVerb(d.UpdateAttrs) || verb
 	d.BasicNeedsRName = d.BasicUsesRName || len(d.Fixtures) > 0
 	d.UpdateNeedsRName = d.UpdateUsesRName || len(d.Fixtures) > 0
+}
+
+// blendedTestData is the blended payload: the shared configuration fields plus
+// the private route the resource reads through.
+type blendedTestData struct {
+	acctestData
+	TypeName string
+	RawRead  *rawReadData
+}
+
+func buildBlendedTestData(d entityData, model []ModelField, tv testValues) blendedTestData {
+	sa := map[string]bool{}
+	for _, mf := range model {
+		sa[mf.TFSDK] = mf.Type == "types.String"
+	}
+	out := blendedTestData{
+		acctestData: acctestData{Pkg: d.Pkg, Pascal: d.Pascal, SDKAlias: d.SDKAlias},
+		TypeName:    d.TypeName, RawRead: d.RawRead,
+	}
+	fillConfig(&out.acctestData, tv, sa, d.HasUpdate)
+	return out
+}
+
+// buildParentListTestData fills the same payload from a parent_list resolution,
+// whose read is a list under the parent rather than a get by id.
+func buildParentListTestData(pl parentListData, tv testValues) acctestData {
+	d := acctestData{
+		Pkg: pl.Pkg, Pascal: pl.Pascal, ResourceType: pl.TypeName, SDKAlias: pl.SDKAlias,
+		ReadMethod: pl.ReadMethod, ReadParams: pl.ReadParams,
+		ParentParam: pl.ParentParam, ParentCast: pl.ParentCast, ParentIDTF: pl.ParentIDTF,
+		ResponseType: pl.ResponseType, RecordIDGo: pl.RecordIDGo, RecordIDOpt: pl.RecordIDOpt,
+	}
+	fillConfig(&d, tv, pl.StringAttrs, pl.HasUpdate)
 	return d
 }
 

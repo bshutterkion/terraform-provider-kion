@@ -324,7 +324,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 			if !ok {
 				return 0, fmt.Errorf("%s: blended archetype but no codegen/private_endpoints.yaml entry", name)
 			}
-			return g.generateBlended(dir, name, ops, idx, pe, model, gated, force)
+			return g.generateBlended(dir, name, ops, idx, pe, model, tvPath, gated, force)
 		case parentListKind:
 			return g.generateParentList(dir, name, ops, idx, *arch, model, tvPath, gated, force)
 		case entityKind:

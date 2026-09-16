@@ -773,3 +773,18 @@ resources:
       threshold_type: "dollar"
       timeframe: "month"
       user_ids: "hcl:[1]"
+  # payer_id is a billing source on the install; azure_object_id and
+  # azure_principal_name are opaque to Kion, so any stable string works.
+  account_linkage:
+    env_args: [KION_ACC_AZURE_PAYER_ID]
+    create:
+      azure_object_id: "test-acc-%[1]s"
+      azure_principal_name: "test-acc-%[1]s"
+      payer_id: "hcl:%[2]s"
+      user_id: "1"
+    update:
+      azure_object_id: "test-acc-%[1]s-upd"
+      azure_principal_name: "test-acc-%[1]s-upd"
+      payer_id: "hcl:%[2]s"
+      user_id: "1"
+

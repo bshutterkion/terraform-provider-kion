@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 )
 
+//go:embed blendedtest.gtpl
+var blendedTestTmpl string
+
 //go:embed blended.gtpl
 var blendedTmpl string
 
@@ -67,7 +70,7 @@ func isRawOp(op rawOp) bool {
 
 // generateBlended resolves and writes a blended resource (<name>.go +
 // service_package.go, resource-only like the raw archetype).
-func (g *generator) generateBlended(dir, name string, ops resOps, idx sdkIndex, pe rawResourceOps, model []ModelField, gated, force bool) (int, error) {
+func (g *generator) generateBlended(dir, name string, ops resOps, idx sdkIndex, pe rawResourceOps, model []ModelField, tvPath string, gated, force bool) (int, error) {
 	schemaGen := filepath.Join(dir, name+"_schema_gen.go")
 	d, err := g.resolveBlended(name, ops, idx, pe, model, gated, schemaGen)
 	if err != nil {
@@ -89,6 +92,21 @@ func (g *generator) generateBlended(dir, name string, ops resOps, idx sdkIndex, 
 		if err := g.writeFile(f.path, f.data, force); err != nil {
 			return 0, err
 		}
+	}
+	tv, hasTV, err := loadTestValues(tvPath, name)
+	if err != nil {
+		return 0, err
+	}
+	if hasTV {
+		test, err := execGoTemplate("blendedtest", blendedTestTmpl, buildBlendedTestData(d, model, tv), name+"_test.go")
+		if err != nil {
+			return 0, err
+		}
+		if err := g.writeFile(filepath.Join(dir, name+"_test.go"), test, force); err != nil {
+			return 0, err
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "kgen crud: %s: no test_values entry; skipping acceptance tests\n", name)
 	}
 	// A blended resource has no derived read, so any data source it ships is a
 	// hand-kept companion (project_note). Without this the companion was never
