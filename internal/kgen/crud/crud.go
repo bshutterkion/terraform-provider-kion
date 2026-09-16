@@ -334,7 +334,8 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		}
 	}
 
-	rm, err := resolveResource(name, ops, ds, idx, model)
+	pe, hasPriv := g.privEnds[name]
+	rm, err := resolveResource(name, ops, ds, idx, model, hasPriv && isRawOp(pe.Delete))
 	if err != nil {
 		return 0, err
 	}

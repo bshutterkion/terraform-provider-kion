@@ -57,7 +57,7 @@ func TestResolveResource_label(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	rm, err := resolveResource("label", labelOps(), labelDS(), idx, model)
+	rm, err := resolveResource("label", labelOps(), labelDS(), idx, model, false)
 	if err != nil {
 		t.Fatalf("resolveResource: %v", err)
 	}
