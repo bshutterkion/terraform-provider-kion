@@ -16,7 +16,13 @@ import (
 
 // stubSource serves one create op whose body gained a field in v3_16, so the
 // attribute path can be exercised without real SDK files on disk.
-type stubSource struct{ newFieldFrom string }
+type stubSource struct {
+	newFieldFrom string
+	// newFieldUntil, when set, is the LAST version carrying the field. Later
+	// versions drop it, which is what a backport ahead of the newest line looks
+	// like from the SDK's side.
+	newFieldUntil string
+}
 
 func (s stubSource) ClientMethods(file string) ([]crud.ClientMethod, error) {
 	return []crud.ClientMethod{{
@@ -30,7 +36,11 @@ func (s stubSource) Structs(file string) (map[string]crud.Struct, error) {
 	// not by substring: a substring match means "only this version", which is
 	// the same thing only while the named version happens to be the newest --
 	// it stopped being true the moment v3_17 was tracked.
-	if versionAtLeast(file, s.newFieldFrom) {
+	present := versionAtLeast(file, s.newFieldFrom)
+	if present && s.newFieldUntil != "" && !versionAtLeast(s.newFieldUntil, file) {
+		present = false // dropped by a release newer than the window
+	}
+	if present {
 		fields = append(fields, crud.Field{GoName: "Shiny", JSONName: "shiny", Type: "OptString"})
 	}
 	return map[string]crud.Struct{"ThingCreate": {Name: "ThingCreate", Fields: fields}}, nil
@@ -108,8 +118,50 @@ func TestGenerate_attributeOnlyResourceGetsGate(t *testing.T) {
 
 	// Resource gate unbounded (a no-op), attribute gate doing the work.
 	assert.Contains(t, out, "minKionVersion = conns.KionVersion{}")
-	assert.Contains(t, out, `"shiny": conns.MustParseKionVersion("3.16.0")`)
+	assert.Contains(t, out, `"shiny": {{Min: conns.MustParseKionVersion("3.16.0")}}`)
 	assert.NotContains(t, out, `"name":`, "a field present since the oldest version needs no gate")
 	assert.Contains(t, out, "framework.RequireAttrKionVersions(")
-	assert.Contains(t, out, "attrMinKionVersion")
+	assert.Contains(t, out, "attrKionVersions")
+}
+
+// A field present in the middle of the tracked range and dropped by the newest
+// release: it needs both a min and a max, and it has to survive being absent
+// from the newest version's field list.
+func TestGenerate_attributeDroppedByNewestVersionGetsAnUpperBound(t *testing.T) {
+	cfg := `resources:
+  thing:
+    create:
+      path: /v3/thing
+      method: POST
+`
+	m := mocks.NewMockFS(t)
+	m.EXPECT().ReadFile("cfg/generator_config.yaml").Return([]byte(cfg), nil)
+	m.EXPECT().ReadFile("cfg/config_overrides.yaml").Return(nil, os.ErrNotExist)
+
+	full := op{method: "POST", path: "/v3/thing"}
+	for _, v := range trackedVersions {
+		path := filepath.Join("sdk", "generated", v.dir, "oas_client_gen.go")
+		m.EXPECT().ReadFile(path).Return(clientSrc(full), nil)
+	}
+	m.EXPECT().ReadDir(mock.Anything).Return(nil, os.ErrNotExist)
+	m.EXPECT().MkdirAll(mock.Anything, mock.Anything).Return(nil)
+	writes := map[string]string{}
+	m.EXPECT().WriteFile(mock.Anything, mock.Anything, mock.Anything).
+		Run(func(name string, data []byte, _ os.FileMode) { writes[name] = string(data) }).
+		Return(nil)
+
+	// Present from v3_15 through v3_16, gone in v3_17.
+	g := &generator{fs: m, src: stubSource{newFieldFrom: "v3_15", newFieldUntil: "v3_16"}}
+	n, err := g.generate(Options{
+		SDKDir: "sdk", ServiceRoot: "svc",
+		ConfigPath: "cfg/generator_config.yaml", Overrides: "cfg/config_overrides.yaml",
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
+
+	out := writes[filepath.Join("svc", "thing", "thing_version_gen.go")]
+	assert.Contains(t, out, `"shiny":`, "a field the newest version lacks must still be gated")
+	assert.Contains(t, out, `Min: conns.MustParseKionVersion("3.15.0")`)
+	assert.Contains(t, out, `Before: conns.MustParseKionVersion("3.17.0")`,
+		"carried through 3.16, so the exclusive bound is the next tracked line")
 }

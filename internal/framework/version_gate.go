@@ -3,6 +3,7 @@ package framework
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"terraform-provider-kion/internal/conns"
 
@@ -100,19 +101,72 @@ func describeRange(minVer, maxVer conns.KionVersion, hasMin, hasMax bool) string
 	}
 }
 
+// VersionRange is Min (inclusive) up to Before (exclusive). A zero Min is
+// unbounded below, a zero Before unbounded above.
+type VersionRange struct {
+	Min    conns.KionVersion
+	Before conns.KionVersion
+}
+
+// Contains reports whether v falls in the range.
+func (r VersionRange) Contains(v conns.KionVersion) bool {
+	if r.Min != (conns.KionVersion{}) && !v.AtLeast(r.Min) {
+		return false
+	}
+	if r.Before != (conns.KionVersion{}) && v.AtLeast(r.Before) {
+		return false
+	}
+	return true
+}
+
+// AttrVersions is the set of ranges accepting one attribute. A version in any
+// range is accepted; an empty AttrVersions accepts everything.
+type AttrVersions []VersionRange
+
+// Accepts reports whether v falls in any range.
+func (a AttrVersions) Accepts(v conns.KionVersion) bool {
+	if len(a) == 0 {
+		return true
+	}
+	for _, r := range a {
+		if r.Contains(v) {
+			return true
+		}
+	}
+	return false
+}
+
+// String renders the ranges for a diagnostic, e.g. "3.15.13-3.16.0, 3.16.5+".
+func (a AttrVersions) String() string {
+	parts := make([]string, 0, len(a))
+	for _, r := range a {
+		switch {
+		case r.Min == (conns.KionVersion{}) && r.Before == (conns.KionVersion{}):
+			parts = append(parts, "any version")
+		case r.Before == (conns.KionVersion{}):
+			parts = append(parts, r.Min.String()+" and newer")
+		case r.Min == (conns.KionVersion{}):
+			parts = append(parts, "before "+r.Before.String())
+		default:
+			parts = append(parts, r.Min.String()+" up to "+r.Before.String())
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
 // RequireAttrKionVersions reports each attribute the practitioner set that the
-// connected Kion is too old to accept. Without it the request still goes out:
-// the API decodes with json.Unmarshal and no DisallowUnknownFields, so an
-// unrecognized field is dropped rather than rejected, and the failure surfaces
-// as an inconsistent-result error or an endless diff instead of a version
-// problem.
+// connected Kion does not accept -- too old, or newer than the last release
+// carrying it. Without it the request still goes out: the API decodes with
+// json.Unmarshal and no DisallowUnknownFields, so an unrecognized field is
+// dropped rather than rejected, and the failure surfaces as an
+// inconsistent-result error or an endless diff instead of a version problem.
 //
 // It reads the raw plan rather than typed attributes so one helper covers every
 // attribute type. Unset attributes are ignored. Only what is actually being
 // sent can be rejected.
-func RequireAttrKionVersions(meta *conns.KionClient, plan tfsdk.Plan, mins map[string]conns.KionVersion, typeName string) diag.Diagnostics {
+func RequireAttrKionVersions(meta *conns.KionClient, plan tfsdk.Plan, windows map[string]AttrVersions, typeName string) diag.Diagnostics {
 	var diags diag.Diagnostics
-	if len(mins) == 0 || meta == nil || !meta.VersionDetected {
+	if len(windows) == 0 || meta == nil || !meta.VersionDetected {
 		return diags // undetected is already warned about by the resource gate
 	}
 	if plan.Raw.IsNull() || !plan.Raw.IsKnown() {
@@ -124,8 +178,8 @@ func RequireAttrKionVersions(meta *conns.KionClient, plan tfsdk.Plan, mins map[s
 		return diags // not an object; nothing to inspect
 	}
 
-	names := make([]string, 0, len(mins))
-	for name := range mins {
+	names := make([]string, 0, len(windows))
+	for name := range windows {
 		names = append(names, name)
 	}
 	sort.Strings(names)
@@ -135,16 +189,18 @@ func RequireAttrKionVersions(meta *conns.KionClient, plan tfsdk.Plan, mins map[s
 		if !ok || v.IsNull() {
 			continue
 		}
-		want := mins[name]
-		if meta.Version.AtLeast(want) {
+		want := windows[name]
+		if want.Accepts(meta.Version) {
 			continue
 		}
+
 		diags.AddAttributeError(
 			path.Root(name),
 			"Attribute not supported by this Kion version",
 			fmt.Sprintf(
-				"%s.%s requires Kion %s or newer; this instance reports %s. "+
-					"Remove the attribute or upgrade Kion; sending it would be silently ignored by the API.",
+				"%s.%s is accepted by Kion %s; this instance reports %s. "+
+					"Remove the attribute or move to a Kion release that carries it; sending it "+
+					"would be accepted and silently ignored by the API, leaving the value unset.",
 				typeName, name, want, meta.Version,
 			),
 		)
