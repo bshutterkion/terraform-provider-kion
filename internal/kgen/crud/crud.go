@@ -310,7 +310,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	if arch != nil {
 		switch arch.Kind {
 		case noReadKind:
-			return g.generateNoRead(dir, name, ops, idx, model, gated, force)
+			return g.generateNoRead(dir, name, ops, idx, model, tvPath, gated, force)
 		case assocKind:
 			return g.generateAssoc(dir, name, ops, idx, *arch, model, tvPath, gated, force)
 		case rawKind:

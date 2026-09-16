@@ -232,6 +232,26 @@ func buildRawTestData(r rawData, model []ModelField, tv testValues) blendedTestD
 	return out
 }
 
+// noReadTestData is the no_read payload: the shared configuration fields plus
+// the collection path a test must scan, since there is no single-record GET.
+type noReadTestData struct {
+	acctestData
+	TypeName, ListPath, ParentIDTF string
+}
+
+func buildNoReadTestData(rm ResourceModel, typeName, listPath, parentIDTF string, tv testValues) noReadTestData {
+	sa := map[string]bool{}
+	for _, mf := range rm.Fields {
+		sa[mf.TFSDK] = mf.Type == "types.String"
+	}
+	out := noReadTestData{
+		acctestData: acctestData{Pkg: rm.Name, Pascal: rm.Pascal, SDKAlias: "generated"},
+		TypeName:    typeName, ListPath: listPath, ParentIDTF: parentIDTF,
+	}
+	fillConfig(&out.acctestData, tv, sa, rm.Update != nil)
+	return out
+}
+
 // buildParentListTestData fills the same payload from a parent_list resolution,
 // whose read is a list under the parent rather than a get by id.
 func buildParentListTestData(pl parentListData, tv testValues) acctestData {

@@ -984,3 +984,51 @@ resources:
       name: "%[1]s"
       project_id: "hcl:kion_project.test.id"
       text: "test-acc project note, updated"
+  aws_resource_tag:
+    create:
+      resource_key: "test-acc-%[1]s"
+      resource_value: "test-acc-value"
+  ou_cloud_access_role_exemption:
+    prereqs: |
+      resource "kion_ou" "test_ou" {
+        name = "test-acc-ou-%[1]s"
+        owner_user_ids = [1]
+        parent_ou_id = 0
+        permission_scheme_id = 2
+      }
+      resource "kion_ou_cloud_access_role" "test_car" {
+        name = "test-acc-car-%[1]s"
+        ou_id = kion_ou.test_ou.id
+      }
+    create:
+      ou_cloud_access_role_id: "hcl:kion_ou_cloud_access_role.test_car.id"
+      ou_id: "hcl:kion_ou.test_ou.id"
+      reason: "test-acc exemption"
+  project_cloud_access_role_exemption:
+    fixtures: [FundingSourceConfig]
+    prereqs: |
+      resource "kion_permission_scheme" "test_perm_project" {
+        name = "%[1]s-perm-project"
+        type = "project"
+      }
+      resource "kion_project" "test" {
+        name                 = "%[1]s-project"
+        ou_id                = kion_ou.test_fs_ou.id
+        permission_scheme_id = kion_permission_scheme.test_perm_project.id
+        owner_user_ids       = [1]
+
+        budget = [{
+          amount             = 500
+          start_datecode     = "2026-01"
+          end_datecode       = "2026-12"
+          funding_source_ids = [kion_funding_source.test_fs.id]
+        }]
+      }
+      resource "kion_ou_cloud_access_role" "test_car" {
+        name  = "%[1]s-car"
+        ou_id = kion_ou.test_fs_ou.id
+      }
+    create:
+      ou_cloud_access_role_id: "hcl:kion_ou_cloud_access_role.test_car.id"
+      project_id: "hcl:kion_project.test.id"
+      reason: "test-acc exemption"

@@ -8,6 +8,9 @@ import (
 	"strings"
 )
 
+//go:embed noreadtest.gtpl
+var noReadTestTmpl string
+
 //go:embed servicepackage_noread.gtpl
 var servicePackageNoReadTmpl string
 
@@ -54,7 +57,7 @@ func resolveNoRead(name string, ops resOps, idx sdkIndex, model []ModelField) (R
 // generateNoRead writes the files for a no-read resource: the resource, a stub
 // sweeper, and a resource-only service_package.go (no data source, since there
 // is no read endpoint to back one).
-func (g *generator) generateNoRead(dir, name string, ops resOps, idx sdkIndex, model []ModelField, gated, force bool) (int, error) {
+func (g *generator) generateNoRead(dir, name string, ops resOps, idx sdkIndex, model []ModelField, tvPath string, gated, force bool) (int, error) {
 	rm, err := resolveNoRead(name, ops, idx, model)
 	if err != nil {
 		return 0, err
@@ -114,7 +117,54 @@ func (g *generator) generateNoRead(dir, name string, ops resOps, idx sdkIndex, m
 			return 0, err
 		}
 	}
+	tv, hasTV, err := loadTestValues(tvPath, name)
+	if err != nil {
+		return 0, err
+	}
+	if hasTV {
+		listPath := ""
+		if ops.Read != nil {
+			listPath = ops.Read.Path
+		}
+		if listPath == "" {
+			return 0, fmt.Errorf("%s: no-read archetype has test values but no read path to scan; record one in codegen/config_overrides.yaml", name)
+		}
+		// A {id} in the collection path is the PARENT's id: these resources are
+		// listed per parent, not globally.
+		parentIDTF := ""
+		if strings.Contains(listPath, "{id}") {
+			parentIDTF = parentAttrFor(name, model)
+			if parentIDTF == "" {
+				return 0, fmt.Errorf("%s: collection path %q is parent-scoped but no *_id attribute matches", name, listPath)
+			}
+		}
+		test, err := execGoTemplate("noreadtest", noReadTestTmpl,
+			buildNoReadTestData(rm, "kion_"+name, listPath, parentIDTF, tv), name+"_test.go")
+		if err != nil {
+			return 0, err
+		}
+		if err := g.writeFile(filepath.Join(dir, name+"_test.go"), test, force); err != nil {
+			return 0, err
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "kgen crud: %s: no test_values entry; skipping acceptance tests\n", name)
+	}
 	return 1, nil
+}
+
+// parentAttrFor picks the model attribute naming the parent a parent-scoped
+// collection path is keyed by, matching the leading path segment (an
+// /v3/ou/{id}/... path is keyed by ou_id).
+func parentAttrFor(name string, model []ModelField) string {
+	for _, mf := range model {
+		if !strings.HasSuffix(mf.TFSDK, "_id") {
+			continue
+		}
+		if strings.HasPrefix(name, strings.TrimSuffix(mf.TFSDK, "_id")+"_") {
+			return mf.TFSDK
+		}
+	}
+	return ""
 }
 
 // dataSourceCompanionCtor returns the data-source constructor for a resource
