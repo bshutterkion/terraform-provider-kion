@@ -809,4 +809,98 @@ resources:
       azure_principal_name: "test-acc-%[1]s-upd"
       payer_id: "hcl:%[2]s"
       user_id: "1"
+  funding_source_permission_mapping:
+    env_args: [KION_ACC_APP_ROLE_ID]
+    fixtures: [FundingSourceConfig]
+    prereqs: |
+      resource "kion_user_group" "test_group" {
+        name           = "%[1]s-group"
+        idms_id        = 1
+        owner_user_ids = [1]
+      }
+    create:
+      app_role_id: "hcl:%[2]s"
+      funding_source_id: "hcl:kion_funding_source.test_fs.id"
+      user_ids: "hcl:[1]"
+    update:
+      app_role_id: "hcl:%[2]s"
+      funding_source_id: "hcl:kion_funding_source.test_fs.id"
+      user_groups_ids: "hcl:[kion_user_group.test_group.id]"
+      user_ids: "hcl:[1]"
+  global_permission_mapping:
+    env_args: [KION_ACC_GLOBAL_APP_ROLE_ID]
+    prereqs: |
+      resource "kion_user_group" "test_group" {
+        name           = "%[1]s-group"
+        idms_id        = 1
+        owner_user_ids = [1]
+      }
+    create:
+      app_role_id: "hcl:%[2]s"
+      user_groups_ids: "hcl:[kion_user_group.test_group.id]"
+  ou_permission_mapping:
+    env_args: [KION_ACC_APP_ROLE_ID]
+    prereqs: |
+      resource "kion_permission_scheme" "test_ou_perm" {
+        name = "%[1]s-ou-perm"
+        type = "ou"
+      }
 
+      resource "kion_ou" "test_ou" {
+        name                 = "%[1]s-ou"
+        parent_ou_id         = 0
+        permission_scheme_id = kion_permission_scheme.test_ou_perm.id
+        owner_user_ids       = [1]
+      }
+
+      resource "kion_user_group" "test_group" {
+        name           = "%[1]s-group"
+        idms_id        = 1
+        owner_user_ids = [1]
+      }
+    create:
+      app_role_id: "hcl:%[2]s"
+      ou_id: "hcl:kion_ou.test_ou.id"
+      user_ids: "hcl:[1]"
+    update:
+      app_role_id: "hcl:%[2]s"
+      ou_id: "hcl:kion_ou.test_ou.id"
+      user_groups_ids: "hcl:[kion_user_group.test_group.id]"
+      user_ids: "hcl:[1]"
+  project_permission_mapping:
+    env_args: [KION_ACC_APP_ROLE_ID]
+    fixtures: [FundingSourceConfig]
+    prereqs: |
+      resource "kion_permission_scheme" "test_proj_perm" {
+        name = "%[1]s-proj-perm"
+        type = "project"
+      }
+
+      resource "kion_project" "test_project" {
+        name                 = "%[1]s-project"
+        ou_id                = kion_ou.test_fs_ou.id
+        permission_scheme_id = kion_permission_scheme.test_proj_perm.id
+        owner_user_ids       = [1]
+
+        budget = [{
+          amount             = 500
+          start_datecode     = "2026-01"
+          end_datecode       = "2026-12"
+          funding_source_ids = [kion_funding_source.test_fs.id]
+        }]
+      }
+
+      resource "kion_user_group" "test_group" {
+        name           = "%[1]s-group"
+        idms_id        = 1
+        owner_user_ids = [1]
+      }
+    create:
+      app_role_id: "hcl:%[2]s"
+      project_id: "hcl:kion_project.test_project.id"
+      user_ids: "hcl:[1]"
+    update:
+      app_role_id: "hcl:%[2]s"
+      project_id: "hcl:kion_project.test_project.id"
+      user_groups_ids: "hcl:[kion_user_group.test_group.id]"
+      user_ids: "hcl:[1]"

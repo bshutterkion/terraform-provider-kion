@@ -195,6 +195,27 @@ func buildBlendedTestData(d entityData, model []ModelField, tv testValues) blend
 	return out
 }
 
+// assocTestData is the association payload: shared configuration fields plus
+// the membership list the row lives in.
+type assocTestData struct {
+	acctestData
+	TypeName, ReadMethod, ReadParams string
+	HasParent                        bool
+	ParentArg, ParentTF, KeyTF       string
+	RespType, DataGo, RecordKeyGo    string
+}
+
+func buildAssocTestData(a assocData, tv testValues) assocTestData {
+	out := assocTestData{
+		acctestData: acctestData{Pkg: a.Pkg, Pascal: a.Pascal, SDKAlias: a.SDKAlias},
+		TypeName:    a.TypeName, ReadMethod: a.ReadMethod, ReadParams: a.ReadParams,
+		HasParent: a.HasParent, ParentArg: a.ParentArg, ParentTF: a.ParentTF, KeyTF: a.KeyTF,
+		RespType: a.RespType, DataGo: a.DataGo, RecordKeyGo: a.RecordKeyGo,
+	}
+	fillConfig(&out.acctestData, tv, a.StringAttrs, a.HasUpdate)
+	return out
+}
+
 // buildParentListTestData fills the same payload from a parent_list resolution,
 // whose read is a list under the parent rather than a get by id.
 func buildParentListTestData(pl parentListData, tv testValues) acctestData {

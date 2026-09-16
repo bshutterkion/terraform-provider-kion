@@ -312,7 +312,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		case noReadKind:
 			return g.generateNoRead(dir, name, ops, idx, model, gated, force)
 		case assocKind:
-			return g.generateAssoc(dir, name, ops, idx, *arch, model, gated, force)
+			return g.generateAssoc(dir, name, ops, idx, *arch, model, tvPath, gated, force)
 		case rawKind:
 			pe, ok := g.privEnds[name]
 			if !ok {
