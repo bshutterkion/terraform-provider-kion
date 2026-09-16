@@ -384,6 +384,20 @@ resources:
   ou_cloud_access_role:
     description: "Manages a Kion Ou Cloud Access Role."
     attributes:
+      cloud_access_role_type_id:
+        type: int64
+        computed_optional_required: computed_optional
+        description: "Type of the cloud access role. 1 User (default), 2 Custom Trust, 3 Account, 4 Service. Non-User types are AWS only. Changing this forces a new role: the update body carries no role type, so the API would accept the change and ignore it."
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
+        validators:
+          - int64validator.OneOf(1, 2, 3, 4)
+      aws_partition:
+        type: string
+        computed_optional_required: computed_optional
+        description: "AWS partition a non-User role syncs to. Defaults to aws when omitted."
+        validators:
+          - stringvalidator.OneOf("aws", "aws-us-gov", "aws-iso", "aws-iso-b")
       last_updated:
         type: string
         computed_optional_required: computed_optional
@@ -391,6 +405,20 @@ resources:
   project_cloud_access_role:
     description: "Manages a Kion Project Cloud Access Role."
     attributes:
+      cloud_access_role_type_id:
+        type: int64
+        computed_optional_required: computed_optional
+        description: "Type of the cloud access role. 1 User (default), 2 Custom Trust, 3 Account, 4 Service. Non-User types are AWS only. Changing this forces a new role: the update body carries no role type, so the API would accept the change and ignore it."
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
+        validators:
+          - int64validator.OneOf(1, 2, 3, 4)
+      aws_partition:
+        type: string
+        computed_optional_required: computed_optional
+        description: "AWS partition a non-User role syncs to. Defaults to aws when omitted."
+        validators:
+          - stringvalidator.OneOf("aws", "aws-us-gov", "aws-iso", "aws-iso-b")
       last_updated:
         type: string
         computed_optional_required: computed_optional

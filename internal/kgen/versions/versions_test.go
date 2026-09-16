@@ -324,6 +324,7 @@ func clientSrc(ops ...op) []byte {
 
 func TestGenerate_endToEnd(t *testing.T) {
 	m := fsmocks.NewMockFS(t)
+	m.EXPECT().ReadFile("codegen/attr_version_overrides.yaml").Return(nil, os.ErrNotExist).Maybe()
 
 	configYAML := `
 resources:
@@ -411,6 +412,7 @@ data_sources:
 // green, while a clean service still gets its generated file.
 func TestGenerate_skipsInlineVarCollision(t *testing.T) {
 	m := fsmocks.NewMockFS(t)
+	m.EXPECT().ReadFile("codegen/attr_version_overrides.yaml").Return(nil, os.ErrNotExist).Maybe()
 
 	configYAML := `
 resources:
@@ -462,6 +464,7 @@ resources:
 func TestInlineVersionVarFile(t *testing.T) {
 	t.Run("missing dir => no collision", func(t *testing.T) {
 		m := fsmocks.NewMockFS(t)
+		m.EXPECT().ReadFile("codegen/attr_version_overrides.yaml").Return(nil, os.ErrNotExist).Maybe()
 		m.EXPECT().ReadDir("d").Return(nil, os.ErrNotExist)
 		g := &generator{fs: m}
 		who, err := g.inlineVersionVarFile("d", "x")
@@ -470,6 +473,7 @@ func TestInlineVersionVarFile(t *testing.T) {
 	})
 	t.Run("ignores generated + test files, finds inline var", func(t *testing.T) {
 		m := fsmocks.NewMockFS(t)
+		m.EXPECT().ReadFile("codegen/attr_version_overrides.yaml").Return(nil, os.ErrNotExist).Maybe()
 		m.EXPECT().ReadDir("d").Return([]os.DirEntry{
 			fakeDirEntry{name: "x_version_gen.go"},
 			fakeDirEntry{name: "x_test.go"},
@@ -485,6 +489,7 @@ func TestInlineVersionVarFile(t *testing.T) {
 	})
 	t.Run("no inline var => empty", func(t *testing.T) {
 		m := fsmocks.NewMockFS(t)
+		m.EXPECT().ReadFile("codegen/attr_version_overrides.yaml").Return(nil, os.ErrNotExist).Maybe()
 		m.EXPECT().ReadDir("d").Return([]os.DirEntry{fakeDirEntry{name: "x.go"}}, nil)
 		m.EXPECT().ReadFile(filepath.Join("d", "x.go")).Return([]byte("package x\nfunc y(){}\n"), nil)
 		g := &generator{fs: m}
@@ -496,6 +501,7 @@ func TestInlineVersionVarFile(t *testing.T) {
 
 func TestGenerate_configReadError(t *testing.T) {
 	m := fsmocks.NewMockFS(t)
+	m.EXPECT().ReadFile("codegen/attr_version_overrides.yaml").Return(nil, os.ErrNotExist).Maybe()
 	m.EXPECT().ReadFile("cfg.yml").Return(nil, os.ErrPermission)
 
 	g := &generator{fs: m}
@@ -506,6 +512,7 @@ func TestGenerate_configReadError(t *testing.T) {
 
 func TestGenerate_sdkReadError(t *testing.T) {
 	m := fsmocks.NewMockFS(t)
+	m.EXPECT().ReadFile("codegen/attr_version_overrides.yaml").Return(nil, os.ErrNotExist).Maybe()
 	m.EXPECT().ReadFile("cfg.yml").Return([]byte("resources: {}\n"), nil)
 	m.EXPECT().ReadFile("ov.yml").Return(nil, os.ErrNotExist)
 	// First version client read fails.
@@ -520,6 +527,7 @@ func TestGenerate_sdkReadError(t *testing.T) {
 
 func TestGenerate_overridesMerged(t *testing.T) {
 	m := fsmocks.NewMockFS(t)
+	m.EXPECT().ReadFile("codegen/attr_version_overrides.yaml").Return(nil, os.ErrNotExist).Maybe()
 	base := `
 resources:
   thing:

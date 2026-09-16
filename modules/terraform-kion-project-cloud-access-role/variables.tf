@@ -12,6 +12,12 @@ variable "apply_to_all_accounts" {
   default     = null
 }
 
+variable "aws_create_instance_profile" {
+  description = "If true, an IAM instance profile is created for this role. Applies only to non-User CAR types (Custom Trust, Account, Service). Will default to false if not set."
+  type        = bool
+  default     = null
+}
+
 variable "aws_iam_path" {
   description = "Text of the IAM Path in AWS to be stored in AWS."
   type        = string
@@ -36,15 +42,45 @@ variable "aws_iam_role_name" {
   default     = null
 }
 
+variable "aws_iam_role_trust_policy" {
+  description = "AWS IAM role trust policy JSON. Required when cloud_access_role_type_id = 2 (Custom Trust). Rejected for other types."
+  type        = string
+  default     = null
+}
+
+variable "aws_partition" {
+  description = "AWS partition a non-User role syncs to. Defaults to aws when omitted."
+  type        = string
+  default     = null
+}
+
 variable "aws_session_tags" {
   description = "AWS Session Tags used in this role when accessing the AWS console."
   type        = list(object({ cloud_access_role_id = optional(number), id = optional(number), ou_cloud_access_role_id = optional(number), tag_key = optional(string), tag_value = optional(string) }))
   default     = null
 }
 
+variable "aws_trusted_account_numbers" {
+  description = "AWS account IDs this role trusts. Required when cloud_access_role_type_id = 3 (Account). Currently supports exactly one 12-digit AWS account number."
+  type        = list(string)
+  default     = null
+}
+
+variable "aws_trusted_services" {
+  description = "AWS service principals this role trusts. Required when cloud_access_role_type_id = 4 (Service). Each entry must be a service principal hostname such as \"lambda.amazonaws.com\"."
+  type        = list(string)
+  default     = null
+}
+
 variable "azure_role_definitions" {
   description = "IDs of the Azure Role Definitions attached to this role. Will be filtered if Azure Cloud Provider ID is not given."
   type        = set(number)
+  default     = null
+}
+
+variable "cloud_access_role_type_id" {
+  description = "Type of the cloud access role. 1 User (default), 2 Custom Trust, 3 Account, 4 Service. Non-User types are AWS only. Changing this forces a new role: the update body carries no role type, so the API would accept the change and ignore it."
+  type        = number
   default     = null
 }
 

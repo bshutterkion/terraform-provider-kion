@@ -21,10 +21,13 @@ resource "kion_project_cloud_access_role" "example" {
   # Optional
   # account_ids                  = []
   # apply_to_all_accounts        = false
+  # aws_create_instance_profile  = false
   # aws_iam_path                 = "example"
   # aws_iam_permissions_boundary = 1
   # aws_iam_policies             = []
   # aws_iam_role_name            = "example"
+  # aws_iam_role_trust_policy    = "example"
+  # aws_partition                = "example"
   # aws_session_tags = [{
   #   cloud_access_role_id    = 1
   #   id                      = 1
@@ -32,7 +35,10 @@ resource "kion_project_cloud_access_role" "example" {
   #   tag_key                 = "example"
   #   tag_value               = "example"
   # }]
+  # aws_trusted_account_numbers  = []
+  # aws_trusted_services         = []
   # azure_role_definitions       = []
+  # cloud_access_role_type_id    = 1
   # cloud_provider_ids           = []
   # future_accounts              = false
   # gcp_iam_roles                = []
@@ -60,12 +66,25 @@ resource "kion_project_cloud_access_role" "example" {
 Accounts that do not match the cloud provider ID (if given) will be filtered
 - `apply_to_all_accounts` (Boolean) If apply all accounts is true, this cloud access role will be applied to all accounts currently under the project.
 This will only be for accounts that match the given CSP type. Will default to false if not set.
+- `aws_create_instance_profile` (Boolean) If true, an IAM instance profile is created for this role. Applies only
+to non-User CAR types (Custom Trust, Account, Service). Will default to
+false if not set.
 - `aws_iam_path` (String) Text of the IAM Path in AWS to be stored in AWS.
 - `aws_iam_permissions_boundary` (Number) ID of the AWS IAM policy to be used as a permissions boundary for this role. Will be filtered if AWS Cloud Provider ID is not given.
 - `aws_iam_policies` (Set of Number) IDs of the AWS IAM policies attached to this role. Will be filtered if AWS Cloud Provider ID is not given.
 - `aws_iam_role_name` (String) AWS IAM role name corresponding to the cloud access role.
+- `aws_iam_role_trust_policy` (String) AWS IAM role trust policy JSON. Required when cloud_access_role_type_id = 2
+(Custom Trust). Rejected for other types.
+- `aws_partition` (String) AWS partition a non-User role syncs to. Defaults to aws when omitted.
 - `aws_session_tags` (Attributes List) AWS Session Tags used in this role when accessing the AWS console. (see [below for nested schema](#nestedatt--aws_session_tags))
+- `aws_trusted_account_numbers` (List of String) AWS account IDs this role trusts. Required when
+cloud_access_role_type_id = 3 (Account). Currently supports exactly one
+12-digit AWS account number.
+- `aws_trusted_services` (List of String) AWS service principals this role trusts. Required when
+cloud_access_role_type_id = 4 (Service). Each entry must be a service
+principal hostname such as "lambda.amazonaws.com".
 - `azure_role_definitions` (Set of Number) IDs of the Azure Role Definitions attached to this role. Will be filtered if Azure Cloud Provider ID is not given.
+- `cloud_access_role_type_id` (Number) Type of the cloud access role. 1 User (default), 2 Custom Trust, 3 Account, 4 Service. Non-User types are AWS only. Changing this forces a new role: the update body carries no role type, so the API would accept the change and ignore it.
 - `cloud_provider_ids` (Set of Number) Cloud provider IDs that specify which CSPs this role will be used for. If none provided, assume all cloud providers.
 1 for AWS, 2 for Azure, 3 for GCP
 - `future_accounts` (Boolean) If future accounts is true, this cloud access role will be added to any account that is added to this project.

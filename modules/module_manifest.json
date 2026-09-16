@@ -2493,6 +2493,11 @@
       "path": "terraform-kion-ou-cloud-access-role",
       "variables": [
         {
+          "attr": "aws_create_instance_profile",
+          "var": "aws_create_instance_profile",
+          "block": false
+        },
+        {
           "attr": "aws_iam_path",
           "var": "aws_iam_path",
           "block": false
@@ -2513,13 +2518,38 @@
           "block": false
         },
         {
+          "attr": "aws_iam_role_trust_policy",
+          "var": "aws_iam_role_trust_policy",
+          "block": false
+        },
+        {
+          "attr": "aws_partition",
+          "var": "aws_partition",
+          "block": false
+        },
+        {
           "attr": "aws_session_tags",
           "var": "aws_session_tags",
           "block": false
         },
         {
+          "attr": "aws_trusted_account_numbers",
+          "var": "aws_trusted_account_numbers",
+          "block": false
+        },
+        {
+          "attr": "aws_trusted_services",
+          "var": "aws_trusted_services",
+          "block": false
+        },
+        {
           "attr": "azure_role_definitions",
           "var": "azure_role_definitions",
+          "block": false
+        },
+        {
+          "attr": "cloud_access_role_type_id",
+          "var": "cloud_access_role_type_id",
           "block": false
         },
         {
@@ -2810,6 +2840,11 @@
           "block": false
         },
         {
+          "attr": "aws_create_instance_profile",
+          "var": "aws_create_instance_profile",
+          "block": false
+        },
+        {
           "attr": "aws_iam_path",
           "var": "aws_iam_path",
           "block": false
@@ -2830,13 +2865,38 @@
           "block": false
         },
         {
+          "attr": "aws_iam_role_trust_policy",
+          "var": "aws_iam_role_trust_policy",
+          "block": false
+        },
+        {
+          "attr": "aws_partition",
+          "var": "aws_partition",
+          "block": false
+        },
+        {
           "attr": "aws_session_tags",
           "var": "aws_session_tags",
           "block": false
         },
         {
+          "attr": "aws_trusted_account_numbers",
+          "var": "aws_trusted_account_numbers",
+          "block": false
+        },
+        {
+          "attr": "aws_trusted_services",
+          "var": "aws_trusted_services",
+          "block": false
+        },
+        {
           "attr": "azure_role_definitions",
           "var": "azure_role_definitions",
+          "block": false
+        },
+        {
+          "attr": "cloud_access_role_type_id",
+          "var": "cloud_access_role_type_id",
           "block": false
         },
         {
