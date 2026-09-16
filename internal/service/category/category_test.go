@@ -37,8 +37,8 @@ func TestAccKionCategory_basic(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckCategoryExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
-					resource.TestCheckResourceAttrSet(resourceName, "name"),
-					resource.TestCheckResourceAttrSet(resourceName, "payer_id"),
+					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("test-acc-%[1]s", rName)),
+					resource.TestCheckResourceAttr(resourceName, "payer_id", fmt.Sprintf("%[2]s", rName, os.Getenv("KION_ACC_BILLING_SOURCE_ID"))),
 				),
 			},
 			{
@@ -69,6 +69,8 @@ func TestAccKionCategory_update(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckCategoryExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("test-acc-%[1]s", rName)),
+					resource.TestCheckResourceAttr(resourceName, "payer_id", fmt.Sprintf("%[2]s", rName, os.Getenv("KION_ACC_BILLING_SOURCE_ID"))),
 				),
 			},
 			{
@@ -76,6 +78,8 @@ func TestAccKionCategory_update(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckCategoryExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("test-acc-%[1]s-upd", rName)),
+					resource.TestCheckResourceAttr(resourceName, "payer_id", fmt.Sprintf("%[2]s", rName, os.Getenv("KION_ACC_BILLING_SOURCE_ID"))),
 				),
 			},
 			{

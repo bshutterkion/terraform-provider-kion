@@ -39,6 +39,9 @@ func TestAccKion{{.Pascal}}DataSource_basic(t *testing.T) {
 
 func testAcc{{.Pascal}}DataSourceConfig_basic({{if .BasicUsesRName}}rName{{else}}_{{end}} string{{range .EnvArgs}}, {{.Param}} string{{end}}) string {
 	return {{if .BasicUsesRName}}fmt.Sprintf(`
+{{- if .Prereqs}}
+{{.Prereqs}}
+{{end}}
 resource "{{.ResourceType}}" "test" {
 {{- range .CreateAttrs}}
   {{.Name}} = {{if .Quoted}}"{{.Value}}"{{else}}{{.Value}}{{end}}
@@ -49,6 +52,9 @@ data "{{.ResourceType}}" "test" {
   id = {{.ResourceType}}.test.id
 }
 `, rName{{range .EnvArgs}}, {{.Param}}{{end}}){{else}}`
+{{- if .Prereqs}}
+{{.Prereqs}}
+{{end}}
 resource "{{.ResourceType}}" "test" {
 {{- range .CreateAttrs}}
   {{.Name}} = {{if .Quoted}}"{{.Value}}"{{else}}{{.Value}}{{end}}

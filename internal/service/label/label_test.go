@@ -36,9 +36,9 @@ func TestAccKionLabel_basic(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckLabelExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
-					resource.TestCheckResourceAttrSet(resourceName, "color"),
-					resource.TestCheckResourceAttrSet(resourceName, "key"),
-					resource.TestCheckResourceAttrSet(resourceName, "value"),
+					resource.TestCheckResourceAttr(resourceName, "color", "#0088ff"),
+					resource.TestCheckResourceAttr(resourceName, "key", fmt.Sprintf("test-acc-%[1]s", rName)),
+					resource.TestCheckResourceAttr(resourceName, "value", fmt.Sprintf("test-acc-%[1]s", rName)),
 				),
 			},
 			{
@@ -69,6 +69,9 @@ func TestAccKionLabel_update(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckLabelExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttr(resourceName, "color", "#0088ff"),
+					resource.TestCheckResourceAttr(resourceName, "key", fmt.Sprintf("test-acc-%[1]s", rName)),
+					resource.TestCheckResourceAttr(resourceName, "value", fmt.Sprintf("test-acc-%[1]s", rName)),
 				),
 			},
 			{
@@ -76,6 +79,9 @@ func TestAccKionLabel_update(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckLabelExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttr(resourceName, "color", "#ff0000"),
+					resource.TestCheckResourceAttr(resourceName, "key", fmt.Sprintf("test-acc-%[1]s-upd", rName)),
+					resource.TestCheckResourceAttr(resourceName, "value", fmt.Sprintf("test-acc-%[1]s-upd", rName)),
 				),
 			},
 			{

@@ -8,6 +8,7 @@ import (
 	"go/format"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -24,10 +25,19 @@ var dataSourceTestTmpl string
 type testValues struct {
 	// EnvArgs names environment variables whose values the config needs; each
 	// becomes an extra parameter, readable as %[2]s, %[3]s, ... in order.
-	EnvArgs []string          `yaml:"env_args"`
+	EnvArgs []string `yaml:"env_args"`
+	// Prereqs is HCL emitted ahead of the resource under test, for resources
+	// that cannot exist without a parent. It is rendered through the same
+	// Sprintf as the rest of the config, so %[1]s is the random name.
+	Prereqs string            `yaml:"prereqs"`
 	Create  map[string]string `yaml:"create"`
 	Update  map[string]string `yaml:"update"`
 }
+
+// hclPrefix marks a value as an HCL expression rather than a literal: it is
+// emitted unquoted and asserted only for presence, since a reference like
+// kion_project.test.id has no value until apply.
+const hclPrefix = "hcl:"
 
 type testValuesFile struct {
 	Resources map[string]testValues `yaml:"resources"`
@@ -59,6 +69,13 @@ type acctestAttr struct {
 	// quoted unconditionally and a numeric value came out as "3" -- which
 	// Terraform coerces but `make ci-acctest-config` rejects.
 	Quoted bool
+	// CheckExpr is the Go expression for the value this attribute must hold in
+	// state: a literal, or a Sprintf matching the one that built the config.
+	// Terraform stores every primitive as a string, so numbers and bools are
+	// compared as their unquoted text. Empty for an IsHCL attribute.
+	CheckExpr string
+	// IsHCL marks a value that is an expression to emit verbatim.
+	IsHCL bool
 }
 
 type acctestData struct {
@@ -73,6 +90,9 @@ type acctestData struct {
 	HasUpdate                 bool
 	BasicUsesRName            bool
 	UpdateUsesRName           bool
+	// Prereqs is HCL for the parent resources the resource under test needs,
+	// emitted ahead of it in both the basic and update configurations.
+	Prereqs string
 	// EnvArgs are environment variables whose VALUES the config interpolates,
 	// in order, as %[2]s, %[3]s, ... A value the API requires but the schema
 	// marks optional (kion_category's payer_id) is install-specific, so it
@@ -102,18 +122,74 @@ func buildAcctestData(rm ResourceModel, tv testValues) (acctestData, error) {
 	}
 	d.HasUpdate = rm.Update != nil && len(tv.Update) > 0
 	d.EnvArgs = envArgsFor(tv.EnvArgs)
-	d.BasicUsesRName = usesFormatVerb(d.CreateAttrs)
-	d.UpdateUsesRName = usesFormatVerb(d.UpdateAttrs)
+	setCheckExprs(d.CreateAttrs, d.EnvArgs)
+	setCheckExprs(d.UpdateAttrs, d.EnvArgs)
+	d.Prereqs = strings.TrimRight(tv.Prereqs, "\n")
+	prereqVerb := strings.Contains(d.Prereqs, "%")
+	d.BasicUsesRName = usesFormatVerb(d.CreateAttrs) || prereqVerb
+	d.UpdateUsesRName = usesFormatVerb(d.UpdateAttrs) || prereqVerb
 	return d, nil
 }
 
 func sortAttrs(m map[string]string, rm ResourceModel) []acctestAttr {
 	out := make([]acctestAttr, 0, len(m))
 	for k, v := range m {
+		if expr, ok := strings.CutPrefix(v, hclPrefix); ok {
+			out = append(out, acctestAttr{Name: k, Value: expr, IsHCL: true})
+			continue
+		}
 		out = append(out, acctestAttr{Name: k, Value: v, Quoted: attrIsString(rm, k)})
 	}
 	slices.SortFunc(out, func(a, b acctestAttr) int { return cmp.Compare(a.Name, b.Name) })
 	return out
+}
+
+// setCheckExprs fills in each attribute's CheckExpr. A value with no verb is
+// its own literal; one with a verb is rebuilt by the same Sprintf the config
+// used, so the assertion and the configuration cannot drift apart.
+func setCheckExprs(attrs []acctestAttr, envArgs []acctestEnvArg) {
+	for i := range attrs {
+		if attrs[i].IsHCL {
+			continue
+		}
+		attrs[i].CheckExpr = checkExpr(attrs[i].Value, envArgs)
+	}
+}
+
+func checkExpr(value string, envArgs []acctestEnvArg) string {
+	if !strings.Contains(value, "%") {
+		return strconv.Quote(value)
+	}
+	args := []string{"rName"}
+	for _, e := range envArgs {
+		args = append(args, fmt.Sprintf("os.Getenv(%q)", e.Env))
+	}
+	// Passing more arguments than the verbs consume makes Sprintf emit
+	// %!(EXTRA ...) and trips vet, so the list stops at the highest index used.
+	if n := maxFormatIndex(value); n > 0 && n < len(args) {
+		args = args[:n]
+	}
+	return fmt.Sprintf("fmt.Sprintf(%s, %s)", strconv.Quote(value), strings.Join(args, ", "))
+}
+
+// maxFormatIndex returns the highest N across the value's `%[N]` verbs, or 0
+// when it uses none (unindexed verbs consume arguments in order instead).
+func maxFormatIndex(value string) int {
+	highest := 0
+	for i := 0; i+1 < len(value); i++ {
+		if value[i] != '%' || value[i+1] != '[' {
+			continue
+		}
+		end := strings.IndexByte(value[i+2:], ']')
+		if end < 0 {
+			continue
+		}
+		n, err := strconv.Atoi(value[i+2 : i+2+end])
+		if err == nil && n > highest {
+			highest = n
+		}
+	}
+	return highest
 }
 
 // usesFormatVerb reports whether any value contains a `%` verb, so the config
