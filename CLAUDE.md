@@ -67,7 +67,7 @@ Each resource lives in `internal/service/<name>/`:
 - `<name>_schema_gen.go`: schema + model (generated from the OpenAPI spec)
 - `<name>_data_source.go`: data source
 - `<name>_version_gen.go`: Kion version gate, when the resource needs one
-- `<name>_test.go` / `<name>_data_source_test.go`: acceptance tests
+- `<name>_test.go` / `<name>_data_source_test.go`: acceptance tests (generated from `codegen/test_values.yaml`; a resource with no entry there generates none)
 - `service_package.go`: factory registration (implements `conns.ServicePackage`)
 
 Resources embed `framework.ResourceWithConfigure`, data sources embed `framework.DataSourceWithConfigure`. Both get the `KionClient` via `r.Meta().Client`.
@@ -158,5 +158,14 @@ wrappers, and `no_read` resources that import as empty shells).
 ## CI/CD
 
 GitHub Actions only; there is no `.gitlab-ci.yml`. `.github/workflows/ci.yml` runs on pull requests and pushes to `main`: `fmt`, `vet`, `lint`, `test-unit` (race detector + coverage), `acctest-config` (test HCL matches provider schema), `docs` (docs/examples drift gate), `modules` (drift + `terraform validate`/`test` over every module), `internal-refs`, `secrets`, `codeql`, and a `ci` aggregator job for branch protection. `.github/workflows/release.yml` runs goreleaser on a `v*` tag; the tag is the version — nothing in the repo records it. No kion-sdk-go checkout is needed anywhere: the `replace` in `go.mod` is versioned, so the module proxy resolves it (do not reintroduce a clone step in workflows — it would silently override the pin). Local `make ci` covers every job except `codeql`. See `.github/workflows/README.md`.
+
+Acceptance tests are generated from `codegen/test_values.yaml` (see its header
+for `prereqs`/`fixtures`/`extra_args`/`hcl:`). The entity, parent_list and
+blended archetypes emit them; the rest do not yet, so ~35 files are still
+hand-written. `make crud-check` fails when `internal/service/` does not match
+freshly generated output — it exists because 107 of 111 acceptance-test files
+had drifted out of the generator's reach with nothing to catch it. Checks
+compare against the configured value, not just presence, so a resource that
+accepts an attribute and discards it fails.
 
 Acceptance tests: 4 parallel workers, 120-minute timeout. Sweepers (`make sweep`) clean up orphaned `test-acc`-prefixed resources for the 36 resource types that have one; 14 more cannot be enumerated or deleted through the API and deliberately register nothing, each `sweep.go` saying why (`make crud-force` prints the set). `docs/TESTING.md` lists them. A sweeper only runs if `internal/sweep/sweep_test.go` blank-imports its package; `TestSweeperRegistration` guards both that list and against a sweeper body that never reaches the API.

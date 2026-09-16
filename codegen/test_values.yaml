@@ -1,7 +1,29 @@
 # Sample create/update attribute values for generated acceptance tests, per
-# resource. Values are rendered verbatim as the RHS of each HCL attribute and
-# passed through fmt.Sprintf(..., rName): use "%[1]s" where a value must be
-# unique per test run (the acctest random suffix).
+# resource. A resource with no entry here generates NO acceptance tests, which
+# is how 107 of them ended up hand-maintained and out of the generator's reach.
+#
+# Values are the RHS of each HCL attribute, passed through
+# fmt.Sprintf(..., rName, <env_args>, <extra_args>): use "%[1]s" where a value
+# must be unique per run. Quoting follows the schema type, so write a string
+# value bare.
+#
+# Keys per resource:
+#   env_args   environment variables whose VALUES the config needs, in order,
+#              readable as %[2]s, %[3]s, ... Use for anything install-specific.
+#   fixtures   shared HCL builders in internal/acctest (e.g. FundingSourceConfig),
+#              called with rName and prepended. Prefer these over copying a
+#              parent chain into several entries.
+#   prereqs    HCL emitted ahead of the resource under test, for a parent that
+#              must exist first. Same Sprintf, so %[1]s works here too.
+#   extra_args Go expressions appended to the Sprintf args, for a value the HCL
+#              cannot state literally (kion_scope's alias is varchar(16) and
+#              rName is 17 chars, so it uses acctest.ShortName(rName, 16)).
+#
+# A value prefixed "hcl:" is an expression, not a literal: emitted unquoted and
+# asserted only for presence, since a reference like kion_project.test.id has no
+# value until apply. Use it for references, jsonencode bodies, and nested
+# objects. Everything else is compared against the value the config used, so a
+# resource that accepts an attribute and discards it fails the test.
 resources:
   # payer_id is optional in the schema and the spec, and REQUIRED by
   # POST /v3/category. %[2]s is the KION_ACC_BILLING_SOURCE_ID value, threaded
