@@ -3,8 +3,8 @@
 package {{.Pkg}}_test
 
 import (
-	"fmt"
-	{{if .EnvArgs}}"os"
+	{{if .BasicUsesRName}}"fmt"
+	{{end}}{{if .EnvArgs}}"os"
 	{{end}}"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -38,7 +38,7 @@ func TestAccKion{{.Pascal}}DataSource_basic(t *testing.T) {
 }
 
 func testAcc{{.Pascal}}DataSourceConfig_basic({{if .BasicUsesRName}}rName{{else}}_{{end}} string{{range .EnvArgs}}, {{.Param}} string{{end}}) string {
-	return {{if .BasicUsesRName}}fmt.Sprintf(`
+	return {{range .Fixtures}}acctest.{{.}}(rName) + {{end}}{{if .BasicUsesRName}}fmt.Sprintf(`
 {{- if .Prereqs}}
 {{.Prereqs}}
 {{end}}
@@ -51,7 +51,7 @@ resource "{{.ResourceType}}" "test" {
 data "{{.ResourceType}}" "test" {
   id = {{.ResourceType}}.test.id
 }
-`, rName{{range .EnvArgs}}, {{.Param}}{{end}}){{else}}`
+`, rName{{range .EnvArgs}}, {{.Param}}{{end}}{{range .ExtraArgs}}, {{.}}{{end}}){{else}}`
 {{- if .Prereqs}}
 {{.Prereqs}}
 {{end}}

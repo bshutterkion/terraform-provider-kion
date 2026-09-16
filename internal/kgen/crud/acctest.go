@@ -29,9 +29,15 @@ type testValues struct {
 	// Prereqs is HCL emitted ahead of the resource under test, for resources
 	// that cannot exist without a parent. It is rendered through the same
 	// Sprintf as the rest of the config, so %[1]s is the random name.
-	Prereqs string            `yaml:"prereqs"`
-	Create  map[string]string `yaml:"create"`
-	Update  map[string]string `yaml:"update"`
+	Prereqs string `yaml:"prereqs"`
+	// Fixtures name shared HCL builders in internal/acctest, called with rName
+	// and prepended to the configuration.
+	Fixtures []string `yaml:"fixtures"`
+	// ExtraArgs are Go expressions appended to the config Sprintf after rName
+	// and the env args, for a value the HCL cannot state literally.
+	ExtraArgs []string          `yaml:"extra_args"`
+	Create    map[string]string `yaml:"create"`
+	Update    map[string]string `yaml:"update"`
 }
 
 // hclPrefix marks a value as an HCL expression rather than a literal: it is
@@ -92,7 +98,9 @@ type acctestData struct {
 	UpdateUsesRName           bool
 	// Prereqs is HCL for the parent resources the resource under test needs,
 	// emitted ahead of it in both the basic and update configurations.
-	Prereqs string
+	Prereqs   string
+	Fixtures  []string
+	ExtraArgs []string
 	// EnvArgs are environment variables whose VALUES the config interpolates,
 	// in order, as %[2]s, %[3]s, ... A value the API requires but the schema
 	// marks optional (kion_category's payer_id) is install-specific, so it
@@ -122,12 +130,14 @@ func buildAcctestData(rm ResourceModel, tv testValues) (acctestData, error) {
 	}
 	d.HasUpdate = rm.Update != nil && len(tv.Update) > 0
 	d.EnvArgs = envArgsFor(tv.EnvArgs)
-	setCheckExprs(d.CreateAttrs, d.EnvArgs)
-	setCheckExprs(d.UpdateAttrs, d.EnvArgs)
+	d.Fixtures = tv.Fixtures
+	d.ExtraArgs = tv.ExtraArgs
+	setCheckExprs(d.CreateAttrs, d.EnvArgs, d.ExtraArgs)
+	setCheckExprs(d.UpdateAttrs, d.EnvArgs, d.ExtraArgs)
 	d.Prereqs = strings.TrimRight(tv.Prereqs, "\n")
 	prereqVerb := strings.Contains(d.Prereqs, "%")
-	d.BasicUsesRName = usesFormatVerb(d.CreateAttrs) || prereqVerb
-	d.UpdateUsesRName = usesFormatVerb(d.UpdateAttrs) || prereqVerb
+	d.BasicUsesRName = usesFormatVerb(d.CreateAttrs) || prereqVerb || len(d.Fixtures) > 0
+	d.UpdateUsesRName = usesFormatVerb(d.UpdateAttrs) || prereqVerb || len(d.Fixtures) > 0
 	return d, nil
 }
 
@@ -147,16 +157,16 @@ func sortAttrs(m map[string]string, rm ResourceModel) []acctestAttr {
 // setCheckExprs fills in each attribute's CheckExpr. A value with no verb is
 // its own literal; one with a verb is rebuilt by the same Sprintf the config
 // used, so the assertion and the configuration cannot drift apart.
-func setCheckExprs(attrs []acctestAttr, envArgs []acctestEnvArg) {
+func setCheckExprs(attrs []acctestAttr, envArgs []acctestEnvArg, extra []string) {
 	for i := range attrs {
 		if attrs[i].IsHCL {
 			continue
 		}
-		attrs[i].CheckExpr = checkExpr(attrs[i].Value, envArgs)
+		attrs[i].CheckExpr = checkExpr(attrs[i].Value, envArgs, extra)
 	}
 }
 
-func checkExpr(value string, envArgs []acctestEnvArg) string {
+func checkExpr(value string, envArgs []acctestEnvArg, extra []string) string {
 	if !strings.Contains(value, "%") {
 		return strconv.Quote(value)
 	}
@@ -164,6 +174,7 @@ func checkExpr(value string, envArgs []acctestEnvArg) string {
 	for _, e := range envArgs {
 		args = append(args, fmt.Sprintf("os.Getenv(%q)", e.Env))
 	}
+	args = append(args, extra...)
 	// Passing more arguments than the verbs consume makes Sprintf emit
 	// %!(EXTRA ...) and trips vet, so the list stops at the highest index used.
 	if n := maxFormatIndex(value); n > 0 && n < len(args) {

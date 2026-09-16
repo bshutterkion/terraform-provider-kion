@@ -161,7 +161,7 @@ func testAccCheck{{.Pascal}}Destroy(_ context.Context) resource.TestCheckFunc {
 }
 
 func testAcc{{.Pascal}}Config_basic({{if .BasicUsesRName}}rName{{else}}_{{end}} string{{range .EnvArgs}}, {{.Param}} string{{end}}) string {
-	return {{if .BasicUsesRName}}fmt.Sprintf(`
+	return {{range .Fixtures}}acctest.{{.}}(rName) + {{end}}{{if .BasicUsesRName}}fmt.Sprintf(`
 {{- if .Prereqs}}
 {{.Prereqs}}
 {{end}}
@@ -170,7 +170,7 @@ resource "{{.ResourceType}}" "test" {
   {{.Name}} = {{if .Quoted}}"{{.Value}}"{{else}}{{.Value}}{{end}}
 {{- end}}
 }
-`, rName{{range .EnvArgs}}, {{.Param}}{{end}}){{else}}`
+`, rName{{range .EnvArgs}}, {{.Param}}{{end}}{{range .ExtraArgs}}, {{.}}{{end}}){{else}}`
 {{- if .Prereqs}}
 {{.Prereqs}}
 {{end}}
@@ -183,7 +183,7 @@ resource "{{.ResourceType}}" "test" {
 }
 {{if .HasUpdate}}
 func testAcc{{.Pascal}}Config_update({{if .UpdateUsesRName}}rName{{else}}_{{end}} string{{range .EnvArgs}}, {{.Param}} string{{end}}) string {
-	return {{if .UpdateUsesRName}}fmt.Sprintf(`
+	return {{range .Fixtures}}acctest.{{.}}(rName) + {{end}}{{if .UpdateUsesRName}}fmt.Sprintf(`
 {{- if .Prereqs}}
 {{.Prereqs}}
 {{end}}
@@ -192,7 +192,7 @@ resource "{{.ResourceType}}" "test" {
   {{.Name}} = {{if .Quoted}}"{{.Value}}"{{else}}{{.Value}}{{end}}
 {{- end}}
 }
-`, rName{{range .EnvArgs}}, {{.Param}}{{end}}){{else}}`
+`, rName{{range .EnvArgs}}, {{.Param}}{{end}}{{range .ExtraArgs}}, {{.}}{{end}}){{else}}`
 {{- if .Prereqs}}
 {{.Prereqs}}
 {{end}}
