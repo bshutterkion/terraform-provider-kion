@@ -575,7 +575,7 @@ func TestRenderVersionGen_resourceGetsModifyPlan(t *testing.T) {
 	// Both halves of the gate, or dropping one from the template goes unnoticed.
 	assert.Contains(t, s, "framework.RequireKionVersionInRange(")
 	assert.Contains(t, s, "framework.RequireAttrKionVersions(")
-	assert.Contains(t, s, "attrMinKionVersion")
+	assert.Contains(t, s, "attrKionVersions")
 }
 
 func TestRenderVersionGen_dataSourceHasNoModifyPlan(t *testing.T) {

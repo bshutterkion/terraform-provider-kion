@@ -15,9 +15,9 @@ var (
 	maxKionVersion = conns.KionVersion{} // unbounded
 )
 
-// attrMinKionVersion is the oldest Kion accepting each attribute. An attribute
-// absent here exists in every supported release.
-var attrMinKionVersion = map[string]conns.KionVersion{}
+// attrKionVersions is the Kion version window accepting each attribute. An
+// attribute absent here is accepted for as long as the operation exists.
+var attrKionVersions = map[string]framework.AttrVersions{}
 
 var _ resource.ResourceWithModifyPlan = &account_linkageResource{}
 
@@ -32,5 +32,5 @@ func (r *account_linkageResource) ModifyPlan(_ context.Context, req resource.Mod
 		return
 	}
 	resp.Diagnostics.Append(framework.RequireKionVersionInRange(r.Meta(), minKionVersion, maxKionVersion, "kion_account_linkage")...)
-	resp.Diagnostics.Append(framework.RequireAttrKionVersions(r.Meta(), req.Plan, attrMinKionVersion, "kion_account_linkage")...)
+	resp.Diagnostics.Append(framework.RequireAttrKionVersions(r.Meta(), req.Plan, attrKionVersions, "kion_account_linkage")...)
 }

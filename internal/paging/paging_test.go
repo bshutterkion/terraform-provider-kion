@@ -37,8 +37,7 @@ func (s *server) fetch(_ context.Context, page int) (paging.Page[int], error) {
 	return paging.Page[int]{Items: items, Total: s.total}, nil
 }
 
-// The case the package exists for: a collection larger than one page must come
-// back whole, not truncated to the first page.
+// A collection larger than one page must come back whole.
 func TestAll_walksEveryPage(t *testing.T) {
 	t.Parallel()
 
@@ -87,9 +86,8 @@ func TestAll_notPaginated(t *testing.T) {
 	require.Equal(t, []int{1}, s.pagesSeen)
 }
 
-// A total the server never fulfills must not spin the walk: the empty page ends
-// it. Without this guard the loop runs to MaxPages and then fails, turning a
-// server-side inconsistency into a thousand requests.
+// An empty page ends the walk, so a total the server never fulfills does not
+// run it to MaxPages.
 func TestAll_stopsOnEmptyPageDespiteWrongTotal(t *testing.T) {
 	t.Parallel()
 
@@ -101,8 +99,7 @@ func TestAll_stopsOnEmptyPageDespiteWrongTotal(t *testing.T) {
 	require.Equal(t, []int{1, 2}, s.pagesSeen, "stops at the first empty page")
 }
 
-// A page that is full but never advances past the total would otherwise loop
-// forever; the cap bounds it and the error names the label.
+// A full page that never advances past the total is bounded by the cap.
 func TestAll_capsRunawayWalk(t *testing.T) {
 	t.Parallel()
 
@@ -132,8 +129,7 @@ func TestAll_firstPageErrorReturnsNothing(t *testing.T) {
 	require.Nil(t, got)
 }
 
-// A later failure returns what was gathered ALONGSIDE the error, so a caller
-// that prefers a partial collection can take it -- as long as it says so.
+// A later failure returns what was gathered alongside the error.
 func TestAll_laterPageErrorReturnsPartial(t *testing.T) {
 	t.Parallel()
 

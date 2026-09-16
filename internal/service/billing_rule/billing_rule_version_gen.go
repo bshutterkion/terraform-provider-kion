@@ -15,9 +15,11 @@ var (
 	maxKionVersion = conns.KionVersion{} // unbounded
 )
 
-// attrMinKionVersion is the oldest Kion accepting each attribute. An attribute
-// absent here exists in every supported release.
-var attrMinKionVersion = map[string]conns.KionVersion{}
+// attrKionVersions is the Kion version window accepting each attribute. An
+// attribute absent here is accepted for as long as the operation exists.
+// A Max is set when a release DROPPED the attribute, which happens when a
+// field is backported to support branches ahead of the newest line.
+var attrKionVersions = map[string]framework.AttrVersions{}
 
 var _ resource.ResourceWithModifyPlan = &billing_ruleResource{}
 
@@ -32,5 +34,5 @@ func (r *billing_ruleResource) ModifyPlan(_ context.Context, req resource.Modify
 		return
 	}
 	resp.Diagnostics.Append(framework.RequireKionVersionInRange(r.Meta(), minKionVersion, maxKionVersion, "kion_billing_rule")...)
-	resp.Diagnostics.Append(framework.RequireAttrKionVersions(r.Meta(), req.Plan, attrMinKionVersion, "kion_billing_rule")...)
+	resp.Diagnostics.Append(framework.RequireAttrKionVersions(r.Meta(), req.Plan, attrKionVersions, "kion_billing_rule")...)
 }

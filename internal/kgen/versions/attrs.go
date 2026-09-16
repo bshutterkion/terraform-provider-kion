@@ -17,12 +17,12 @@ import (
 // the read returns without it, and Terraform reports an inconsistent result or
 // diffs forever, neither of which names the real cause.
 //
-// deriveAttrMins answers, per resource, which tfsdk attributes exist only from
-// some Kion version onward: it walks the create body struct in every tracked
-// SDK version and records the earliest one carrying each field. Attributes
-// present in the oldest tracked version are omitted. They need no gate.
-func deriveAttrMins(src crud.Source, sdkDir, serviceRoot string, entries map[string]entry, logw io.Writer) map[string]map[string]string {
-	out := map[string]map[string]string{}
+// deriveAttrWindows answers, per resource, the tracked-version window in which
+// each tfsdk attribute is accepted. It walks the create body struct in every
+// tracked SDK version and records the first and last one carrying each field.
+// Attributes present for the whole life of the operation are omitted.
+func deriveAttrWindows(src crud.Source, sdkDir, serviceRoot string, entries map[string]entry, logw io.Writer) map[string]map[string]attrWindow {
+	out := map[string]map[string]attrWindow{}
 
 	for name, e := range entries {
 		if e.Create == nil {
@@ -30,9 +30,15 @@ func deriveAttrMins(src crud.Source, sdkDir, serviceRoot string, entries map[str
 		}
 		key := strings.ToUpper(e.Create.Method) + " " + e.Create.Path
 
-		// Go field name -> earliest tracked version index that has it.
+		// Go field name -> first and last tracked version index carrying it.
 		earliest := map[string]int{}
-		var newestFields []crud.Field
+		latest := map[string]int{}
+		// Union across versions, so a field the newest release dropped is still
+		// considered.
+		anyField := map[string]crud.Field{}
+		// Newest version carrying the op, so a dropped attribute is not confused
+		// with a dropped endpoint (the resource gate covers that).
+		lastOpAt := -1
 
 		for i, v := range trackedVersions {
 			gen := filepath.Join(sdkDir, "generated", v.dir)
@@ -58,14 +64,16 @@ func deriveAttrMins(src crud.Source, sdkDir, serviceRoot string, entries map[str
 			if !ok {
 				continue
 			}
+			lastOpAt = i
 			for _, f := range st.Fields {
 				if _, seen := earliest[f.GoName]; !seen {
 					earliest[f.GoName] = i
 				}
+				latest[f.GoName] = i
+				anyField[f.GoName] = f
 			}
-			newestFields = st.Fields
 		}
-		if len(newestFields) == 0 {
+		if lastOpAt < 0 {
 			continue
 		}
 
@@ -83,23 +91,44 @@ func deriveAttrMins(src crud.Source, sdkDir, serviceRoot string, entries map[str
 			tfByGo[m.GoName] = m.TFSDK
 		}
 
-		mins := map[string]string{}
-		for _, f := range newestFields {
-			i, ok := earliest[f.GoName]
-			if !ok || i == 0 {
-				continue // present since the oldest tracked version
+		windows := map[string]attrWindow{}
+		for goName := range anyField {
+			first, ok := earliest[goName]
+			if !ok {
+				continue
 			}
-			tf, ok := tfByGo[f.GoName]
+			last := latest[goName]
+			// Present for the whole life of the operation: no gate needed.
+			if first == 0 && last == lastOpAt {
+				continue
+			}
+			tf, ok := tfByGo[goName]
 			if !ok {
 				continue // not surfaced as a Terraform attribute
 			}
-			mins[tf] = versionString(trackedVersions[i])
+			var w attrWindow
+			if first > 0 {
+				w.Min = versionString(trackedVersions[first])
+			}
+			if last < lastOpAt {
+				// Exclusive: carried through trackedVersions[last], so the bound
+				// is the start of the next tracked line.
+				w.Before = versionString(trackedVersions[last+1])
+			}
+			windows[tf] = w
 		}
-		if len(mins) > 0 {
-			out[name] = mins
+		if len(windows) > 0 {
+			out[name] = windows
 		}
 	}
 	return out
+}
+
+// attrWindow is one derived range: Min inclusive, Before exclusive. An empty
+// value means unbounded on that side.
+type attrWindow struct {
+	Min    string
+	Before string
 }
 
 // pascalFor converts a snake_case package name to the PascalCase prefix the
@@ -116,19 +145,29 @@ func pascalFor(name string) string {
 }
 
 // renderAttrMins renders the sorted attribute->version map literal body.
-func renderAttrMins(mins map[string]string) string {
-	if len(mins) == 0 {
+func renderAttrMins(windows map[string]attrWindow) string {
+	if len(windows) == 0 {
 		return ""
 	}
-	names := make([]string, 0, len(mins))
-	for k := range mins {
+	names := make([]string, 0, len(windows))
+	for k := range windows {
 		names = append(names, k)
 	}
 	sort.Strings(names)
 
 	var b strings.Builder
 	for _, n := range names {
-		fmt.Fprintf(&b, "\t%q: conns.MustParseKionVersion(%q),\n", n, mins[n])
+		w := windows[n]
+		minExpr := "conns.KionVersion{}"
+		if w.Min != "" {
+			minExpr = fmt.Sprintf("conns.MustParseKionVersion(%q)", w.Min)
+		}
+		if w.Before == "" {
+			fmt.Fprintf(&b, "\t%q: {{Min: %s}},\n", n, minExpr)
+			continue
+		}
+		fmt.Fprintf(&b, "\t// Dropped in %s; sending it there is silently ignored.\n", w.Before)
+		fmt.Fprintf(&b, "\t%q: {{Min: %s, Before: conns.MustParseKionVersion(%q)}},\n", n, minExpr, w.Before)
 	}
 	return b.String()
 }
@@ -138,15 +177,16 @@ func renderAttrMins(mins map[string]string) string {
 // report one cause twice, every field of a 3.14-only resource is trivially
 // "3.14+". What remains is the interesting case: a field newer than the
 // resource carrying it.
-func pruneRedundant(mins map[string]string, resourceMin string) map[string]string {
-	if len(mins) == 0 {
+func pruneRedundant(windows map[string]attrWindow, resourceMin string) map[string]attrWindow {
+	if len(windows) == 0 {
 		return nil
 	}
 	floor := minorOf(resourceMin)
-	out := make(map[string]string, len(mins))
-	for attr, v := range mins {
-		if minorOf(v) > floor {
-			out[attr] = v
+	out := make(map[string]attrWindow, len(windows))
+	for attr, w := range windows {
+		// An upper bound is never redundant with a floor.
+		if w.Before != "" || minorOf(w.Min) > floor {
+			out[attr] = w
 		}
 	}
 	if len(out) == 0 {

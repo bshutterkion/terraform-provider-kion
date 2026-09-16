@@ -15,11 +15,11 @@ var (
 	maxKionVersion = conns.KionVersion{} // unbounded
 )
 
-// attrMinKionVersion is the oldest Kion accepting each attribute. An attribute
-// absent here exists in every supported release.
-var attrMinKionVersion = map[string]conns.KionVersion{
-	"notification_emails":    conns.MustParseKionVersion("3.16.0"),
-	"notification_frequency": conns.MustParseKionVersion("3.16.0"),
+// attrKionVersions is the Kion version window accepting each attribute. An
+// attribute absent here is accepted for as long as the operation exists.
+var attrKionVersions = map[string]framework.AttrVersions{
+	"notification_emails":    {{Min: conns.MustParseKionVersion("3.16.0")}},
+	"notification_frequency": {{Min: conns.MustParseKionVersion("3.16.0")}},
 }
 
 var _ resource.ResourceWithModifyPlan = &project_enforcementResource{}
@@ -35,5 +35,5 @@ func (r *project_enforcementResource) ModifyPlan(_ context.Context, req resource
 		return
 	}
 	resp.Diagnostics.Append(framework.RequireKionVersionInRange(r.Meta(), minKionVersion, maxKionVersion, "kion_project_enforcement")...)
-	resp.Diagnostics.Append(framework.RequireAttrKionVersions(r.Meta(), req.Plan, attrMinKionVersion, "kion_project_enforcement")...)
+	resp.Diagnostics.Append(framework.RequireAttrKionVersions(r.Meta(), req.Plan, attrKionVersions, "kion_project_enforcement")...)
 }
