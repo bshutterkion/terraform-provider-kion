@@ -1,0 +1,15 @@
+kind: BUG FIXES
+body: >-
+  internal/service is reproducible from a bare wipe. Several files were not:
+  service_package.go was scaffolded and then hand-edited for type aliases, a
+  resource-only archetype left the scaffolder's data source stub behind and
+  registered it, two version gates were orphans no generator wrote any more,
+  and the accounthelper and gcp_regions packages failed because generation did
+  not create the directory it was writing into.
+
+  service_package.go is generated for every archetype now, with aliases
+  declared rather than edited in; a data source the archetype did not emit is
+  pruned; and `make regen-from-scratch` deletes internal/service outright
+  rather than only the files carrying a generated header. The weaker check had
+  passed for months while 107 hand-written acceptance tests sat in the tree
+  unreproduced, because a file with no header was invisible to it.
