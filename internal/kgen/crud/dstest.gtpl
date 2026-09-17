@@ -4,7 +4,6 @@ package {{.Pkg}}_test
 
 import (
 	{{if .BasicNeedsRName}}"fmt"
-	{{end}}{{if .EnvArgs}}"os"
 	{{end}}"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -18,6 +17,9 @@ func TestAccKion{{.Pascal}}DataSource_basic(t *testing.T) {
 	}
 
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+{{- range .EnvArgs}}
+	{{.Param}} := acctest.RequireEnv(t, "{{.Env}}", "{{.Describes}}")
+{{- end}}
 	dataSourceName := "data.{{.ResourceType}}.test"
 
 	resource.Test(t, resource.TestCase{
@@ -25,7 +27,7 @@ func TestAccKion{{.Pascal}}DataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAcc{{.Pascal}}DataSourceConfig_basic(rName{{range .EnvArgs}}, os.Getenv("{{.Env}}"){{end}}),
+				Config: testAcc{{.Pascal}}DataSourceConfig_basic(rName{{range .EnvArgs}}, {{.Param}}{{end}}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 					{{- range .AttrNames}}

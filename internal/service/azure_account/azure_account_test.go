@@ -5,7 +5,6 @@ package azure_account_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"testing"
 
@@ -25,6 +24,8 @@ func TestAccKionAzureAccount_basic(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	azurePayerID := acctest.RequireEnv(t, "KION_ACC_AZURE_PAYER_ID", "the azure payer id")
+	azureSubscriptionUuid := acctest.RequireEnv(t, "KION_ACC_AZURE_SUBSCRIPTION_UUID", "the azure subscription uuid")
 	resourceName := "kion_azure_account.test"
 
 	resource.Test(t, resource.TestCase{
@@ -33,7 +34,7 @@ func TestAccKionAzureAccount_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckAzureAccountDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAzureAccountConfig_basic(rName, os.Getenv("KION_ACC_AZURE_PAYER_ID"), os.Getenv("KION_ACC_AZURE_SUBSCRIPTION_UUID")),
+				Config: testAccAzureAccountConfig_basic(rName, azurePayerID, azureSubscriptionUuid),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAzureAccountExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -41,7 +42,7 @@ func TestAccKionAzureAccount_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "payer_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "project_id"),
 					resource.TestCheckResourceAttr(resourceName, "start_datecode", "2025-01"),
-					resource.TestCheckResourceAttr(resourceName, "subscription_uuid", fmt.Sprintf("%[3]s", rName, os.Getenv("KION_ACC_AZURE_PAYER_ID"), os.Getenv("KION_ACC_AZURE_SUBSCRIPTION_UUID"))),
+					resource.TestCheckResourceAttr(resourceName, "subscription_uuid", fmt.Sprintf("%[3]s", rName, azurePayerID, azureSubscriptionUuid)),
 				),
 			},
 			{
@@ -60,6 +61,8 @@ func TestAccKionAzureAccount_update(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	azurePayerID := acctest.RequireEnv(t, "KION_ACC_AZURE_PAYER_ID", "the azure payer id")
+	azureSubscriptionUuid := acctest.RequireEnv(t, "KION_ACC_AZURE_SUBSCRIPTION_UUID", "the azure subscription uuid")
 	resourceName := "kion_azure_account.test"
 
 	resource.Test(t, resource.TestCase{
@@ -68,7 +71,7 @@ func TestAccKionAzureAccount_update(t *testing.T) {
 		CheckDestroy:             testAccCheckAzureAccountDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAzureAccountConfig_basic(rName, os.Getenv("KION_ACC_AZURE_PAYER_ID"), os.Getenv("KION_ACC_AZURE_SUBSCRIPTION_UUID")),
+				Config: testAccAzureAccountConfig_basic(rName, azurePayerID, azureSubscriptionUuid),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAzureAccountExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -76,11 +79,11 @@ func TestAccKionAzureAccount_update(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "payer_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "project_id"),
 					resource.TestCheckResourceAttr(resourceName, "start_datecode", "2025-01"),
-					resource.TestCheckResourceAttr(resourceName, "subscription_uuid", fmt.Sprintf("%[3]s", rName, os.Getenv("KION_ACC_AZURE_PAYER_ID"), os.Getenv("KION_ACC_AZURE_SUBSCRIPTION_UUID"))),
+					resource.TestCheckResourceAttr(resourceName, "subscription_uuid", fmt.Sprintf("%[3]s", rName, azurePayerID, azureSubscriptionUuid)),
 				),
 			},
 			{
-				Config: testAccAzureAccountConfig_update(rName, os.Getenv("KION_ACC_AZURE_PAYER_ID"), os.Getenv("KION_ACC_AZURE_SUBSCRIPTION_UUID")),
+				Config: testAccAzureAccountConfig_update(rName, azurePayerID, azureSubscriptionUuid),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAzureAccountExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -88,7 +91,7 @@ func TestAccKionAzureAccount_update(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "payer_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "project_id"),
 					resource.TestCheckResourceAttr(resourceName, "start_datecode", "2025-01"),
-					resource.TestCheckResourceAttr(resourceName, "subscription_uuid", fmt.Sprintf("%[3]s", rName, os.Getenv("KION_ACC_AZURE_PAYER_ID"), os.Getenv("KION_ACC_AZURE_SUBSCRIPTION_UUID"))),
+					resource.TestCheckResourceAttr(resourceName, "subscription_uuid", fmt.Sprintf("%[3]s", rName, azurePayerID, azureSubscriptionUuid)),
 				),
 			},
 			{

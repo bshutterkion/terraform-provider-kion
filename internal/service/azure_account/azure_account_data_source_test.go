@@ -4,7 +4,6 @@ package azure_account_test
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -18,6 +17,8 @@ func TestAccKionAzureAccountDataSource_basic(t *testing.T) {
 	}
 
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	azurePayerID := acctest.RequireEnv(t, "KION_ACC_AZURE_PAYER_ID", "the azure payer id")
+	azureSubscriptionUuid := acctest.RequireEnv(t, "KION_ACC_AZURE_SUBSCRIPTION_UUID", "the azure subscription uuid")
 	dataSourceName := "data.kion_azure_account.test"
 
 	resource.Test(t, resource.TestCase{
@@ -25,7 +26,7 @@ func TestAccKionAzureAccountDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAzureAccountDataSourceConfig_basic(rName, os.Getenv("KION_ACC_AZURE_PAYER_ID"), os.Getenv("KION_ACC_AZURE_SUBSCRIPTION_UUID")),
+				Config: testAccAzureAccountDataSourceConfig_basic(rName, azurePayerID, azureSubscriptionUuid),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "account_name"),

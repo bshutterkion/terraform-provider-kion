@@ -4,7 +4,6 @@ package ami_test
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -18,6 +17,8 @@ func TestAccKionAmiDataSource_basic(t *testing.T) {
 	}
 
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	accountID := acctest.RequireEnv(t, "KION_ACC_ACCOUNT_ID", "the account id")
+	awsAmiID := acctest.RequireEnv(t, "KION_ACC_AWS_AMI_ID", "the aws ami id")
 	dataSourceName := "data.kion_ami.test"
 
 	resource.Test(t, resource.TestCase{
@@ -25,7 +26,7 @@ func TestAccKionAmiDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAmiDataSourceConfig_basic(rName, os.Getenv("KION_ACC_ACCOUNT_ID"), os.Getenv("KION_ACC_AWS_AMI_ID")),
+				Config: testAccAmiDataSourceConfig_basic(rName, accountID, awsAmiID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "account_id"),

@@ -5,7 +5,6 @@ package custom_account_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"testing"
 
@@ -25,6 +24,8 @@ func TestAccKionCustomAccount_basic(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	customPayerID := acctest.RequireEnv(t, "KION_ACC_CUSTOM_PAYER_ID", "the custom payer id")
+	customAccountNumber := acctest.RequireEnv(t, "KION_ACC_CUSTOM_ACCOUNT_NUMBER", "the custom account number")
 	resourceName := "kion_custom_account.test"
 
 	resource.Test(t, resource.TestCase{
@@ -33,12 +34,12 @@ func TestAccKionCustomAccount_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckCustomAccountDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCustomAccountConfig_basic(rName, os.Getenv("KION_ACC_CUSTOM_PAYER_ID"), os.Getenv("KION_ACC_CUSTOM_ACCOUNT_NUMBER")),
+				Config: testAccCustomAccountConfig_basic(rName, customPayerID, customAccountNumber),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckCustomAccountExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttr(resourceName, "account_name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttr(resourceName, "account_number", fmt.Sprintf("%[3]s", rName, os.Getenv("KION_ACC_CUSTOM_PAYER_ID"), os.Getenv("KION_ACC_CUSTOM_ACCOUNT_NUMBER"))),
+					resource.TestCheckResourceAttr(resourceName, "account_number", fmt.Sprintf("%[3]s", rName, customPayerID, customAccountNumber)),
 					resource.TestCheckResourceAttrSet(resourceName, "payer_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "project_id"),
 					resource.TestCheckResourceAttr(resourceName, "start_datecode", "2025-01"),
@@ -60,6 +61,8 @@ func TestAccKionCustomAccount_update(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	customPayerID := acctest.RequireEnv(t, "KION_ACC_CUSTOM_PAYER_ID", "the custom payer id")
+	customAccountNumber := acctest.RequireEnv(t, "KION_ACC_CUSTOM_ACCOUNT_NUMBER", "the custom account number")
 	resourceName := "kion_custom_account.test"
 
 	resource.Test(t, resource.TestCase{
@@ -68,24 +71,24 @@ func TestAccKionCustomAccount_update(t *testing.T) {
 		CheckDestroy:             testAccCheckCustomAccountDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCustomAccountConfig_basic(rName, os.Getenv("KION_ACC_CUSTOM_PAYER_ID"), os.Getenv("KION_ACC_CUSTOM_ACCOUNT_NUMBER")),
+				Config: testAccCustomAccountConfig_basic(rName, customPayerID, customAccountNumber),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckCustomAccountExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttr(resourceName, "account_name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttr(resourceName, "account_number", fmt.Sprintf("%[3]s", rName, os.Getenv("KION_ACC_CUSTOM_PAYER_ID"), os.Getenv("KION_ACC_CUSTOM_ACCOUNT_NUMBER"))),
+					resource.TestCheckResourceAttr(resourceName, "account_number", fmt.Sprintf("%[3]s", rName, customPayerID, customAccountNumber)),
 					resource.TestCheckResourceAttrSet(resourceName, "payer_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "project_id"),
 					resource.TestCheckResourceAttr(resourceName, "start_datecode", "2025-01"),
 				),
 			},
 			{
-				Config: testAccCustomAccountConfig_update(rName, os.Getenv("KION_ACC_CUSTOM_PAYER_ID"), os.Getenv("KION_ACC_CUSTOM_ACCOUNT_NUMBER")),
+				Config: testAccCustomAccountConfig_update(rName, customPayerID, customAccountNumber),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckCustomAccountExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttr(resourceName, "account_name", fmt.Sprintf("%[1]s-updated", rName)),
-					resource.TestCheckResourceAttr(resourceName, "account_number", fmt.Sprintf("%[3]s", rName, os.Getenv("KION_ACC_CUSTOM_PAYER_ID"), os.Getenv("KION_ACC_CUSTOM_ACCOUNT_NUMBER"))),
+					resource.TestCheckResourceAttr(resourceName, "account_number", fmt.Sprintf("%[3]s", rName, customPayerID, customAccountNumber)),
 					resource.TestCheckResourceAttrSet(resourceName, "payer_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "project_id"),
 					resource.TestCheckResourceAttr(resourceName, "start_datecode", "2025-01"),

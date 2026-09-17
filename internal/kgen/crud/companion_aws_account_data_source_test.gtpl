@@ -29,6 +29,9 @@ func TestAccKionAwsAccountDataSource_basic(t *testing.T) {
 	}
 
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+{{- range .EnvArgs}}
+	{{.Param}} := acctest.RequireEnv(t, "{{.Env}}", "{{.Describes}}")
+{{- end}}
 	dataSourceName := "data.kion_aws_account.test"
 
 	resource.Test(t, resource.TestCase{

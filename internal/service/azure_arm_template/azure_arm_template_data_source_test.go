@@ -4,7 +4,6 @@ package azure_arm_template_test
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -18,6 +17,7 @@ func TestAccKionAzureArmTemplateDataSource_basic(t *testing.T) {
 	}
 
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	azureRegionID := acctest.RequireEnv(t, "KION_ACC_AZURE_REGION_ID", "the azure region id")
 	dataSourceName := "data.kion_azure_arm_template.test"
 
 	resource.Test(t, resource.TestCase{
@@ -25,7 +25,7 @@ func TestAccKionAzureArmTemplateDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAzureArmTemplateDataSourceConfig_basic(rName, os.Getenv("KION_ACC_AZURE_REGION_ID")),
+				Config: testAccAzureArmTemplateDataSourceConfig_basic(rName, azureRegionID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "deployment_mode"),

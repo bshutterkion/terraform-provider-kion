@@ -5,7 +5,6 @@ package global_permission_mapping_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"testing"
 
@@ -25,6 +24,7 @@ func TestAccKionGlobalPermissionMapping_basic(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	globalAppRoleID := acctest.RequireEnv(t, "KION_ACC_GLOBAL_APP_ROLE_ID", "the global app role id")
 	resourceName := "kion_global_permission_mapping.test"
 
 	resource.Test(t, resource.TestCase{
@@ -33,7 +33,7 @@ func TestAccKionGlobalPermissionMapping_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckGlobalPermissionMappingDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccGlobalPermissionMappingConfig_basic(rName, os.Getenv("KION_ACC_GLOBAL_APP_ROLE_ID")),
+				Config: testAccGlobalPermissionMappingConfig_basic(rName, globalAppRoleID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckGlobalPermissionMappingExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),

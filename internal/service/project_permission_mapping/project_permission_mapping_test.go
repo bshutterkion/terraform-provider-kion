@@ -5,7 +5,6 @@ package project_permission_mapping_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"testing"
 
@@ -25,6 +24,7 @@ func TestAccKionProjectPermissionMapping_basic(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	appRoleID := acctest.RequireEnv(t, "KION_ACC_APP_ROLE_ID", "the app role id")
 	resourceName := "kion_project_permission_mapping.test"
 
 	resource.Test(t, resource.TestCase{
@@ -33,7 +33,7 @@ func TestAccKionProjectPermissionMapping_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckProjectPermissionMappingDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProjectPermissionMappingConfig_basic(rName, os.Getenv("KION_ACC_APP_ROLE_ID")),
+				Config: testAccProjectPermissionMappingConfig_basic(rName, appRoleID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckProjectPermissionMappingExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -53,6 +53,7 @@ func TestAccKionProjectPermissionMapping_update(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	appRoleID := acctest.RequireEnv(t, "KION_ACC_APP_ROLE_ID", "the app role id")
 	resourceName := "kion_project_permission_mapping.test"
 
 	resource.Test(t, resource.TestCase{
@@ -61,7 +62,7 @@ func TestAccKionProjectPermissionMapping_update(t *testing.T) {
 		CheckDestroy:             testAccCheckProjectPermissionMappingDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProjectPermissionMappingConfig_basic(rName, os.Getenv("KION_ACC_APP_ROLE_ID")),
+				Config: testAccProjectPermissionMappingConfig_basic(rName, appRoleID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckProjectPermissionMappingExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "app_role_id"),
@@ -70,7 +71,7 @@ func TestAccKionProjectPermissionMapping_update(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccProjectPermissionMappingConfig_update(rName, os.Getenv("KION_ACC_APP_ROLE_ID")),
+				Config: testAccProjectPermissionMappingConfig_update(rName, appRoleID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckProjectPermissionMappingExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "app_role_id"),

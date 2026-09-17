@@ -5,7 +5,6 @@ package funding_source_permission_mapping_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"testing"
 
@@ -25,6 +24,7 @@ func TestAccKionFundingSourcePermissionMapping_basic(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	appRoleID := acctest.RequireEnv(t, "KION_ACC_APP_ROLE_ID", "the app role id")
 	resourceName := "kion_funding_source_permission_mapping.test"
 
 	resource.Test(t, resource.TestCase{
@@ -33,7 +33,7 @@ func TestAccKionFundingSourcePermissionMapping_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckFundingSourcePermissionMappingDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccFundingSourcePermissionMappingConfig_basic(rName, os.Getenv("KION_ACC_APP_ROLE_ID")),
+				Config: testAccFundingSourcePermissionMappingConfig_basic(rName, appRoleID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckFundingSourcePermissionMappingExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),

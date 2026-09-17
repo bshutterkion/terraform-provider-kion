@@ -5,7 +5,6 @@ package account_linkage_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -24,6 +23,7 @@ func TestAccKionAccountLinkage_basic(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	azurePayerID := acctest.RequireEnv(t, "KION_ACC_AZURE_PAYER_ID", "the azure payer id")
 	resourceName := "kion_account_linkage.test"
 
 	resource.Test(t, resource.TestCase{
@@ -32,7 +32,7 @@ func TestAccKionAccountLinkage_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckAccountLinkageDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAccountLinkageConfig_basic(rName, os.Getenv("KION_ACC_AZURE_PAYER_ID")),
+				Config: testAccAccountLinkageConfig_basic(rName, azurePayerID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAccountLinkageExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),

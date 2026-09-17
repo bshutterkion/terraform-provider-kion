@@ -4,7 +4,6 @@ package project_line_item_test
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -18,6 +17,7 @@ func TestAccKionProjectLineItemDataSource_basic(t *testing.T) {
 	}
 
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	billingSourceID := acctest.RequireEnv(t, "KION_ACC_BILLING_SOURCE_ID", "the billing source id")
 	dataSourceName := "data.kion_project_line_item.test"
 
 	resource.Test(t, resource.TestCase{
@@ -25,7 +25,7 @@ func TestAccKionProjectLineItemDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProjectLineItemDataSourceConfig_basic(rName, os.Getenv("KION_ACC_BILLING_SOURCE_ID")),
+				Config: testAccProjectLineItemDataSourceConfig_basic(rName, billingSourceID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "amount"),

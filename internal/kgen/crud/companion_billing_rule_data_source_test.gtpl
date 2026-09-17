@@ -24,6 +24,9 @@ func TestAccKionBillingRuleDataSource_basic(t *testing.T) {
 	}
 
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+{{- range .EnvArgs}}
+	{{.Param}} := acctest.RequireEnv(t, "{{.Env}}", "{{.Describes}}")
+{{- end}}
 	dataSourceName := "data.kion_billing_rule.test"
 
 	resource.Test(t, resource.TestCase{

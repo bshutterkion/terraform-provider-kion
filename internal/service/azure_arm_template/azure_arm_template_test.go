@@ -5,7 +5,6 @@ package azure_arm_template_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"testing"
 
@@ -25,6 +24,7 @@ func TestAccKionAzureArmTemplate_basic(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	azureRegionID := acctest.RequireEnv(t, "KION_ACC_AZURE_REGION_ID", "the azure region id")
 	resourceName := "kion_azure_arm_template.test"
 
 	resource.Test(t, resource.TestCase{
@@ -33,7 +33,7 @@ func TestAccKionAzureArmTemplate_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckAzureArmTemplateDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAzureArmTemplateConfig_basic(rName, os.Getenv("KION_ACC_AZURE_REGION_ID")),
+				Config: testAccAzureArmTemplateConfig_basic(rName, azureRegionID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAzureArmTemplateExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -62,6 +62,7 @@ func TestAccKionAzureArmTemplate_update(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	azureRegionID := acctest.RequireEnv(t, "KION_ACC_AZURE_REGION_ID", "the azure region id")
 	resourceName := "kion_azure_arm_template.test"
 
 	resource.Test(t, resource.TestCase{
@@ -70,7 +71,7 @@ func TestAccKionAzureArmTemplate_update(t *testing.T) {
 		CheckDestroy:             testAccCheckAzureArmTemplateDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAzureArmTemplateConfig_basic(rName, os.Getenv("KION_ACC_AZURE_REGION_ID")),
+				Config: testAccAzureArmTemplateConfig_basic(rName, azureRegionID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAzureArmTemplateExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -84,7 +85,7 @@ func TestAccKionAzureArmTemplate_update(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccAzureArmTemplateConfig_update(rName, os.Getenv("KION_ACC_AZURE_REGION_ID")),
+				Config: testAccAzureArmTemplateConfig_update(rName, azureRegionID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAzureArmTemplateExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),

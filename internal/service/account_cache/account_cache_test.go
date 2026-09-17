@@ -5,7 +5,6 @@ package account_cache_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"testing"
 
@@ -25,6 +24,8 @@ func TestAccKionAccountCache_basic(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	payerID := acctest.RequireEnv(t, "KION_ACC_PAYER_ID", "the payer id")
+	awsAccountNumber := acctest.RequireEnv(t, "KION_ACC_AWS_ACCOUNT_NUMBER", "the aws account number")
 	resourceName := "kion_account_cache.test"
 
 	resource.Test(t, resource.TestCase{
@@ -33,12 +34,12 @@ func TestAccKionAccountCache_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckAccountCacheDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAccountCacheConfig_basic(rName, os.Getenv("KION_ACC_PAYER_ID"), os.Getenv("KION_ACC_AWS_ACCOUNT_NUMBER")),
+				Config: testAccAccountCacheConfig_basic(rName, payerID, awsAccountNumber),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAccountCacheExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttr(resourceName, "account_name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttr(resourceName, "account_number", fmt.Sprintf("%[3]s", rName, os.Getenv("KION_ACC_PAYER_ID"), os.Getenv("KION_ACC_AWS_ACCOUNT_NUMBER"))),
+					resource.TestCheckResourceAttr(resourceName, "account_number", fmt.Sprintf("%[3]s", rName, payerID, awsAccountNumber)),
 					resource.TestCheckResourceAttrSet(resourceName, "payer_id"),
 				),
 			},
@@ -58,6 +59,8 @@ func TestAccKionAccountCache_update(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	payerID := acctest.RequireEnv(t, "KION_ACC_PAYER_ID", "the payer id")
+	awsAccountNumber := acctest.RequireEnv(t, "KION_ACC_AWS_ACCOUNT_NUMBER", "the aws account number")
 	resourceName := "kion_account_cache.test"
 
 	resource.Test(t, resource.TestCase{
@@ -66,22 +69,22 @@ func TestAccKionAccountCache_update(t *testing.T) {
 		CheckDestroy:             testAccCheckAccountCacheDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAccountCacheConfig_basic(rName, os.Getenv("KION_ACC_PAYER_ID"), os.Getenv("KION_ACC_AWS_ACCOUNT_NUMBER")),
+				Config: testAccAccountCacheConfig_basic(rName, payerID, awsAccountNumber),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAccountCacheExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttr(resourceName, "account_name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttr(resourceName, "account_number", fmt.Sprintf("%[3]s", rName, os.Getenv("KION_ACC_PAYER_ID"), os.Getenv("KION_ACC_AWS_ACCOUNT_NUMBER"))),
+					resource.TestCheckResourceAttr(resourceName, "account_number", fmt.Sprintf("%[3]s", rName, payerID, awsAccountNumber)),
 					resource.TestCheckResourceAttrSet(resourceName, "payer_id"),
 				),
 			},
 			{
-				Config: testAccAccountCacheConfig_update(rName, os.Getenv("KION_ACC_PAYER_ID"), os.Getenv("KION_ACC_AWS_ACCOUNT_NUMBER")),
+				Config: testAccAccountCacheConfig_update(rName, payerID, awsAccountNumber),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAccountCacheExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttr(resourceName, "account_name", fmt.Sprintf("%[1]s-updated", rName)),
-					resource.TestCheckResourceAttr(resourceName, "account_number", fmt.Sprintf("%[3]s", rName, os.Getenv("KION_ACC_PAYER_ID"), os.Getenv("KION_ACC_AWS_ACCOUNT_NUMBER"))),
+					resource.TestCheckResourceAttr(resourceName, "account_number", fmt.Sprintf("%[3]s", rName, payerID, awsAccountNumber)),
 					resource.TestCheckResourceAttrSet(resourceName, "payer_id"),
 				),
 			},

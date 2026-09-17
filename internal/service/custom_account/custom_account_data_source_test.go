@@ -4,7 +4,6 @@ package custom_account_test
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -18,6 +17,8 @@ func TestAccKionCustomAccountDataSource_basic(t *testing.T) {
 	}
 
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	customPayerID := acctest.RequireEnv(t, "KION_ACC_CUSTOM_PAYER_ID", "the custom payer id")
+	customAccountNumber := acctest.RequireEnv(t, "KION_ACC_CUSTOM_ACCOUNT_NUMBER", "the custom account number")
 	dataSourceName := "data.kion_custom_account.test"
 
 	resource.Test(t, resource.TestCase{
@@ -25,7 +26,7 @@ func TestAccKionCustomAccountDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCustomAccountDataSourceConfig_basic(rName, os.Getenv("KION_ACC_CUSTOM_PAYER_ID"), os.Getenv("KION_ACC_CUSTOM_ACCOUNT_NUMBER")),
+				Config: testAccCustomAccountDataSourceConfig_basic(rName, customPayerID, customAccountNumber),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "account_name"),

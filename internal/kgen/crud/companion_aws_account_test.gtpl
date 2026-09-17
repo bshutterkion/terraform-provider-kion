@@ -29,6 +29,9 @@ func TestAccKionAwsAccount_basic(t *testing.T) {
 	}
 
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+{{- range .EnvArgs}}
+	{{.Param}} := acctest.RequireEnv(t, "{{.Env}}", "{{.Describes}}")
+{{- end}}
 	resourceName := "kion_aws_account.test"
 
 	resource.Test(t, resource.TestCase{
@@ -66,6 +69,9 @@ func TestAccKionAwsAccount_update(t *testing.T) {
 	}
 
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+{{- range .EnvArgs}}
+	{{.Param}} := acctest.RequireEnv(t, "{{.Env}}", "{{.Describes}}")
+{{- end}}
 	resourceName := "kion_aws_account.test"
 
 	resource.Test(t, resource.TestCase{

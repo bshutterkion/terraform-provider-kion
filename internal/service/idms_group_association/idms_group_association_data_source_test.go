@@ -4,7 +4,6 @@ package idms_group_association_test
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -18,6 +17,7 @@ func TestAccKionIdmsGroupAssociationDataSource_basic(t *testing.T) {
 	}
 
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	samlIdmsID := acctest.RequireEnv(t, "KION_ACC_SAML_IDMS_ID", "the saml idms id")
 	dataSourceName := "data.kion_idms_group_association.test"
 
 	resource.Test(t, resource.TestCase{
@@ -25,7 +25,7 @@ func TestAccKionIdmsGroupAssociationDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccIdmsGroupAssociationDataSourceConfig_basic(rName, os.Getenv("KION_ACC_SAML_IDMS_ID")),
+				Config: testAccIdmsGroupAssociationDataSourceConfig_basic(rName, samlIdmsID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "assertion_name"),

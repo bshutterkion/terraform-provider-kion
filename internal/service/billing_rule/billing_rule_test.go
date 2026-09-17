@@ -5,7 +5,6 @@ package billing_rule_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -24,6 +23,7 @@ func TestAccKionBillingRule_basic(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	billingSourceID := acctest.RequireEnv(t, "KION_ACC_BILLING_SOURCE_ID", "the billing source id")
 	resourceName := "kion_billing_rule.test"
 
 	resource.Test(t, resource.TestCase{
@@ -32,7 +32,7 @@ func TestAccKionBillingRule_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckBillingRuleDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccBillingRuleConfig_basic(rName, os.Getenv("KION_ACC_BILLING_SOURCE_ID")),
+				Config: testAccBillingRuleConfig_basic(rName, billingSourceID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckBillingRuleExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -60,6 +60,7 @@ func TestAccKionBillingRule_update(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	billingSourceID := acctest.RequireEnv(t, "KION_ACC_BILLING_SOURCE_ID", "the billing source id")
 	resourceName := "kion_billing_rule.test"
 
 	resource.Test(t, resource.TestCase{
@@ -68,7 +69,7 @@ func TestAccKionBillingRule_update(t *testing.T) {
 		CheckDestroy:             testAccCheckBillingRuleDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccBillingRuleConfig_basic(rName, os.Getenv("KION_ACC_BILLING_SOURCE_ID")),
+				Config: testAccBillingRuleConfig_basic(rName, billingSourceID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckBillingRuleExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -81,7 +82,7 @@ func TestAccKionBillingRule_update(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccBillingRuleConfig_update(rName, os.Getenv("KION_ACC_BILLING_SOURCE_ID")),
+				Config: testAccBillingRuleConfig_update(rName, billingSourceID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckBillingRuleExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),

@@ -6,8 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	{{if .EnvArgs}}"os"
-	{{end}}"strconv"
+	"strconv"
 	{{if .ParentIDTF}}"strings"
 	{{end}}"testing"
 
@@ -25,6 +24,9 @@ func TestAccKion{{.Pascal}}_basic(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+{{- range .EnvArgs}}
+	{{.Param}} := acctest.RequireEnv(t, "{{.Env}}", "{{.Describes}}")
+{{- end}}
 	resourceName := "{{.TypeName}}.test"
 
 	resource.Test(t, resource.TestCase{
@@ -33,7 +35,7 @@ func TestAccKion{{.Pascal}}_basic(t *testing.T) {
 		CheckDestroy:             testAccCheck{{.Pascal}}Destroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAcc{{.Pascal}}Config_basic(rName{{range .EnvArgs}}, os.Getenv("{{.Env}}"){{end}}),
+				Config: testAcc{{.Pascal}}Config_basic(rName{{range .EnvArgs}}, {{.Param}}{{end}}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheck{{.Pascal}}Exists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -53,6 +55,9 @@ func TestAccKion{{.Pascal}}_update(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+{{- range .EnvArgs}}
+	{{.Param}} := acctest.RequireEnv(t, "{{.Env}}", "{{.Describes}}")
+{{- end}}
 	resourceName := "{{.TypeName}}.test"
 
 	resource.Test(t, resource.TestCase{
@@ -61,11 +66,11 @@ func TestAccKion{{.Pascal}}_update(t *testing.T) {
 		CheckDestroy:             testAccCheck{{.Pascal}}Destroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAcc{{.Pascal}}Config_basic(rName{{range .EnvArgs}}, os.Getenv("{{.Env}}"){{end}}),
+				Config: testAcc{{.Pascal}}Config_basic(rName{{range .EnvArgs}}, {{.Param}}{{end}}),
 				Check:  testAccCheck{{.Pascal}}Exists(ctx, resourceName),
 			},
 			{
-				Config: testAcc{{.Pascal}}Config_update(rName{{range .EnvArgs}}, os.Getenv("{{.Env}}"){{end}}),
+				Config: testAcc{{.Pascal}}Config_update(rName{{range .EnvArgs}}, {{.Param}}{{end}}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheck{{.Pascal}}Exists(ctx, resourceName),
 					{{- range .UpdateAttrs}}

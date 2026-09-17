@@ -5,7 +5,6 @@ package ami_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"testing"
 
@@ -25,6 +24,8 @@ func TestAccKionAmi_basic(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	accountID := acctest.RequireEnv(t, "KION_ACC_ACCOUNT_ID", "the account id")
+	awsAmiID := acctest.RequireEnv(t, "KION_ACC_AWS_AMI_ID", "the aws ami id")
 	resourceName := "kion_ami.test"
 
 	resource.Test(t, resource.TestCase{
@@ -33,12 +34,12 @@ func TestAccKionAmi_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckAmiDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAmiConfig_basic(rName, os.Getenv("KION_ACC_ACCOUNT_ID"), os.Getenv("KION_ACC_AWS_AMI_ID")),
+				Config: testAccAmiConfig_basic(rName, accountID, awsAmiID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAmiExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttrSet(resourceName, "account_id"),
-					resource.TestCheckResourceAttr(resourceName, "aws_ami_id", fmt.Sprintf("%[3]s", rName, os.Getenv("KION_ACC_ACCOUNT_ID"), os.Getenv("KION_ACC_AWS_AMI_ID"))),
+					resource.TestCheckResourceAttr(resourceName, "aws_ami_id", fmt.Sprintf("%[3]s", rName, accountID, awsAmiID)),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
 					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
 					resource.TestCheckResourceAttr(resourceName, "region", "us-east-1"),
@@ -60,6 +61,8 @@ func TestAccKionAmi_update(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	accountID := acctest.RequireEnv(t, "KION_ACC_ACCOUNT_ID", "the account id")
+	awsAmiID := acctest.RequireEnv(t, "KION_ACC_AWS_AMI_ID", "the aws ami id")
 	resourceName := "kion_ami.test"
 
 	resource.Test(t, resource.TestCase{
@@ -68,24 +71,24 @@ func TestAccKionAmi_update(t *testing.T) {
 		CheckDestroy:             testAccCheckAmiDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAmiConfig_basic(rName, os.Getenv("KION_ACC_ACCOUNT_ID"), os.Getenv("KION_ACC_AWS_AMI_ID")),
+				Config: testAccAmiConfig_basic(rName, accountID, awsAmiID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAmiExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttrSet(resourceName, "account_id"),
-					resource.TestCheckResourceAttr(resourceName, "aws_ami_id", fmt.Sprintf("%[3]s", rName, os.Getenv("KION_ACC_ACCOUNT_ID"), os.Getenv("KION_ACC_AWS_AMI_ID"))),
+					resource.TestCheckResourceAttr(resourceName, "aws_ami_id", fmt.Sprintf("%[3]s", rName, accountID, awsAmiID)),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
 					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
 					resource.TestCheckResourceAttr(resourceName, "region", "us-east-1"),
 				),
 			},
 			{
-				Config: testAccAmiConfig_update(rName, os.Getenv("KION_ACC_ACCOUNT_ID"), os.Getenv("KION_ACC_AWS_AMI_ID")),
+				Config: testAccAmiConfig_update(rName, accountID, awsAmiID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAmiExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttrSet(resourceName, "account_id"),
-					resource.TestCheckResourceAttr(resourceName, "aws_ami_id", fmt.Sprintf("%[3]s", rName, os.Getenv("KION_ACC_ACCOUNT_ID"), os.Getenv("KION_ACC_AWS_AMI_ID"))),
+					resource.TestCheckResourceAttr(resourceName, "aws_ami_id", fmt.Sprintf("%[3]s", rName, accountID, awsAmiID)),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc-updated"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
 					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),

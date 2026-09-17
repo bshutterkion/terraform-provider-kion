@@ -5,7 +5,6 @@ package saml_group_association_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"testing"
 
@@ -25,6 +24,7 @@ func TestAccKionSamlGroupAssociation_basic(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	samlIdmsID := acctest.RequireEnv(t, "KION_ACC_SAML_IDMS_ID", "the saml idms id")
 	resourceName := "kion_saml_group_association.test"
 
 	resource.Test(t, resource.TestCase{
@@ -33,7 +33,7 @@ func TestAccKionSamlGroupAssociation_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckSamlGroupAssociationDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSamlGroupAssociationConfig_basic(rName, os.Getenv("KION_ACC_SAML_IDMS_ID")),
+				Config: testAccSamlGroupAssociationConfig_basic(rName, samlIdmsID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckSamlGroupAssociationExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -60,6 +60,7 @@ func TestAccKionSamlGroupAssociation_update(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	samlIdmsID := acctest.RequireEnv(t, "KION_ACC_SAML_IDMS_ID", "the saml idms id")
 	resourceName := "kion_saml_group_association.test"
 
 	resource.Test(t, resource.TestCase{
@@ -68,7 +69,7 @@ func TestAccKionSamlGroupAssociation_update(t *testing.T) {
 		CheckDestroy:             testAccCheckSamlGroupAssociationDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSamlGroupAssociationConfig_basic(rName, os.Getenv("KION_ACC_SAML_IDMS_ID")),
+				Config: testAccSamlGroupAssociationConfig_basic(rName, samlIdmsID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckSamlGroupAssociationExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -80,7 +81,7 @@ func TestAccKionSamlGroupAssociation_update(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccSamlGroupAssociationConfig_update(rName, os.Getenv("KION_ACC_SAML_IDMS_ID")),
+				Config: testAccSamlGroupAssociationConfig_update(rName, samlIdmsID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckSamlGroupAssociationExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),

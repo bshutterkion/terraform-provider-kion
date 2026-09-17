@@ -5,7 +5,6 @@ package project_line_item_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"testing"
 
@@ -25,6 +24,7 @@ func TestAccKionProjectLineItem_basic(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	billingSourceID := acctest.RequireEnv(t, "KION_ACC_BILLING_SOURCE_ID", "the billing source id")
 	resourceName := "kion_project_line_item.test"
 
 	resource.Test(t, resource.TestCase{
@@ -33,7 +33,7 @@ func TestAccKionProjectLineItem_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckProjectLineItemDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProjectLineItemConfig_basic(rName, os.Getenv("KION_ACC_BILLING_SOURCE_ID")),
+				Config: testAccProjectLineItemConfig_basic(rName, billingSourceID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckProjectLineItemExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -62,6 +62,7 @@ func TestAccKionProjectLineItem_update(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	billingSourceID := acctest.RequireEnv(t, "KION_ACC_BILLING_SOURCE_ID", "the billing source id")
 	resourceName := "kion_project_line_item.test"
 
 	resource.Test(t, resource.TestCase{
@@ -70,7 +71,7 @@ func TestAccKionProjectLineItem_update(t *testing.T) {
 		CheckDestroy:             testAccCheckProjectLineItemDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccProjectLineItemConfig_basic(rName, os.Getenv("KION_ACC_BILLING_SOURCE_ID")),
+				Config: testAccProjectLineItemConfig_basic(rName, billingSourceID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckProjectLineItemExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -84,7 +85,7 @@ func TestAccKionProjectLineItem_update(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccProjectLineItemConfig_update(rName, os.Getenv("KION_ACC_BILLING_SOURCE_ID")),
+				Config: testAccProjectLineItemConfig_update(rName, billingSourceID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckProjectLineItemExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),

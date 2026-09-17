@@ -4,7 +4,6 @@ package account_cache_test
 
 import (
 	"fmt"
-	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -18,6 +17,8 @@ func TestAccKionAccountCacheDataSource_basic(t *testing.T) {
 	}
 
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	payerID := acctest.RequireEnv(t, "KION_ACC_PAYER_ID", "the payer id")
+	awsAccountNumber := acctest.RequireEnv(t, "KION_ACC_AWS_ACCOUNT_NUMBER", "the aws account number")
 	dataSourceName := "data.kion_account_cache.test"
 
 	resource.Test(t, resource.TestCase{
@@ -25,7 +26,7 @@ func TestAccKionAccountCacheDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccAccountCacheDataSourceConfig_basic(rName, os.Getenv("KION_ACC_PAYER_ID"), os.Getenv("KION_ACC_AWS_ACCOUNT_NUMBER")),
+				Config: testAccAccountCacheDataSourceConfig_basic(rName, payerID, awsAccountNumber),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "account_name"),

@@ -311,7 +311,7 @@ func checkExpr(value string, envArgs []acctestEnvArg, extra []string) string {
 	}
 	args := []string{"rName"}
 	for _, e := range envArgs {
-		args = append(args, fmt.Sprintf("os.Getenv(%q)", e.Env))
+		args = append(args, e.Param)
 	}
 	args = append(args, extra...)
 	// Passing more arguments than the verbs consume makes Sprintf emit
@@ -386,6 +386,8 @@ func renderTest(name, tmpl string, rm ResourceModel, tv testValues) ([]byte, err
 type acctestEnvArg struct {
 	Env   string // e.g. KION_ACC_BILLING_SOURCE_ID
 	Param string // e.g. billingSourceID
+	// Describes is the phrase RequireEnv prints when the variable is unset.
+	Describes string // e.g. "the billing source id"
 }
 
 // envArgsFor derives parameter names from variable names. Computed here rather
@@ -404,7 +406,12 @@ func envArgsFor(envs []string) []acctestEnvArg {
 				parts[i] = strings.ToUpper(p[:1]) + p[1:]
 			}
 		}
-		out = append(out, acctestEnvArg{Env: e, Param: strings.Join(parts, "")})
+		words := strings.ToLower(strings.TrimPrefix(e, "KION_ACC_"))
+		out = append(out, acctestEnvArg{
+			Env:       e,
+			Param:     strings.Join(parts, ""),
+			Describes: "the " + strings.ReplaceAll(words, "_", " "),
+		})
 	}
 	return out
 }

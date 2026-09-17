@@ -5,7 +5,6 @@ package ou_permission_mapping_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"testing"
 
@@ -25,6 +24,7 @@ func TestAccKionOuPermissionMapping_basic(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	appRoleID := acctest.RequireEnv(t, "KION_ACC_APP_ROLE_ID", "the app role id")
 	resourceName := "kion_ou_permission_mapping.test"
 
 	resource.Test(t, resource.TestCase{
@@ -33,7 +33,7 @@ func TestAccKionOuPermissionMapping_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckOuPermissionMappingDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccOuPermissionMappingConfig_basic(rName, os.Getenv("KION_ACC_APP_ROLE_ID")),
+				Config: testAccOuPermissionMappingConfig_basic(rName, appRoleID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckOuPermissionMappingExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -53,6 +53,7 @@ func TestAccKionOuPermissionMapping_update(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	appRoleID := acctest.RequireEnv(t, "KION_ACC_APP_ROLE_ID", "the app role id")
 	resourceName := "kion_ou_permission_mapping.test"
 
 	resource.Test(t, resource.TestCase{
@@ -61,7 +62,7 @@ func TestAccKionOuPermissionMapping_update(t *testing.T) {
 		CheckDestroy:             testAccCheckOuPermissionMappingDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccOuPermissionMappingConfig_basic(rName, os.Getenv("KION_ACC_APP_ROLE_ID")),
+				Config: testAccOuPermissionMappingConfig_basic(rName, appRoleID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckOuPermissionMappingExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "app_role_id"),
@@ -70,7 +71,7 @@ func TestAccKionOuPermissionMapping_update(t *testing.T) {
 				),
 			},
 			{
-				Config: testAccOuPermissionMappingConfig_update(rName, os.Getenv("KION_ACC_APP_ROLE_ID")),
+				Config: testAccOuPermissionMappingConfig_update(rName, appRoleID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckOuPermissionMappingExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "app_role_id"),
