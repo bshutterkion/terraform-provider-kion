@@ -721,6 +721,13 @@ func (g *generator) writeFile(path string, data []byte, force bool) error {
 		g.written = map[string]bool{}
 	}
 	g.written[path] = true
+	// The package directory normally exists because `kgen service` scaffolded
+	// it, but two are created by generation itself: the shared accounthelper,
+	// and any bespoke package absent from generator_config. Without this a wipe
+	// fails those with a bare "no such file or directory" naming the file.
+	if err := g.fs.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return fmt.Errorf("creating %s: %w", filepath.Dir(path), err)
+	}
 	return g.fs.WriteFile(path, data, 0o600)
 }
 
