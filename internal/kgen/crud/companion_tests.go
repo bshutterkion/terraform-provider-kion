@@ -2,6 +2,9 @@ package crud
 
 import _ "embed"
 
+//go:embed servicepackage.gtpl
+var servicePackageTmpl string
+
 //go:embed companion_account_linkage_data_source_test.gtpl
 var accountLinkageDataSourceTestTmpl string
 
@@ -145,4 +148,49 @@ var companionTestsByName = map[string][]bespokeFile{
 		{webhookDataSourceTestTmpl, "webhook_data_source_test.go"},
 		{webhookTestTmpl, "webhook_test.go"},
 	},
+}
+
+// aliasFactory is an extra constructor a service package registers beside the
+// derived one, for a resource kept under a second Terraform type name.
+type aliasFactory struct {
+	Factory string
+	Comment string
+}
+
+// aliasFactoriesByName are the backwards-compatible type aliases three
+// resources carry from the previous provider. The alias bodies themselves are
+// companion files; this is what registers them.
+var aliasFactoriesByName = map[string]struct {
+	Resources   []aliasFactory
+	DataSources []aliasFactory
+}{
+	"account_cache": {
+		DataSources: []aliasFactory{{"NewCachedAccountDataSource", "backwards-compat alias: kion_cached_account"}},
+	},
+	"cft": {
+		Resources:   []aliasFactory{{"NewAwsCftResource", "backwards-compat alias: kion_aws_cloudformation_template"}},
+		DataSources: []aliasFactory{{"NewAwsCftDataSource", "backwards-compat alias: kion_aws_cloudformation_template"}},
+	},
+	"iam_policy": {
+		Resources:   []aliasFactory{{"NewAwsIamPolicyResource", "backwards-compat alias: kion_aws_iam_policy"}},
+		DataSources: []aliasFactory{{"NewAwsIamPolicyDataSource", "backwards-compat alias: kion_aws_iam_policy"}},
+	},
+}
+
+// servicePackageData is the payload for servicepackage.gtpl.
+type servicePackageData struct {
+	Pkg, Pascal       string
+	DataSourceCtor    string
+	ResourceAliases   []aliasFactory
+	DataSourceAliases []aliasFactory
+}
+
+// newServicePackageData builds the registration payload. dsCtor is empty when
+// the package ships no data source.
+func newServicePackageData(name, pascal, dsCtor string) servicePackageData {
+	a := aliasFactoriesByName[name]
+	return servicePackageData{
+		Pkg: name, Pascal: pascal, DataSourceCtor: dsCtor,
+		ResourceAliases: a.Resources, DataSourceAliases: a.DataSources,
+	}
 }

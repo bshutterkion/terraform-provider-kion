@@ -338,7 +338,8 @@ func (g *generator) generateRaw(dir, name string, ops rawResourceOps, model []Mo
 	if err != nil {
 		return 0, err
 	}
-	pkgGo, err := execGoTemplate("servicepackage_noread", servicePackageNoReadTmpl, struct{ Pkg, Pascal, DataSourceCtor string }{name, d.Pascal, dataSourceCompanionCtor(name, d.Pascal)}, "service_package.go")
+	pkgGo, err := execGoTemplate("servicepackage", servicePackageTmpl,
+		newServicePackageData(name, d.Pascal, dataSourceCompanionCtor(name, d.Pascal)), "service_package.go")
 	if err != nil {
 		return 0, err
 	}
@@ -367,6 +368,9 @@ func (g *generator) generateRaw(dir, name string, ops rawResourceOps, model []Mo
 		fmt.Fprintf(os.Stderr, "kgen crud: %s: no test_values entry; skipping acceptance tests\n", name)
 	}
 	if err := g.emitCompanions(dir, name, force); err != nil {
+		return 0, err
+	}
+	if err := g.pruneUnwritten(dir, name); err != nil {
 		return 0, err
 	}
 	return 1, nil

@@ -207,7 +207,8 @@ func (g *generator) generateAssoc(dir, name string, ops resOps, idx sdkIndex, ar
 	if err != nil {
 		return 0, err
 	}
-	pkgGo, err := execGoTemplate("servicepackage_noread", servicePackageNoReadTmpl, struct{ Pkg, Pascal, DataSourceCtor string }{name, d.Pascal, dataSourceCompanionCtor(name, d.Pascal)}, "service_package.go")
+	pkgGo, err := execGoTemplate("servicepackage", servicePackageTmpl,
+		newServicePackageData(name, d.Pascal, dataSourceCompanionCtor(name, d.Pascal)), "service_package.go")
 	if err != nil {
 		return 0, err
 	}
@@ -238,6 +239,9 @@ func (g *generator) generateAssoc(dir, name string, ops resOps, idx sdkIndex, ar
 	// Some association resources keep a hand-authored data source (association is
 	// resource-only); emit its companion files verbatim when registered.
 	if err := g.emitCompanions(dir, name, force); err != nil {
+		return 0, err
+	}
+	if err := g.pruneUnwritten(dir, name); err != nil {
 		return 0, err
 	}
 	return 1, nil

@@ -11,9 +11,6 @@ import (
 //go:embed noreadtest.gtpl
 var noReadTestTmpl string
 
-//go:embed servicepackage_noread.gtpl
-var servicePackageNoReadTmpl string
-
 // noReadKind is the crud_archetypes.yaml kind for a resource with no
 // single-record GET endpoint (create → id, no-op read keeping state, delete).
 const noReadKind = "no_read"
@@ -95,7 +92,8 @@ func (g *generator) generateNoRead(dir, name string, ops resOps, idx sdkIndex, m
 	// still exited 0. Keep this in step with the assoc, blended and raw_http
 	// call sites, which pass the same three fields.
 	dsCtor := dataSourceCompanionCtor(name, rm.Pascal)
-	pkgGo, err := execGoTemplate("servicepackage_noread", servicePackageNoReadTmpl, struct{ Pkg, Pascal, DataSourceCtor string }{name, rm.Pascal, dsCtor}, "service_package.go")
+	pkgGo, err := execGoTemplate("servicepackage", servicePackageTmpl,
+		newServicePackageData(name, rm.Pascal, dsCtor), "service_package.go")
 	if err != nil {
 		return 0, err
 	}
@@ -150,6 +148,9 @@ func (g *generator) generateNoRead(dir, name string, ops resOps, idx sdkIndex, m
 		fmt.Fprintf(os.Stderr, "kgen crud: %s: no test_values entry; skipping acceptance tests\n", name)
 	}
 	if err := g.emitCompanions(dir, name, force); err != nil {
+		return 0, err
+	}
+	if err := g.pruneUnwritten(dir, name); err != nil {
 		return 0, err
 	}
 	return 1, nil

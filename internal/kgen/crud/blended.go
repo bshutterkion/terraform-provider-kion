@@ -80,12 +80,18 @@ func (g *generator) generateBlended(dir, name string, ops resOps, idx sdkIndex, 
 	if err != nil {
 		return 0, err
 	}
-	// Emit companions first: service_package.go registers whatever data source
-	// is on disk, so a companion written after it would not be registered.
+	// Companions first, then prune: service_package.go registers whatever data
+	// source is on disk, so a companion written after it would not be
+	// registered, and a scaffolder stub left before it would be registered
+	// without ever being generated.
 	if err := g.emitCompanions(dir, name, force); err != nil {
 		return 0, err
 	}
-	pkgGo, err := execGoTemplate("servicepackage_noread", servicePackageNoReadTmpl, struct{ Pkg, Pascal, DataSourceCtor string }{name, d.Pascal, blendedDataSourceCtor(dir, name, d.Pascal)}, "service_package.go")
+	if err := g.pruneUnwritten(dir, name); err != nil {
+		return 0, err
+	}
+	pkgGo, err := execGoTemplate("servicepackage", servicePackageTmpl,
+		newServicePackageData(name, d.Pascal, blendedDataSourceCtor(dir, name, d.Pascal)), "service_package.go")
 	if err != nil {
 		return 0, err
 	}
@@ -265,7 +271,8 @@ func blendedDataSourceCtor(dir, name, pascal string) string {
 	// A public read op is not enough: the data-source generator declines some
 	// (no usable list shape), and registering a constructor for a file that was
 	// never written does not compile. The file on disk is the only honest
-	// signal, and it is written before this runs.
+	// signal -- provided the caller has already emitted companions and pruned
+	// any scaffolder stub, which is neither generated nor wanted here.
 	if _, err := os.Stat(filepath.Join(dir, name+"_data_source.go")); err == nil {
 		return "New" + pascal + "DataSource"
 	}

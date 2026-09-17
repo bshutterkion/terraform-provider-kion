@@ -73,10 +73,17 @@ func (g *generator) generateParentList(dir, name string, ops resOps, idx sdkInde
 	if err != nil {
 		return 0, err
 	}
-	// service_package.go is owned by kgen service (it may register a hand-written
-	// data source alongside the generated resource), so the entity/parent_list
-	// paths don't emit it.
 	if err := g.writeFile(filepath.Join(dir, name+".go"), resourceGo, force); err != nil {
+		return 0, err
+	}
+	// A parent_list resource derives no data source; one only exists when a
+	// companion supplies it, which is what the registry answers.
+	pkgGo, err := execGoTemplate("servicepackage", servicePackageTmpl,
+		newServicePackageData(name, d.Pascal, dataSourceCompanionCtor(name, d.Pascal)), "service_package.go")
+	if err != nil {
+		return 0, err
+	}
+	if err := g.writeFile(filepath.Join(dir, "service_package.go"), pkgGo, force); err != nil {
 		return 0, err
 	}
 	tv, hasTV, err := loadTestValues(tvPath, name)
@@ -96,6 +103,9 @@ func (g *generator) generateParentList(dir, name string, ops resOps, idx sdkInde
 	}
 	// parent_list is resource-only; emit its hand-authored companion files.
 	if err := g.emitCompanions(dir, name, force); err != nil {
+		return 0, err
+	}
+	if err := g.pruneUnwritten(dir, name); err != nil {
 		return 0, err
 	}
 	return 1, nil

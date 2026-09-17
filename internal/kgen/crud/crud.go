@@ -63,6 +63,10 @@ type generator struct {
 	oldSchema   map[string]migrate.Resource  // codegen/schema_snapshots/old.json (lazy)
 	newSchema   map[string]migrate.Resource  // codegen/schema_snapshots/new.json (lazy)
 	root        string
+	// written records every path this pass wrote, so pruneUnwritten can tell a
+	// generated file from one the scaffolder left behind.
+	written map[string]bool
+
 	// fieldPolicy is codegen/unexposed_fields.yaml: the response fields a list
 	// data source must withhold. Loaded once per run alongside the other
 	// codegen inputs above.
@@ -562,6 +566,14 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		{filepath.Join(dir, name+"_data_source.go"), dataSourceGo},
 		{filepath.Join(dir, "sweep.go"), sweepGo},
 	}
+	// An entity always ships a data source, so its registration is derivable;
+	// the alias registry supplies any second type name the resource answers to.
+	pkgGo, err := execGoTemplate("servicepackage", servicePackageTmpl,
+		newServicePackageData(name, rm.Pascal, "New"+rm.Pascal+"DataSource"), "service_package.go")
+	if err != nil {
+		return 0, err
+	}
+	files = append(files, genFile{filepath.Join(dir, "service_package.go"), pkgGo})
 
 	tv, hasTV, err := loadTestValues(tvPath, name)
 	if err != nil {
@@ -697,14 +709,34 @@ func (g *generator) emitUpgrade(name string, force bool) error {
 }
 
 // writeFile writes data to path, refusing to overwrite an existing file unless
-// force is set.
+// force is set. Every written path is recorded so a generate pass can tell what
+// it owns from what was left behind.
 func (g *generator) writeFile(path string, data []byte, force bool) error {
 	if !force {
 		if _, err := g.fs.Stat(path); err == nil {
 			return fmt.Errorf("%s already exists (use --force to overwrite)", path)
 		}
 	}
+	if g.written == nil {
+		g.written = map[string]bool{}
+	}
+	g.written[path] = true
 	return g.fs.WriteFile(path, data, 0o600)
+}
+
+// pruneUnwritten removes a file this pass did not write. `kgen service`
+// scaffolds a data source for every new package, but a resource-only archetype
+// never emits one, so the stub would survive a wipe-and-regenerate and get
+// registered in service_package.go -- output no input asked for.
+func (g *generator) pruneUnwritten(dir, name string) error {
+	path := filepath.Join(dir, name+"_data_source.go")
+	if g.written[path] {
+		return nil
+	}
+	if _, err := g.fs.Stat(path); err != nil {
+		return nil // nothing there
+	}
+	return g.fs.RemoveAll(path)
 }
 
 // findProjectRoot walks up from the working directory to the module root.
