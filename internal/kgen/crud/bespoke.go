@@ -313,10 +313,19 @@ func (g *generator) generateDatasourceOnly(dir, name string, force bool) (int, e
 	if !ok {
 		return 0, fmt.Errorf("%s: datasource_only archetype but no template registered", name)
 	}
+	pascal := pascalCase(name)
+	pkgGo, err := execGoTemplate("servicepackage", servicePackageTmpl,
+		newDataSourceOnlyPackageData(name, pascal), "service_package.go")
+	if err != nil {
+		return 0, err
+	}
 	n, err := g.emitBespoke(dir, name, nil, []bespokeFile{
 		{tmpl, name + "_data_source.go"},
 	}, force)
 	if err != nil {
+		return n, err
+	}
+	if err := g.writeFile(filepath.Join(dir, "service_package.go"), pkgGo, force); err != nil {
 		return n, err
 	}
 	return n, g.emitCompanions(dir, name, force)

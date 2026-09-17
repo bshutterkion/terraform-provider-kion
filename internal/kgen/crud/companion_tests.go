@@ -95,10 +95,40 @@ var companionBlendedByName = map[string][]bespokeFile{
 	},
 }
 
+//go:embed companion_automation_policy_pagination_test.gtpl
+var automationPolicyPaginationTestTmpl string
+
+//go:embed companion_aws_account_upgrade_test.gtpl
+var awsAccountUpgradeTestTmpl string
+
+//go:embed companion_cft_upgrade_test.gtpl
+var cftUpgradeTestTmpl string
+
+//go:embed companion_aws_iam_policy_alias_upgrade_test.gtpl
+var awsIamPolicyAliasUpgradeTestTmpl string
+
+//go:embed companion_move_ou_settings_test.gtpl
+var moveOuSettingsTestTmpl string
+
+//go:embed companion_user_group_upgrade_test.gtpl
+var userGroupUpgradeTestTmpl string
+
 // companionTestsByName are acceptance tests kept verbatim for resources whose
 // archetype derives no test. Registered separately from companionsByName so
 // neither map depends on package init order.
 var companionTestsByName = map[string][]bespokeFile{
+	"user_group": {
+		{userGroupUpgradeTestTmpl, "user_group_upgrade_test.go"},
+	},
+	"project": {
+		{moveOuSettingsTestTmpl, "move_ou_settings_test.go"},
+	},
+	"iam_policy": {
+		{awsIamPolicyAliasUpgradeTestTmpl, "aws_iam_policy_alias_upgrade_test.go"},
+	},
+	"cft": {
+		{cftUpgradeTestTmpl, "cft_upgrade_test.go"},
+	},
 	"account": {
 		{accountDataSourceTestTmpl, "account_data_source_test.go"},
 		{accountTestTmpl, "account_test.go"},
@@ -111,10 +141,12 @@ var companionTestsByName = map[string][]bespokeFile{
 		{appConfigTestTmpl, "app_config_test.go"},
 	},
 	"automation_policy": {
+		{automationPolicyPaginationTestTmpl, "automation_policy_pagination_test.go"},
 		{automationPolicyDataSourceTestTmpl, "automation_policy_data_source_test.go"},
 		{automationPolicyTestTmpl, "automation_policy_test.go"},
 	},
 	"aws_account": {
+		{awsAccountUpgradeTestTmpl, "aws_account_upgrade_test.go"},
 		{awsAccountDataSourceTestTmpl, "aws_account_data_source_test.go"},
 		{awsAccountTestTmpl, "aws_account_test.go"},
 	},
@@ -183,6 +215,8 @@ type servicePackageData struct {
 	DataSourceCtor    string
 	ResourceAliases   []aliasFactory
 	DataSourceAliases []aliasFactory
+	// NoResource marks a package that registers only a data source.
+	NoResource bool
 }
 
 // newServicePackageData builds the registration payload. dsCtor is empty when
@@ -193,4 +227,12 @@ func newServicePackageData(name, pascal, dsCtor string) servicePackageData {
 		Pkg: name, Pascal: pascal, DataSourceCtor: dsCtor,
 		ResourceAliases: a.Resources, DataSourceAliases: a.DataSources,
 	}
+}
+
+// newDataSourceOnlyPackageData is the registration for a package with a data
+// source and no resource.
+func newDataSourceOnlyPackageData(name, pascal string) servicePackageData {
+	d := newServicePackageData(name, pascal, "New"+pascal+"DataSource")
+	d.NoResource = true
+	return d
 }

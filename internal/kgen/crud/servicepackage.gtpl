@@ -18,7 +18,10 @@ func NewServicePackage() conns.ServicePackage {
 	return &servicePackage{}
 }
 
+{{if .NoResource}}// Resources is empty: {{.Pkg}} is a read-only lookup with no managed resource.
 func (p *servicePackage) Resources(_ context.Context) []servicepkg.ServicePackageResource {
+	return nil
+}{{else}}func (p *servicePackage) Resources(_ context.Context) []servicepkg.ServicePackageResource {
 	return []servicepkg.ServicePackageResource{
 		{
 			Factory: New{{.Pascal}}Resource,
@@ -30,7 +33,7 @@ func (p *servicePackage) Resources(_ context.Context) []servicepkg.ServicePackag
 		},
 {{- end}}
 	}
-}
+}{{end}}
 
 {{if .DataSourceCtor}}func (p *servicePackage) DataSources(_ context.Context) []servicepkg.ServicePackageDataSource {
 	return []servicepkg.ServicePackageDataSource{
