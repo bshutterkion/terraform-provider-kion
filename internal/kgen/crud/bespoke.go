@@ -327,6 +327,7 @@ func (g *generator) generateDatasourceOnly(dir, name string, force bool) (int, e
 // are registered for name.
 func (g *generator) emitCompanions(dir, name string, force bool) error {
 	files := append([]bespokeFile(nil), companionsByName[name]...)
+	files = append(files, companionBlendedByName[name]...)
 	files = append(files, companionTestsByName[name]...)
 	if len(files) == 0 {
 		return nil

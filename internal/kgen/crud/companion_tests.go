@@ -65,6 +65,33 @@ var webhookTestTmpl string
 //go:embed companion_webhook_data_source_test.gtpl
 var webhookDataSourceTestTmpl string
 
+//go:embed companion_account_linkage_data_source.gtpl
+var accountLinkageDataSourceTmpl string
+
+//go:embed companion_account_linkage_sweep.gtpl
+var accountLinkageSweepTmpl string
+
+//go:embed companion_billing_rule_data_source.gtpl
+var billingRuleDataSourceTmpl string
+
+//go:embed companion_billing_rule_sweep.gtpl
+var billingRuleSweepTmpl string
+
+// companionBlendedByName are the data source and sweeper a blended resource
+// ships but its archetype does not derive: it emits only the resource and the
+// service package. Without these the committed files claimed "Code generated"
+// while nothing regenerated them.
+var companionBlendedByName = map[string][]bespokeFile{
+	"account_linkage": {
+		{accountLinkageDataSourceTmpl, "account_linkage_data_source.go"},
+		{accountLinkageSweepTmpl, "sweep.go"},
+	},
+	"billing_rule": {
+		{billingRuleDataSourceTmpl, "billing_rule_data_source.go"},
+		{billingRuleSweepTmpl, "sweep.go"},
+	},
+}
+
 // companionTestsByName are acceptance tests kept verbatim for resources whose
 // archetype derives no test. Registered separately from companionsByName so
 // neither map depends on package init order.

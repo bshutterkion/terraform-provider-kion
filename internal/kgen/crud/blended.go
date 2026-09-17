@@ -80,6 +80,11 @@ func (g *generator) generateBlended(dir, name string, ops resOps, idx sdkIndex, 
 	if err != nil {
 		return 0, err
 	}
+	// Emit companions first: service_package.go registers whatever data source
+	// is on disk, so a companion written after it would not be registered.
+	if err := g.emitCompanions(dir, name, force); err != nil {
+		return 0, err
+	}
 	pkgGo, err := execGoTemplate("servicepackage_noread", servicePackageNoReadTmpl, struct{ Pkg, Pascal, DataSourceCtor string }{name, d.Pascal, blendedDataSourceCtor(dir, name, d.Pascal)}, "service_package.go")
 	if err != nil {
 		return 0, err
@@ -107,12 +112,6 @@ func (g *generator) generateBlended(dir, name string, ops resOps, idx sdkIndex, 
 		}
 	} else {
 		fmt.Fprintf(os.Stderr, "kgen crud: %s: no test_values entry; skipping acceptance tests\n", name)
-	}
-	// A blended resource has no derived read, so any data source it ships is a
-	// hand-kept companion (project_note). Without this the companion was never
-	// emitted and dataSourceCompanionCtor above had nothing to register.
-	if err := g.emitCompanions(dir, name, force); err != nil {
-		return 0, err
 	}
 	return 1, nil
 }
