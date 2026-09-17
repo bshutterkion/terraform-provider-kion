@@ -1032,3 +1032,110 @@ resources:
       ou_cloud_access_role_id: "hcl:kion_ou_cloud_access_role.test_car.id"
       project_id: "hcl:kion_project.test.id"
       reason: "test-acc exemption"
+  # The seven below create real cloud billing connections or accounts, so every
+  # install-specific value is an env_arg: the test skips when it is unset rather
+  # than sending an empty attribute. skip_validation keeps the API from calling
+  # out to the provider during the test where the schema allows it.
+  billing_source_aws:
+    env_args: [KION_ACC_AWS_ACCOUNT_NUMBER, KION_ACC_AWS_BILLING_ROLE]
+    create:
+      account_type_id: "1"
+      aws_account_number: "%[2]s"
+      billing_start_date: "2026-01"
+      linked_role: "%[3]s"
+      name: "test-acc-%[1]s"
+      skip_validation: "true"
+    update:
+      account_type_id: "1"
+      aws_account_number: "%[2]s"
+      billing_start_date: "2026-01"
+      linked_role: "%[3]s"
+      name: "test-acc-%[1]s-upd"
+      skip_validation: "true"
+  billing_source_govcloud:
+    env_args: [KION_ACC_PAYER_ID, KION_ACC_AWS_ACCOUNT_NUMBER]
+    create:
+      aws_account_number: "%[3]s"
+      name: "test-acc-%[1]s"
+      payer_id: "hcl:%[2]s"
+    update:
+      aws_account_number: "%[3]s"
+      name: "test-acc-%[1]s-upd"
+      payer_id: "hcl:%[2]s"
+  gcp_account:
+    env_args: [KION_ACC_GCP_PAYER_ID, KION_ACC_GCP_PROJECT_ID]
+    create:
+      account_name: "test-acc-%[1]s"
+      payer_id: "hcl:%[2]s"
+      project_id: "hcl:%[3]s"
+      start_datecode: "2026-01"
+    update:
+      account_name: "test-acc-%[1]s-upd"
+      payer_id: "hcl:%[2]s"
+      project_id: "hcl:%[3]s"
+      start_datecode: "2026-01"
+  # portfolio_id is the AWS portfolio id, not a kion_service_catalog reference
+  # (see codegen/references.yaml), so it comes from the environment.
+  service_catalog:
+    env_args: [KION_ACC_ACCOUNT_ID, KION_ACC_AWS_PORTFOLIO_ID, KION_ACC_AWS_REGION]
+    create:
+      account_id: "hcl:%[2]s"
+      description: "test-acc service catalog"
+      name: "test-acc-%[1]s"
+      owner_user_ids: "hcl:[1]"
+      portfolio_id: "%[3]s"
+      region: "%[4]s"
+    update:
+      account_id: "hcl:%[2]s"
+      description: "test-acc service catalog, updated"
+      name: "test-acc-%[1]s-upd"
+      owner_user_ids: "hcl:[1]"
+      portfolio_id: "%[3]s"
+      region: "%[4]s"
+  billing_source:
+    env_args: [KION_ACC_AWS_ACCOUNT_NUMBER, KION_ACC_AWS_BILLING_ROLE, KION_ACC_AWS_BILLING_BUCKET, KION_ACC_AWS_REGION]
+    create:
+      aws_connection: 'hcl:{ account_number = "%[2]s", bucket_access_role = "%[3]s", storage_bucket = "%[4]s", storage_prefix = "test-acc", storage_region = "%[5]s" }'
+      billing_start_date: "2026-01"
+      name: "test-acc-%[1]s"
+      skip_validation: "true"
+    update:
+      aws_connection: 'hcl:{ account_number = "%[2]s", bucket_access_role = "%[3]s", storage_bucket = "%[4]s", storage_prefix = "test-acc-upd", storage_region = "%[5]s" }'
+      billing_start_date: "2026-01"
+      name: "test-acc-%[1]s-upd"
+      skip_validation: "true"
+  # Everything the GCP billing source needs sits inside one nested object; only
+  # account_type_id is top-level.
+  billing_source_gcp:
+    env_args: [KION_ACC_GCP_BILLING_ACCOUNT_ID, KION_ACC_GCP_SERVICE_ACCOUNT_ID]
+    create:
+      account_type_id: "1"
+      gcp_billing_account_create: 'hcl:{ big_query_export = { dataset_name = "test_acc", focus_view_name = "test_acc", gcp_project_id = "%[2]s", table_format = "focus", table_name = "test_acc" }, billing_start_date = "2026-01", gcp_id = "%[2]s", name = "test-acc-%[1]s", service_account_id = %[3]s }'
+    update:
+      account_type_id: "1"
+      gcp_billing_account_create: 'hcl:{ big_query_export = { dataset_name = "test_acc", focus_view_name = "test_acc", gcp_project_id = "%[2]s", table_format = "focus", table_name = "test_acc" }, billing_start_date = "2026-01", gcp_id = "%[2]s", name = "test-acc-%[1]s-upd", service_account_id = %[3]s }'
+  # The OCI API key is a secret, so it is read from the environment like the
+  # tenancy and user OCIDs rather than written here.
+  billing_source_oci:
+    env_args: [KION_ACC_OCI_TENANCY_OCID, KION_ACC_OCI_USER_OCID, KION_ACC_OCI_FINGERPRINT, KION_ACC_OCI_PRIVATE_KEY, KION_ACC_OCI_REGION]
+    create:
+      account_type_id: "1"
+      billing_start_date: "2026-01"
+      fingerprint: "%[4]s"
+      name: "test-acc-%[1]s"
+      private_key: "%[5]s"
+      region: "%[6]s"
+      skip_validation: "true"
+      tenancy_ocid: "%[2]s"
+      user_ocid: "%[3]s"
+    update:
+      account_type_id: "1"
+      billing_start_date: "2026-01"
+      fingerprint: "%[4]s"
+      name: "test-acc-%[1]s-upd"
+      private_key: "%[5]s"
+      region: "%[6]s"
+      skip_validation: "true"
+      tenancy_ocid: "%[2]s"
+      user_ocid: "%[3]s"
+
