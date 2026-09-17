@@ -1,0 +1,14 @@
+kind: FEATURES
+body: >-
+  Every resource that can have an acceptance test now generates one: 71 of 72,
+  gcp_regions being data-source-only. The generator covers the entity,
+  parent_list, blended, association, raw_http and no_read archetypes, each
+  probing the API the way that archetype actually reads -- get by id, list the
+  parent and match, scan the collection, or call the private route -- and the
+  rest are kept verbatim as companion templates so a wipe reproduces them.
+
+  Checks compare against the value the configuration used rather than merely
+  asserting an attribute is set, so a resource that accepts input and discards
+  it fails. A test needing an install-specific value reads it through
+  acctest.RequireEnv and skips with the variable name when it is unset;
+  docs/TESTING.md lists them per resource.
