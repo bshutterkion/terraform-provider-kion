@@ -304,8 +304,12 @@ crud-force: ## Regenerate ALL CRUD output, overwriting existing files (use after
 	@echo "$(GREEN)✓ CRUD regenerated$(RESET)"
 
 .PHONY: regen-from-scratch
-regen-from-scratch: ## Wipe internal/service and rebuild it from codegen/, then diff against HEAD
+regen-from-scratch: ## Wipe internal/service entirely and rebuild it from codegen/, then diff against HEAD (needs the spec)
 	@./scripts/regen-from-scratch.sh
+
+.PHONY: regen-from-scratch-files
+regen-from-scratch-files: ## Weaker variant: wipe only files carrying a generated header, keeping directories
+	@MODE=files ./scripts/regen-from-scratch.sh
 
 .PHONY: import-manifest
 import-manifest: ## Generate codegen/import_manifest.json (kgen import-manifest)
