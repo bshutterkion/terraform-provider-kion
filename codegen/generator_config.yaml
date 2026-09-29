@@ -113,6 +113,12 @@ resources:
     read:
       path: /v1/automation-policy/{id}
       method: GET
+    update:
+      path: /v1/automation-policy/{id}
+      method: PUT
+    delete:
+      path: /v1/automation-policy/{id}
+      method: DELETE
     schema:
       ignores: [status, record_id, data]
   aws_account:
