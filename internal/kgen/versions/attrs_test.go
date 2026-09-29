@@ -72,6 +72,23 @@ func TestRenderAttrMins_emitsUpperBound(t *testing.T) {
 	assert.Contains(t, out, "silently ignored")
 }
 
+// A later open range re-admits the attribute, so "not accepted from" the first
+// range's bound would be false.
+func TestRenderAttrMins_reopenedRangeHasNoUpperBoundComment(t *testing.T) {
+	out := renderAttrMins(map[string][]attrWindow{
+		"cloud_access_role_type_id": {{Min: "3.16.5", Before: "3.17.0"}, {Min: "3.17.1"}},
+	})
+	assert.Contains(t, out, `{Min: conns.MustParseKionVersion("3.17.1")}`)
+	assert.NotContains(t, out, "Not accepted from")
+}
+
+// Authored ranges keep file order, so the bound is the highest, not the last.
+func TestUpperBound(t *testing.T) {
+	assert.Equal(t, "3.17.0", upperBound([]attrWindow{{Min: "3.16.5", Before: "3.17.0"}, {Min: "3.15.13", Before: "3.16.0"}}))
+	assert.Equal(t, "", upperBound([]attrWindow{{Min: "3.17.1"}, {Min: "3.15.13", Before: "3.16.0"}}))
+	assert.True(t, versionLess("3.9.0", "3.16.0"))
+}
+
 // A window open at the bottom still renders, so an attribute present from the
 // oldest tracked version but dropped later is expressible.
 func TestRenderAttrMins_upperBoundWithoutMin(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"io"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"terraform-provider-kion/internal/kgen/crud"
@@ -166,7 +167,6 @@ func renderAttrMins(windows map[string][]attrWindow) string {
 	for _, n := range names {
 		rs := windows[n]
 		parts := make([]string, 0, len(rs))
-		bounded := ""
 		for _, w := range rs {
 			var fields []string
 			if w.Min != "" {
@@ -174,19 +174,57 @@ func renderAttrMins(windows map[string][]attrWindow) string {
 			}
 			if w.Before != "" {
 				fields = append(fields, fmt.Sprintf("Before: conns.MustParseKionVersion(%q)", w.Before))
-				bounded = w.Before
 			}
 			if len(fields) == 0 {
 				fields = append(fields, "Min: conns.KionVersion{}")
 			}
 			parts = append(parts, "{"+strings.Join(fields, ", ")+"}")
 		}
-		if bounded != "" {
+		if bounded := upperBound(rs); bounded != "" {
 			fmt.Fprintf(&b, "\t// Not accepted from %s; sending it there is silently ignored.\n", bounded)
 		}
 		fmt.Fprintf(&b, "\t%q: {%s},\n", n, strings.Join(parts, ", "))
 	}
 	return b.String()
+}
+
+// upperBound is the version from which no range admits the attribute, or ""
+// when one is open-ended. Authored ranges keep file order, so this does not
+// assume the last one is the highest.
+func upperBound(rs []attrWindow) string {
+	top := ""
+	for _, w := range rs {
+		if w.Before == "" {
+			return ""
+		}
+		if top == "" || versionLess(top, w.Before) {
+			top = w.Before
+		}
+	}
+	return top
+}
+
+// versionLess compares dotted numeric versions ("3.16.5" < "3.17.0").
+func versionLess(a, b string) bool {
+	as, bs := strings.Split(a, "."), strings.Split(b, ".")
+	for i := 0; i < len(as) || i < len(bs); i++ {
+		if x, y := versionPart(as, i), versionPart(bs, i); x != y {
+			return x < y
+		}
+	}
+	return false
+}
+
+// versionPart is the i'th numeric component, 0 when absent or not a number.
+func versionPart(parts []string, i int) int {
+	if i >= len(parts) {
+		return 0
+	}
+	n, err := strconv.Atoi(parts[i])
+	if err != nil {
+		return 0
+	}
+	return n
 }
 
 // pruneRedundant drops attribute minimums at or below the resource's own
