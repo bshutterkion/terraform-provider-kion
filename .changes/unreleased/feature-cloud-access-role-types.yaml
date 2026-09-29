@@ -6,7 +6,7 @@ body: >-
   exposed: `cloud_access_role_type_id` (1 User, 2 Custom Trust, 3 Account, 4
   Service), `aws_iam_role_trust_policy`, `aws_trusted_account_numbers`,
   `aws_trusted_services`, `aws_partition` and `aws_create_instance_profile`.
-  Requires kion-sdk-go 0.11.0.
+  Requires kion-sdk-go 0.13.0.
 
   Changing the role type forces replacement. The create body carries it and the
   update body does not, so an in-place change would be accepted and ignored,
@@ -17,8 +17,8 @@ body: >-
   type 3 the account numbers, type 4 the services. `cloud_access_role_type_id`
   is validated to 1-4 and `aws_partition` to the four real AWS partitions.
 
-  The fields exist in Kion 3.15.13 and 3.16.5 and are absent from 3.17.0, which
-  has not taken the backport. Setting one against a release that lacks it fails
-  at plan naming both version ranges, because the API accepts unknown body
-  fields, ignores them, and answers 200.
+  The fields exist in Kion 3.15.13, 3.16.5 and 3.17.1, and are absent from the
+  releases between (3.16.0-3.16.4 and 3.17.0). Setting one against a release that
+  lacks it fails at plan naming the version ranges, because the API accepts
+  unknown body fields, ignores them, and answers 200.
 time: 2026-09-16T15:00:00Z

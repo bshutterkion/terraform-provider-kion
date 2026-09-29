@@ -18,18 +18,12 @@ var (
 // attrKionVersions is the Kion version window accepting each attribute. An
 // attribute absent here is accepted for as long as the operation exists.
 var attrKionVersions = map[string]framework.AttrVersions{
-	// Not accepted from 3.17.0; sending it there is silently ignored.
-	"aws_create_instance_profile": {{Min: conns.MustParseKionVersion("3.15.13"), Before: conns.MustParseKionVersion("3.16.0")}, {Min: conns.MustParseKionVersion("3.16.5"), Before: conns.MustParseKionVersion("3.17.0")}},
-	// Not accepted from 3.17.0; sending it there is silently ignored.
-	"aws_iam_role_trust_policy": {{Min: conns.MustParseKionVersion("3.15.13"), Before: conns.MustParseKionVersion("3.16.0")}, {Min: conns.MustParseKionVersion("3.16.5"), Before: conns.MustParseKionVersion("3.17.0")}},
-	// Not accepted from 3.17.0; sending it there is silently ignored.
-	"aws_partition": {{Min: conns.MustParseKionVersion("3.15.13"), Before: conns.MustParseKionVersion("3.16.0")}, {Min: conns.MustParseKionVersion("3.16.5"), Before: conns.MustParseKionVersion("3.17.0")}},
-	// Not accepted from 3.17.0; sending it there is silently ignored.
-	"aws_trusted_account_numbers": {{Min: conns.MustParseKionVersion("3.15.13"), Before: conns.MustParseKionVersion("3.16.0")}, {Min: conns.MustParseKionVersion("3.16.5"), Before: conns.MustParseKionVersion("3.17.0")}},
-	// Not accepted from 3.17.0; sending it there is silently ignored.
-	"aws_trusted_services": {{Min: conns.MustParseKionVersion("3.15.13"), Before: conns.MustParseKionVersion("3.16.0")}, {Min: conns.MustParseKionVersion("3.16.5"), Before: conns.MustParseKionVersion("3.17.0")}},
-	// Not accepted from 3.17.0; sending it there is silently ignored.
-	"cloud_access_role_type_id": {{Min: conns.MustParseKionVersion("3.15.13"), Before: conns.MustParseKionVersion("3.16.0")}, {Min: conns.MustParseKionVersion("3.16.5"), Before: conns.MustParseKionVersion("3.17.0")}},
+	"aws_create_instance_profile": {{Min: conns.MustParseKionVersion("3.15.13"), Before: conns.MustParseKionVersion("3.16.0")}, {Min: conns.MustParseKionVersion("3.16.5"), Before: conns.MustParseKionVersion("3.17.0")}, {Min: conns.MustParseKionVersion("3.17.1")}},
+	"aws_iam_role_trust_policy":   {{Min: conns.MustParseKionVersion("3.15.13"), Before: conns.MustParseKionVersion("3.16.0")}, {Min: conns.MustParseKionVersion("3.16.5"), Before: conns.MustParseKionVersion("3.17.0")}, {Min: conns.MustParseKionVersion("3.17.1")}},
+	"aws_partition":               {{Min: conns.MustParseKionVersion("3.15.13"), Before: conns.MustParseKionVersion("3.16.0")}, {Min: conns.MustParseKionVersion("3.16.5"), Before: conns.MustParseKionVersion("3.17.0")}, {Min: conns.MustParseKionVersion("3.17.1")}},
+	"aws_trusted_account_numbers": {{Min: conns.MustParseKionVersion("3.15.13"), Before: conns.MustParseKionVersion("3.16.0")}, {Min: conns.MustParseKionVersion("3.16.5"), Before: conns.MustParseKionVersion("3.17.0")}, {Min: conns.MustParseKionVersion("3.17.1")}},
+	"aws_trusted_services":        {{Min: conns.MustParseKionVersion("3.15.13"), Before: conns.MustParseKionVersion("3.16.0")}, {Min: conns.MustParseKionVersion("3.16.5"), Before: conns.MustParseKionVersion("3.17.0")}, {Min: conns.MustParseKionVersion("3.17.1")}},
+	"cloud_access_role_type_id":   {{Min: conns.MustParseKionVersion("3.15.13"), Before: conns.MustParseKionVersion("3.16.0")}, {Min: conns.MustParseKionVersion("3.16.5"), Before: conns.MustParseKionVersion("3.17.0")}, {Min: conns.MustParseKionVersion("3.17.1")}},
 }
 
 var _ resource.ResourceWithModifyPlan = &project_cloud_access_roleResource{}
