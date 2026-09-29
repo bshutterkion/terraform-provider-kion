@@ -90,6 +90,7 @@ func TestGenerate_attributeOnlyResourceGetsGate(t *testing.T) {
 	m := mocks.NewMockFS(t)
 	m.EXPECT().ReadFile("cfg/generator_config.yaml").Return([]byte(cfg), nil)
 	m.EXPECT().ReadFile("cfg/config_overrides.yaml").Return(nil, os.ErrNotExist)
+	m.EXPECT().ReadFile("cfg/attr_version_overrides.yaml").Return(nil, os.ErrNotExist)
 
 	// The op exists in every tracked version, so the resource itself is ungated.
 	full := op{method: "POST", path: "/v3/thing"}
@@ -108,6 +109,7 @@ func TestGenerate_attributeOnlyResourceGetsGate(t *testing.T) {
 	n, err := g.generate(Options{
 		SDKDir: "sdk", ServiceRoot: "svc",
 		ConfigPath: "cfg/generator_config.yaml", Overrides: "cfg/config_overrides.yaml",
+		AttrOverrides: "cfg/attr_version_overrides.yaml",
 	})
 	require.NoError(t, err)
 	require.Equal(t, 1, n, "an attribute-only resource must still get a file")
@@ -137,6 +139,7 @@ func TestGenerate_attributeDroppedByNewestVersionGetsAnUpperBound(t *testing.T) 
 	m := mocks.NewMockFS(t)
 	m.EXPECT().ReadFile("cfg/generator_config.yaml").Return([]byte(cfg), nil)
 	m.EXPECT().ReadFile("cfg/config_overrides.yaml").Return(nil, os.ErrNotExist)
+	m.EXPECT().ReadFile("cfg/attr_version_overrides.yaml").Return(nil, os.ErrNotExist)
 
 	full := op{method: "POST", path: "/v3/thing"}
 	for _, v := range trackedVersions {
@@ -155,6 +158,7 @@ func TestGenerate_attributeDroppedByNewestVersionGetsAnUpperBound(t *testing.T) 
 	n, err := g.generate(Options{
 		SDKDir: "sdk", ServiceRoot: "svc",
 		ConfigPath: "cfg/generator_config.yaml", Overrides: "cfg/config_overrides.yaml",
+		AttrOverrides: "cfg/attr_version_overrides.yaml",
 	})
 	require.NoError(t, err)
 	require.Equal(t, 1, n)

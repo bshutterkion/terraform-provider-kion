@@ -113,6 +113,7 @@ not_references:
   # Enumerations and lookup-table ids. These are stable integers with fixed
   # meanings, not records this provider manages.
   account_type_id: enum of Kion account types
+  cloud_access_role_type_id: enum -- 1 User, 2 Custom Trust, 3 Account, 4 Service
   cloud_provider_id: enum -- "Must be 2 for Azure Policy checks"
   cloud_provider_ids: enum, same values as cloud_provider_id
   cloudtamer_access_level_id: enum -- 1 is full access, 2 is read-only

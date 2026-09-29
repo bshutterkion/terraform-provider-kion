@@ -35,8 +35,12 @@ data "kion_ou_cloud_access_role" "example" {
 
 ### Read-Only
 
+- `aws_create_instance_profile` (Boolean)
 - `aws_iam_path` (String)
 - `aws_iam_role_name` (String)
+- `aws_iam_role_trust_policy` (String)
+- `aws_partition` (String)
+- `cloud_access_role_type_id` (Number)
 - `list` (Attributes List) All ou_cloud_access_roles matching the supplied id or filter blocks. (see [below for nested schema](#nestedatt--list))
 - `long_term_access_keys` (Boolean)
 - `name` (String)
@@ -62,8 +66,12 @@ Optional:
 
 Read-Only:
 
+- `aws_create_instance_profile` (Boolean)
 - `aws_iam_path` (String)
 - `aws_iam_role_name` (String)
+- `aws_iam_role_trust_policy` (String)
+- `aws_partition` (String)
+- `cloud_access_role_type_id` (Number)
 - `id` (Number)
 - `long_term_access_keys` (Boolean)
 - `name` (String)

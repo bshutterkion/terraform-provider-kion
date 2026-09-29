@@ -18,17 +18,34 @@ func NewServicePackage() conns.ServicePackage {
 	return &servicePackage{}
 }
 
+{{if .NoResource}}// Resources is empty: {{.Pkg}} is a read-only lookup with no managed resource.
 func (p *servicePackage) Resources(_ context.Context) []servicepkg.ServicePackageResource {
+	return nil
+}{{else}}func (p *servicePackage) Resources(_ context.Context) []servicepkg.ServicePackageResource {
 	return []servicepkg.ServicePackageResource{
 		{
 			Factory: New{{.Pascal}}Resource,
 		},
+{{- range .ResourceAliases}}
+		{
+			// {{.Comment}}
+			Factory: {{.Factory}},
+		},
+{{- end}}
 	}
-}
+}{{end}}
 
 {{if .DataSourceCtor}}func (p *servicePackage) DataSources(_ context.Context) []servicepkg.ServicePackageDataSource {
 	return []servicepkg.ServicePackageDataSource{
-		{Factory: {{.DataSourceCtor}}},
+		{
+			Factory: {{.DataSourceCtor}},
+		},
+{{- range .DataSourceAliases}}
+		{
+			// {{.Comment}}
+			Factory: {{.Factory}},
+		},
+{{- end}}
 	}
 }{{else}}// No data source is registered for this service package: its archetype emits no
 // read, and kgen has no companion data-source template for it (see

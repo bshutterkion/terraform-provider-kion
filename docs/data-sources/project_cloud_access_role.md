@@ -36,8 +36,12 @@ data "kion_project_cloud_access_role" "example" {
 ### Read-Only
 
 - `apply_to_all_accounts` (Boolean)
+- `aws_create_instance_profile` (Boolean)
 - `aws_iam_path` (String)
 - `aws_iam_role_name` (String)
+- `aws_iam_role_trust_policy` (String)
+- `aws_partition` (String)
+- `cloud_access_role_type_id` (Number)
 - `future_accounts` (Boolean)
 - `list` (Attributes List) All project_cloud_access_roles matching the supplied id or filter blocks. (see [below for nested schema](#nestedatt--list))
 - `long_term_access_keys` (Boolean)
@@ -65,8 +69,12 @@ Optional:
 Read-Only:
 
 - `apply_to_all_accounts` (Boolean)
+- `aws_create_instance_profile` (Boolean)
 - `aws_iam_path` (String)
 - `aws_iam_role_name` (String)
+- `aws_iam_role_trust_policy` (String)
+- `aws_partition` (String)
+- `cloud_access_role_type_id` (Number)
 - `future_accounts` (Boolean)
 - `id` (Number)
 - `long_term_access_keys` (Boolean)

@@ -328,7 +328,7 @@ func applyReadKind(f *rawField, kind string, mf ModelField) error {
 
 // generateRaw writes a raw-http resource + resource-only service_package (raw
 // resources don't emit a data source).
-func (g *generator) generateRaw(dir, name string, ops rawResourceOps, model []ModelField, gated, force bool) (int, error) {
+func (g *generator) generateRaw(dir, name string, ops rawResourceOps, model []ModelField, tvPath string, gated, force bool) (int, error) {
 	d, err := resolveRaw(name, ops, model)
 	if err != nil {
 		return 0, err
@@ -338,7 +338,8 @@ func (g *generator) generateRaw(dir, name string, ops rawResourceOps, model []Mo
 	if err != nil {
 		return 0, err
 	}
-	pkgGo, err := execGoTemplate("servicepackage_noread", servicePackageNoReadTmpl, struct{ Pkg, Pascal, DataSourceCtor string }{name, d.Pascal, dataSourceCompanionCtor(name, d.Pascal)}, "service_package.go")
+	pkgGo, err := execGoTemplate("servicepackage", servicePackageTmpl,
+		newServicePackageData(name, d.Pascal, dataSourceCompanionCtor(name, d.Pascal)), "service_package.go")
 	if err != nil {
 		return 0, err
 	}
@@ -350,6 +351,27 @@ func (g *generator) generateRaw(dir, name string, ops rawResourceOps, model []Mo
 		if err := g.writeFile(f.path, f.data, force); err != nil {
 			return 0, err
 		}
+	}
+	tv, hasTV, err := loadTestValues(tvPath, name)
+	if err != nil {
+		return 0, err
+	}
+	if hasTV {
+		test, err := execGoTemplate("blendedtest", blendedTestTmpl, buildRawTestData(d, model, tv), name+"_test.go")
+		if err != nil {
+			return 0, err
+		}
+		if err := g.writeFile(filepath.Join(dir, name+"_test.go"), test, force); err != nil {
+			return 0, err
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "kgen crud: %s: no test_values entry; skipping acceptance tests\n", name)
+	}
+	if err := g.emitCompanions(dir, name, force); err != nil {
+		return 0, err
+	}
+	if err := g.pruneUnwritten(dir, name); err != nil {
+		return 0, err
 	}
 	return 1, nil
 }

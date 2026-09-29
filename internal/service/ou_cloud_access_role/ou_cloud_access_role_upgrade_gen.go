@@ -29,12 +29,18 @@ func (r *ou_cloud_access_roleResource) UpgradeState(ctx context.Context) map[int
 					return
 				}
 				nw := map[string]json.RawMessage{
+					"aws_create_instance_profile":  migratehelper.Null,
 					"aws_iam_path":                 migratehelper.OrNull(old["aws_iam_path"]),
 					"aws_iam_permissions_boundary": migratehelper.OrNull(old["aws_iam_permissions_boundary"]),
 					"aws_iam_policies":             migratehelper.ProjectIDs(old["aws_iam_policies"], "id"),
 					"aws_iam_role_name":            migratehelper.OrNull(old["aws_iam_role_name"]),
+					"aws_iam_role_trust_policy":    migratehelper.Null,
+					"aws_partition":                migratehelper.Null,
 					"aws_session_tags":             migratehelper.Null,
+					"aws_trusted_account_numbers":  migratehelper.Null,
+					"aws_trusted_services":         migratehelper.Null,
 					"azure_role_definitions":       migratehelper.ProjectIDs(old["azure_role_definitions"], "id"),
+					"cloud_access_role_type_id":    migratehelper.Null,
 					"gcp_iam_roles":                migratehelper.ProjectIDs(old["gcp_iam_roles"], "id"),
 					"id":                           migratehelper.OrNull(old["id"]),
 					"last_updated":                 migratehelper.OrNull(old["last_updated"]),

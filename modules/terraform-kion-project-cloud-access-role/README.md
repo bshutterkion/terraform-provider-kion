@@ -46,12 +46,18 @@ No modules.
 | project\_id | ID of the project where the cloud access role is attached. | `number` | n/a | yes |
 | account\_ids | Account IDs contains a list of accounts in this project that will be accessible via this cloud access role. Accounts that do not match the cloud provider ID (if given) will be filtered | `set(number)` | `null` | no |
 | apply\_to\_all\_accounts | If apply all accounts is true, this cloud access role will be applied to all accounts currently under the project. This will only be for accounts that match the given CSP type. Will default to false if not set. | `bool` | `null` | no |
+| aws\_create\_instance\_profile | If true, an IAM instance profile is created for this role. Applies only to non-User CAR types (Custom Trust, Account, Service). Will default to false if not set. | `bool` | `null` | no |
 | aws\_iam\_path | Text of the IAM Path in AWS to be stored in AWS. | `string` | `null` | no |
 | aws\_iam\_permissions\_boundary | ID of the AWS IAM policy to be used as a permissions boundary for this role. Will be filtered if AWS Cloud Provider ID is not given. | `number` | `null` | no |
 | aws\_iam\_policies | IDs of the AWS IAM policies attached to this role. Will be filtered if AWS Cloud Provider ID is not given. | `set(number)` | `null` | no |
 | aws\_iam\_role\_name | AWS IAM role name corresponding to the cloud access role. | `string` | `null` | no |
+| aws\_iam\_role\_trust\_policy | AWS IAM role trust policy JSON. Required when cloud\_access\_role\_type\_id = 2 (Custom Trust). Rejected for other types. | `string` | `null` | no |
+| aws\_partition | AWS partition a non-User role syncs to. Defaults to aws when omitted. | `string` | `null` | no |
 | aws\_session\_tags | AWS Session Tags used in this role when accessing the AWS console. | `list(object({ cloud_access_role_id = optional(number), id = optional(number), ou_cloud_access_role_id = optional(number), tag_key = optional(string), tag_value = optional(string) }))` | `null` | no |
+| aws\_trusted\_account\_numbers | AWS account IDs this role trusts. Required when cloud\_access\_role\_type\_id = 3 (Account). Currently supports exactly one 12-digit AWS account number. | `list(string)` | `null` | no |
+| aws\_trusted\_services | AWS service principals this role trusts. Required when cloud\_access\_role\_type\_id = 4 (Service). Each entry must be a service principal hostname such as "lambda.amazonaws.com". | `list(string)` | `null` | no |
 | azure\_role\_definitions | IDs of the Azure Role Definitions attached to this role. Will be filtered if Azure Cloud Provider ID is not given. | `set(number)` | `null` | no |
+| cloud\_access\_role\_type\_id | Type of the cloud access role. 1 User (default), 2 Custom Trust, 3 Account, 4 Service. Non-User types are AWS only. Changing this forces a new role: the update body carries no role type, so the API would accept the change and ignore it. | `number` | `null` | no |
 | cloud\_provider\_ids | Cloud provider IDs that specify which CSPs this role will be used for. If none provided, assume all cloud providers. 1 for AWS, 2 for Azure, 3 for GCP | `set(number)` | `null` | no |
 | future\_accounts | If future accounts is true, this cloud access role will be added to any account that is added to this project. This will only be for new accounts that match the given CSP type. Will default to false if not set. | `bool` | `null` | no |
 | gcp\_iam\_roles | IDs of the Google Cloud IAM roles attached to this role. Will be filtered if GCP Cloud Provider ID is not given. | `set(number)` | `null` | no |

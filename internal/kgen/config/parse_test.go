@@ -110,6 +110,27 @@ func (d *DataSource) Read() { conn.GetLabel() }
 	assert.NotContains(t, byName, "README.md")
 }
 
+// A raw call's query-string discriminator is the spec's __qs__ route, which
+// is how generator_config names it; the literal URL is not.
+func TestFileSourceServiceOpsRawQueryString(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "account_cache")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "account_cache.go"), []byte(`package account_cache
+
+func (r *Resource) Create() { r.Meta().RawPost(ctx, "/v3/account-cache/create?account-type=aws", body) }
+func (r *Resource) Delete() { r.Meta().RawDelete(ctx, "/v3/account-cache/{id}") }
+`), 0o600))
+
+	got, err := config.NewFileSource().ServiceOps(root)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	require.NotNil(t, got[0].RawCreate)
+	assert.Equal(t, "/v3/account-cache/create/__qs__/account-type/aws", got[0].RawCreate.Path)
+	require.NotNil(t, got[0].RawDelete)
+	assert.Equal(t, "/v3/account-cache/{id}", got[0].RawDelete.Path)
+}
+
 func TestFileSourceServiceOpsError(t *testing.T) {
 	src := config.NewFileSource()
 	_, err := src.ServiceOps(filepath.Join(t.TempDir(), "does-not-exist"))

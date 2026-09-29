@@ -393,6 +393,23 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 {{- end}}
 
+	// ProjectUpdate carries no ou_id: a project changes OU through its own
+	// endpoint, which also decides what happens to the cloud rules, financial
+	// history and budgets it already has. Done before the PATCH so a failed
+	// move does not leave the other fields updated against the old OU.
+	var state ProjectModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if !plan.OuId.Equal(state.OuId) {
+		moveDiags := r.moveToOU(ctx, conn, idInt, plan)
+		resp.Diagnostics.Append(moveDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
 	input := &generated.ProjectUpdate{
 		Archived:           flex.OptNilBoolFromFramework(plan.Archived),
 		AutoPay:            flex.OptNilBoolFromFramework(plan.AutoPay),
@@ -492,4 +509,65 @@ func flattenProject(apiObject any, model *ProjectModel) diag.Diagnostics {
 	default:
 		return errs.ResponseDiagnostics("reading "+ResNameProject, apiObject)
 	}
+}
+
+// moveOUSettings are the three choices POST /v3/project/{id}/move requires.
+// Each default is the option that preserves what the project already has, so an
+// unset block never silently discards cloud rules, history or budgets.
+type moveOUSettings struct {
+	CloudRule  string
+	Financial  string
+	SpendPlan  string
+}
+
+func moveOUSettingsFrom(ctx context.Context, set types.Set) (moveOUSettings, diag.Diagnostics) {
+	out := moveOUSettings{CloudRule: "convert", Financial: "preserve", SpendPlan: "keep"}
+	var diags diag.Diagnostics
+	if set.IsNull() || set.IsUnknown() {
+		return out, diags
+	}
+	var values []MoveOuSettingsValue
+	diags.Append(set.ElementsAs(ctx, &values, false)...)
+	if diags.HasError() || len(values) == 0 {
+		return out, diags
+	}
+	// The attribute is a set for compatibility with the previous provider's
+	// block; the endpoint takes one of each setting, so only the first is used.
+	v := values[0]
+	if s := v.CloudRuleSetting.ValueString(); s != "" {
+		out.CloudRule = s
+	}
+	if s := v.FinancialSetting.ValueString(); s != "" {
+		out.Financial = s
+	}
+	if s := v.SpendPlanSetting.ValueString(); s != "" {
+		out.SpendPlan = s
+	}
+	return out, diags
+}
+
+// moveToOU moves the project to plan.OuId.
+func (r *projectResource) moveToOU(ctx context.Context, conn *generated.Client, id int64, plan ProjectModel) diag.Diagnostics {
+	settings, diags := moveOUSettingsFrom(ctx, plan.MoveOuSettings)
+	if diags.HasError() {
+		return diags
+	}
+
+	out, err := conn.PostProjectMove(ctx, &generated.ProjectMove{
+		DestinationOuID:  flex.NilUint64FromFramework(plan.OuId),
+		CloudRuleSetting: settings.CloudRule,
+		FinancialSetting: settings.Financial,
+		SpendPlanSetting: settings.SpendPlan,
+	}, generated.PostProjectMoveParams{ID: id})
+	if err != nil && !errs.IsUndeclaredSuccess(err) {
+		diags.AddError(
+			fmt.Sprintf("moving %s (ID: %d) to OU %d", ResNameProject, id, plan.OuId.ValueInt64()),
+			err.Error(),
+		)
+		return diags
+	}
+	if err == nil {
+		diags.Append(errs.ResponseDiagnostics(fmt.Sprintf("moving %s", ResNameProject), out)...)
+	}
+	return diags
 }

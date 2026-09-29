@@ -54,6 +54,52 @@ export KION_AUTH_TOKEN="your-auth-token"
 export TF_ACC=1
 ```
 
+#### Per-resource environment variables
+
+A resource whose test needs something install- or cloud-specific reads it from
+the environment through `acctest.RequireEnv`, which **skips** that test when the
+variable is unset rather than sending an empty attribute. The list is generated
+from the `env_args` entries in `codegen/test_values.yaml`; regenerate this table
+after changing them:
+
+```bash
+python3 - <<'EOF'
+import yaml
+r = yaml.safe_load(open("codegen/test_values.yaml"))["resources"]
+for name in sorted(r):
+    env = r[name].get("env_args") or []
+    if env:
+        print(f"| `kion_{name}` | {', '.join('`%s`' % e for e in env)} |")
+EOF
+```
+
+| Resource | Variables |
+|---|---|
+| `kion_account_cache` | `KION_ACC_PAYER_ID`, `KION_ACC_AWS_ACCOUNT_NUMBER` |
+| `kion_account_linkage` | `KION_ACC_AZURE_PAYER_ID` |
+| `kion_ami` | `KION_ACC_ACCOUNT_ID`, `KION_ACC_AWS_AMI_ID` |
+| `kion_azure_account` | `KION_ACC_AZURE_PAYER_ID`, `KION_ACC_AZURE_SUBSCRIPTION_UUID` |
+| `kion_azure_arm_template` | `KION_ACC_AZURE_REGION_ID` |
+| `kion_billing_rule` | `KION_ACC_BILLING_SOURCE_ID` |
+| `kion_billing_source` | `KION_ACC_AWS_ACCOUNT_NUMBER`, `KION_ACC_AWS_BILLING_ROLE`, `KION_ACC_AWS_BILLING_BUCKET`, `KION_ACC_AWS_REGION` |
+| `kion_billing_source_aws` | `KION_ACC_AWS_ACCOUNT_NUMBER`, `KION_ACC_AWS_BILLING_ROLE` |
+| `kion_billing_source_gcp` | `KION_ACC_GCP_BILLING_ACCOUNT_ID`, `KION_ACC_GCP_SERVICE_ACCOUNT_ID` |
+| `kion_billing_source_govcloud` | `KION_ACC_PAYER_ID`, `KION_ACC_AWS_ACCOUNT_NUMBER` |
+| `kion_billing_source_oci` | `KION_ACC_OCI_TENANCY_OCID`, `KION_ACC_OCI_USER_OCID`, `KION_ACC_OCI_FINGERPRINT`, `KION_ACC_OCI_PRIVATE_KEY`, `KION_ACC_OCI_REGION` |
+| `kion_category` | `KION_ACC_BILLING_SOURCE_ID` |
+| `kion_custom_account` | `KION_ACC_CUSTOM_PAYER_ID`, `KION_ACC_CUSTOM_ACCOUNT_NUMBER` |
+| `kion_funding_source_permission_mapping` | `KION_ACC_APP_ROLE_ID` |
+| `kion_gcp_account` | `KION_ACC_GCP_PAYER_ID`, `KION_ACC_GCP_PROJECT_ID` |
+| `kion_global_permission_mapping` | `KION_ACC_GLOBAL_APP_ROLE_ID` |
+| `kion_idms_group_association` | `KION_ACC_SAML_IDMS_ID` |
+| `kion_ou_permission_mapping` | `KION_ACC_APP_ROLE_ID` |
+| `kion_project_line_item` | `KION_ACC_BILLING_SOURCE_ID` |
+| `kion_project_permission_mapping` | `KION_ACC_APP_ROLE_ID` |
+| `kion_saml_group_association` | `KION_ACC_SAML_IDMS_ID` |
+| `kion_service_catalog` | `KION_ACC_ACCOUNT_ID`, `KION_ACC_AWS_PORTFOLIO_ID`, `KION_ACC_AWS_REGION` |
+
+Tests for resources not listed need only `KION_API_URL` and a credential.
+
 ### Running Tests
 
 **Run all acceptance tests:**
@@ -131,7 +177,7 @@ while orphaned `test-acc` records piled up, which is worse than having none.
 
 | Resource | Why |
 |---|---|
-| `kion_service_catalog`, `kion_user`, `kion_webhook` | no delete endpoint, so orphans cannot be removed — **but see #79**: `DELETE /v1/user/{id}` and `DELETE /v1/webhook/{id}` both exist and work, so those two rows are wrong and both types should gain a real delete and a sweeper. `kion_service_catalog` genuinely has none (405 on `/v3`, 404 on `/v1`) |
+| `kion_service_catalog`, `kion_user`, `kion_webhook` | no collection endpoint is configured, so test resources cannot be enumerated. Their **delete** works: all three delete through a private route declared in `codegen/private_endpoints.yaml`, which the generator now uses instead of refusing the resource. Give any of them a list endpoint in `codegen/config_overrides.yaml` and its sweeper generates itself. |
 | `kion_idms_open_id` | neither a delete endpoint nor a resolvable collection |
 | `kion_aws_resource_tag`, `kion_ou_cloud_access_role_exemption`, `kion_project_cloud_access_role_exemption` | no read, so no collection to enumerate |
 | `kion_billing_source_govcloud`, `kion_budget`, `kion_idms_open_id_access_rule`, `kion_idms_open_id_group_association` | the configured collection endpoint is a by-id read, not a list |

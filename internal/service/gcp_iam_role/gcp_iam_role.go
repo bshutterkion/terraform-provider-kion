@@ -42,10 +42,11 @@ func (r *gcp_iam_roleResource) Metadata(_ context.Context, req resource.Metadata
 	resp.TypeName = req.ProviderTypeName + "_gcp_iam_role"
 }
 
-// ConfigValidators expresses a constraint the API enforces across attributes,
-// which the schema cannot: neither attribute is Required on its own, so without
-// this the configuration reaches the API and comes back as a validation error
-// naming the Go struct field rather than the Terraform attribute.
+// ConfigValidators expresses constraints the API enforces across attributes,
+// which the schema cannot: an attribute required only for some value of another
+// is not Required on its own, so without this the configuration reaches the API
+// and comes back as a validation error naming the Go struct field rather than
+// the Terraform attribute.
 func (r *gcp_iam_roleResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
 	return []resource.ConfigValidator{
 		resourcevalidator.AtLeastOneOf(
@@ -176,6 +177,12 @@ func (r *gcp_iam_roleResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
+	var state GcpIamRoleModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
@@ -217,6 +224,32 @@ func (r *gcp_iam_roleResource) Update(ctx context.Context, req resource.UpdateRe
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// Sync associations: the update body carries none, so diff prior state vs
+	// plan per id-list and add/remove via the bulk associations endpoints.
+	assocAddCarRestrictedUserIds, assocRemoveCarRestrictedUserIds := flex.Uint64SetDiff(ctx, state.CarRestrictedUserIds, plan.CarRestrictedUserIds, &resp.Diagnostics)
+	assocAddCarRestrictedUserGroupIds, assocRemoveCarRestrictedUserGroupIds := flex.Uint64SetDiff(ctx, state.CarRestrictedUserGroupIds, plan.CarRestrictedUserGroupIds, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if len(assocAddCarRestrictedUserIds) > 0 || len(assocAddCarRestrictedUserGroupIds) > 0 {
+		if _, err := conn.GcpIAMRoleAddCARRestrictedEntities(ctx, &generated.CARRestrictedEntities{
+			CarRestrictedUserIds:   generated.OptNilUint64Array{Value: assocAddCarRestrictedUserIds, Set: true},
+			CarRestrictedUgroupIds: generated.OptNilUint64Array{Value: assocAddCarRestrictedUserGroupIds, Set: true},
+		}, generated.GcpIAMRoleAddCARRestrictedEntitiesParams{ID: idInt}); err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("adding associations to %s (ID: %d)", ResNameGcpIamRole, idInt), err.Error())
+			return
+		}
+	}
+	if len(assocRemoveCarRestrictedUserIds) > 0 || len(assocRemoveCarRestrictedUserGroupIds) > 0 {
+		if _, err := conn.GcpIAMRoleRemoveCARRestrictedEntities(ctx, &generated.CARRestrictedEntities{
+			CarRestrictedUserIds:   generated.OptNilUint64Array{Value: assocRemoveCarRestrictedUserIds, Set: true},
+			CarRestrictedUgroupIds: generated.OptNilUint64Array{Value: assocRemoveCarRestrictedUserGroupIds, Set: true},
+		}, generated.GcpIAMRoleRemoveCARRestrictedEntitiesParams{ID: idInt}); err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("removing associations from %s (ID: %d)", ResNameGcpIamRole, idInt), err.Error())
+			return
+		}
 	}
 
 	// Read back the resource to get the latest state.

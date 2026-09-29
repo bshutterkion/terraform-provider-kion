@@ -32,7 +32,7 @@ var (
 	_ resource.Resource                = &{{.Pkg}}Resource{}
 	_ resource.ResourceWithConfigure   = &{{.Pkg}}Resource{}
 	_ resource.ResourceWithImportState = &{{.Pkg}}Resource{}
-{{- if .AtLeastOneOf}}
+{{- if or .AtLeastOneOf .RequiredWhen}}
 	_ resource.ResourceWithConfigValidators = &{{.Pkg}}Resource{}
 {{- end}}
 )
@@ -50,17 +50,27 @@ func (r *{{.Pkg}}Resource) Metadata(_ context.Context, req resource.MetadataRequ
 	resp.TypeName = req.ProviderTypeName + "_{{.Pkg}}"
 }
 
-{{if .AtLeastOneOf}}// ConfigValidators expresses a constraint the API enforces across attributes,
-// which the schema cannot: neither attribute is Required on its own, so without
-// this the configuration reaches the API and comes back as a validation error
-// naming the Go struct field rather than the Terraform attribute.
+{{if or .AtLeastOneOf .RequiredWhen}}// ConfigValidators expresses constraints the API enforces across attributes,
+// which the schema cannot: an attribute required only for some value of another
+// is not Required on its own, so without this the configuration reaches the API
+// and comes back as a validation error naming the Go struct field rather than
+// the Terraform attribute.
 func (r *{{.Pkg}}Resource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
 	return []resource.ConfigValidator{
+		{{- if .AtLeastOneOf}}
 		resourcevalidator.AtLeastOneOf(
 			{{- range .AtLeastOneOf}}
 			path.MatchRoot("{{.}}"),
 			{{- end}}
 		),
+		{{- end}}
+		{{- range .RequiredWhen}}
+		framework.RequiredWhenInt64("{{.Attribute}}", {{.Equals}},
+			{{- range .Require}}
+			"{{.}}",
+			{{- end}}
+		),
+		{{- end}}
 	}
 }
 {{end}}

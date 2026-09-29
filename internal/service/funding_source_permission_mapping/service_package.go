@@ -28,7 +28,9 @@ func (p *servicePackage) Resources(_ context.Context) []servicepkg.ServicePackag
 
 func (p *servicePackage) DataSources(_ context.Context) []servicepkg.ServicePackageDataSource {
 	return []servicepkg.ServicePackageDataSource{
-		{Factory: NewFundingSourcePermissionMappingDataSource},
+		{
+			Factory: NewFundingSourcePermissionMappingDataSource,
+		},
 	}
 }
 

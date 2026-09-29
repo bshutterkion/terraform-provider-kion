@@ -40,6 +40,7 @@ resource "kion_project" "example" {
   # move_ou_settings = [{
   #   cloud_rule_setting = "example"
   #   financial_setting  = "example"
+  #   spend_plan_setting = "example"
   # }]
   # owner_user_group_ids = []
   # owner_user_ids       = []
@@ -72,7 +73,7 @@ the account. Should be true unless using a custom module.
 - `description` (String) Description for the project in the application.
 - `labels` (Map of String) The labels applied to the project.
 - `last_updated` (String) The last time this resource was updated.
-- `move_ou_settings` (Attributes Set) Settings applied when moving the project between OUs. (see [below for nested schema](#nestedatt--move_ou_settings))
+- `move_ou_settings` (Attributes Set) How to handle the project's cloud rules, financial history and budgets when `ou_id` changes. Ignored unless the project moves. (see [below for nested schema](#nestedatt--move_ou_settings))
 - `owner_user_group_ids` (Set of Number) List of groups IDs who will own the project. Is required if no owner user IDs are listed.
 - `owner_user_ids` (Set of Number) List of user IDs who will own the project. Is required if no owner group IDs are listed.
 - `permission_scheme_id` (Number) ID of the permission scheme applied to the project.
@@ -116,8 +117,9 @@ Optional:
 
 Optional:
 
-- `cloud_rule_setting` (String) Cloud-rule handling for the move (JSON).
-- `financial_setting` (String) Financial handling for the move (JSON).
+- `cloud_rule_setting` (String) `convert` rewrites the project's cloud rules for the destination OU, `remove` strips them. Defaults to `convert`.
+- `financial_setting` (String) `preserve` leaves financial history on the current OU, `move` takes it to the new one. Defaults to `preserve`.
+- `spend_plan_setting` (String) `keep` moves past, current and future budgets with the project, `create` starts a new budget and leaves the existing ones behind. Defaults to `keep`.
 
 
 <a id="nestedatt--project_funding"></a>

@@ -44,18 +44,20 @@ import (
 // Options configures a version-gate generation run. Empty fields fall back to
 // the defaults below.
 type Options struct {
-	SDKDir      string // path to the kion-sdk-go module (default ../kion-sdk-go)
-	ServiceRoot string // OUTPUT root for <name>/<name>_version_gen.go (default internal/service)
-	ConfigPath  string // generator_config.yaml (default codegen/generator_config.yaml)
-	Overrides   string // config_overrides.yaml merged over the config (default codegen/config_overrides.yaml)
-	Force       bool   // overwrite existing _version_gen.go files (reserved; writes always overwrite today)
+	SDKDir        string // path to the kion-sdk-go module (default ../kion-sdk-go)
+	ServiceRoot   string // OUTPUT root for <name>/<name>_version_gen.go (default internal/service)
+	ConfigPath    string // generator_config.yaml (default codegen/generator_config.yaml)
+	Overrides     string // config_overrides.yaml merged over the config (default codegen/config_overrides.yaml)
+	AttrOverrides string // attr_version_overrides.yaml merged over the derived windows
+	Force         bool   // overwrite existing _version_gen.go files (reserved; writes always overwrite today)
 }
 
 const (
-	defaultSDKDir      = "../kion-sdk-go"
-	defaultServiceRoot = "internal/service"
-	defaultConfigPath  = "codegen/generator_config.yaml"
-	defaultOverrides   = "codegen/config_overrides.yaml"
+	defaultSDKDir        = "../kion-sdk-go"
+	defaultServiceRoot   = "internal/service"
+	defaultConfigPath    = "codegen/generator_config.yaml"
+	defaultAttrOverrides = "codegen/attr_version_overrides.yaml"
+	defaultOverrides     = "codegen/config_overrides.yaml"
 )
 
 // TrackedVersion is one Kion release the provider generates version gates for.
@@ -358,6 +360,7 @@ func (g *generator) generate(opts Options) (int, error) {
 		src = crud.NewFileSource()
 	}
 	attrMins := deriveAttrWindows(src, sdkDir, serviceRoot, merged.Resources, logw)
+	applyAttrOverrides(attrMins, orDefault(opts.AttrOverrides, defaultAttrOverrides), g.fs, logw)
 
 	// So a package needing only attribute gates still gets a file. Its support
 	// range is unbounded on both sides, making the resource-level check a no-op.
@@ -542,7 +545,7 @@ func deriveSection(section string, entries map[string]entry, versionOps []map[op
 // renderVersionGen renders (and gofmts) the <name>_version_gen.go source for a
 // service package with the given derived support range. A bounded min emits
 // MustParseKionVersion; an unbounded side emits conns.KionVersion{}.
-func renderVersionGen(name string, s support, isResource bool, attrMins map[string]attrWindow) ([]byte, error) {
+func renderVersionGen(name string, s support, isResource bool, attrMins map[string][]attrWindow) ([]byte, error) {
 	var minExpr, maxComment string
 	if s.Min != "" {
 		minExpr = fmt.Sprintf("conns.MustParseKionVersion(%q)", s.Min)

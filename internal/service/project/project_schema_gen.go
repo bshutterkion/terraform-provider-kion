@@ -5,6 +5,7 @@ package project
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
@@ -14,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
@@ -167,14 +169,29 @@ func ProjectResourceSchema(ctx context.Context) schema.Schema {
 						"cloud_rule_setting": schema.StringAttribute{
 							Optional:            true,
 							Computed:            true,
-							Description:         "Cloud-rule handling for the move (JSON).",
-							MarkdownDescription: "Cloud-rule handling for the move (JSON).",
+							Description:         "`convert` rewrites the project's cloud rules for the destination OU, `remove` strips them. Defaults to `convert`.",
+							MarkdownDescription: "`convert` rewrites the project's cloud rules for the destination OU, `remove` strips them. Defaults to `convert`.",
+							Validators: []validator.String{
+								stringvalidator.OneOf("convert", "remove"),
+							},
 						},
 						"financial_setting": schema.StringAttribute{
 							Optional:            true,
 							Computed:            true,
-							Description:         "Financial handling for the move (JSON).",
-							MarkdownDescription: "Financial handling for the move (JSON).",
+							Description:         "`preserve` leaves financial history on the current OU, `move` takes it to the new one. Defaults to `preserve`.",
+							MarkdownDescription: "`preserve` leaves financial history on the current OU, `move` takes it to the new one. Defaults to `preserve`.",
+							Validators: []validator.String{
+								stringvalidator.OneOf("preserve", "move"),
+							},
+						},
+						"spend_plan_setting": schema.StringAttribute{
+							Optional:            true,
+							Computed:            true,
+							Description:         "`keep` moves past, current and future budgets with the project, `create` starts a new budget and leaves the existing ones behind. Defaults to `keep`.",
+							MarkdownDescription: "`keep` moves past, current and future budgets with the project, `create` starts a new budget and leaves the existing ones behind. Defaults to `keep`.",
+							Validators: []validator.String{
+								stringvalidator.OneOf("keep", "create"),
+							},
 						},
 					},
 					CustomType: MoveOuSettingsType{
@@ -185,8 +202,8 @@ func ProjectResourceSchema(ctx context.Context) schema.Schema {
 				},
 				Optional:            true,
 				Computed:            true,
-				Description:         "Settings applied when moving the project between OUs.",
-				MarkdownDescription: "Settings applied when moving the project between OUs.",
+				Description:         "How to handle the project's cloud rules, financial history and budgets when `ou_id` changes. Ignored unless the project moves.",
+				MarkdownDescription: "How to handle the project's cloud rules, financial history and budgets when `ou_id` changes. Ignored unless the project moves.",
 				PlanModifiers: []planmodifier.Set{
 					setplanmodifier.UseStateForUnknown(),
 				},
@@ -1478,6 +1495,24 @@ func (t MoveOuSettingsType) ValueFromObject(ctx context.Context, in basetypes.Ob
 			fmt.Sprintf(`financial_setting expected to be basetypes.StringValue, was: %T`, financialSettingAttribute))
 	}
 
+	spendPlanSettingAttribute, ok := attributes["spend_plan_setting"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`spend_plan_setting is missing from object`)
+
+		return nil, diags
+	}
+
+	spendPlanSettingVal, ok := spendPlanSettingAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`spend_plan_setting expected to be basetypes.StringValue, was: %T`, spendPlanSettingAttribute))
+	}
+
 	if diags.HasError() {
 		return nil, diags
 	}
@@ -1485,6 +1520,7 @@ func (t MoveOuSettingsType) ValueFromObject(ctx context.Context, in basetypes.Ob
 	return MoveOuSettingsValue{
 		CloudRuleSetting: cloudRuleSettingVal,
 		FinancialSetting: financialSettingVal,
+		SpendPlanSetting: spendPlanSettingVal,
 		state:            attr.ValueStateKnown,
 	}, diags
 }
@@ -1588,6 +1624,24 @@ func NewMoveOuSettingsValue(attributeTypes map[string]attr.Type, attributes map[
 			fmt.Sprintf(`financial_setting expected to be basetypes.StringValue, was: %T`, financialSettingAttribute))
 	}
 
+	spendPlanSettingAttribute, ok := attributes["spend_plan_setting"]
+
+	if !ok {
+		diags.AddError(
+			"Attribute Missing",
+			`spend_plan_setting is missing from object`)
+
+		return NewMoveOuSettingsValueUnknown(), diags
+	}
+
+	spendPlanSettingVal, ok := spendPlanSettingAttribute.(basetypes.StringValue)
+
+	if !ok {
+		diags.AddError(
+			"Attribute Wrong Type",
+			fmt.Sprintf(`spend_plan_setting expected to be basetypes.StringValue, was: %T`, spendPlanSettingAttribute))
+	}
+
 	if diags.HasError() {
 		return NewMoveOuSettingsValueUnknown(), diags
 	}
@@ -1595,6 +1649,7 @@ func NewMoveOuSettingsValue(attributeTypes map[string]attr.Type, attributes map[
 	return MoveOuSettingsValue{
 		CloudRuleSetting: cloudRuleSettingVal,
 		FinancialSetting: financialSettingVal,
+		SpendPlanSetting: spendPlanSettingVal,
 		state:            attr.ValueStateKnown,
 	}, diags
 }
@@ -1669,23 +1724,25 @@ var _ basetypes.ObjectValuable = MoveOuSettingsValue{}
 type MoveOuSettingsValue struct {
 	CloudRuleSetting basetypes.StringValue `tfsdk:"cloud_rule_setting"`
 	FinancialSetting basetypes.StringValue `tfsdk:"financial_setting"`
+	SpendPlanSetting basetypes.StringValue `tfsdk:"spend_plan_setting"`
 	state            attr.ValueState
 }
 
 func (v MoveOuSettingsValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error) {
-	attrTypes := make(map[string]tftypes.Type, 2)
+	attrTypes := make(map[string]tftypes.Type, 3)
 
 	var val tftypes.Value
 	var err error
 
 	attrTypes["cloud_rule_setting"] = basetypes.StringType{}.TerraformType(ctx)
 	attrTypes["financial_setting"] = basetypes.StringType{}.TerraformType(ctx)
+	attrTypes["spend_plan_setting"] = basetypes.StringType{}.TerraformType(ctx)
 
 	objectType := tftypes.Object{AttributeTypes: attrTypes}
 
 	switch v.state {
 	case attr.ValueStateKnown:
-		vals := make(map[string]tftypes.Value, 2)
+		vals := make(map[string]tftypes.Value, 3)
 
 		val, err = v.CloudRuleSetting.ToTerraformValue(ctx)
 
@@ -1702,6 +1759,14 @@ func (v MoveOuSettingsValue) ToTerraformValue(ctx context.Context) (tftypes.Valu
 		}
 
 		vals["financial_setting"] = val
+
+		val, err = v.SpendPlanSetting.ToTerraformValue(ctx)
+
+		if err != nil {
+			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
+		}
+
+		vals["spend_plan_setting"] = val
 
 		if err := tftypes.ValidateValue(objectType, vals); err != nil {
 			return tftypes.NewValue(objectType, tftypes.UnknownValue), err
@@ -1735,6 +1800,7 @@ func (v MoveOuSettingsValue) ToObjectValue(ctx context.Context) (basetypes.Objec
 	attributeTypes := map[string]attr.Type{
 		"cloud_rule_setting": basetypes.StringType{},
 		"financial_setting":  basetypes.StringType{},
+		"spend_plan_setting": basetypes.StringType{},
 	}
 
 	if v.IsNull() {
@@ -1750,6 +1816,7 @@ func (v MoveOuSettingsValue) ToObjectValue(ctx context.Context) (basetypes.Objec
 		map[string]attr.Value{
 			"cloud_rule_setting": v.CloudRuleSetting,
 			"financial_setting":  v.FinancialSetting,
+			"spend_plan_setting": v.SpendPlanSetting,
 		})
 
 	return objVal, diags
@@ -1778,6 +1845,10 @@ func (v MoveOuSettingsValue) Equal(o attr.Value) bool {
 		return false
 	}
 
+	if !v.SpendPlanSetting.Equal(other.SpendPlanSetting) {
+		return false
+	}
+
 	return true
 }
 
@@ -1793,6 +1864,7 @@ func (v MoveOuSettingsValue) AttributeTypes(ctx context.Context) map[string]attr
 	return map[string]attr.Type{
 		"cloud_rule_setting": basetypes.StringType{},
 		"financial_setting":  basetypes.StringType{},
+		"spend_plan_setting": basetypes.StringType{},
 	}
 }
 

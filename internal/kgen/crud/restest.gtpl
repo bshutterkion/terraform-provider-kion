@@ -5,8 +5,7 @@ package {{.Pkg}}_test
 import (
 	"context"
 	"fmt"
-	{{if .EnvArgs}}"os"
-	{{end}}"strconv"
+	"strconv"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -25,6 +24,9 @@ func TestAccKion{{.Pascal}}_basic(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+{{- range .EnvArgs}}
+	{{.Param}} := acctest.RequireEnv(t, "{{.Env}}", "{{.Describes}}")
+{{- end}}
 	resourceName := "{{.ResourceType}}.test"
 
 	resource.Test(t, resource.TestCase{
@@ -33,12 +35,12 @@ func TestAccKion{{.Pascal}}_basic(t *testing.T) {
 		CheckDestroy:             testAccCheck{{.Pascal}}Destroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAcc{{.Pascal}}Config_basic(rName{{range .EnvArgs}}, os.Getenv("{{.Env}}"){{end}}),
+				Config: testAcc{{.Pascal}}Config_basic(rName{{range .EnvArgs}}, {{.Param}}{{end}}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheck{{.Pascal}}Exists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
-					{{- range .AttrNames}}
-					resource.TestCheckResourceAttrSet(resourceName, "{{.}}"),
+					{{- range .CreateAttrs}}
+					{{if .IsHCL}}resource.TestCheckResourceAttrSet(resourceName, "{{.Name}}"){{else}}resource.TestCheckResourceAttr(resourceName, "{{.Name}}", {{.CheckExpr}}){{end}},
 					{{- end}}
 				),
 			},
@@ -58,6 +60,9 @@ func TestAccKion{{.Pascal}}_update(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+{{- range .EnvArgs}}
+	{{.Param}} := acctest.RequireEnv(t, "{{.Env}}", "{{.Describes}}")
+{{- end}}
 	resourceName := "{{.ResourceType}}.test"
 
 	resource.Test(t, resource.TestCase{
@@ -66,17 +71,23 @@ func TestAccKion{{.Pascal}}_update(t *testing.T) {
 		CheckDestroy:             testAccCheck{{.Pascal}}Destroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAcc{{.Pascal}}Config_basic(rName{{range .EnvArgs}}, os.Getenv("{{.Env}}"){{end}}),
+				Config: testAcc{{.Pascal}}Config_basic(rName{{range .EnvArgs}}, {{.Param}}{{end}}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheck{{.Pascal}}Exists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					{{- range .CreateAttrs}}
+					{{if .IsHCL}}resource.TestCheckResourceAttrSet(resourceName, "{{.Name}}"){{else}}resource.TestCheckResourceAttr(resourceName, "{{.Name}}", {{.CheckExpr}}){{end}},
+					{{- end}}
 				),
 			},
 			{
-				Config: testAcc{{.Pascal}}Config_update(rName{{range .EnvArgs}}, os.Getenv("{{.Env}}"){{end}}),
+				Config: testAcc{{.Pascal}}Config_update(rName{{range .EnvArgs}}, {{.Param}}{{end}}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheck{{.Pascal}}Exists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					{{- range .UpdateAttrs}}
+					{{if .IsHCL}}resource.TestCheckResourceAttrSet(resourceName, "{{.Name}}"){{else}}resource.TestCheckResourceAttr(resourceName, "{{.Name}}", {{.CheckExpr}}){{end}},
+					{{- end}}
 				),
 			},
 			{
@@ -154,14 +165,20 @@ func testAccCheck{{.Pascal}}Destroy(_ context.Context) resource.TestCheckFunc {
 	}
 }
 
-func testAcc{{.Pascal}}Config_basic({{if .BasicUsesRName}}rName{{else}}_{{end}} string{{range .EnvArgs}}, {{.Param}} string{{end}}) string {
-	return {{if .BasicUsesRName}}fmt.Sprintf(`
+func testAcc{{.Pascal}}Config_basic({{if .BasicNeedsRName}}rName{{else}}_{{end}} string{{range .EnvArgs}}, {{.Param}} string{{end}}) string {
+	return {{range .Fixtures}}acctest.{{.}}(rName) + {{end}}{{if .BasicUsesRName}}fmt.Sprintf(`
+{{- if .Prereqs}}
+{{.Prereqs}}
+{{end}}
 resource "{{.ResourceType}}" "test" {
 {{- range .CreateAttrs}}
   {{.Name}} = {{if .Quoted}}"{{.Value}}"{{else}}{{.Value}}{{end}}
 {{- end}}
 }
-`, rName{{range .EnvArgs}}, {{.Param}}{{end}}){{else}}`
+`, rName{{range .EnvArgs}}, {{.Param}}{{end}}{{range .ExtraArgs}}, {{.}}{{end}}){{else}}`
+{{- if .Prereqs}}
+{{.Prereqs}}
+{{end}}
 resource "{{.ResourceType}}" "test" {
 {{- range .CreateAttrs}}
   {{.Name}} = {{if .Quoted}}"{{.Value}}"{{else}}{{.Value}}{{end}}
@@ -170,14 +187,20 @@ resource "{{.ResourceType}}" "test" {
 `{{end}}
 }
 {{if .HasUpdate}}
-func testAcc{{.Pascal}}Config_update({{if .UpdateUsesRName}}rName{{else}}_{{end}} string{{range .EnvArgs}}, {{.Param}} string{{end}}) string {
-	return {{if .UpdateUsesRName}}fmt.Sprintf(`
+func testAcc{{.Pascal}}Config_update({{if .UpdateNeedsRName}}rName{{else}}_{{end}} string{{range .EnvArgs}}, {{.Param}} string{{end}}) string {
+	return {{range .Fixtures}}acctest.{{.}}(rName) + {{end}}{{if .UpdateUsesRName}}fmt.Sprintf(`
+{{- if .Prereqs}}
+{{.Prereqs}}
+{{end}}
 resource "{{.ResourceType}}" "test" {
 {{- range .UpdateAttrs}}
   {{.Name}} = {{if .Quoted}}"{{.Value}}"{{else}}{{.Value}}{{end}}
 {{- end}}
 }
-`, rName{{range .EnvArgs}}, {{.Param}}{{end}}){{else}}`
+`, rName{{range .EnvArgs}}, {{.Param}}{{end}}{{range .ExtraArgs}}, {{.}}{{end}}){{else}}`
+{{- if .Prereqs}}
+{{.Prereqs}}
+{{end}}
 resource "{{.ResourceType}}" "test" {
 {{- range .UpdateAttrs}}
   {{.Name}} = {{if .Quoted}}"{{.Value}}"{{else}}{{.Value}}{{end}}

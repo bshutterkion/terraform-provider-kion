@@ -42,10 +42,11 @@ func (r *azure_roleResource) Metadata(_ context.Context, req resource.MetadataRe
 	resp.TypeName = req.ProviderTypeName + "_azure_role"
 }
 
-// ConfigValidators expresses a constraint the API enforces across attributes,
-// which the schema cannot: neither attribute is Required on its own, so without
-// this the configuration reaches the API and comes back as a validation error
-// naming the Go struct field rather than the Terraform attribute.
+// ConfigValidators expresses constraints the API enforces across attributes,
+// which the schema cannot: an attribute required only for some value of another
+// is not Required on its own, so without this the configuration reaches the API
+// and comes back as a validation error naming the Go struct field rather than
+// the Terraform attribute.
 func (r *azure_roleResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
 	return []resource.ConfigValidator{
 		resourcevalidator.AtLeastOneOf(
@@ -182,6 +183,12 @@ func (r *azure_roleResource) Update(ctx context.Context, req resource.UpdateRequ
 		return
 	}
 
+	var state AzureRoleModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
@@ -207,6 +214,58 @@ func (r *azure_roleResource) Update(ctx context.Context, req resource.UpdateRequ
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// Sync owners: the update body does not carry them, so diff prior state vs
+	// plan and add/remove via the dedicated owner endpoints.
+	addOwnerUsers, removeOwnerUsers := flex.Uint64SetDiff(ctx, state.OwnerUserIds, plan.OwnerUserIds, &resp.Diagnostics)
+	addOwnerGroups, removeOwnerGroups := flex.Uint64SetDiff(ctx, state.OwnerUserGroupIds, plan.OwnerUserGroupIds, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if len(addOwnerUsers) > 0 || len(addOwnerGroups) > 0 {
+		if _, err := conn.AzureRoleAddOwners(ctx, &generated.PolicyOwners{
+			OwnerUserIds:      generated.OptNilUint64Array{Value: addOwnerUsers, Set: true},
+			OwnerUserGroupIds: generated.OptNilUint64Array{Value: addOwnerGroups, Set: true},
+		}, generated.AzureRoleAddOwnersParams{ID: idInt}); err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("adding owners to %s (ID: %d)", ResNameAzureRole, idInt), err.Error())
+			return
+		}
+	}
+	if len(removeOwnerUsers) > 0 || len(removeOwnerGroups) > 0 {
+		if _, err := conn.AzureRoleRemoveOwners(ctx, &generated.PolicyOwners{
+			OwnerUserIds:      generated.OptNilUint64Array{Value: removeOwnerUsers, Set: true},
+			OwnerUserGroupIds: generated.OptNilUint64Array{Value: removeOwnerGroups, Set: true},
+		}, generated.AzureRoleRemoveOwnersParams{ID: idInt}); err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("removing owners from %s (ID: %d)", ResNameAzureRole, idInt), err.Error())
+			return
+		}
+	}
+
+	// Sync associations: the update body carries none, so diff prior state vs
+	// plan per id-list and add/remove via the bulk associations endpoints.
+	assocAddCarRestrictedUserIds, assocRemoveCarRestrictedUserIds := flex.Uint64SetDiff(ctx, state.CarRestrictedUserIds, plan.CarRestrictedUserIds, &resp.Diagnostics)
+	assocAddCarRestrictedUserGroupIds, assocRemoveCarRestrictedUserGroupIds := flex.Uint64SetDiff(ctx, state.CarRestrictedUserGroupIds, plan.CarRestrictedUserGroupIds, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if len(assocAddCarRestrictedUserIds) > 0 || len(assocAddCarRestrictedUserGroupIds) > 0 {
+		if _, err := conn.AzureRoleAddCARRestrictedEntities(ctx, &generated.CARRestrictedEntities{
+			CarRestrictedUserIds:   generated.OptNilUint64Array{Value: assocAddCarRestrictedUserIds, Set: true},
+			CarRestrictedUgroupIds: generated.OptNilUint64Array{Value: assocAddCarRestrictedUserGroupIds, Set: true},
+		}, generated.AzureRoleAddCARRestrictedEntitiesParams{ID: idInt}); err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("adding associations to %s (ID: %d)", ResNameAzureRole, idInt), err.Error())
+			return
+		}
+	}
+	if len(assocRemoveCarRestrictedUserIds) > 0 || len(assocRemoveCarRestrictedUserGroupIds) > 0 {
+		if _, err := conn.AzureRoleRemoveCARRestrictedEntities(ctx, &generated.CARRestrictedEntities{
+			CarRestrictedUserIds:   generated.OptNilUint64Array{Value: assocRemoveCarRestrictedUserIds, Set: true},
+			CarRestrictedUgroupIds: generated.OptNilUint64Array{Value: assocRemoveCarRestrictedUserGroupIds, Set: true},
+		}, generated.AzureRoleRemoveCARRestrictedEntitiesParams{ID: idInt}); err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("removing associations from %s (ID: %d)", ResNameAzureRole, idInt), err.Error())
+			return
+		}
 	}
 
 	// Read back the resource to get the latest state.

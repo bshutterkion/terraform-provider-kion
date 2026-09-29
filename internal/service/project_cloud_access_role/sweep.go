@@ -60,6 +60,8 @@ func sweepProjectCloudAccessRoleMatch(item generated.ProjectCloudAccessRoleFull)
 	for _, s := range []string{
 		item.ProjectCloudAccessRole.Value.AWSIamPath.Or(""),
 		item.ProjectCloudAccessRole.Value.AWSIamRoleName.Or(""),
+		item.ProjectCloudAccessRole.Value.AWSIamRoleTrustPolicy.Or(""),
+		item.ProjectCloudAccessRole.Value.AWSPartition.Or(""),
 		item.ProjectCloudAccessRole.Value.Name.Or(""),
 	} {
 		if strings.HasPrefix(s, "test-acc") {

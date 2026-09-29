@@ -174,7 +174,7 @@ func rawCallInMethod(f *ast.File, method string) *Op {
 			// so this searches the whole expression rather than just Args.
 			for _, arg := range call.Args {
 				if p, ok := pathLiteral(arg); ok {
-					found = &Op{Method: httpMethod, Path: p}
+					found = &Op{Method: httpMethod, Path: specRoute(p)}
 					return false
 				}
 			}
@@ -185,6 +185,21 @@ func rawCallInMethod(f *ast.File, method string) *Op {
 		}
 	}
 	return nil
+}
+
+// specRoute rewrites a single query-string discriminator into the route fixspec
+// gives the spec (/x?k=v becomes /x/__qs__/k/v), the name the config and the
+// version gates use. Any other query is left as written.
+func specRoute(p string) string {
+	base, query, ok := strings.Cut(p, "?")
+	if !ok {
+		return p
+	}
+	k, v, ok := strings.Cut(query, "=")
+	if !ok || k == "" || v == "" || strings.ContainsAny(v, "&=") {
+		return p
+	}
+	return base + "/__qs__/" + k + "/" + v
 }
 
 // pathLiteral finds the first string literal in an expression that looks like an

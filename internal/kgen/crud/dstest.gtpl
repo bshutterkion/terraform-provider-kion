@@ -3,8 +3,7 @@
 package {{.Pkg}}_test
 
 import (
-	"fmt"
-	{{if .EnvArgs}}"os"
+	{{if .BasicNeedsRName}}"fmt"
 	{{end}}"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -18,6 +17,9 @@ func TestAccKion{{.Pascal}}DataSource_basic(t *testing.T) {
 	}
 
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+{{- range .EnvArgs}}
+	{{.Param}} := acctest.RequireEnv(t, "{{.Env}}", "{{.Describes}}")
+{{- end}}
 	dataSourceName := "data.{{.ResourceType}}.test"
 
 	resource.Test(t, resource.TestCase{
@@ -25,7 +27,7 @@ func TestAccKion{{.Pascal}}DataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAcc{{.Pascal}}DataSourceConfig_basic(rName{{range .EnvArgs}}, os.Getenv("{{.Env}}"){{end}}),
+				Config: testAcc{{.Pascal}}DataSourceConfig_basic(rName{{range .EnvArgs}}, {{.Param}}{{end}}),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 					{{- range .AttrNames}}
@@ -37,8 +39,11 @@ func TestAccKion{{.Pascal}}DataSource_basic(t *testing.T) {
 	})
 }
 
-func testAcc{{.Pascal}}DataSourceConfig_basic({{if .BasicUsesRName}}rName{{else}}_{{end}} string{{range .EnvArgs}}, {{.Param}} string{{end}}) string {
-	return {{if .BasicUsesRName}}fmt.Sprintf(`
+func testAcc{{.Pascal}}DataSourceConfig_basic({{if .BasicNeedsRName}}rName{{else}}_{{end}} string{{range .EnvArgs}}, {{.Param}} string{{end}}) string {
+	return {{range .Fixtures}}acctest.{{.}}(rName) + {{end}}{{if .BasicUsesRName}}fmt.Sprintf(`
+{{- if .Prereqs}}
+{{.Prereqs}}
+{{end}}
 resource "{{.ResourceType}}" "test" {
 {{- range .CreateAttrs}}
   {{.Name}} = {{if .Quoted}}"{{.Value}}"{{else}}{{.Value}}{{end}}
@@ -48,7 +53,10 @@ resource "{{.ResourceType}}" "test" {
 data "{{.ResourceType}}" "test" {
   id = {{.ResourceType}}.test.id
 }
-`, rName{{range .EnvArgs}}, {{.Param}}{{end}}){{else}}`
+`, rName{{range .EnvArgs}}, {{.Param}}{{end}}{{range .ExtraArgs}}, {{.}}{{end}}){{else}}`
+{{- if .Prereqs}}
+{{.Prereqs}}
+{{end}}
 resource "{{.ResourceType}}" "test" {
 {{- range .CreateAttrs}}
   {{.Name}} = {{if .Quoted}}"{{.Value}}"{{else}}{{.Value}}{{end}}

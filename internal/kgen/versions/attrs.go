@@ -5,9 +5,13 @@ import (
 	"io"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"terraform-provider-kion/internal/kgen/crud"
+	"terraform-provider-kion/internal/kgen/kfs"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Resource gating asks "does this operation exist here". That misses the other
@@ -21,8 +25,8 @@ import (
 // each tfsdk attribute is accepted. It walks the create body struct in every
 // tracked SDK version and records the first and last one carrying each field.
 // Attributes present for the whole life of the operation are omitted.
-func deriveAttrWindows(src crud.Source, sdkDir, serviceRoot string, entries map[string]entry, logw io.Writer) map[string]map[string]attrWindow {
-	out := map[string]map[string]attrWindow{}
+func deriveAttrWindows(src crud.Source, sdkDir, serviceRoot string, entries map[string]entry, logw io.Writer) map[string]map[string][]attrWindow {
+	out := map[string]map[string][]attrWindow{}
 
 	for name, e := range entries {
 		if e.Create == nil {
@@ -86,12 +90,16 @@ func deriveAttrWindows(src crud.Source, sdkDir, serviceRoot string, entries map[
 			fmt.Fprintf(logw, "attr-versions: %s: no model (%v); skipping\n", name, err)
 			continue
 		}
+		// Keyed case-insensitively: the SDK writes acronyms in Go style
+		// (CloudAccessRoleTypeID, AWSPartition) and tfplugingen does not
+		// (CloudAccessRoleTypeId, AwsPartition), so an exact match silently
+		// skips every attribute carrying one, foreign keys included.
 		tfByGo := make(map[string]string, len(models))
 		for _, m := range models {
-			tfByGo[m.GoName] = m.TFSDK
+			tfByGo[strings.ToLower(m.GoName)] = m.TFSDK
 		}
 
-		windows := map[string]attrWindow{}
+		windows := map[string][]attrWindow{}
 		for goName := range anyField {
 			first, ok := earliest[goName]
 			if !ok {
@@ -102,7 +110,7 @@ func deriveAttrWindows(src crud.Source, sdkDir, serviceRoot string, entries map[
 			if first == 0 && last == lastOpAt {
 				continue
 			}
-			tf, ok := tfByGo[goName]
+			tf, ok := tfByGo[strings.ToLower(goName)]
 			if !ok {
 				continue // not surfaced as a Terraform attribute
 			}
@@ -115,7 +123,7 @@ func deriveAttrWindows(src crud.Source, sdkDir, serviceRoot string, entries map[
 				// is the start of the next tracked line.
 				w.Before = versionString(trackedVersions[last+1])
 			}
-			windows[tf] = w
+			windows[tf] = []attrWindow{w}
 		}
 		if len(windows) > 0 {
 			out[name] = windows
@@ -145,7 +153,7 @@ func pascalFor(name string) string {
 }
 
 // renderAttrMins renders the sorted attribute->version map literal body.
-func renderAttrMins(windows map[string]attrWindow) string {
+func renderAttrMins(windows map[string][]attrWindow) string {
 	if len(windows) == 0 {
 		return ""
 	}
@@ -157,19 +165,66 @@ func renderAttrMins(windows map[string]attrWindow) string {
 
 	var b strings.Builder
 	for _, n := range names {
-		w := windows[n]
-		minExpr := "conns.KionVersion{}"
-		if w.Min != "" {
-			minExpr = fmt.Sprintf("conns.MustParseKionVersion(%q)", w.Min)
+		rs := windows[n]
+		parts := make([]string, 0, len(rs))
+		for _, w := range rs {
+			var fields []string
+			if w.Min != "" {
+				fields = append(fields, fmt.Sprintf("Min: conns.MustParseKionVersion(%q)", w.Min))
+			}
+			if w.Before != "" {
+				fields = append(fields, fmt.Sprintf("Before: conns.MustParseKionVersion(%q)", w.Before))
+			}
+			if len(fields) == 0 {
+				fields = append(fields, "Min: conns.KionVersion{}")
+			}
+			parts = append(parts, "{"+strings.Join(fields, ", ")+"}")
 		}
-		if w.Before == "" {
-			fmt.Fprintf(&b, "\t%q: {{Min: %s}},\n", n, minExpr)
-			continue
+		if bounded := upperBound(rs); bounded != "" {
+			fmt.Fprintf(&b, "\t// Not accepted from %s; sending it there is silently ignored.\n", bounded)
 		}
-		fmt.Fprintf(&b, "\t// Dropped in %s; sending it there is silently ignored.\n", w.Before)
-		fmt.Fprintf(&b, "\t%q: {{Min: %s, Before: conns.MustParseKionVersion(%q)}},\n", n, minExpr, w.Before)
+		fmt.Fprintf(&b, "\t%q: {%s},\n", n, strings.Join(parts, ", "))
 	}
 	return b.String()
+}
+
+// upperBound is the version from which no range admits the attribute, or ""
+// when one is open-ended. Authored ranges keep file order, so this does not
+// assume the last one is the highest.
+func upperBound(rs []attrWindow) string {
+	top := ""
+	for _, w := range rs {
+		if w.Before == "" {
+			return ""
+		}
+		if top == "" || versionLess(top, w.Before) {
+			top = w.Before
+		}
+	}
+	return top
+}
+
+// versionLess compares dotted numeric versions ("3.16.5" < "3.17.0").
+func versionLess(a, b string) bool {
+	as, bs := strings.Split(a, "."), strings.Split(b, ".")
+	for i := 0; i < len(as) || i < len(bs); i++ {
+		if x, y := versionPart(as, i), versionPart(bs, i); x != y {
+			return x < y
+		}
+	}
+	return false
+}
+
+// versionPart is the i'th numeric component, 0 when absent or not a number.
+func versionPart(parts []string, i int) int {
+	if i >= len(parts) {
+		return 0
+	}
+	n, err := strconv.Atoi(parts[i])
+	if err != nil {
+		return 0
+	}
+	return n
 }
 
 // pruneRedundant drops attribute minimums at or below the resource's own
@@ -177,16 +232,23 @@ func renderAttrMins(windows map[string]attrWindow) string {
 // report one cause twice, every field of a 3.14-only resource is trivially
 // "3.14+". What remains is the interesting case: a field newer than the
 // resource carrying it.
-func pruneRedundant(windows map[string]attrWindow, resourceMin string) map[string]attrWindow {
+func pruneRedundant(windows map[string][]attrWindow, resourceMin string) map[string][]attrWindow {
 	if len(windows) == 0 {
 		return nil
 	}
 	floor := minorOf(resourceMin)
-	out := make(map[string]attrWindow, len(windows))
-	for attr, w := range windows {
-		// An upper bound is never redundant with a floor.
-		if w.Before != "" || minorOf(w.Min) > floor {
-			out[attr] = w
+	out := make(map[string][]attrWindow, len(windows))
+	for attr, rs := range windows {
+		keep := false
+		for _, w := range rs {
+			// An upper bound is never redundant with a floor.
+			if w.Before != "" || minorOf(w.Min) > floor {
+				keep = true
+				break
+			}
+		}
+		if keep {
+			out[attr] = rs
 		}
 	}
 	if len(out) == 0 {
@@ -210,4 +272,65 @@ func minorOf(v string) int {
 		n = n*10 + int(r-'0')
 	}
 	return n
+}
+
+// attrOverridesFile is codegen/attr_version_overrides.yaml.
+type attrOverridesFile struct {
+	Resources map[string]map[string][]struct {
+		Min    string `yaml:"min"`
+		Before string `yaml:"before"`
+	} `yaml:"resources"`
+}
+
+// applyAttrOverrides replaces derived ranges with authored ones, in place. The
+// SDK ships one package per Kion minor, so derivation cannot express a floor
+// like 3.15.13, nor a different floor per support line. A missing file is not
+// an error; an entry naming an attribute derivation did not find is reported,
+// since a window nothing reads is worse than no window.
+func applyAttrOverrides(windows map[string]map[string][]attrWindow, path string, fs kfs.FS, logw io.Writer) {
+	b, err := fs.ReadFile(path)
+	if err != nil {
+		return
+	}
+	var f attrOverridesFile
+	if err := yaml.Unmarshal(b, &f); err != nil {
+		fmt.Fprintf(logw, "attr-versions: %s: %v; ignoring\n", path, err)
+		return
+	}
+
+	for _, res := range sortedResourceNames(f.Resources) {
+		for _, attr := range sortedAttrNames(f.Resources[res]) {
+			ranges := f.Resources[res][attr]
+			if len(ranges) == 0 {
+				continue
+			}
+			if _, ok := windows[res][attr]; !ok {
+				fmt.Fprintf(logw, "attr-versions: %s.%s: override matches no derived attribute; check the name\n", res, attr)
+				continue
+			}
+			out := make([]attrWindow, 0, len(ranges))
+			for _, r := range ranges {
+				out = append(out, attrWindow{Min: r.Min, Before: r.Before})
+			}
+			windows[res][attr] = out
+		}
+	}
+}
+
+func sortedResourceNames[T any](m map[string]T) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func sortedAttrNames[T any](m map[string]T) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }

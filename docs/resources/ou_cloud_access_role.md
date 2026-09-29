@@ -19,10 +19,13 @@ resource "kion_ou_cloud_access_role" "example" {
   ou_id = 1
 
   # Optional
+  # aws_create_instance_profile  = false
   # aws_iam_path                 = "example"
   # aws_iam_permissions_boundary = 1
   # aws_iam_policies             = []
   # aws_iam_role_name            = "example"
+  # aws_iam_role_trust_policy    = "example"
+  # aws_partition                = "example"
   # aws_session_tags = [{
   #   cloud_access_role_id    = 1
   #   id                      = 1
@@ -30,7 +33,10 @@ resource "kion_ou_cloud_access_role" "example" {
   #   tag_key                 = "example"
   #   tag_value               = "example"
   # }]
+  # aws_trusted_account_numbers  = []
+  # aws_trusted_services         = []
   # azure_role_definitions       = []
+  # cloud_access_role_type_id    = 1
   # gcp_iam_roles                = []
   # last_updated                 = "example"
   # long_term_access_keys        = false
@@ -51,12 +57,24 @@ resource "kion_ou_cloud_access_role" "example" {
 
 ### Optional
 
+- `aws_create_instance_profile` (Boolean) If true, an IAM instance profile is created for this role. Applies only
+to non-User CAR types (Custom Trust, Account, Service). Will default to
+false if not set.
 - `aws_iam_path` (String) Text of the IAM Path in AWS to be stored in AWS.
 - `aws_iam_permissions_boundary` (Number) ID of the AWS IAM policy to be used as a permissions boundary for this role.
 - `aws_iam_policies` (Set of Number) IDs of the AWS IAM policies attached to this role.
 - `aws_iam_role_name` (String) AWS IAM role name corresponding to the cloud access role.
+- `aws_iam_role_trust_policy` (String) AWS IAM role trust policy JSON. Required when cloud_access_role_type_id = 2
+(Custom Trust). Rejected for other types.
+- `aws_partition` (String) AWS partition a non-User role syncs to. Defaults to aws when omitted.
 - `aws_session_tags` (Attributes List) AWS Session Tags used in this role when accessing the AWS console. (see [below for nested schema](#nestedatt--aws_session_tags))
+- `aws_trusted_account_numbers` (List of String) AWS account IDs this role trusts. Required when
+cloud_access_role_type_id = 3 (Account). Currently supports only one
+12-digit AWS account number.
+- `aws_trusted_services` (List of String) AWS service principals this role trusts. Required when
+cloud_access_role_type_id = 4 (Service).
 - `azure_role_definitions` (Set of Number) IDs of the Azure Role Definitions attached to this role.
+- `cloud_access_role_type_id` (Number) Type of the cloud access role. 1 User (default), 2 Custom Trust, 3 Account, 4 Service. Non-User types are AWS only. Changing this forces a new role: the update body carries no role type, so the API would accept the change and ignore it.
 - `gcp_iam_roles` (Set of Number) IDs of the GCP IAM roles attached to this role.
 - `last_updated` (String) The last time this resource was updated.
 - `long_term_access_keys` (Boolean) If long term access is true, users of this cloud access role can generate aws long-term access keys.

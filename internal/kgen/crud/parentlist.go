@@ -3,11 +3,15 @@ package crud
 import (
 	_ "embed"
 	"fmt"
+	"os"
 	"path/filepath"
 )
 
 //go:embed parentlist.gtpl
 var parentListTmpl string
+
+//go:embed parentlisttest.gtpl
+var parentListTestTmpl string
 
 // parentListKind is the crud_archetypes.yaml kind for a parent-scoped resource
 // with NO by-id GET: every op takes the parent id (from a model attr), the read
@@ -52,11 +56,15 @@ type parentListData struct {
 	UpdateSliceBinds                        []sliceBind
 
 	DeleteMethod, DeleteParams string
+
+	// StringAttrs marks the string-typed attributes, so a generated test
+	// quotes only what HCL needs quoted.
+	StringAttrs map[string]bool
 }
 
 // generateParentList resolves and writes a parent_list resource (resource +
 // service_package, resource-only like the association/raw archetypes).
-func (g *generator) generateParentList(dir, name string, ops resOps, idx sdkIndex, arch archetype, model []ModelField, gated, force bool) (int, error) {
+func (g *generator) generateParentList(dir, name string, ops resOps, idx sdkIndex, arch archetype, model []ModelField, tvPath string, gated, force bool) (int, error) {
 	d, err := g.resolveParentList(name, ops, idx, arch, model, gated, filepath.Join(dir, name+"_schema_gen.go"))
 	if err != nil {
 		return 0, err
@@ -65,14 +73,39 @@ func (g *generator) generateParentList(dir, name string, ops resOps, idx sdkInde
 	if err != nil {
 		return 0, err
 	}
-	// service_package.go is owned by kgen service (it may register a hand-written
-	// data source alongside the generated resource), so the entity/parent_list
-	// paths don't emit it.
 	if err := g.writeFile(filepath.Join(dir, name+".go"), resourceGo, force); err != nil {
 		return 0, err
 	}
+	// A parent_list resource derives no data source; one only exists when a
+	// companion supplies it, which is what the registry answers.
+	pkgGo, err := execGoTemplate("servicepackage", servicePackageTmpl,
+		newServicePackageData(name, d.Pascal, dataSourceCompanionCtor(name, d.Pascal)), "service_package.go")
+	if err != nil {
+		return 0, err
+	}
+	if err := g.writeFile(filepath.Join(dir, "service_package.go"), pkgGo, force); err != nil {
+		return 0, err
+	}
+	tv, hasTV, err := loadTestValues(tvPath, name)
+	if err != nil {
+		return 0, err
+	}
+	if hasTV {
+		test, err := execGoTemplate("parentlisttest", parentListTestTmpl, buildParentListTestData(d, tv), name+"_test.go")
+		if err != nil {
+			return 0, err
+		}
+		if err := g.writeFile(filepath.Join(dir, name+"_test.go"), test, force); err != nil {
+			return 0, err
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "kgen crud: %s: no test_values entry; skipping acceptance tests\n", name)
+	}
 	// parent_list is resource-only; emit its hand-authored companion files.
 	if err := g.emitCompanions(dir, name, force); err != nil {
+		return 0, err
+	}
+	if err := g.pruneUnwritten(dir, name); err != nil {
 		return 0, err
 	}
 	return 1, nil
@@ -91,8 +124,10 @@ func (g *generator) resolveParentList(name string, ops resOps, idx sdkIndex, arc
 	}
 
 	byTF := map[string]ModelField{}
+	d.StringAttrs = map[string]bool{}
 	for _, mf := range model {
 		byTF[mf.TFSDK] = mf
+		d.StringAttrs[mf.TFSDK] = mf.Type == "types.String"
 		if mf.TFSDK == "id" {
 			d.IDGo = mf.GoName
 		}

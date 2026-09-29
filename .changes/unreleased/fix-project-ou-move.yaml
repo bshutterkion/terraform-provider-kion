@@ -1,0 +1,26 @@
+kind: BUG FIXES
+body: >-
+  Changing `ou_id` on a `kion_project` moves the project. It used to do nothing:
+  `ou_id` is settable with no RequiresReplace, and the update body carries no
+  `ou_id`, so the plan showed a change, the PATCH could not express it, the API
+  answered 200, and the next refresh showed the same diff again. A project
+  cannot simply be recreated instead, since it holds accounts, budgets and
+  users.
+
+  `POST /v3/project/{id}/move` became public in Kion 3.16 and is what the UI
+  uses. Update calls it before the PATCH, so a failed move does not leave the
+  other fields updated against the old OU.
+
+  `move_ou_settings` now does something. It was accepted and discarded, and it
+  carries the three choices the move requires: `cloud_rule_setting` (`convert`
+  or `remove`), `financial_setting` (`preserve` or `move`) and the new
+  `spend_plan_setting` (`keep` or `create`). None is inferable, because each
+  decides what happens to data the project already has, so an omitted setting
+  takes the option that keeps what exists rather than the one that discards it.
+  All three validate their allowed values at plan time.
+
+  This retires `project.ou_id:update` and `project.move_ou_settings:update` from
+  `codegen/unbound_attributes.yaml`, where both sat as untriaged debt.
+  `move_ou_settings:create` stays and is no longer marked untriaged: a project is
+  created in an OU rather than moved into one, so there is no move to configure.
+time: 2026-09-16T16:00:00Z

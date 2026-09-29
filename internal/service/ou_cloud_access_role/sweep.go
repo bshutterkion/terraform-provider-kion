@@ -60,6 +60,8 @@ func sweepOuCloudAccessRoleMatch(item generated.OUCloudAccessRoleFull) bool {
 	for _, s := range []string{
 		item.OuCloudAccessRole.Value.AWSIamPath.Or(""),
 		item.OuCloudAccessRole.Value.AWSIamRoleName.Or(""),
+		item.OuCloudAccessRole.Value.AWSIamRoleTrustPolicy.Or(""),
+		item.OuCloudAccessRole.Value.AWSPartition.Or(""),
 		item.OuCloudAccessRole.Value.Name.Or(""),
 	} {
 		if strings.HasPrefix(s, "test-acc") {

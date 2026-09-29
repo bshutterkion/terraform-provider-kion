@@ -26,6 +26,9 @@ func TestAtLeastOneOfMatchesCodegenDeclaration(t *testing.T) {
 
 	var declared map[string]struct {
 		AtLeastOneOf []string `yaml:"at_least_one_of"`
+		RequiredWhen []struct {
+			Attribute string `yaml:"attribute"`
+		} `yaml:"required_when"`
 	}
 	require.NoError(t, yaml.Unmarshal(raw, &declared))
 	require.NotEmpty(t, declared)
@@ -38,6 +41,12 @@ func TestAtLeastOneOfMatchesCodegenDeclaration(t *testing.T) {
 	}
 
 	for pkg, d := range declared {
+		// A required_when validator only fires once its trigger attribute is
+		// set, and module fixtures do not set one, so an entry declaring only
+		// those needs no fixture value.
+		if len(d.AtLeastOneOf) == 0 {
+			continue
+		}
 		typeName := "kion_" + pkg
 		got, ok := atLeastOneOfByType[typeName]
 		if !assert.Truef(t, ok,

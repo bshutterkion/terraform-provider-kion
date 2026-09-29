@@ -360,21 +360,27 @@ func resolveCompound(name string, ops resOps, idx sdkIndex, arch archetype, mode
 		}
 	}
 
-	// Delete.
+	// Delete. A delete_retains resource has no delete endpoint by declaration:
+	// the API keeps the record and the template's Delete forgets it with a
+	// warning, so requiring an op here contradicts the archetype and skipped the
+	// whole resource.
 	del, err := resolveOp("delete", ops.Delete, idx)
-	if err != nil {
+	if err != nil && !arch.DeleteRetains {
 		return d, err
 	}
-	if del == nil {
-		return d, fmt.Errorf("%s: compound archetype requires a delete op", name)
-	}
-	d.DeleteMethod = del.Method.Name
-	d.DeleteParams = del.Method.ParamsType
-	if d.DeleteParentArg, d.DeleteChildArg, err = mapParams(del.Params, arch.ChildIDParam); err != nil {
-		return d, fmt.Errorf("%s delete params: %w", name, err)
-	}
-	if d.DeleteChildArg == "" {
-		return d, fmt.Errorf("%s delete params %s lack the child id %q", name, d.DeleteParams, arch.ChildIDParam)
+	switch {
+	case arch.DeleteRetains:
+	case del == nil:
+		return d, fmt.Errorf("%s: compound archetype requires a delete op unless delete_retains is set", name)
+	default:
+		d.DeleteMethod = del.Method.Name
+		d.DeleteParams = del.Method.ParamsType
+		if d.DeleteParentArg, d.DeleteChildArg, err = mapParams(del.Params, arch.ChildIDParam); err != nil {
+			return d, fmt.Errorf("%s delete params: %w", name, err)
+		}
+		if d.DeleteChildArg == "" {
+			return d, fmt.Errorf("%s delete params %s lack the child id %q", name, d.DeleteParams, arch.ChildIDParam)
+		}
 	}
 
 	// Flatten binds (record -> model): the child id comes from the record's

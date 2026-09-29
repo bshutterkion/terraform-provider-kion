@@ -53,3 +53,12 @@ resource "kion_funding_source" "test_fs" {
 }
 `, prefix)
 }
+
+// ShortName truncates a random test name to fit a column narrower than the
+// 17 characters RandomWithPrefix produces.
+func ShortName(rName string, maxLen int) string {
+	if len(rName) > maxLen {
+		return rName[:maxLen]
+	}
+	return rName
+}

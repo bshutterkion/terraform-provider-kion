@@ -1,6 +1,7 @@
 package crud
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -449,7 +450,9 @@ func resolveEnvelope(resultType string, idx sdkIndex) (respType, payload string,
 // resolveResource assembles a ResourceModel for the entity archetype. ds is the
 // data-source op-set; when its list op resolves, rm.List is populated for the
 // dual-mode data source and real sweeper (nil otherwise, a logged degradation).
-func resolveResource(name string, ops resOps, ds dsOps, idx sdkIndex, model []ModelField) (ResourceModel, error) {
+// rawDeleteOK says a private raw delete is declared for this resource, so a
+// delete the SDK does not cover is expected rather than fatal.
+func resolveResource(name string, ops resOps, ds dsOps, idx sdkIndex, model []ModelField, rawDeleteOK bool) (ResourceModel, error) {
 	pascal := pascalCase(name)
 	rm := ResourceModel{Name: name, Pascal: pascal, Model: pascal + "Model"}
 
@@ -470,7 +473,15 @@ func resolveResource(name string, ops resOps, ds dsOps, idx sdkIndex, model []Mo
 		return rm, err
 	}
 	if rm.Delete, err = resolveOp("delete", ops.Delete, idx); err != nil {
-		return rm, err
+		// A delete the SDK has no typed method for is fatal unless the resource
+		// declares a private route to delete through; RawDeletePath then carries
+		// it. Without this the whole resource is skipped and its committed files
+		// become stale output nothing regenerates.
+		var noOp noSDKOpError
+		if !rawDeleteOK || !errors.As(err, &noOp) {
+			return rm, err
+		}
+		rm.Delete = nil
 	}
 
 	for _, mf := range model {

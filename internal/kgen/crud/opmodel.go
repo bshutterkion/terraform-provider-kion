@@ -145,7 +145,9 @@ type ResourceModel struct {
 	Name       string // snake, e.g. "label"
 	// AtLeastOneOf are attributes codegen/config_validators.yaml says the API
 	// requires at least one of, emitted as a resource-level ConfigValidator.
-	AtLeastOneOf   []string
+	AtLeastOneOf []string
+	// RequiredWhen are value-conditional constraints from the same file.
+	RequiredWhen   []RequiredWhen
 	RawDeletePath  string
 	ImportParentTF string
 	// EmptyCollections: see archetype.EmptyCollections.

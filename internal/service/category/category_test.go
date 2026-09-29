@@ -5,7 +5,6 @@ package category_test
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"testing"
 
@@ -25,6 +24,7 @@ func TestAccKionCategory_basic(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	billingSourceID := acctest.RequireEnv(t, "KION_ACC_BILLING_SOURCE_ID", "the billing source id")
 	resourceName := "kion_category.test"
 
 	resource.Test(t, resource.TestCase{
@@ -33,12 +33,12 @@ func TestAccKionCategory_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckCategoryDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCategoryConfig_basic(rName, os.Getenv("KION_ACC_BILLING_SOURCE_ID")),
+				Config: testAccCategoryConfig_basic(rName, billingSourceID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckCategoryExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
-					resource.TestCheckResourceAttrSet(resourceName, "name"),
-					resource.TestCheckResourceAttrSet(resourceName, "payer_id"),
+					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("test-acc-%[1]s", rName)),
+					resource.TestCheckResourceAttr(resourceName, "payer_id", fmt.Sprintf("%[2]s", rName, billingSourceID)),
 				),
 			},
 			{
@@ -57,6 +57,7 @@ func TestAccKionCategory_update(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	billingSourceID := acctest.RequireEnv(t, "KION_ACC_BILLING_SOURCE_ID", "the billing source id")
 	resourceName := "kion_category.test"
 
 	resource.Test(t, resource.TestCase{
@@ -65,17 +66,21 @@ func TestAccKionCategory_update(t *testing.T) {
 		CheckDestroy:             testAccCheckCategoryDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccCategoryConfig_basic(rName, os.Getenv("KION_ACC_BILLING_SOURCE_ID")),
+				Config: testAccCategoryConfig_basic(rName, billingSourceID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckCategoryExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("test-acc-%[1]s", rName)),
+					resource.TestCheckResourceAttr(resourceName, "payer_id", fmt.Sprintf("%[2]s", rName, billingSourceID)),
 				),
 			},
 			{
-				Config: testAccCategoryConfig_update(rName, os.Getenv("KION_ACC_BILLING_SOURCE_ID")),
+				Config: testAccCategoryConfig_update(rName, billingSourceID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckCategoryExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
+					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("test-acc-%[1]s-upd", rName)),
+					resource.TestCheckResourceAttr(resourceName, "payer_id", fmt.Sprintf("%[2]s", rName, billingSourceID)),
 				),
 			},
 			{

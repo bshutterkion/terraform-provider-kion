@@ -50,7 +50,7 @@ No modules.
 | default\_aws\_region | Default AWS region that the project will use for assuming into accounts. | `string` | `null` | no |
 | description | Description for the project in the application. | `string` | `null` | no |
 | labels | The labels applied to the project. | `map(string)` | `null` | no |
-| move\_ou\_settings | Settings applied when moving the project between OUs. | `set(object({ cloud_rule_setting = optional(string), financial_setting = optional(string) }))` | `null` | no |
+| move\_ou\_settings | How to handle the project's cloud rules, financial history and budgets when `ou_id` changes. Ignored unless the project moves. | `set(object({ cloud_rule_setting = optional(string), financial_setting = optional(string), spend_plan_setting = optional(string) }))` | `null` | no |
 | owner\_user\_group\_ids | List of groups IDs who will own the project. Is required if no owner user IDs are listed. | `set(number)` | `null` | no |
 | owner\_user\_ids | List of user IDs who will own the project. Is required if no owner group IDs are listed. | `set(number)` | `null` | no |
 | permission\_scheme\_id | ID of the permission scheme applied to the project. | `number` | `null` | no |

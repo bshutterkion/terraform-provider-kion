@@ -3,8 +3,12 @@ package crud
 import (
 	_ "embed"
 	"fmt"
+	"os"
 	"path/filepath"
 )
+
+//go:embed assoctest.gtpl
+var assocTestTmpl string
 
 //go:embed association.gtpl
 var associationTmpl string
@@ -53,6 +57,9 @@ type assocData struct {
 	DeleteParams string
 
 	Members []assocMember
+
+	// StringAttrs marks the string-typed attributes for a generated test.
+	StringAttrs map[string]bool
 }
 
 // resolveAssoc assembles an assocData from the op-set, SDK index, archetype
@@ -70,8 +77,10 @@ func resolveAssoc(name string, ops resOps, idx sdkIndex, arch archetype, model [
 	}
 
 	byTF := map[string]ModelField{}
+	d.StringAttrs = map[string]bool{}
 	for _, mf := range model {
 		byTF[mf.TFSDK] = mf
+		d.StringAttrs[mf.TFSDK] = mf.Type == "types.String"
 		switch mf.TFSDK {
 		case "id":
 			d.IDGo = mf.GoName
@@ -187,7 +196,7 @@ func resolveAssoc(name string, ops resOps, idx sdkIndex, arch archetype, model [
 
 // generateAssoc writes the association resource + stub sweeper + resource-only
 // service_package (list-member associations expose no data source).
-func (g *generator) generateAssoc(dir, name string, ops resOps, idx sdkIndex, arch archetype, model []ModelField, gated, force bool) (int, error) {
+func (g *generator) generateAssoc(dir, name string, ops resOps, idx sdkIndex, arch archetype, model []ModelField, tvPath string, gated, force bool) (int, error) {
 	d, err := resolveAssoc(name, ops, idx, arch, model)
 	if err != nil {
 		return 0, err
@@ -198,7 +207,8 @@ func (g *generator) generateAssoc(dir, name string, ops resOps, idx sdkIndex, ar
 	if err != nil {
 		return 0, err
 	}
-	pkgGo, err := execGoTemplate("servicepackage_noread", servicePackageNoReadTmpl, struct{ Pkg, Pascal, DataSourceCtor string }{name, d.Pascal, dataSourceCompanionCtor(name, d.Pascal)}, "service_package.go")
+	pkgGo, err := execGoTemplate("servicepackage", servicePackageTmpl,
+		newServicePackageData(name, d.Pascal, dataSourceCompanionCtor(name, d.Pascal)), "service_package.go")
 	if err != nil {
 		return 0, err
 	}
@@ -211,9 +221,27 @@ func (g *generator) generateAssoc(dir, name string, ops resOps, idx sdkIndex, ar
 			return 0, err
 		}
 	}
+	tv, hasTV, err := loadTestValues(tvPath, name)
+	if err != nil {
+		return 0, err
+	}
+	if hasTV {
+		test, err := execGoTemplate("assoctest", assocTestTmpl, buildAssocTestData(d, tv), name+"_test.go")
+		if err != nil {
+			return 0, err
+		}
+		if err := g.writeFile(filepath.Join(dir, name+"_test.go"), test, force); err != nil {
+			return 0, err
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "kgen crud: %s: no test_values entry; skipping acceptance tests\n", name)
+	}
 	// Some association resources keep a hand-authored data source (association is
 	// resource-only); emit its companion files verbatim when registered.
 	if err := g.emitCompanions(dir, name, force); err != nil {
+		return 0, err
+	}
+	if err := g.pruneUnwritten(dir, name); err != nil {
 		return 0, err
 	}
 	return 1, nil

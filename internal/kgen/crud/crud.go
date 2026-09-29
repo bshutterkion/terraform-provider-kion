@@ -63,6 +63,10 @@ type generator struct {
 	oldSchema   map[string]migrate.Resource  // codegen/schema_snapshots/old.json (lazy)
 	newSchema   map[string]migrate.Resource  // codegen/schema_snapshots/new.json (lazy)
 	root        string
+	// written records every path this pass wrote, so pruneUnwritten can tell a
+	// generated file from one the scaffolder left behind.
+	written map[string]bool
+
 	// fieldPolicy is codegen/unexposed_fields.yaml: the response fields a list
 	// data source must withhold. Loaded once per run alongside the other
 	// codegen inputs above.
@@ -310,23 +314,23 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	if arch != nil {
 		switch arch.Kind {
 		case noReadKind:
-			return g.generateNoRead(dir, name, ops, idx, model, gated, force)
+			return g.generateNoRead(dir, name, ops, idx, model, tvPath, gated, force)
 		case assocKind:
-			return g.generateAssoc(dir, name, ops, idx, *arch, model, gated, force)
+			return g.generateAssoc(dir, name, ops, idx, *arch, model, tvPath, gated, force)
 		case rawKind:
 			pe, ok := g.privEnds[name]
 			if !ok {
 				return 0, fmt.Errorf("%s: raw_http archetype but no codegen/private_endpoints.yaml entry", name)
 			}
-			return g.generateRaw(dir, name, pe, model, gated, force)
+			return g.generateRaw(dir, name, pe, model, tvPath, gated, force)
 		case blendedKind:
 			pe, ok := g.privEnds[name]
 			if !ok {
 				return 0, fmt.Errorf("%s: blended archetype but no codegen/private_endpoints.yaml entry", name)
 			}
-			return g.generateBlended(dir, name, ops, idx, pe, model, gated, force)
+			return g.generateBlended(dir, name, ops, idx, pe, model, tvPath, gated, force)
 		case parentListKind:
-			return g.generateParentList(dir, name, ops, idx, *arch, model, gated, force)
+			return g.generateParentList(dir, name, ops, idx, *arch, model, tvPath, gated, force)
 		case entityKind:
 			entityArch = arch // normal entity path, with archetype tweaks applied below
 		default:
@@ -334,7 +338,8 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		}
 	}
 
-	rm, err := resolveResource(name, ops, ds, idx, model)
+	pe, hasPriv := g.privEnds[name]
+	rm, err := resolveResource(name, ops, ds, idx, model, hasPriv && isRawOp(pe.Delete))
 	if err != nil {
 		return 0, err
 	}
@@ -487,6 +492,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	}
 
 	rm.AtLeastOneOf = g.configValidators.For(name)
+	rm.RequiredWhen = g.configValidators.RequiredWhenFor(name)
 	if entityArch != nil {
 		rm.EmptyCollections = entityArch.EmptyCollections
 		// An entity whose delete needs a parent the read does not return must
@@ -520,12 +526,14 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		// otherwise silently drop the validator the declaration promises.
 		tmplData := struct {
 			AtLeastOneOf   []string
+			RequiredWhen   []RequiredWhen
 			SDKAlias       string
 			ResConst       string
 			Labels         *labelSyncBind
 			LabelsRespType string
 		}{
 			AtLeastOneOf:   rm.AtLeastOneOf,
+			RequiredWhen:   rm.RequiredWhen,
 			SDKAlias:       "generated",
 			ResConst:       "ResName" + pascalCase(name),
 			Labels:         rm.Labels,
@@ -558,6 +566,14 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		{filepath.Join(dir, name+"_data_source.go"), dataSourceGo},
 		{filepath.Join(dir, "sweep.go"), sweepGo},
 	}
+	// An entity always ships a data source, so its registration is derivable;
+	// the alias registry supplies any second type name the resource answers to.
+	pkgGo, err := execGoTemplate("servicepackage", servicePackageTmpl,
+		newServicePackageData(name, rm.Pascal, "New"+rm.Pascal+"DataSource"), "service_package.go")
+	if err != nil {
+		return 0, err
+	}
+	files = append(files, genFile{filepath.Join(dir, "service_package.go"), pkgGo})
 
 	tv, hasTV, err := loadTestValues(tvPath, name)
 	if err != nil {
@@ -625,11 +641,18 @@ func (g *generator) generateCompound(dir, name string, ops resOps, idx sdkIndex,
 		{filepath.Join(dir, name+"_data_source.go"), dataSourceGo},
 		{filepath.Join(dir, "sweep.go"), sweepGo},
 	}
-	fmt.Fprintf(os.Stderr, "kgen crud: %s: compound archetype; acceptance tests skipped (need a parent FK fixture)\n", name)
 	for _, f := range files {
 		if err := g.writeFile(f.path, f.data, force); err != nil {
 			return 0, err
 		}
+	}
+	// A compound resource derives no test; scope_criteria keeps one as a
+	// companion, emitted here so a wipe reproduces it.
+	if _, ok := companionTestsByName[name]; !ok {
+		fmt.Fprintf(os.Stderr, "kgen crud: %s: compound archetype; no acceptance test derived or registered\n", name)
+	}
+	if err := g.emitCompanions(dir, name, force); err != nil {
+		return 0, err
 	}
 	return 1, nil
 }
@@ -686,14 +709,41 @@ func (g *generator) emitUpgrade(name string, force bool) error {
 }
 
 // writeFile writes data to path, refusing to overwrite an existing file unless
-// force is set.
+// force is set. Every written path is recorded so a generate pass can tell what
+// it owns from what was left behind.
 func (g *generator) writeFile(path string, data []byte, force bool) error {
 	if !force {
 		if _, err := g.fs.Stat(path); err == nil {
 			return fmt.Errorf("%s already exists (use --force to overwrite)", path)
 		}
 	}
+	if g.written == nil {
+		g.written = map[string]bool{}
+	}
+	g.written[path] = true
+	// The package directory normally exists because `kgen service` scaffolded
+	// it, but two are created by generation itself: the shared accounthelper,
+	// and any bespoke package absent from generator_config. Without this a wipe
+	// fails those with a bare "no such file or directory" naming the file.
+	if err := g.fs.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return fmt.Errorf("creating %s: %w", filepath.Dir(path), err)
+	}
 	return g.fs.WriteFile(path, data, 0o600)
+}
+
+// pruneUnwritten removes a file this pass did not write. `kgen service`
+// scaffolds a data source for every new package, but a resource-only archetype
+// never emits one, so the stub would survive a wipe-and-regenerate and get
+// registered in service_package.go -- output no input asked for.
+func (g *generator) pruneUnwritten(dir, name string) error {
+	path := filepath.Join(dir, name+"_data_source.go")
+	if g.written[path] {
+		return nil
+	}
+	if _, err := g.fs.Stat(path); err != nil {
+		return nil // nothing there
+	}
+	return g.fs.RemoveAll(path)
 }
 
 // findProjectRoot walks up from the working directory to the module root.

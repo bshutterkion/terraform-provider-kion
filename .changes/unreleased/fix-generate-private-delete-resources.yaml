@@ -1,0 +1,19 @@
+kind: BUG FIXES
+body: >-
+  kion_user, kion_webhook, kion_service_catalog and kion_scope_criteria were
+  skipped by the generator entirely, so every committed file in those four
+  packages was stale output that nothing reproduced and no drift gate could
+  see.
+
+  The first three delete through a private route the SDK has no typed method
+  for. RawDeletePath exists for exactly that, but resolution treated the
+  missing typed op as fatal before it was consulted; it is now fatal only when
+  no private route is declared. kion_scope_criteria declares delete_retains,
+  meaning the API cannot remove the record at all and the generated Delete
+  forgets it with a warning, yet resolution still demanded a delete op --
+  making the archetype's own declaration unbuildable.
+
+  This also lands the owner sync kion_webhook and kion_service_catalog were
+  already declared to have: the declaration could not reach code the generator
+  never produced, so owner_user_ids and owner_user_group_ids were accepted and
+  discarded on update.

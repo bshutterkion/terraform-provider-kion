@@ -32,6 +32,10 @@ type membershipAssociations struct {
 	Body   string   `yaml:"body"`   // associations body struct, e.g. CloudRuleAssociations
 	Ptr    bool     `yaml:"ptr"`    // endpoint takes *Body rather than Opt<Body>
 	Fields []string `yaml:"fields"` // model attrs (each an int id list; tfsdk name == body json name)
+	// FieldJSON maps a model attribute to a body field whose json name differs,
+	// for the cases where the two spellings diverge (the provider's
+	// car_restricted_user_group_ids is car_restricted_ugroup_ids on the wire).
+	FieldJSON map[string]string `yaml:"field_json"`
 	// DetachBeforeDelete makes Delete remove these associations first.
 	//
 	// Kion refuses to delete a record something else still points at --
@@ -154,9 +158,13 @@ func resolveAssocMembership(ma membershipAssociations, byTF map[string]ModelFiel
 		if coll == "" {
 			return nil, fmt.Errorf("associations field %q must be list/set, got %q", tf, mf.Type)
 		}
-		bf, ok := bodyByJSON[tf]
+		jsonName := tf
+		if alt, renamed := ma.FieldJSON[tf]; renamed {
+			jsonName = alt
+		}
+		bf, ok := bodyByJSON[jsonName]
 		if !ok {
-			return nil, fmt.Errorf("associations field %q not in body %q", tf, ma.Body)
+			return nil, fmt.Errorf("associations field %q (json %q) not in body %q", tf, jsonName, ma.Body)
 		}
 		fields = append(fields, assocField{ModelGo: mf.GoName, BodyGo: bf.GoName, Coll: coll})
 	}
