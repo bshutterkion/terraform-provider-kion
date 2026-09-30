@@ -24,6 +24,7 @@ func TestAccKionGcpServiceAccount_basic(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	gcpServiceAccountEmail := acctest.RequireEnv(t, "KION_ACC_GCP_SERVICE_ACCOUNT_EMAIL", "the gcp service account email")
 	resourceName := "kion_gcp_service_account.test"
 
 	resource.Test(t, resource.TestCase{
@@ -32,15 +33,15 @@ func TestAccKionGcpServiceAccount_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckGcpServiceAccountDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccGcpServiceAccountConfig_basic(rName),
+				Config: testAccGcpServiceAccountConfig_basic(rName, gcpServiceAccountEmail),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckGcpServiceAccountExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
-					resource.TestCheckResourceAttr(resourceName, "email", "test-acc-value"),
+					resource.TestCheckResourceAttr(resourceName, "email", fmt.Sprintf("%[2]s", rName, gcpServiceAccountEmail)),
 					resource.TestCheckResourceAttr(resourceName, "enable_federation_support", "false"),
 					resource.TestCheckResourceAttr(resourceName, "gcp_project_id", "test-acc-value"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttr(resourceName, "unique_id", "test-acc-value"),
+					resource.TestCheckResourceAttr(resourceName, "unique_id", fmt.Sprintf("test-acc-%[1]s", rName)),
 				),
 			},
 			{
@@ -59,6 +60,7 @@ func TestAccKionGcpServiceAccount_update(t *testing.T) {
 
 	ctx := acctest.Context(t)
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	gcpServiceAccountEmail := acctest.RequireEnv(t, "KION_ACC_GCP_SERVICE_ACCOUNT_EMAIL", "the gcp service account email")
 	resourceName := "kion_gcp_service_account.test"
 
 	resource.Test(t, resource.TestCase{
@@ -67,28 +69,28 @@ func TestAccKionGcpServiceAccount_update(t *testing.T) {
 		CheckDestroy:             testAccCheckGcpServiceAccountDestroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAccGcpServiceAccountConfig_basic(rName),
+				Config: testAccGcpServiceAccountConfig_basic(rName, gcpServiceAccountEmail),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckGcpServiceAccountExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
-					resource.TestCheckResourceAttr(resourceName, "email", "test-acc-value"),
+					resource.TestCheckResourceAttr(resourceName, "email", fmt.Sprintf("%[2]s", rName, gcpServiceAccountEmail)),
 					resource.TestCheckResourceAttr(resourceName, "enable_federation_support", "false"),
 					resource.TestCheckResourceAttr(resourceName, "gcp_project_id", "test-acc-value"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttr(resourceName, "unique_id", "test-acc-value"),
+					resource.TestCheckResourceAttr(resourceName, "unique_id", fmt.Sprintf("test-acc-%[1]s", rName)),
 				),
 			},
 			{
-				Config: testAccGcpServiceAccountConfig_update(rName),
+				Config: testAccGcpServiceAccountConfig_update(rName, gcpServiceAccountEmail),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckGcpServiceAccountExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc-updated"),
-					resource.TestCheckResourceAttr(resourceName, "email", "test-acc-updated"),
+					resource.TestCheckResourceAttr(resourceName, "email", fmt.Sprintf("%[2]s", rName, gcpServiceAccountEmail)),
 					resource.TestCheckResourceAttr(resourceName, "enable_federation_support", "true"),
 					resource.TestCheckResourceAttr(resourceName, "gcp_project_id", "test-acc-updated"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttr(resourceName, "unique_id", "test-acc-updated"),
+					resource.TestCheckResourceAttr(resourceName, "unique_id", fmt.Sprintf("test-acc-%[1]s-upd", rName)),
 				),
 			},
 			{
@@ -166,27 +168,27 @@ func testAccCheckGcpServiceAccountDestroy(_ context.Context) resource.TestCheckF
 	}
 }
 
-func testAccGcpServiceAccountConfig_basic(rName string) string {
+func testAccGcpServiceAccountConfig_basic(rName string, gcpServiceAccountEmail string) string {
 	return fmt.Sprintf(`
 resource "kion_gcp_service_account" "test" {
-  email = "test-acc-value"
+  email = "%[2]s"
   enable_federation_support = false
   gcp_project_id = "test-acc-value"
   name = "%[1]s"
-  unique_id = "test-acc-value"
+  unique_id = "test-acc-%[1]s"
 }
-`, rName)
+`, rName, gcpServiceAccountEmail)
 }
 
-func testAccGcpServiceAccountConfig_update(rName string) string {
+func testAccGcpServiceAccountConfig_update(rName string, gcpServiceAccountEmail string) string {
 	return fmt.Sprintf(`
 resource "kion_gcp_service_account" "test" {
   description = "test-acc-updated"
-  email = "test-acc-updated"
+  email = "%[2]s"
   enable_federation_support = true
   gcp_project_id = "test-acc-updated"
   name = "%[1]s"
-  unique_id = "test-acc-updated"
+  unique_id = "test-acc-%[1]s-upd"
 }
-`, rName)
+`, rName, gcpServiceAccountEmail)
 }

@@ -27,7 +27,10 @@ func TestAccKionAzureRole_basic(t *testing.T) {
 	resourceName := "kion_azure_role.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck: func() {
+			acctest.PreCheck(t)
+			acctest.RequireEnv(t, "KION_ACC_AZURE_PAYER_ID", "an Azure billing source on this install; POST /v3/azure-role returns 500 without one")
+		},
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheckAzureRoleDestroy(ctx),
 		Steps: []resource.TestStep{
@@ -60,7 +63,10 @@ func TestAccKionAzureRole_update(t *testing.T) {
 	resourceName := "kion_azure_role.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck: func() {
+			acctest.PreCheck(t)
+			acctest.RequireEnv(t, "KION_ACC_AZURE_PAYER_ID", "an Azure billing source on this install; POST /v3/azure-role returns 500 without one")
+		},
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheckAzureRoleDestroy(ctx),
 		Steps: []resource.TestStep{

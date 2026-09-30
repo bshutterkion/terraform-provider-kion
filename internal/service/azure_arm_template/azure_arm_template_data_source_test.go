@@ -21,7 +21,11 @@ func TestAccKionAzureArmTemplateDataSource_basic(t *testing.T) {
 	dataSourceName := "data.kion_azure_arm_template.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck: func() {
+			acctest.PreCheck(t)
+			acctest.RequireEnv(t, "KION_ACC_AZURE_PAYER_ID", "the ID of an Azure billing source on the target Kion")
+			acctest.RequireEnv(t, "KION_ACC_AZURE_SUBSCRIPTION_UUID", "an Azure subscription UUID the payer's tenant exposes; ARM template validation deploys into one")
+		},
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
