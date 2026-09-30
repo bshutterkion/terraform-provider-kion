@@ -18,6 +18,9 @@ type SDKField struct {
 	GoName string // Go field name, e.g. "CreateUserID"
 	JSON   string // json tag, e.g. "create_user_id"
 	GoType string // Go type as source text, e.g. "OptNilUint64"
+	// Underlying is the basic type behind a named SDK type the field wraps, e.g.
+	// "uint64" for OptGCPRoleLaunchStage; "" when the field is not one.
+	Underlying string
 }
 
 // ModelField is one field of a tfplugingen-generated *Model struct.
