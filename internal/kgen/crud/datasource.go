@@ -495,6 +495,10 @@ var listScalars = map[string]listScalar{
 	"OptUint64":    {"types.Int64", "int64(%s.Or(0))", "types.Int64Value"},
 	"OptNilUint64": {"types.Int64", "int64(%s.Or(0))", "types.Int64Value"},
 	"NilUint64":    {"types.Int64", "int64(%s.Or(0))", "types.Int64Value"},
+	// uint64-backed ogen enum; its resource attribute is an Int64.
+	"OptGCPRoleLaunchStage": {"types.Int64", "int64(%s.Or(0))", "types.Int64Value"},
+	// SQL-style nullable timestamp; the flex converter renders it as RFC3339.
+	"OptNullTime": {"types.String", "flex.OptNullTimeToFramework(%s).ValueString()", "types.StringValue"},
 }
 
 // listValueExprs returns the object attr type plus the object/row value
