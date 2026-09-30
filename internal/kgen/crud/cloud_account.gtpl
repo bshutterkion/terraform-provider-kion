@@ -5,6 +5,7 @@ package {{.Pkg}}
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
+	"terraform-provider-kion/internal/conns"
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
@@ -263,82 +265,25 @@ func (r *{{.Recv}}Resource) Create(ctx context.Context, req resource.CreateReque
 	hasProjectID := !plan.ProjectID.IsNull() && !plan.ProjectID.IsUnknown()
 	hasAccountNumber := !plan.AccountNumber.IsNull() && !plan.AccountNumber.IsUnknown()
 
-	if hasAccountNumber {
-		// Import existing AWS account. The SDK doesn't have a dedicated
-		// "import existing to cache" endpoint separate from "create new".
-		// For now this path is not supported; users should use the create-new
-		// path or terraform import.
-		resp.Diagnostics.AddError(
-			fmt.Sprintf("creating %s", ResName{{.Pascal}}),
-			"Importing existing AWS accounts by account_number is not yet supported. "+
-				"Use `terraform import` to bring an existing account under management.",
-		)
-		return
-	}
-
-	// Create a new AWS account in the cache.
-	input := &generated.AWSAccountCacheNewAWSAccount{
-		AccountName:               flex.StringValueFromFramework(plan.Name),
-		AccountEmail:              flex.OptStringFromFramework(plan.Email),
-		AccountAlias:              flex.OptStringFromFramework(plan.AccountAlias),
-		AccountTypeID:             flex.OptNilUint64FromFramework(plan.AccountTypeID),
-		CommercialAccountName:     flex.OptStringFromFramework(plan.CommercialAccountName),
-		CreateGovcloud:            flex.OptNilBoolFromFramework(plan.CreateGovcloud),
-		GovAccountName:            flex.OptStringFromFramework(plan.GovAccountName),
-		IncludeLinkedAccountSpend: flex.OptNilBoolFromFramework(plan.IncludeLinkedAccountSpend),
-		LinkedRole:                flex.OptStringFromFramework(plan.LinkedRole),
-		PayerID:                   flex.NilUint64FromFramework(plan.PayerID),
-	}
-
-	if plan.AwsOrganizationalUnit != nil {
-		input.OrganizationalUnit = generated.OptPayerOrganizationalUnit{
-			Value: generated.PayerOrganizationalUnit{
-				Name:      flex.OptStringFromFramework(plan.AwsOrganizationalUnit.Name),
-				OrgUnitID: flex.OptStringFromFramework(plan.AwsOrganizationalUnit.OrgUnitID),
-			},
-			Set: true,
-		}
-	}
-
-	out, err := conn.PostAccountCacheCreateNewAWS(ctx, input)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			fmt.Sprintf("creating %s", ResName{{.Pascal}}),
-			err.Error(),
-		)
-		return
-	}
-
-	cacheID, diags := errs.CreatedID(out)
+	createdID, diags := {{.Recv}}PostCreate(ctx, r.Meta(), &plan)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Wait for provisioning.
-	resp.Diagnostics.Append(accounthelper.WaitForProvisioning(ctx, conn, cacheID)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	if hasProjectID {
-		// Convert cache → project.
-		startDatecode := flex.StringValueFromFramework(plan.StartDatecode)
-		result, diags := accounthelper.ConvertCacheToProject(
-			ctx, conn, cacheID,
-			flex.Int64ValueFromFramework(plan.ProjectID),
-			startDatecode,
-		)
-		resp.Diagnostics.Append(diags...)
+	switch {
+	case hasAccountNumber && hasProjectID:
+		// An adopted account lands where it was asked to: nothing to provision or convert.
+		plan.ID = types.Int64Value(createdID)
+		plan.Location = types.StringValue(accounthelper.LocationProject)
+	case hasAccountNumber:
+		plan.ID = types.Int64Value(createdID)
+		plan.Location = types.StringValue(accounthelper.LocationCache)
+	default:
+		resp.Diagnostics.Append(r.provisionNew(ctx, conn, createdID, hasProjectID, &plan)...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
-
-		plan.ID = types.Int64Value(result.NewID)
-		plan.Location = types.StringValue(result.Location)
-	} else {
-		plan.ID = types.Int64Value(cacheID)
-		plan.Location = types.StringValue(accounthelper.LocationCache)
 	}
 
 {{- if .Labels}}
@@ -777,4 +722,185 @@ type awsOrganizationalUnitModel struct {
 type moveProjectSettingsModel struct {
 	Financials   types.String `tfsdk:"financials"`
 	MoveDatecode types.Int64  `tfsdk:"move_datecode"`
+}
+
+// provisionNew waits for a newly created cache account, then converts it into
+// the project when one is configured.
+func (r *{{.Recv}}Resource) provisionNew(ctx context.Context, conn *generated.Client, cacheID int64, hasProjectID bool, plan *{{.Recv}}ResourceModel) diag.Diagnostics {
+	diags := accounthelper.WaitForProvisioning(ctx, conn, cacheID)
+	if diags.HasError() {
+		return diags
+	}
+	if !hasProjectID {
+		plan.ID = types.Int64Value(cacheID)
+		plan.Location = types.StringValue(accounthelper.LocationCache)
+		return diags
+	}
+	result, convDiags := accounthelper.ConvertCacheToProject(
+		ctx, conn, cacheID,
+		flex.Int64ValueFromFramework(plan.ProjectID),
+		flex.StringValueFromFramework(plan.StartDatecode),
+	)
+	diags.Append(convDiags...)
+	if diags.HasError() {
+		return diags
+	}
+	plan.ID = types.Int64Value(result.NewID)
+	plan.Location = types.StringValue(result.Location)
+	return diags
+}
+
+// Create routes. account-type is a query parameter: the SDK's typed creates put
+// it in the path as /__qs__/account-type/aws, which does not exist (#102).
+const (
+	{{.Recv}}CreateNewPath        = "/v3/account-cache/create?account-type=aws"
+	{{.Recv}}AdoptIntoCachePath   = "/v3/account-cache?account-type=aws"
+	{{.Recv}}AdoptIntoProjectPath = "/v3/account?account-type=aws"
+
+	// AWS Commercial, as the previous provider sent; the cache route requires one.
+	{{.Recv}}DefaultAdoptAccountTypeID = int64(1)
+)
+
+// {{.Recv}}CreateNewWire creates a new AWS account in the account cache.
+type {{.Recv}}CreateNewWire struct {
+	AccountName               string                           `json:"account_name"`
+	PayerID                   int64                            `json:"payer_id"`
+	AccountAlias              *string                          `json:"account_alias,omitempty"`
+	AccountEmail              *string                          `json:"account_email,omitempty"`
+	AccountTypeID             *int64                           `json:"account_type_id,omitempty"`
+	CommercialAccountName     *string                          `json:"commercial_account_name,omitempty"`
+	CreateGovcloud            *bool                            `json:"create_govcloud,omitempty"`
+	GovAccountName            *string                          `json:"gov_account_name,omitempty"`
+	IncludeLinkedAccountSpend *bool                            `json:"include_linked_account_spend,omitempty"`
+	LinkedRole                *string                          `json:"linked_role,omitempty"`
+	OrganizationalUnit        *{{.Recv}}OrganizationalUnitWire `json:"organizational_unit,omitempty"`
+}
+
+// {{.Recv}}OrganizationalUnitWire is the create body's organizational_unit.
+type {{.Recv}}OrganizationalUnitWire struct {
+	Name      *string `json:"name,omitempty"`
+	OrgUnitID *string `json:"org_unit_id,omitempty"`
+}
+
+// {{.Recv}}AdoptWire adds an existing AWS account, by account_number, to the
+// cache or (with project_id and start_datecode) to a project.
+type {{.Recv}}AdoptWire struct {
+	AccountNumber             string  `json:"account_number"`
+	AccountName               string  `json:"account_name"`
+	PayerID                   int64   `json:"payer_id"`
+	ProjectID                 *int64  `json:"project_id,omitempty"`
+	StartDatecode             *string `json:"start_datecode,omitempty"`
+	AccountAlias              *string `json:"account_alias,omitempty"`
+	AccountEmail              *string `json:"account_email,omitempty"`
+	AccountTypeID             *int64  `json:"account_type_id,omitempty"`
+	IncludeLinkedAccountSpend *bool   `json:"include_linked_account_spend,omitempty"`
+	LinkedRole                *string `json:"linked_role,omitempty"`
+	SkipAccessChecking        *bool   `json:"skip_access_checking,omitempty"`
+	UseOrgAccountInfo         *bool   `json:"use_org_account_info,omitempty"`
+}
+
+// {{.Recv}}PostCreate sends the create for plan to the route its account_number
+// and project_id select, and returns the new record's id.
+func {{.Recv}}PostCreate(ctx context.Context, kc *conns.KionClient, plan *{{.Recv}}ResourceModel) (int64, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	summary := fmt.Sprintf("creating %s", ResName{{.Pascal}})
+
+	var path string
+	var body any
+	if plan.AccountNumber.IsNull() || plan.AccountNumber.IsUnknown() {
+		path = {{.Recv}}CreateNewPath
+		wire := {{.Recv}}CreateNewWire{
+			AccountName:               plan.Name.ValueString(),
+			PayerID:                   plan.PayerID.ValueInt64(),
+			AccountAlias:              flex.StringPointerFromFramework(plan.AccountAlias),
+			AccountEmail:              flex.StringPointerFromFramework(plan.Email),
+			AccountTypeID:             flex.Int64PointerFromFramework(plan.AccountTypeID),
+			CommercialAccountName:     flex.StringPointerFromFramework(plan.CommercialAccountName),
+			CreateGovcloud:            flex.BoolPointerFromFramework(plan.CreateGovcloud),
+			GovAccountName:            flex.StringPointerFromFramework(plan.GovAccountName),
+			IncludeLinkedAccountSpend: flex.BoolPointerFromFramework(plan.IncludeLinkedAccountSpend),
+			LinkedRole:                flex.StringPointerFromFramework(plan.LinkedRole),
+		}
+		if ou := plan.AwsOrganizationalUnit; ou != nil {
+			wire.OrganizationalUnit = &{{.Recv}}OrganizationalUnitWire{
+				Name:      flex.StringPointerFromFramework(ou.Name),
+				OrgUnitID: flex.StringPointerFromFramework(ou.OrgUnitID),
+			}
+		}
+		body = wire
+	} else {
+		wire := {{.Recv}}AdoptWire{
+			AccountNumber:             plan.AccountNumber.ValueString(),
+			AccountName:               plan.Name.ValueString(),
+			PayerID:                   plan.PayerID.ValueInt64(),
+			AccountAlias:              flex.StringPointerFromFramework(plan.AccountAlias),
+			AccountEmail:              flex.StringPointerFromFramework(plan.Email),
+			AccountTypeID:             flex.Int64PointerFromFramework(plan.AccountTypeID),
+			IncludeLinkedAccountSpend: flex.BoolPointerFromFramework(plan.IncludeLinkedAccountSpend),
+			LinkedRole:                flex.StringPointerFromFramework(plan.LinkedRole),
+			SkipAccessChecking:        flex.BoolPointerFromFramework(plan.SkipAccessChecking),
+		}
+		ignored := {{.Recv}}CreateOnlyAttributes(plan)
+		if !plan.ProjectID.IsNull() && !plan.ProjectID.IsUnknown() {
+			path = {{.Recv}}AdoptIntoProjectPath
+			wire.ProjectID = flex.Int64PointerFromFramework(plan.ProjectID)
+			wire.StartDatecode = flex.StringPointerFromFramework(plan.StartDatecode)
+			wire.UseOrgAccountInfo = flex.BoolPointerFromFramework(plan.UseOrgAccountInfo)
+		} else {
+			path = {{.Recv}}AdoptIntoCachePath
+			if wire.AccountTypeID == nil {
+				def := {{.Recv}}DefaultAdoptAccountTypeID
+				wire.AccountTypeID = &def
+			}
+			if flex.BoolPointerFromFramework(plan.UseOrgAccountInfo) != nil {
+				ignored = append(ignored, "use_org_account_info")
+			}
+		}
+		if len(ignored) > 0 {
+			diags.AddWarning(summary,
+				"account_number adopts an existing account, and the API has no field for: "+
+					strings.Join(ignored, ", ")+". These values were not sent.")
+		}
+		body = wire
+	}
+
+	raw, err := json.Marshal(body)
+	if err != nil {
+		diags.AddError(summary, err.Error())
+		return 0, diags
+	}
+	out, err := kc.RawPost(ctx, path, raw)
+	if err != nil {
+		diags.AddError(summary, err.Error())
+		return 0, diags
+	}
+	var created struct {
+		RecordID int64 `json:"record_id"`
+	}
+	if err := json.Unmarshal(out, &created); err != nil {
+		diags.AddError(summary, fmt.Sprintf("decoding response: %s", err))
+		return 0, diags
+	}
+	id, idDiags := errs.RawCreatedID(created.RecordID)
+	diags.Append(idDiags...)
+	return id, diags
+}
+
+// {{.Recv}}CreateOnlyAttributes names the configured attributes that only shape
+// a newly created account.
+func {{.Recv}}CreateOnlyAttributes(plan *{{.Recv}}ResourceModel) []string {
+	var out []string
+	if plan.AwsOrganizationalUnit != nil {
+		out = append(out, "aws_organizational_unit")
+	}
+	if flex.StringPointerFromFramework(plan.CommercialAccountName) != nil {
+		out = append(out, "commercial_account_name")
+	}
+	if flex.BoolPointerFromFramework(plan.CreateGovcloud) != nil {
+		out = append(out, "create_govcloud")
+	}
+	if flex.StringPointerFromFramework(plan.GovAccountName) != nil {
+		out = append(out, "gov_account_name")
+	}
+	return out
 }

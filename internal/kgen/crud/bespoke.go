@@ -31,6 +31,9 @@ var cvOverrideDataSourceTmpl string
 //go:embed cloud_account.gtpl
 var cloudAccountResourceTmpl string
 
+//go:embed cloud_account_create_test.gtpl
+var cloudAccountCreateTestTmpl string
+
 //go:embed automation_policy.gtpl
 var automationPolicyResourceTmpl string
 
@@ -279,6 +282,7 @@ func (g *generator) generateCloudAccount(dir, name string, force bool) (int, err
 	if _, err := g.emitBespoke(dir, name, data, []bespokeFile{
 		{cloudAccountResourceTmpl, name + ".go"},
 		{dsTmpl, name + "_data_source.go"},
+		{cloudAccountCreateTestTmpl, name + "_create_test.go"},
 	}, force); err != nil {
 		return 0, err
 	}

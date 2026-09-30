@@ -1,0 +1,15 @@
+kind: BUG FIXES
+body: >-
+  `kion_account` and `kion_aws_account` now create through
+  `POST /v3/account-cache/create?account-type=aws`. They previously requested a
+  path that does not exist, so every create failed with a 404 (#102).
+
+  Setting `account_number` now adopts an existing AWS account instead of
+  failing with "not yet supported". Without `project_id` the account is added to
+  the account cache (`account_type_id` defaults to 1, AWS Commercial, when unset);
+  with `project_id` it is added to that project, and `start_datecode` is required.
+  If you set attributes that only apply to creating a new account
+  (`aws_organizational_unit`, `commercial_account_name`, `create_govcloud`,
+  `gov_account_name`, or `use_org_account_info` when adding to the cache), you
+  now get a warning that they were not sent.
+time: 2026-09-30T19:17:52Z
