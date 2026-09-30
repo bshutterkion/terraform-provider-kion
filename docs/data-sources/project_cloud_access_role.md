@@ -75,6 +75,7 @@ Read-Only:
 - `aws_iam_role_trust_policy` (String)
 - `aws_partition` (String)
 - `cloud_access_role_type_id` (Number)
+- `created_at` (String)
 - `future_accounts` (Boolean)
 - `id` (Number)
 - `long_term_access_keys` (Boolean)
