@@ -59,7 +59,28 @@ type Resolved struct {
 	TypeMismatch  []string // matched but Framework vs SDK primitive families disagree
 	MissingFlex   []string // needed flex converter that does not exist
 	NestedAttrs   []string // nested model attrs needing a nested converter
+
+	findings []Finding // TypeMismatch + MissingFlex as keyed findings
 }
+
+// Finding kinds: the two actionable signals align-check ratchets.
+const (
+	KindType = "type" // Framework vs SDK primitive families disagree
+	KindFlex = "flex" // the flatten converter does not exist
+)
+
+// Finding is one actionable signal, keyed for the baseline.
+type Finding struct {
+	Service string
+	Attr    string
+	Kind    string
+}
+
+// Key is the baseline key: <service>.<attribute>:<kind>.
+func (f Finding) Key() string { return f.Service + "." + f.Attr + ":" + f.Kind }
+
+// ActionableFindings returns the signals Actionable counts, keyed.
+func (r Resolved) ActionableFindings() []Finding { return r.findings }
 
 // Findings counts every drift signal in a Resolved, advisory ones included.
 func (r Resolved) Findings() int {

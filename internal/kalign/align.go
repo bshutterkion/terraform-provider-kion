@@ -43,6 +43,7 @@ func Resolve(m ServiceModel, sdkTypes map[string][]SDKField, flexFuncs map[strin
 			if !typesCompatible(mf.TFType, sdkType) && !deliberateStringID(mf.TFSDK, mf.TFType, sf.GoType) {
 				r.TypeMismatch = append(r.TypeMismatch,
 					fmt.Sprintf("%s: schema %s vs SDK %s", mf.TFSDK, mf.TFType, sf.GoType))
+				r.findings = append(r.findings, Finding{m.Service, mf.TFSDK, KindType})
 			}
 			// Exported: flex converters are StringToFramework, not
 			// stringToFramework. Concatenating the Go type name verbatim made
@@ -55,6 +56,7 @@ func Resolve(m ServiceModel, sdkTypes map[string][]SDKField, flexFuncs map[strin
 			if !p.HaveFlex {
 				r.MissingFlex = append(r.MissingFlex,
 					fmt.Sprintf("%s (for field %q of type %s)", p.FlexFn, mf.TFSDK, sf.GoType))
+				r.findings = append(r.findings, Finding{m.Service, mf.TFSDK, KindFlex})
 			}
 		}
 		r.Pairs = append(r.Pairs, p)
