@@ -4,18 +4,18 @@ package account_linkage
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
-	"terraform-provider-kion/internal/errs"
+	"terraform-provider-kion/internal/conns"
 	"terraform-provider-kion/internal/filter"
-	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
 )
 
@@ -122,7 +122,7 @@ func (d *account_linkageDataSource) Schema(_ context.Context, _ datasource.Schem
 }
 
 func (d *account_linkageDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	conn := d.Meta().Client
+	conn := d.Meta()
 
 	var data account_linkageDataSourceModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
@@ -154,29 +154,67 @@ func (d *account_linkageDataSource) Read(ctx context.Context, req datasource.Rea
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (d *account_linkageDataSource) readByID(ctx context.Context, conn *generated.Client, data *account_linkageDataSourceModel, diags *diag.Diagnostics) {
-	out, err := conn.GetSpecificAccountLinkage(ctx, generated.GetSpecificAccountLinkageParams{ID: uint64(data.Id.ValueInt64())})
+// accountLinkageWire is the record as Kion sends it. The SDK types
+// delete_finalized_at as non-nullable and Kion returns null for every linkage
+// not yet finalized, so the typed decode fails; this reads raw instead.
+type accountLinkageWire struct {
+	ID                uint64  `json:"id"`
+	AzureObjectID     string  `json:"azure_object_id"`
+	PayerID           *uint64 `json:"payer_id"`
+	UserID            *uint64 `json:"user_id"`
+	AzureDomain       *string `json:"azure_domain"`
+	AzureUsername     *string `json:"azure_username"`
+	CreatedAt         *string `json:"created_at"`
+	DeleteFinalizedAt *string `json:"delete_finalized_at"`
+	DeletedAt         *string `json:"deleted_at"`
+	UpdatedAt         *string `json:"updated_at"`
+}
+
+func decodeAccountLinkage(body []byte) (accountLinkageWire, error) {
+	var env struct {
+		Data *accountLinkageWire `json:"data"`
+	}
+	if err := json.Unmarshal(body, &env); err != nil {
+		return accountLinkageWire{}, fmt.Errorf("decoding response: %w", err)
+	}
+	if env.Data == nil {
+		return accountLinkageWire{}, fmt.Errorf("response carries no data")
+	}
+	return *env.Data, nil
+}
+
+func decodeAccountLinkageList(body []byte) ([]accountLinkageWire, error) {
+	var env struct {
+		Data []accountLinkageWire `json:"data"`
+	}
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil, fmt.Errorf("decoding response: %w", err)
+	}
+	return env.Data, nil
+}
+
+func (d *account_linkageDataSource) readByID(ctx context.Context, conn *conns.KionClient, data *account_linkageDataSourceModel, diags *diag.Diagnostics) {
+	body, err := conn.RawGet(ctx, "/v3/account-linkages/"+strconv.FormatInt(data.Id.ValueInt64(), 10))
+	if err != nil {
+		if conns.IsRawNotFound(err) {
+			diags.AddError(fmt.Sprintf("reading %s", DSNameAccountLinkage), "account_linkage not found")
+			return
+		}
+		diags.AddError(fmt.Sprintf("reading %s", DSNameAccountLinkage), err.Error())
+		return
+	}
+	lbl, err := decodeAccountLinkage(body)
 	if err != nil {
 		diags.AddError(fmt.Sprintf("reading %s", DSNameAccountLinkage), err.Error())
 		return
 	}
-	if errs.IsNotFound(out) {
-		diags.AddError(fmt.Sprintf("reading %s", DSNameAccountLinkage), "account_linkage not found")
-		return
-	}
-	api, ok := out.(*generated.AzureLinkageResponse)
-	if !ok || !api.Data.Set {
-		diags.Append(errs.ResponseDiagnostics("reading "+DSNameAccountLinkage, out)...)
-		return
-	}
 
-	lbl := api.Data.Value
-	data.Id = flex.OptUint64ToFramework(lbl.ID)
-	data.AzureObjectId = flex.OptStringToFramework(lbl.AzureObjectID)
-	data.PayerId = flex.OptNilUint64ToFramework(lbl.PayerID)
-	data.UserId = flex.OptNilUint64ToFramework(lbl.UserID)
+	data.Id = types.Int64Value(int64(lbl.ID))
+	data.AzureObjectId = types.StringValue(lbl.AzureObjectID)
+	data.PayerId = optInt64(lbl.PayerID)
+	data.UserId = optInt64(lbl.UserID)
 
-	listVal, listDiags := buildAccountLinkageList(ctx, []generated.AzureAccountLinkage{lbl})
+	listVal, listDiags := buildAccountLinkageList(ctx, []accountLinkageWire{lbl})
 	diags.Append(listDiags...)
 	if diags.HasError() {
 		return
@@ -184,14 +222,14 @@ func (d *account_linkageDataSource) readByID(ctx context.Context, conn *generate
 	data.List = listVal
 }
 
-func (d *account_linkageDataSource) readByFilter(ctx context.Context, conn *generated.Client, data *account_linkageDataSourceModel, diags *diag.Diagnostics) {
+func (d *account_linkageDataSource) readByFilter(ctx context.Context, conn *conns.KionClient, data *account_linkageDataSourceModel, diags *diag.Diagnostics) {
 	all, fetchDiags := fetchAllAccountLinkage(ctx, conn)
 	diags.Append(fetchDiags...)
 	if diags.HasError() {
 		return
 	}
 
-	matched := make([]generated.AzureAccountLinkage, 0, len(all))
+	matched := make([]accountLinkageWire, 0, len(all))
 	for _, lbl := range all {
 		ok, matchDiags := filter.Match(ctx, data.Filter, account_linkageToRow(lbl))
 		diags.Append(matchDiags...)
@@ -217,66 +255,83 @@ func (d *account_linkageDataSource) readByFilter(ctx context.Context, conn *gene
 	data.UserId = types.Int64Null()
 }
 
-// fetchAllAccountLinkage returns the full set from GetAllAccountLinkages, which is not
-// paginated: one call yields the whole collection.
-func fetchAllAccountLinkage(ctx context.Context, conn *generated.Client) ([]generated.AzureAccountLinkage, diag.Diagnostics) {
+// fetchAllAccountLinkage returns the full collection; the endpoint is not
+// paginated, so one call yields every linkage.
+func fetchAllAccountLinkage(ctx context.Context, conn *conns.KionClient) ([]accountLinkageWire, diag.Diagnostics) {
 	var diags diag.Diagnostics
-	var all []generated.AzureAccountLinkage
-
-	out, err := conn.GetAllAccountLinkages(ctx)
+	body, err := conn.RawGet(ctx, "/v3/account-linkages")
 	if err != nil {
 		diags.AddError(fmt.Sprintf("listing %s", DSNameAccountLinkage), err.Error())
 		return nil, diags
 	}
-	resp, ok := out.(*generated.AzureLinkageListResponse)
-	if !ok {
-		diags.Append(errs.ResponseDiagnostics("listing "+DSNameAccountLinkage, out)...)
+	all, err := decodeAccountLinkageList(body)
+	if err != nil {
+		diags.AddError(fmt.Sprintf("listing %s", DSNameAccountLinkage), err.Error())
 		return nil, diags
 	}
-	items := resp.Data
-	all = append(all, items...)
-
 	return all, diags
 }
 
-// account_linkageToRow converts an element into the map filter.Match expects.
-func account_linkageToRow(lbl generated.AzureAccountLinkage) map[string]any {
-	row := map[string]any{
-		"azure_object_id":     lbl.AzureObjectID.Or(""),
-		"payer_id":            int64(lbl.PayerID.Or(0)),
-		"user_id":             int64(lbl.UserID.Or(0)),
-		"azure_domain":        lbl.AzureDomain.Or(""),
-		"azure_username":      lbl.AzureUsername.Or(""),
-		"created_at":          lbl.CreatedAt.Or(""),
-		"delete_finalized_at": lbl.DeleteFinalizedAt.Or(""),
-		"deleted_at":          lbl.DeletedAt.Or(""),
-		"updated_at":          lbl.UpdatedAt.Or(""),
+func optInt64(v *uint64) types.Int64 {
+	if v == nil {
+		return types.Int64Null()
 	}
-	if lbl.ID.Set {
-		row["id"] = int64(lbl.ID.Value)
-	}
-	return row
+	return types.Int64Value(int64(*v))
 }
 
-// buildAccountLinkageList converts elements into a types.List of objects.
-func buildAccountLinkageList(ctx context.Context, items []generated.AzureAccountLinkage) (types.List, diag.Diagnostics) {
+func optString(v *string) types.String {
+	if v == nil {
+		return types.StringNull()
+	}
+	return types.StringValue(*v)
+}
+
+func derefUint(v *uint64) int64 {
+	if v == nil {
+		return 0
+	}
+	return int64(*v)
+}
+
+func derefString(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
+}
+
+// account_linkageToRow converts an element into the map filter.Match expects.
+func account_linkageToRow(lbl accountLinkageWire) map[string]any {
+	return map[string]any{
+		"id":                  int64(lbl.ID),
+		"azure_object_id":     lbl.AzureObjectID,
+		"payer_id":            derefUint(lbl.PayerID),
+		"user_id":             derefUint(lbl.UserID),
+		"azure_domain":        derefString(lbl.AzureDomain),
+		"azure_username":      derefString(lbl.AzureUsername),
+		"created_at":          derefString(lbl.CreatedAt),
+		"delete_finalized_at": derefString(lbl.DeleteFinalizedAt),
+		"deleted_at":          derefString(lbl.DeletedAt),
+		"updated_at":          derefString(lbl.UpdatedAt),
+	}
+}
+
+// buildAccountLinkageList converts elements into a types.List of objects. A
+// null on the wire stays null.
+func buildAccountLinkageList(ctx context.Context, items []accountLinkageWire) (types.List, diag.Diagnostics) {
 	objs := make([]attr.Value, 0, len(items))
 	for _, lbl := range items {
-		idVal := types.Int64Null()
-		if lbl.ID.Set {
-			idVal = types.Int64Value(int64(lbl.ID.Value))
-		}
 		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
-			"id":                  idVal,
-			"azure_object_id":     types.StringValue(lbl.AzureObjectID.Or("")),
-			"payer_id":            types.Int64Value(int64(lbl.PayerID.Or(0))),
-			"user_id":             types.Int64Value(int64(lbl.UserID.Or(0))),
-			"azure_domain":        types.StringValue(lbl.AzureDomain.Or("")),
-			"azure_username":      types.StringValue(lbl.AzureUsername.Or("")),
-			"created_at":          types.StringValue(lbl.CreatedAt.Or("")),
-			"delete_finalized_at": types.StringValue(lbl.DeleteFinalizedAt.Or("")),
-			"deleted_at":          types.StringValue(lbl.DeletedAt.Or("")),
-			"updated_at":          types.StringValue(lbl.UpdatedAt.Or("")),
+			"id":                  types.Int64Value(int64(lbl.ID)),
+			"azure_object_id":     types.StringValue(lbl.AzureObjectID),
+			"payer_id":            optInt64(lbl.PayerID),
+			"user_id":             optInt64(lbl.UserID),
+			"azure_domain":        optString(lbl.AzureDomain),
+			"azure_username":      optString(lbl.AzureUsername),
+			"created_at":          optString(lbl.CreatedAt),
+			"delete_finalized_at": optString(lbl.DeleteFinalizedAt),
+			"deleted_at":          optString(lbl.DeletedAt),
+			"updated_at":          optString(lbl.UpdatedAt),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags
