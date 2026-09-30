@@ -77,6 +77,32 @@ func TestBuildResourceTestFile_RawCollection_ParentScopedAndDiscriminated(t *tes
 	}
 }
 
+// A records key decodes data.<key> rather than data itself, for a route that
+// returns its records beside other arrays.
+func TestBuildResourceTestFile_RawCollection_RecordsKey(t *testing.T) {
+	// Not parallel: mutates the package-level registry.
+	registry["kion_nested"] = ResourceMeta{
+		TypeName:                 "kion_nested",
+		RawCollectionPath:        "/v1/ou/{parent}/roles",
+		RawCollectionParentField: "ou_id",
+		RawCollectionRecordsKey:  "ou_exemptions",
+		NoUpdate:                 true,
+	}
+	t.Cleanup(func() { delete(registry, "kion_nested") })
+
+	out := buildResourceTestFile("nested", "kion_nested", "nested", "Nested", labelLikeSchema())
+
+	for _, want := range []string{
+		"\t\t\tRecords []struct {\n",
+		"} `json:\"ou_exemptions\"`",
+		"for _, rec := range env.Data.Records {",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("generated test file missing %q", want)
+		}
+	}
+}
+
 // An SDK get method wins: it is a single-record read, which is a stronger check
 // than scanning a collection.
 func TestBuildResourceTestFile_SDKGetWinsOverRawCollection(t *testing.T) {

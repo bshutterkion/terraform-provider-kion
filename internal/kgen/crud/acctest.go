@@ -236,17 +236,17 @@ func buildRawTestData(r rawData, model []ModelField, tv testValues) blendedTestD
 // the collection path a test must scan, since there is no single-record GET.
 type noReadTestData struct {
 	acctestData
-	TypeName, ListPath, ParentIDTF string
+	TypeName, ListPath, ParentIDTF, RecordsKey string
 }
 
-func buildNoReadTestData(rm ResourceModel, typeName, listPath, parentIDTF string, tv testValues) noReadTestData {
+func buildNoReadTestData(rm ResourceModel, typeName string, scan noReadScan, tv testValues) noReadTestData {
 	sa := map[string]bool{}
 	for _, mf := range rm.Fields {
 		sa[mf.TFSDK] = mf.Type == "types.String"
 	}
 	out := noReadTestData{
 		acctestData: acctestData{Pkg: rm.Name, Pascal: rm.Pascal, SDKAlias: "generated"},
-		TypeName:    typeName, ListPath: listPath, ParentIDTF: parentIDTF,
+		TypeName:    typeName, ListPath: scan.ListPath, ParentIDTF: scan.ParentIDTF, RecordsKey: scan.RecordsKey,
 	}
 	fillConfig(&out.acctestData, tv, sa, rm.Update != nil)
 	return out

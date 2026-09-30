@@ -492,8 +492,8 @@ func TestBuildOverridesCloudAccessRoleExemptionParent(t *testing.T) {
 		map[string]string{},
 		map[string]string{},
 		map[string]string{ // private_endpoints.yaml resources: read paths
-			"ou_cloud_access_role_exemption":      "/v1/ou/{id}/cloud-access-role-exemption",
-			"project_cloud_access_role_exemption": "/v1/project/{id}/cloud-access-role-exemption",
+			"ou_cloud_access_role_exemption":      "/v1/ou/{id}/ou-cloud-access-role",
+			"project_cloud_access_role_exemption": "/v1/project/{id}/ou-cloud-access-role",
 		},
 		map[string]archetypeInfo{
 			"ou_cloud_access_role_exemption":      {Kind: "no_read"},
@@ -509,7 +509,9 @@ func TestBuildOverridesCloudAccessRoleExemptionParent(t *testing.T) {
 	ou := byType(m, "kion_ou_cloud_access_role_exemption")
 	require.NotNil(t, ou.Parent)
 	assert.Equal(t, "/v3/ou", ou.Parent.ListPath)
-	assert.Equal(t, "/v1/ou/{parent_id}/cloud-access-role-exemption", ou.Parent.ChildPath)
+	assert.Equal(t, "/v1/ou/{parent_id}/ou-cloud-access-role", ou.Parent.ChildPath)
+	assert.Equal(t, "ou_exemptions", ou.Parent.ChildRecordsKey)
+	assert.Empty(t, ou.RequireValidField, "the exemption list holds only this kind")
 	assert.Equal(t, "ou_id", ou.Parent.ParentIDField)
 	assert.Equal(t, ShapeParentList, ou.ReadShape)
 	assert.True(t, ou.Readable)
@@ -517,7 +519,9 @@ func TestBuildOverridesCloudAccessRoleExemptionParent(t *testing.T) {
 	project := byType(m, "kion_project_cloud_access_role_exemption")
 	require.NotNil(t, project.Parent)
 	assert.Equal(t, "/v3/project", project.Parent.ListPath)
-	assert.Equal(t, "/v1/project/{parent_id}/cloud-access-role-exemption", project.Parent.ChildPath)
+	assert.Equal(t, "/v1/project/{parent_id}/ou-cloud-access-role", project.Parent.ChildPath)
+	assert.Equal(t, "project_exemptions", project.Parent.ChildRecordsKey)
+	assert.Empty(t, project.RequireValidField)
 	assert.Equal(t, "project_id", project.Parent.ParentIDField)
 	assert.Equal(t, ShapeParentList, project.ReadShape)
 	assert.True(t, project.Readable)

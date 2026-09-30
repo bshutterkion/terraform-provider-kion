@@ -133,16 +133,13 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 {{.WireStructGo}}
 
 type {{$.Pkg}}Envelope struct {
-	Data []{{$.Pkg}}Record `json:"data"`
+	{{.EnvelopeGo}}
 }
 
 // read{{$.Pascal}} returns the record with the given id from the collection,
 // or found=false when it holds no such record.
 {{if .HasParent}}//
-// The collection is inherited, not owned: it returns every record visible to
-// that parent's subtree, so the same record comes back under many parents and
-// the id in the path is not its owner. The owner is taken from the record's own
-// {{.ParentJSON}}.{{end}}
+// The owner is taken from the record's own {{.ParentJSON}}, not the path.{{end}}
 func (r *{{$.Pkg}}Resource) read{{$.Pascal}}(ctx context.Context{{if .HasParent}}, parentID int64{{end}}, id int64) ({{$.Pkg}}Record, bool, error) {
 	path := {{if .HasParent}}strings.Replace("{{.Path}}", "{parent_id}", strconv.FormatInt(parentID, 10), 1){{else}}"{{.Path}}"{{end}}
 	body, err := r.Meta().RawGet(ctx, path)
@@ -156,7 +153,7 @@ func (r *{{$.Pkg}}Resource) read{{$.Pascal}}(ctx context.Context{{if .HasParent}
 	if err := json.Unmarshal(body, &env); err != nil {
 		return {{$.Pkg}}Record{}, false, fmt.Errorf("decoding response: %w", err)
 	}
-	for _, rec := range env.Data {
+	for _, rec := range {{.RecordsExpr}} {
 		if rec.ID != id {
 			continue
 		}

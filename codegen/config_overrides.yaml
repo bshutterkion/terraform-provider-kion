@@ -467,6 +467,8 @@ resources:
     # resource schema. `count` is a reserved Terraform root attribute name and
     # fails schema validation outright.
     ignores: [count, page, sort_method, sort_order]
+  # The read below only anchors codegen; the resource's Read, its import and its
+  # acceptance test use the parent_read in private_endpoints.yaml (#80).
   ou_cloud_access_role_exemption:
     create:
       path: /v3/ou-cloud-access-role-exemption

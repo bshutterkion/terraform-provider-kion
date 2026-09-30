@@ -165,7 +165,12 @@ func readParentSet(ctx context.Context, l Lister, p importmanifest.Parent, r imp
 			continue
 		}
 		path := strings.ReplaceAll(p.ChildPath, "{parent_id}", pid)
-		children, err := l.List(ctx, path)
+		var children []map[string]any
+		if p.ChildRecordsKey != "" {
+			children, err = l.ListUnder(ctx, path, p.ChildRecordsKey)
+		} else {
+			children, err = l.List(ctx, path)
+		}
 		if err != nil {
 			var statusErr *StatusError
 			if errors.As(err, &statusErr) && statusErr.Status == http.StatusNotFound {

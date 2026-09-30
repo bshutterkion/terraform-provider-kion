@@ -88,6 +88,10 @@ type ResourceMeta struct {
 	// their own, so an id match alone can see a record that is not the one
 	// under test.
 	RawCollectionDiscriminator string
+
+	// RawCollectionRecordsKey names the key inside data holding the records,
+	// for a route answering {"data":{"<key>":[...], ...}}.
+	RawCollectionRecordsKey string
 }
 
 // EnvRequirement is an environment variable a test needs, and why.
@@ -725,20 +729,12 @@ var registry = map[string]ResourceMeta{
 		},
 	},
 	"kion_ou_cloud_access_role_exemption": {
-		TypeName:                   "kion_ou_cloud_access_role_exemption",
-		ImportIDParentField:        "ou_id",
-		RawCollectionPath:          "/v1/ou/{parent}/cloud-access-role-exemption",
-		RawCollectionParentField:   "ou_id",
-		RawCollectionDiscriminator: "ou_cloud_access_role_id",
-		NoUpdate:                   true,
-		KnownIssues: []string{
-			"#80 a created exemption is absent from every collection on a 3.16 " +
-				"install — GET /v1/ou/{id}/cloud-access-role-exemption returns [] for a " +
-				"record that POST just returned a record_id for and that DELETE removes " +
-				"cleanly. Read therefore drops the resource from state on every refresh. " +
-				"The existence check reads the same collection Read does, deliberately. " +
-				"Left failing on purpose.",
-		},
+		TypeName:                 "kion_ou_cloud_access_role_exemption",
+		ImportIDParentField:      "ou_id",
+		RawCollectionPath:        "/v1/ou/{parent}/ou-cloud-access-role",
+		RawCollectionParentField: "ou_id",
+		RawCollectionRecordsKey:  "ou_exemptions",
+		NoUpdate:                 true,
 		Dependencies: []Dependency{
 			{
 				TypeName: "kion_ou",

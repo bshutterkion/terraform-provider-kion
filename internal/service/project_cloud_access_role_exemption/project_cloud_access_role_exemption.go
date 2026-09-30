@@ -90,22 +90,22 @@ func (r *project_cloud_access_role_exemptionResource) Create(ctx context.Context
 type project_cloud_access_role_exemptionRecord struct {
 	ID                  int64         `json:"id"`
 	ProjectId           *flex.NullInt `json:"project_id"`
-	OuCloudAccessRoleId *flex.NullInt `json:"ou_cloud_access_role_id"`
+	OuCloudAccessRoleId int64         `json:"ou_cloud_access_role_id"`
+	Reason              string        `json:"reason"`
 }
 
 type project_cloud_access_role_exemptionEnvelope struct {
-	Data []project_cloud_access_role_exemptionRecord `json:"data"`
+	Data struct {
+		Records []project_cloud_access_role_exemptionRecord `json:"project_exemptions"`
+	} `json:"data"`
 }
 
 // readProjectCloudAccessRoleExemption returns the record with the given id from the collection,
 // or found=false when it holds no such record.
 //
-// The collection is inherited, not owned: it returns every record visible to
-// that parent's subtree, so the same record comes back under many parents and
-// the id in the path is not its owner. The owner is taken from the record's own
-// project_id.
+// The owner is taken from the record's own project_id, not the path.
 func (r *project_cloud_access_role_exemptionResource) readProjectCloudAccessRoleExemption(ctx context.Context, parentID int64, id int64) (project_cloud_access_role_exemptionRecord, bool, error) {
-	path := strings.Replace("/v1/project/{parent_id}/cloud-access-role-exemption", "{parent_id}", strconv.FormatInt(parentID, 10), 1)
+	path := strings.Replace("/v1/project/{parent_id}/ou-cloud-access-role", "{parent_id}", strconv.FormatInt(parentID, 10), 1)
 	body, err := r.Meta().RawGet(ctx, path)
 	if err != nil {
 		if conns.IsRawNotFound(err) {
@@ -117,14 +117,9 @@ func (r *project_cloud_access_role_exemptionResource) readProjectCloudAccessRole
 	if err := json.Unmarshal(body, &env); err != nil {
 		return project_cloud_access_role_exemptionRecord{}, false, fmt.Errorf("decoding response: %w", err)
 	}
-	for _, rec := range env.Data {
+	for _, rec := range env.Data.Records {
 		if rec.ID != id {
 			continue
-		}
-		// The collection mixes in records of a neighboring kind; only those
-		// carrying a valid ou_cloud_access_role_id are kion_project_cloud_access_role_exemption.
-		if rec.OuCloudAccessRoleId == nil || !rec.OuCloudAccessRoleId.Valid {
-			return project_cloud_access_role_exemptionRecord{}, false, nil
 		}
 		return rec, true, nil
 	}
@@ -134,7 +129,8 @@ func (r *project_cloud_access_role_exemptionResource) readProjectCloudAccessRole
 func (r *project_cloud_access_role_exemptionResource) flattenProjectCloudAccessRoleExemption(rec project_cloud_access_role_exemptionRecord, m *ProjectCloudAccessRoleExemptionModel) {
 	m.Id = types.StringValue(strconv.FormatInt(rec.ID, 10))
 	m.ProjectId = flex.NullIntPtrToFramework(rec.ProjectId)
-	m.OuCloudAccessRoleId = flex.NullIntPtrToFramework(rec.OuCloudAccessRoleId)
+	m.OuCloudAccessRoleId = types.Int64Value(rec.OuCloudAccessRoleId)
+	m.Reason = types.StringValue(rec.Reason)
 
 }
 

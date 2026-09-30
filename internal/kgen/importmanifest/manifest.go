@@ -62,13 +62,15 @@ type Parent struct {
 	ChildPath     string `json:"child_path"` // contains "{parent_id}"
 	ParentIDField string `json:"parent_id_field"`
 
-	// ParentIDJSON is the record's own key for its owning parent. Some child
-	// collections are INHERITED rather than owned: /v1/ou/{id}/cloud-access-role-exemption
-	// returns every exemption visible to that OU's subtree, so one record comes
-	// back under many OUs (329 rows, 22 records on a live install) and the id in
-	// the path is not its owner. When set, the enumerator takes the parent from
-	// this key instead, which is what makes a "<parent>/<id>" import id resolve.
+	// ParentIDJSON is the record's own key for its owning parent, for a child
+	// collection that also returns records other parents own. When set, the
+	// enumerator takes the parent from this key rather than the path.
 	ParentIDJSON string `json:"parent_id_json,omitempty"`
+
+	// ChildRecordsKey names the key inside the child response's data object
+	// that holds the records, for a route answering {"data":{"<key>":[...]}}
+	// alongside other arrays the generic unwrapping cannot tell apart.
+	ChildRecordsKey string `json:"child_records_key,omitempty"`
 }
 
 // ImportID describes how to build the id for an `import` block.

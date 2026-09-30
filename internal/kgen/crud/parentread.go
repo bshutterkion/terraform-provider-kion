@@ -9,13 +9,12 @@ import (
 //
 // "no_read" means the public spec has no single-record GET, not that the record
 // cannot be read: for the cloud-access-role exemptions the spec has only POST
-// and DELETE, while the private /v1 collection returns the record in full. A
+// and DELETE, while a private /v1 route under the parent returns the record. A
 // resource without a Read imports as an empty shell -- ImportState sets only the
 // id, the no-op Read echoes it back, and `terraform plan -generate-config-out`
 // writes `resource "…" "…" {}`. The plan then reports no changes, because every
 // attribute is Optional+Computed and null, so the result looks green and
-// describes nothing. Every one of the 22 kion_ou_cloud_access_role_exemption
-// records on a live install imported that way.
+// describes nothing.
 //
 // Declared in codegen/private_endpoints.yaml under `parent_read`.
 type parentRead struct {
@@ -24,20 +23,20 @@ type parentRead struct {
 	// import id becomes "<parent>/<id>" so an import can reach the collection.
 	Path string `yaml:"path"`
 
+	// Records names the key inside data that holds the records, for a route
+	// answering {"data":{"<records>":[...], ...}} rather than {"data":[...]}.
+	Records string `yaml:"records"`
+
 	ParentTF string `yaml:"parent_tf"` // model attr holding the parent id, e.g. ou_id
 
-	// ParentJSON is the record's own key for its owning parent, e.g. OUID.
-	// The collection is inherited rather than owned -- /v1/ou/{id}/… returns
-	// every exemption visible to that OU's subtree, so one record comes back
-	// under many OUs and the id in the path is not its owner. Taking the parent
-	// from the record is what makes the value correct and the import id stable.
+	// ParentJSON is the record's own key for its owning parent, e.g. ou_id.
+	// The parent is taken from the record rather than the path, so a collection
+	// that also returns records other parents own still reads back the owner.
 	ParentJSON string `yaml:"parent_json"`
 
 	// Require names a SQL-null-wrapper field that must be Valid for the record
-	// to belong to this resource at all. The exemption collections mix cloud
-	// RULE exemptions in with cloud ACCESS ROLE exemptions: of 22 records on a
-	// live install only 6 were the latter, and the other 16 would have imported
-	// as this type while being something else entirely.
+	// to belong to this resource at all, for a collection that mixes in records
+	// of a neighboring kind.
 	Require string `yaml:"require"`
 
 	Fields []readShapeSub `yaml:"fields"` // record keys -> model attrs
@@ -53,6 +52,8 @@ type parentReadData struct {
 	Require      string
 	RequireGo    string
 	WireStructGo string
+	EnvelopeGo   string // the envelope struct's body
+	RecordsExpr  string // "env.Data" | "env.Data.Records"
 	FlattenGo    string
 	UsesFlex     bool
 }
@@ -108,6 +109,13 @@ func buildParentRead(pkg string, pr parentRead, byTF map[string]ModelField, idGo
 	}
 	wire.WriteString("}")
 	d.WireStructGo = wire.String()
+
+	d.EnvelopeGo = fmt.Sprintf("Data []%sRecord `json:\"data\"`", pkg)
+	d.RecordsExpr = "env.Data"
+	if pr.Records != "" {
+		d.EnvelopeGo = fmt.Sprintf("Data struct {\nRecords []%sRecord `json:%q`\n} `json:\"data\"`", pkg, pr.Records)
+		d.RecordsExpr = "env.Data.Records"
+	}
 
 	var flat strings.Builder
 	fmt.Fprintf(&flat, "m.%s = types.StringValue(strconv.FormatInt(rec.ID, 10))\n", idGo)

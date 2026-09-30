@@ -313,22 +313,37 @@ func buildRawLookupFunc(b *strings.Builder, pascal string, meta *ResourceMeta, h
 	b.WriteString("\t\t}\n")
 	b.WriteString("\t\treturn false, fmt.Errorf(\"reading %s: %w\", path, err)\n")
 	b.WriteString("\t}\n\n")
-	b.WriteString("\tvar env struct {\n")
-	b.WriteString("\t\tData []struct {\n")
 	// Field widths are padded to what gofmt would produce: the generator writes
 	// the file verbatim, so a misaligned struct tag is a gofmt failure in CI.
+	var fields strings.Builder
+	ind := "\t\t\t"
+	if meta.RawCollectionRecordsKey != "" {
+		ind = "\t\t\t\t"
+	}
 	if meta.RawCollectionDiscriminator != "" {
-		b.WriteString("\t\t\tID   int64         `json:\"id\"`\n")
-		fmt.Fprintf(b, "\t\t\tKind *flex.NullInt `json:%q`\n", meta.RawCollectionDiscriminator)
+		fields.WriteString(ind + "ID   int64         `json:\"id\"`\n")
+		fmt.Fprintf(&fields, "%sKind *flex.NullInt `json:%q`\n", ind, meta.RawCollectionDiscriminator)
 	} else {
-		b.WriteString("\t\t\tID int64 `json:\"id\"`\n")
+		fields.WriteString(ind + "ID int64 `json:\"id\"`\n")
+	}
+	b.WriteString("\tvar env struct {\n")
+	recordsExpr := "env.Data"
+	if meta.RawCollectionRecordsKey != "" {
+		b.WriteString("\t\tData struct {\n")
+		b.WriteString("\t\t\tRecords []struct {\n")
+		b.WriteString(fields.String())
+		fmt.Fprintf(b, "\t\t\t} `json:%q`\n", meta.RawCollectionRecordsKey)
+		recordsExpr = "env.Data.Records"
+	} else {
+		b.WriteString("\t\tData []struct {\n")
+		b.WriteString(fields.String())
 	}
 	b.WriteString("\t\t} `json:\"data\"`\n")
 	b.WriteString("\t}\n")
 	b.WriteString("\tif err := json.Unmarshal(body, &env); err != nil {\n")
 	b.WriteString("\t\treturn false, fmt.Errorf(\"decoding %s: %w\", path, err)\n")
 	b.WriteString("\t}\n\n")
-	b.WriteString("\tfor _, rec := range env.Data {\n")
+	fmt.Fprintf(b, "\tfor _, rec := range %s {\n", recordsExpr)
 	b.WriteString("\t\tif rec.ID != want {\n")
 	b.WriteString("\t\t\tcontinue\n")
 	b.WriteString("\t\t}\n")

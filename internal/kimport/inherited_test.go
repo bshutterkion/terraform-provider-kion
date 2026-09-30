@@ -10,8 +10,10 @@ import (
 	"terraform-provider-kion/internal/kgen/importmanifest"
 )
 
-// exemptionResource mirrors the manifest row for
-// kion_ou_cloud_access_role_exemption: an inherited, kind-mixing collection.
+// exemptionResource is a synthetic row over an inherited, kind-mixing
+// collection, modeled on the older cloud-rule exemption listing. It exercises
+// ParentIDJSON and RequireValidField; the real exemption resources no longer
+// read that listing (see records_key_test.go).
 func exemptionResource() importmanifest.Resource {
 	return importmanifest.Resource{
 		TFType:            "kion_ou_cloud_access_role_exemption",

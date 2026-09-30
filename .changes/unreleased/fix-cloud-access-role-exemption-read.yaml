@@ -1,0 +1,16 @@
+kind: BUG FIXES
+body: >-
+  `kion_ou_cloud_access_role_exemption` and `kion_project_cloud_access_role_exemption`
+  now read from the parent's cloud access role listing
+  (`GET /v1/ou/{id}/ou-cloud-access-role` and `GET /v1/project/{id}/ou-cloud-access-role`)
+  instead of a collection that never contains them. Previously every refresh
+  dropped the exemption from state, so the next plan proposed creating it again
+  and each apply left another exemption behind (#80). `reason` is now read back
+  as well; it is stored by the API, and the earlier note that it was discarded
+  was wrong (#44).
+
+  Reading these exemptions requires Browse All Cloud Access Roles and Manage OU
+  (Manage Project for a project exemption) on the parent. A caller without those
+  sees no exemptions, so a managed exemption refreshes as deleted. `kion-import`
+  enumerates them from the same listing.
+time: 2026-09-30T19:26:12Z

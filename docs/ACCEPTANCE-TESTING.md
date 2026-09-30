@@ -77,7 +77,6 @@ loosening its assertions. As of this document:
 | `funding_source_note` | #71 every note is created with id 0 |
 | `compliance_control` | #77 `program_id` dropped on read, #78 an empty Set comes back null |
 | `webhook` | #79 `Delete` is a no-op although `DELETE /v1/webhook/{id}` works |
-| `ou_cloud_access_role_exemption` | #80 a created exemption is in no collection, so `Read` never finds it |
 
 ## Writing a new one
 
@@ -96,9 +95,9 @@ Beyond the SDK get/delete methods and per-field values, the registry carries:
 - `NoUpdate` — suppresses the `_update` test for a resource whose `Update`
   answers "cannot be updated in place".
 - `KnownIssues` — the header described above.
-- `RawCollectionPath` (with optional `RawCollectionParentField` and
-  `RawCollectionDiscriminator`) — for a resource with **no single-record GET**,
-  whose read is a whole-collection fetch over raw HTTP. The Exists and Destroy
+- `RawCollectionPath` (with optional `RawCollectionParentField`,
+  `RawCollectionDiscriminator` and `RawCollectionRecordsKey`) — for a resource
+  with **no single-record GET**, whose read is a whole-collection fetch over raw HTTP. The Exists and Destroy
   checks then read the same private collection the resource's own `Read` does.
   Without it those checks were `// TODO` stubs that returned `nil`, so the test
   reported green whether or not the API had ever seen the record — worse than no
