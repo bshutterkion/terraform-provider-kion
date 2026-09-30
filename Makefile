@@ -565,8 +565,8 @@ release-prepare: ## Validate and batch the changelog: make release-prepare RELEA
 	@$(MAKE) changelog-release RELEASE_VERSION=$(RELEASE_VERSION)
 	@echo ""
 	@echo "$(BLUE)Next:$(RESET)"
-	@echo "  git commit -am 'release $(RELEASE_VERSION)'"
-	@echo "  git tag v$(RELEASE_VERSION) && git push --follow-tags"
+	@echo "  git add .changes CHANGELOG.md && git commit -m 'release $(RELEASE_VERSION)'"
+	@echo "  git tag -a v$(RELEASE_VERSION) -m v$(RELEASE_VERSION) && git push origin main v$(RELEASE_VERSION)"
 	@echo "  the tag triggers release.yml, which builds and publishes"
 
 # ── Terraform modules ──────────────────────────────────────────────────
