@@ -11,5 +11,7 @@ body: >-
   If you set attributes that only apply to creating a new account
   (`aws_organizational_unit`, `commercial_account_name`, `create_govcloud`,
   `gov_account_name`, or `use_org_account_info` when adding to the cache), you
-  now get a warning that they were not sent.
+  now get a warning that they were not sent. Creating a new account warns the
+  same way for `skip_access_checking` and `use_org_account_info`, which the
+  new-account route does not accept.
 time: 2026-09-30T19:17:52Z

@@ -207,6 +207,26 @@ func TestCreate_existingAccountWarnsOnCreateOnlyAttributes(t *testing.T) {
 	}
 }
 
+// The create-new route has no field for these either.
+func TestCreate_newAccountWarnsOnAdoptOnlyAttributes(t *testing.T) {
+	t.Parallel()
+
+	plan := basePlan()
+	plan.SkipAccessChecking = types.BoolValue(false)
+	plan.UseOrgAccountInfo = types.BoolValue(true)
+
+	d := created("14")
+	_, diags := {{.Recv}}PostCreate(t.Context(), clientFor(d), &plan)
+	require.False(t, diags.HasError(), "%v", diags)
+	require.Equal(t, 1, diags.WarningsCount())
+	detail := diags.Warnings()[0].Detail()
+	assert.Contains(t, detail, "skip_access_checking")
+	assert.Contains(t, detail, "use_org_account_info")
+	assert.Contains(t, detail, "not sent")
+	assert.NotContains(t, d.body, "skip_access_checking")
+	assert.NotContains(t, d.body, "use_org_account_info")
+}
+
 func TestCreate_zeroRecordIDIsAnError(t *testing.T) {
 	t.Parallel()
 

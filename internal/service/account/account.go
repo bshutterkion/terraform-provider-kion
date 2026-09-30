@@ -813,6 +813,18 @@ func accountPostCreate(ctx context.Context, kc *conns.KionClient, plan *accountR
 				OrgUnitID: flex.StringPointerFromFramework(ou.OrgUnitID),
 			}
 		}
+		var ignored []string
+		if flex.BoolPointerFromFramework(plan.SkipAccessChecking) != nil {
+			ignored = append(ignored, "skip_access_checking")
+		}
+		if flex.BoolPointerFromFramework(plan.UseOrgAccountInfo) != nil {
+			ignored = append(ignored, "use_org_account_info")
+		}
+		if len(ignored) > 0 {
+			diags.AddWarning(summary,
+				"creating a new account, and the API has no field for: "+
+					strings.Join(ignored, ", ")+". These values were not sent.")
+		}
 		body = wire
 	} else {
 		wire := accountAdoptWire{
