@@ -169,7 +169,7 @@ wrappers, and `no_read` resources that import as empty shells).
 GitHub Actions only; there is no `.gitlab-ci.yml`. `.github/workflows/ci.yml` runs on pull requests and pushes to `main`: `fmt`, `vet`, `lint`, `test-unit` (race detector + coverage), `acctest-config` (test HCL matches provider schema), `docs` (docs/examples drift gate), `modules` (drift + `terraform validate`/`test` over every module), `internal-refs`, `secrets`, `codeql`, and a `ci` aggregator job for branch protection. `.github/workflows/release.yml` runs goreleaser on a `v*` tag; the tag is the version — nothing in the repo records it. No kion-sdk-go checkout is needed anywhere: the `replace` in `go.mod` is versioned, so the module proxy resolves it (do not reintroduce a clone step in workflows — it would silently override the pin). Local `make ci` covers every job except `codeql`. See `.github/workflows/README.md`.
 
 Acceptance tests are generated from `codegen/test_values.yaml` (see its header
-for `env_args`/`prereqs`/`fixtures`/`extra_args`/`hcl:`). Every resource that
+for `env_args`/`require_env`/`known_issues`/`prereqs`/`fixtures`/`extra_args`/`hcl:`). Every resource that
 can have one has one — 71 of 72, `gcp_regions` being data-source-only. The
 entity, parent_list, blended, association, raw_http and no_read archetypes
 derive them, each probing the API the way that archetype reads (get by id,
@@ -184,6 +184,7 @@ drifted out of the generator's reach with nothing to catch it, and it is what
 keeps a file claiming `// Code generated` honest. Checks compare against the
 configured value, not just presence, so a resource that accepts an attribute
 and discards it fails. A test needing an install-specific value reads it with
-`acctest.RequireEnv` and skips when unset; `docs/TESTING.md` lists them.
+`acctest.RequireEnv` and skips when unset (`env_args` when the config uses
+the value, `require_env` for a PreCheck-only guard); `docs/TESTING.md` lists them.
 
 Acceptance tests: 4 parallel workers, 120-minute timeout. Sweepers (`make sweep`) clean up orphaned `test-acc`-prefixed resources for the 36 resource types that have one; 14 more cannot be enumerated or deleted through the API and deliberately register nothing, each `sweep.go` saying why (`make crud-force` prints the set). `docs/TESTING.md` lists them. A sweeper only runs if `internal/sweep/sweep_test.go` blank-imports its package; `TestSweeperRegistration` guards both that list and against a sweeper body that never reaches the API.

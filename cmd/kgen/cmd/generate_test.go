@@ -28,27 +28,6 @@ func TestExamplesCommand_Metadata(t *testing.T) {
 	assert.Same(t, examplesCmd, findSubcommand(rootCmd, "examples"))
 }
 
-// TestTestsCommand_Metadata asserts wiring for the tests subcommand without
-// running RunE (which generates acceptance test files).
-func TestTestsCommand_Metadata(t *testing.T) {
-	assert.Equal(t, "tests", testsCmd.Use)
-	assert.NotEmpty(t, testsCmd.Short)
-	assert.NotEmpty(t, testsCmd.Long, "tests command documents usage in Long")
-	assert.NotNil(t, testsCmd.RunE)
-
-	resourceFlag := testsCmd.Flags().Lookup("resource")
-	require.NotNil(t, resourceFlag, "tests should expose --resource")
-
-	sweepFlag := testsCmd.Flags().Lookup("sweep-only")
-	require.NotNil(t, sweepFlag, "tests should expose --sweep-only")
-
-	forceFlag := testsCmd.Flags().Lookup("force")
-	require.NotNil(t, forceFlag, "tests should expose --force")
-	assert.Equal(t, "f", forceFlag.Shorthand)
-
-	assert.Same(t, testsCmd, findSubcommand(rootCmd, "tests"))
-}
-
 // TestAllSubcommands_HaveShortDescriptions is a blanket check that every
 // registered subcommand carries a non-empty Short (help output hygiene).
 func TestAllSubcommands_HaveShortDescriptions(t *testing.T) {
@@ -64,10 +43,16 @@ func TestAllSubcommands_HaveShortDescriptions(t *testing.T) {
 // TestForceFlag_DefaultsToFalse verifies the destructive --force flag defaults
 // off across every command that exposes it.
 func TestForceFlag_DefaultsToFalse(t *testing.T) {
-	cmds := []*cobra.Command{resourceCmd, datasourceCmd, serviceCmd, examplesCmd, testsCmd}
+	cmds := []*cobra.Command{resourceCmd, datasourceCmd, serviceCmd, examplesCmd}
 	for _, c := range cmds {
 		f := c.Flags().Lookup("force")
 		require.NotNilf(t, f, "%s should have --force", c.Name())
 		assert.Equalf(t, "false", f.DefValue, "%s --force should default to false", c.Name())
 	}
+}
+
+// TestTestsCommand_Removed guards against the retired schema-driven test
+// generator returning: kgen crud owns every acceptance-test file.
+func TestTestsCommand_Removed(t *testing.T) {
+	assert.Nil(t, findSubcommand(rootCmd, "tests"))
 }

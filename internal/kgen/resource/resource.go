@@ -76,9 +76,8 @@ func Create(resName, snakeName string, comments, force, tags bool) error {
 		return fmt.Errorf("writing resource template: %w", err)
 	}
 
-	// No acceptance test is written here: `make tests-gen` (internal/kgen/tests)
-	// generates schema-aware tests once the real schema exists, and it skips
-	// existing files. Emitting a rough test here would block that richer output.
+	// No acceptance test is written here: `kgen crud` generates it from the
+	// resource's codegen/test_values.yaml entry once the real schema exists.
 
 	wf := fmt.Sprintf("%s_%s.html.markdown", servicePackage, snakeName)
 	wfDir := filepath.Join("..", "..", "..", "website", "docs", "r")

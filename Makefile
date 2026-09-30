@@ -395,12 +395,6 @@ examples: ## Generate example .tf files from resource/data source schemas
 	@go run -tags kgendocs ./cmd/kgen examples --force
 	@echo "$(GREEN)✓ Examples generated$(RESET)"
 
-.PHONY: tests-gen
-tests-gen: ## Generate acceptance test files from schemas (skips existing)
-	@echo "$(BLUE)Generating acceptance test files...$(RESET)"
-	@go run -tags kgendocs ./cmd/kgen tests
-	@echo "$(GREEN)✓ Tests generated$(RESET)"
-
 .PHONY: docs
 docs: examples ## Generate provider documentation (regenerates examples first)
 	@echo "$(BLUE)Generating provider documentation...$(RESET)"

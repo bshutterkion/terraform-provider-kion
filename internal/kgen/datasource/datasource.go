@@ -77,7 +77,6 @@ func Create(dsName, snakeName string, comments, force, tags bool) error {
 	}
 
 	// No acceptance test is written here, see the note in resource.Create.
-	// `make tests-gen` produces schema-aware data-source tests once the schema exists.
 
 	wf := fmt.Sprintf("%s_%s.html.markdown", servicePackage, snakeName)
 	wfDir := filepath.Join("..", "..", "..", "website", "docs", "d")

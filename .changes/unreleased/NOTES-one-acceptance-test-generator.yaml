@@ -1,0 +1,12 @@
+kind: NOTES
+body: >-
+  Acceptance tests now come from a single generator. The `kion_azure_arm_template`
+  and `kion_azure_role` tests skip unless `KION_ACC_AZURE_PAYER_ID` is set (and
+  `KION_ACC_AZURE_SUBSCRIPTION_UUID` for the ARM template), and the
+  `kion_gcp_service_account` test reads the account email from
+  `KION_ACC_GCP_SERVICE_ACCOUNT_EMAIL` and skips when it is unset. Previously
+  these tests ran against installs that could not satisfy them.
+
+
+  The retired `kgen tests` command and `make tests-gen` target are removed.
+time: 2026-09-30T19:21:51Z
