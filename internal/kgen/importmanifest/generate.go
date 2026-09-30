@@ -153,6 +153,15 @@ var requireValidOverrides = map[string]string{
 	"kion_billing_source":                      "custom_billing_source",
 }
 
+// parentMatchOverrides restricts which parents are read; see Parent.Match.
+// The API serves /v3/idms/{id}/group-association only for a SAML IDMS
+// (idms_type_id 3) and fails for every other type, across every install and
+// version measured (#48). Both resources list through that one collection.
+var parentMatchOverrides = map[string]map[string]string{
+	"kion_idms_group_association": {"idms_type_id": "3"},
+	"kion_saml_group_association": {"idms_type_id": "3"},
+}
+
 // multiParentOverrides corrects resources enumerable under more than one
 // parent collection -- Build's per-resource derivation models exactly one
 // Parent, but /v3/budget 405s (there is no flat list) and budgets hang off
@@ -468,6 +477,10 @@ func Build(readPaths, dataSourcePaths, privateListPaths, privateResourcePaths ma
 			r.ReadShape = ShapeGeneric
 			r.Readable = true
 			r.Reason = ""
+		}
+
+		if match, ok := parentMatchOverrides[tfType]; ok && r.Parent != nil {
+			r.Parent.Match = match
 		}
 
 		// Last, so it wins over whatever shape-based derivation or the

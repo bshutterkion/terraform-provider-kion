@@ -1,0 +1,11 @@
+kind: BUG FIXES
+body: >-
+  `kion-import` no longer reports `kion_idms_group_association` and
+  `kion_saml_group_association` as failing on every non-SAML IDMS. The API
+  serves `GET /v3/idms/{id}/group-association` only for a SAML IDMS and fails
+  for every other type, so the import manifest now marks that collection's
+  parent with `"match": {"idms_type_id": "3"}` and `kion-import` skips
+  non-matching parents without a request. An install with no SAML IDMS reports
+  both resources `empty` rather than `error`. Group associations exist only on
+  a SAML IDMS, so no records are lost.
+time: 2026-09-30T19:16:25Z
