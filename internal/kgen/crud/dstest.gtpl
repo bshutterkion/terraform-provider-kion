@@ -10,6 +10,9 @@ import (
 
 	"terraform-provider-kion/internal/acctest"
 )
+{{range .KnownIssues}}
+// Known issue #{{.Issue}}:{{range $i, $l := .Lines}}{{if $i}}
+//{{end}} {{$l}}{{end}}{{end}}
 
 func TestAccKion{{.Pascal}}DataSource_basic(t *testing.T) {
 	if testing.Short() {
@@ -23,11 +26,15 @@ func TestAccKion{{.Pascal}}DataSource_basic(t *testing.T) {
 	dataSourceName := "data.{{.ResourceType}}.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		{{if .RequireEnv}}PreCheck: func() {
+			acctest.PreCheck(t){{range .RequireEnv}}
+			acctest.RequireEnv(t, {{printf "%q" .Name}}, {{printf "%q" .Reason}}){{end}}
+		},{{else}}PreCheck:                 func() { acctest.PreCheck(t) },{{end}}
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAcc{{.Pascal}}DataSourceConfig_basic(rName{{range .EnvArgs}}, {{.Param}}{{end}}),
+				Config: testAcc{{.Pascal}}DataSourceConfig_basic(rName{{range .EnvArgs}}, {{.Param}}{{end}}),{{if $.ExpectNonEmptyPlan}}
+				ExpectNonEmptyPlan: true,{{end}}
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 					{{- range .AttrNames}}
