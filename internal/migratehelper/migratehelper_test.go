@@ -138,3 +138,12 @@ func TestMapToObjectList_sortedOrderMatchesOldState(t *testing.T) {
 		}
 	}
 }
+
+func TestPadObjectKeys(t *testing.T) {
+	eq(t, PadObjectKeys(nil, "c"), "null")
+	eq(t, PadObjectKeys(json.RawMessage(`null`), "c"), "null")
+	eq(t, PadObjectKeys(json.RawMessage(`[{"a":"x","b":"y"}]`), "c"), `[{"a":"x","b":"y","c":null}]`)
+	// An existing key is kept, so re-running over upgraded state is a no-op.
+	eq(t, PadObjectKeys(json.RawMessage(`[{"a":"x","c":"z"}]`), "c"), `[{"a":"x","c":"z"}]`)
+	eq(t, PadObjectKeys(json.RawMessage(`[]`), "c"), `[]`)
+}

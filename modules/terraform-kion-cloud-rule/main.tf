@@ -22,5 +22,4 @@ resource "kion_cloud_rule" "this" {
   pre_webhook_id                    = var.pre_webhook_id
   project_ids                       = var.project_ids
   service_control_policy_ids        = var.service_control_policy_ids
-  source                            = var.cloud_rule_source
 }

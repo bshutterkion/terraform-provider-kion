@@ -49,6 +49,7 @@ func IdmsOpenIdGroupAssociationResourceSchema(ctx context.Context) schema.Schema
 				MarkdownDescription: "The ID of the OpenID IDMS the group association belongs to.",
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.UseStateForUnknown(),
+					int64planmodifier.RequiresReplace(),
 				},
 			},
 			"update_on_login": schema.BoolAttribute{

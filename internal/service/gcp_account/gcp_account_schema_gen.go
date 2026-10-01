@@ -51,6 +51,7 @@ func GcpAccountResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "Google Cloud Project ID.\nCan be found in the project id field here: https://console.cloud.google.com/iam-admin/settings",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"id": schema.StringAttribute{

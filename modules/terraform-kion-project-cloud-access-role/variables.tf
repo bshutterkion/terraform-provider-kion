@@ -113,12 +113,6 @@ variable "name" {
   type        = string
 }
 
-variable "policytype" {
-  description = "Enclosed policy type filter. Valid values are \"awsiam\" or \"azurerole\""
-  type        = string
-  default     = null
-}
-
 variable "project_id" {
   description = "ID of the project where the cloud access role is attached."
   type        = number

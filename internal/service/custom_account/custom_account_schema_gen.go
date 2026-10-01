@@ -35,6 +35,9 @@ func CustomAccountResourceSchema(ctx context.Context) schema.Schema {
 				Required:            true,
 				Description:         "The account number or identifier for the custom account.",
 				MarkdownDescription: "The account number or identifier for the custom account.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,

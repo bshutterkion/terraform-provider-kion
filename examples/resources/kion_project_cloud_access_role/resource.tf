@@ -29,7 +29,6 @@ resource "kion_project_cloud_access_role" "example" {
   # gcp_iam_roles                = []
   # last_updated                 = "example"
   # long_term_access_keys        = false
-  # policytype                   = "example"
   # short_term_access_keys       = false
   # user_group_ids               = []
   # user_ids                     = []

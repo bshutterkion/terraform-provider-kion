@@ -83,6 +83,7 @@ func CustomVariableResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "Name is the name of the custom variable. The name can be up to 255 characters.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"owner_user_group_ids": schema.SetAttribute{
@@ -112,6 +113,7 @@ func CustomVariableResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "Type is the type of the custom variable. The supported types are string, list, and map.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"value_validation_message": schema.StringAttribute{

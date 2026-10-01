@@ -16,6 +16,30 @@ import (
 
 func contains(ss []string, s string) bool { return slices.Contains(ss, s) }
 
+// addedNestedFields returns the fields a new nested-object attribute has that
+// the old block it passes through from lacks, sorted.
+func addedNestedFields(oa, na Attr) []string {
+	if oa.Kind != "block" || !na.NestedObj {
+		return nil
+	}
+	var extra []string
+	for _, f := range na.NestedAttrs {
+		if !contains(oa.NestedAttrs, f) {
+			extra = append(extra, f)
+		}
+	}
+	sort.Strings(extra)
+	return extra
+}
+
+func quoteJoin(ss []string) string {
+	q := make([]string, len(ss))
+	for i, s := range ss {
+		q[i] = fmt.Sprintf("%q", s)
+	}
+	return strings.Join(q, ", ")
+}
+
 //go:embed upgrade.gtpl
 var upgradeTmpl string
 
@@ -91,6 +115,8 @@ func GenerateUpgrade(root, tfType string, t Transform, oldRes, newRes Resource) 
 			}
 			if src == "" {
 				e.Expr = "migratehelper.Null"
+			} else if extra := addedNestedFields(oldRes.Attrs[src], newRes.Attrs[tf]); len(extra) > 0 {
+				e.Expr = fmt.Sprintf("migratehelper.PadObjectKeys(old[%q], %s)", src, quoteJoin(extra))
 			} else {
 				e.Expr = fmt.Sprintf("migratehelper.OrNull(old[%q])", src)
 			}

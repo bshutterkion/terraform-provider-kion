@@ -47,7 +47,6 @@ No modules.
 | azure\_policy\_definition\_ids | List of Azure Policy IDs to attach to the Cloud Rule. | `set(number)` | `null` | no |
 | azure\_role\_definition\_ids | List of Azure Role Definition IDs to attach to the Cloud Rule. | `set(number)` | `null` | no |
 | cft\_ids | List of CloudFormation template IDs to attach to the Cloud Rule. | `set(number)` | `null` | no |
-| cloud\_rule\_source | Filters results to only return Cloud Rules from a given source Example\: user, action\_plan, enforcement, funding\_source | `string` | `null` | no |
 | compliance\_standard\_ids | List of Compliance Standards attached to the Cloud Rule | `set(number)` | `null` | no |
 | concurrent\_cft\_sync | Whether to run CFTs concurrently or not. If true, the application will deploy all templates at once in any order. (Faster) If false, the application will deploy each template in order and wait for completion before advancing to the next. (Slower) | `bool` | `null` | no |
 | description | Description of the Cloud Rule in more detail. | `string` | `null` | no |

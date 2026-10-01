@@ -4,6 +4,7 @@ package ou_note
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -18,6 +19,9 @@ func OuNoteResourceSchema(ctx context.Context) schema.Schema {
 				Required:            true,
 				Description:         "ID of the user creating the note.",
 				MarkdownDescription: "ID of the user creating the note.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.RequiresReplace(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -36,6 +40,9 @@ func OuNoteResourceSchema(ctx context.Context) schema.Schema {
 				Required:            true,
 				Description:         "ID of the OU this note belongs to.",
 				MarkdownDescription: "ID of the OU this note belongs to.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.RequiresReplace(),
+				},
 			},
 			"text": schema.StringAttribute{
 				Required:            true,

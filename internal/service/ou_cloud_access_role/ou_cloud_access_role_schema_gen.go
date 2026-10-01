@@ -43,6 +43,7 @@ func OuCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "Text of the IAM Path in AWS to be stored in AWS.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"aws_iam_permissions_boundary": schema.Int64Attribute{
@@ -71,6 +72,7 @@ func OuCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "AWS IAM role name corresponding to the cloud access role.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"aws_iam_role_trust_policy": schema.StringAttribute{
@@ -229,6 +231,9 @@ func OuCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Required:            true,
 				Description:         "ID of the OU where the cloud access role is attached.",
 				MarkdownDescription: "ID of the OU where the cloud access role is attached.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.RequiresReplace(),
+				},
 			},
 			"short_term_access_keys": schema.BoolAttribute{
 				Optional:            true,

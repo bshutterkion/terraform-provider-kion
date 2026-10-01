@@ -84,6 +84,7 @@ func AzureAccountResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "Azure Subscription UUID.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 		},
