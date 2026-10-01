@@ -108,6 +108,7 @@ variable "focus_bucket_access_role" {
 variable "key_id" {
   description = "The AWS Access Key used to access the billing s3 bucket"
   type        = string
+  sensitive   = true
   default     = null
 }
 

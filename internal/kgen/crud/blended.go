@@ -44,6 +44,9 @@ type rawWriteData struct {
 	Method  string // "RawPatch" | "RawDelete"
 	Path    string // "/v2/project-note/{id}"
 	HasBody bool   // update marshals the model into the wire body; delete does not
+	// MergeGo is the []flex.MergeField body of a read-modify-write update
+	// (declared write_shape); empty for a body built from the model alone.
+	MergeGo string
 }
 
 // isRawOp reports whether an op is rendered over raw HTTP rather than the SDK.
@@ -227,6 +230,20 @@ func (g *generator) resolveBlended(name string, ops resOps, idx sdkIndex, pe raw
 		if err != nil {
 			return entityData{}, fmt.Errorf("%s read_shape flatten: %w", name, err)
 		}
+		subTypes := map[string]map[string]string{}
+		for _, o := range pe.ReadShape.Objects {
+			subs, serr := g.src.ModelFields(schemaGen, o.ValueType)
+			if serr != nil {
+				return entityData{}, fmt.Errorf("%s read_shape object %s: %w", name, o.TF, serr)
+			}
+			subTypes[o.ValueType] = map[string]string{}
+			for _, sf := range subs {
+				subTypes[o.ValueType][sf.TFSDK] = sf.Type
+			}
+		}
+		if err := checkReadShapeKinds(*pe.ReadShape, byTF, subTypes); err != nil {
+			return entityData{}, fmt.Errorf("%s: %w", name, err)
+		}
 		d.RawRead = &rawReadData{Method: readMethod, Path: pe.Read.Path, IDGo: rm.IDField.GoName, Nested: true, WireStructGo: wireGo, FlattenGo: flattenGo,
 			UsesAttr: len(pe.ReadShape.Objects) > 0 || pe.ReadShape.Explode != nil}
 	} else {
@@ -243,6 +260,17 @@ func (g *generator) resolveBlended(name string, ops resOps, idx sdkIndex, pe raw
 			return entityData{}, fmt.Errorf("%s raw update: %w", name, err)
 		}
 		d.RawUpdate = &rawWriteData{Method: m, Path: pe.Update.Path, HasBody: true}
+		switch {
+		case len(pe.WriteShape) > 0:
+			if d.RawUpdate.MergeGo, err = buildMergeFields(pe.WriteShape, byTF); err != nil {
+				return entityData{}, fmt.Errorf("%s: %w", name, err)
+			}
+		case pe.ReadShape != nil:
+			// A nested read has no flat wire struct to marshal the model into.
+			return entityData{}, fmt.Errorf("%s: a raw update beside a read_shape needs a write_shape", name)
+		}
+	} else if len(pe.WriteShape) > 0 {
+		return entityData{}, fmt.Errorf("%s: write_shape declared but the update is not raw", name)
 	}
 	if isRawOp(pe.Delete) {
 		m, err := rawVerb(pe.Delete.Method)

@@ -1109,10 +1109,10 @@ resources:
   billing_source_gcp:
     env_args: [KION_ACC_GCP_BILLING_ACCOUNT_ID, KION_ACC_GCP_SERVICE_ACCOUNT_ID]
     create:
-      account_type_id: "1"
+      account_type_id: "15"
       gcp_billing_account_create: 'hcl:{ big_query_export = { dataset_name = "test_acc", focus_view_name = "test_acc", gcp_project_id = "%[2]s", table_format = "focus", table_name = "test_acc" }, billing_start_date = "2026-01", gcp_id = "%[2]s", name = "test-acc-%[1]s", service_account_id = %[3]s }'
     update:
-      account_type_id: "1"
+      account_type_id: "15"
       gcp_billing_account_create: 'hcl:{ big_query_export = { dataset_name = "test_acc", focus_view_name = "test_acc", gcp_project_id = "%[2]s", table_format = "focus", table_name = "test_acc" }, billing_start_date = "2026-01", gcp_id = "%[2]s", name = "test-acc-%[1]s-upd", service_account_id = %[3]s }'
   # The OCI API key is a secret, so it is read from the environment like the
   # tenancy and user OCIDs rather than written here.

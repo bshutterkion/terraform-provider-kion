@@ -57,6 +57,8 @@ type rawResourceOps struct {
 	Update    rawOp      `yaml:"update"`
 	Delete    rawOp      `yaml:"delete"`
 	ReadShape *readShape `yaml:"read_shape"` // blended: declared nested private-read shape
+	// WriteShape makes a raw update read-modify-write; see writeShapeField.
+	WriteShape []writeShapeField `yaml:"write_shape"`
 	// ReadKinds overrides the wire type of individual flat-wire attributes,
 	// keyed by tfsdk name, for a private read whose rendering differs from the
 	// public spec's. Only "null_int" and "null_string" exist: Kion renders some

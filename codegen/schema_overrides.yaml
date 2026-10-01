@@ -92,6 +92,16 @@ resources:
     # read, which leaks its sort query params and carries no per-record id.
     description: Manages a Kion AWS Billing Source.
     attributes:
+      # The private update has no column for either; see private_endpoints.yaml.
+      account_type_id:
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
+      only_dbr:
+        plan_modifiers:
+          - boolplanmodifier.UseStateForUnknown()
+          - boolplanmodifier.RequiresReplace()
+      key_id:
+        sensitive: true
       key_secret:
         type: string
         computed_optional_required: computed_optional
@@ -111,6 +121,9 @@ resources:
   billing_source_gcp:
     description: Manages a Kion GCP Billing Source.
     attributes:
+      account_type_id:
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
       sort_method:
         remove: true
       sort_order:

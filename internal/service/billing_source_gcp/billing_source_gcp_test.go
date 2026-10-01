@@ -37,7 +37,7 @@ func TestAccKionBillingSourceGcp_basic(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckBillingSourceGcpExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
-					resource.TestCheckResourceAttr(resourceName, "account_type_id", "1"),
+					resource.TestCheckResourceAttr(resourceName, "account_type_id", "15"),
 					resource.TestCheckResourceAttrSet(resourceName, "gcp_billing_account_create"),
 				),
 			},
@@ -124,7 +124,7 @@ func testAccCheckBillingSourceGcpDestroy(_ context.Context) resource.TestCheckFu
 func testAccBillingSourceGcpConfig_basic(rName string, gcpBillingAccountID string, gcpServiceAccountID string) string {
 	return fmt.Sprintf(`
 resource "kion_billing_source_gcp" "test" {
-  account_type_id = 1
+  account_type_id = 15
   gcp_billing_account_create = { big_query_export = { dataset_name = "test_acc", focus_view_name = "test_acc", gcp_project_id = "%[2]s", table_format = "focus", table_name = "test_acc" }, billing_start_date = "2026-01", gcp_id = "%[2]s", name = "test-acc-%[1]s", service_account_id = %[3]s }
 }
 `, rName, gcpBillingAccountID, gcpServiceAccountID)

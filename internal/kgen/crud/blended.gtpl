@@ -300,6 +300,22 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
 	}
+	{{- if .RawUpdate.MergeGo}}
+	// The update overwrites every column, so it is sent the current record with
+	// the planned values laid over it (write_shape).
+	current, err := r.Meta().{{.RawRead.Method}}(ctx, strings.Replace("{{.RawRead.Path}}", "{id}", strconv.FormatInt(id, 10), 1))
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("reading %s before update (ID: %d)", {{.ResConst}}, id), err.Error())
+		return
+	}
+	body, mergeDiags := flex.MergeJSON(ctx, current, []flex.MergeField{
+		{{.RawUpdate.MergeGo}}
+	})
+	resp.Diagnostics.Append(mergeDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	{{- else}}
 	wire := r.wireFromModel(&plan)
 	wire.ID = id
 	body, err := json.Marshal(wire)
@@ -307,6 +323,7 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 		resp.Diagnostics.AddError(fmt.Sprintf("updating %s", {{.ResConst}}), err.Error())
 		return
 	}
+	{{- end}}
 	if _, err := r.Meta().{{.RawUpdate.Method}}(ctx, strings.Replace("{{.RawUpdate.Path}}", "{id}", strconv.FormatInt(id, 10), 1), body); err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", {{.ResConst}}, id), err.Error())
 		return
