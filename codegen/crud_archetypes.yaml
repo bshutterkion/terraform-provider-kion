@@ -296,6 +296,8 @@ project_enforcement:
   parent_param: ID
   child_param: EnforcementID
   record_type: ProjectEnforcement
+  # The create body has no enabled; the update body does. #75.
+  create_via_update: [enabled]
   response_type: ProjectEnforcementResponse
 
 # Funding-source and OU enforcement have the identical shape at a different
@@ -307,6 +309,8 @@ funding_source_enforcement:
   parent_param: ID
   child_param: EnforcementID
   record_type: FundingSourceEnforcmeent
+  # The create body has no enabled; the update body does. #75.
+  create_via_update: [enabled]
   response_type: FundingSourceEnforcementResponse
 
 ou_enforcement:

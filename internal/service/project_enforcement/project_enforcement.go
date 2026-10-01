@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -167,6 +168,15 @@ func (r *project_enforcementResource) Create(ctx context.Context, req resource.C
 	}
 	plan.Id = types.StringValue(strconv.FormatInt(id, 10))
 
+	// The create body does not carry these; a configured value is applied by an
+	// update straight after the create rather than dropped.
+	if !plan.Enabled.IsNull() && !plan.Enabled.IsUnknown() {
+		resp.Diagnostics.Append(r.patchProjectEnforcement(ctx, plan, parentID, id)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
 	list, err := r.listProjectEnforcement(ctx, parentID)
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("reading %s after creation (ID: %d)", ResNameProjectEnforcement, id), err.Error())
@@ -227,10 +237,79 @@ func (r *project_enforcementResource) Update(ctx context.Context, req resource.U
 		return
 	}
 
-	notificationEmails, notificationEmailsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.NotificationEmails)
-	resp.Diagnostics.Append(notificationEmailsDiags...)
+	resp.Diagnostics.Append(r.patchProjectEnforcement(ctx, plan, parentID, id)...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	var state ProjectEnforcementModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Sync associations: the update body carries none, so diff prior state vs
+	// plan per id-list and add/remove via the dedicated endpoints.
+	assocAddUserIds, assocRemoveUserIds := flex.Uint64SetDiff(ctx, state.UserIds, plan.UserIds, &resp.Diagnostics)
+	assocAddUserGroupIds, assocRemoveUserGroupIds := flex.Uint64SetDiff(ctx, state.UserGroupIds, plan.UserGroupIds, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if len(assocAddUserIds) > 0 || len(assocAddUserGroupIds) > 0 {
+		addOut, addErr := conn.PostProjectEnforcementUsers(ctx, generated.OptProjectEnforcementUsers{Value: generated.ProjectEnforcementUsers{
+			UserIds:      generated.OptNilUint64Array{Value: assocAddUserIds, Set: true},
+			UserGroupIds: generated.OptNilUint64Array{Value: assocAddUserGroupIds, Set: true},
+		}, Set: true}, generated.PostProjectEnforcementUsersParams{ID: parentID, EnforcementID: id})
+		if addErr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("adding associations to %s (ID: %d)", ResNameProjectEnforcement, id), addErr.Error())
+			return
+		}
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("adding associations to %s", ResNameProjectEnforcement), addOut)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+	if len(assocRemoveUserIds) > 0 || len(assocRemoveUserGroupIds) > 0 {
+		removeOut, removeErr := conn.DeleteProjectEnforcementUsers(ctx, generated.OptProjectEnforcementUsers{Value: generated.ProjectEnforcementUsers{
+			UserIds:      generated.OptNilUint64Array{Value: assocRemoveUserIds, Set: true},
+			UserGroupIds: generated.OptNilUint64Array{Value: assocRemoveUserGroupIds, Set: true},
+		}, Set: true}, generated.DeleteProjectEnforcementUsersParams{ID: parentID, EnforcementID: id})
+		if removeErr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("removing associations from %s (ID: %d)", ResNameProjectEnforcement, id), removeErr.Error())
+			return
+		}
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("removing associations from %s", ResNameProjectEnforcement), removeOut)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	list, err := r.listProjectEnforcement(ctx, parentID)
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("reading %s after update (ID: %d)", ResNameProjectEnforcement, id), err.Error())
+		return
+	}
+	rec, found := findProjectEnforcementRecord(list, id)
+	if found {
+		flattenProjectEnforcement(ctx, rec, &plan)
+	}
+	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+// patchProjectEnforcement sends the update body built from plan.
+func (r *project_enforcementResource) patchProjectEnforcement(ctx context.Context, plan ProjectEnforcementModel, parentID, id int64) diag.Diagnostics {
+	var diags diag.Diagnostics
+	conn := r.Meta().Client
+
+	notificationEmails, notificationEmailsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.NotificationEmails)
+	diags.Append(notificationEmailsDiags...)
+	if diags.HasError() {
+		return diags
 	}
 
 	input := generated.OptProjectEnforcementUpdate{
@@ -253,30 +332,11 @@ func (r *project_enforcementResource) Update(ctx context.Context, req resource.U
 
 	out, err := conn.PatchProjectEnforcements(ctx, input, generated.PatchProjectEnforcementsParams{ID: parentID, EnforcementID: id})
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameProjectEnforcement, id), err.Error())
-		return
+		diags.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameProjectEnforcement, id), err.Error())
+		return diags
 	}
-	diags := errs.ResponseDiagnostics(fmt.Sprintf("updating %s", ResNameProjectEnforcement), out)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	list, err := r.listProjectEnforcement(ctx, parentID)
-	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s after update (ID: %d)", ResNameProjectEnforcement, id), err.Error())
-		return
-	}
-	rec, found := findProjectEnforcementRecord(list, id)
-	if found {
-		flattenProjectEnforcement(ctx, rec, &plan)
-	}
-	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+	diags.Append(errs.ResponseDiagnostics(fmt.Sprintf("updating %s", ResNameProjectEnforcement), out)...)
+	return diags
 }
 
 func (r *project_enforcementResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

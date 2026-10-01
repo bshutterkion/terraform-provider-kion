@@ -252,6 +252,25 @@ resources:
       remove: WebhookRemoveOwners
       body: WebhookOwners
 
+  # Enforcement update bodies carry no notification recipients; they change
+  # through POST/DELETE .../enforcement/{enforcement_id}/user. #75.
+  project_enforcement:
+    associations:
+      - add: PostProjectEnforcementUsers
+        remove: DeleteProjectEnforcementUsers
+        body: ProjectEnforcementUsers
+        fields:
+          - user_ids
+          - user_group_ids
+  funding_source_enforcement:
+    associations:
+      - add: PostFundingSourceEnforcementUsers
+        remove: DeleteFundingSourceEnforcementUsers
+        body: FundingSourceEnforcementUsers
+        fields:
+          - user_ids
+          - user_group_ids
+
   # PATCH /v3/user/{id} has no user_group_ids; the user's groups change through
   # POST/DELETE /v3/user/{id}/user-group. #75.
   user:

@@ -57,6 +57,9 @@ type archetype struct {
 	// record by its own id (e.g. idms open-id access-rule / group-association).
 	CreateParentParam string `yaml:"create_parent_param"` // SDK create-params field naming the parent id
 	CreateParentField string `yaml:"create_parent_field"` // model attribute holding the parent id
+	// CreateViaUpdate (kind: parent_list) lists attributes only the update body
+	// carries; a configured value is applied by an update right after create.
+	CreateViaUpdate []string `yaml:"create_via_update"`
 	// Association (kind: association), one list-member row keyed by KeyField,
 	// scoped by an optional ParentField, over a bulk read + replace-list API.
 	KeyField     string   `yaml:"key_field"`
