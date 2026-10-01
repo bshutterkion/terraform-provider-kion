@@ -179,6 +179,9 @@ type entityData struct {
 	// LabelsRespType is the 200 payload of Labels.Get, e.g. OULabelsResponse.
 	LabelsRespType string
 	SliceMembers   []*sliceMemberBind
+	Moves          []moveBind
+	HasRawMove     bool
+	HasAccountMove bool
 }
 
 // qsPathMarker is the synthetic path segment fixspec inserts for query-string-
@@ -231,6 +234,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		Labels:         rm.Labels,
 		LabelsRespType: labelsRespType(rm.Labels),
 		SliceMembers:   rm.SliceMembers,
+		Moves:          rm.Moves,
 		UpdateIDExpr:   "idInt", // overwritten below when the op's param id type differs
 		DeleteIDExpr:   "idInt",
 		Pkg:            rm.Name,
@@ -256,6 +260,10 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		ReadCompanion:  rm.ReadCompanion,
 		Rewritten:      rm.Rewritten,
 		RawCreate:      rm.RawCreate,
+	}
+	for _, m := range rm.Moves {
+		d.HasRawMove = d.HasRawMove || m.RawPost != ""
+		d.HasAccountMove = d.HasAccountMove || m.AccountMove
 	}
 
 	if rm.Create.Body == nil {

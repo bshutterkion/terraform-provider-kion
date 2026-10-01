@@ -18,6 +18,7 @@ import (
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
+	"terraform-provider-kion/internal/service/accounthelper"
 )
 
 const ResNameCustomAccount = "CustomAccount"
@@ -155,10 +156,30 @@ func (r *custom_accountResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
+	var state CustomAccountModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
+	}
+
+	// The update body cannot carry ProjectId; it changes through its own
+	// endpoint, called first so a failed move leaves the other fields alone.
+	if !plan.ProjectId.IsUnknown() && !plan.ProjectId.Equal(state.ProjectId) {
+		// Financial history stays with the old project; the move answers with
+		// the account's new id.
+		moved, moveDiags := accounthelper.MoveAccountBetweenProjects(ctx, conn, idInt, uint64(plan.ProjectId.ValueInt64()), "preserve", 0)
+		resp.Diagnostics.Append(moveDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		idInt = moved.NewID
+		plan.Id = types.StringValue(strconv.FormatInt(idInt, 10))
 	}
 
 	input := &generated.AccountUpdatable{

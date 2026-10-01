@@ -101,6 +101,44 @@ func TestRenderEntity_label(t *testing.T) {
 	}
 }
 
+// An attribute the update body cannot carry but a dedicated move endpoint can
+// is moved before the PATCH: over raw HTTP for a private route, or through the
+// account move, which answers with the account's new id.
+func TestRenderEntity_moves(t *testing.T) {
+	rm := labelResourceModel(t)
+	rm.Moves = []moveBind{
+		{ModelGo: "Color", RawPost: "/v2/label/{id}/move"},
+		{ModelGo: "Key", AccountMove: true},
+	}
+	got, err := renderEntity(rm)
+	if err != nil {
+		t.Fatalf("renderEntity: %v", err)
+	}
+	if _, err := parser.ParseFile(token.NewFileSet(), "label.go", got, parser.ParseComments); err != nil {
+		t.Fatalf("does not parse: %v\n%s", err, got)
+	}
+	for _, w := range []string{
+		"req.State.Get(ctx, &state)",
+		"!plan.Color.Equal(state.Color)",
+		`r.Meta().RawPost(ctx, strings.Replace("/v2/label/{id}/move", "{id}", strconv.FormatInt(idInt, 10), 1), moveBody)`,
+		"json.Marshal(plan.Color.ValueInt64())",
+		"accounthelper.MoveAccountBetweenProjects(ctx, conn, idInt, uint64(plan.Key.ValueInt64()), \"preserve\", 0)",
+		"idInt = moved.NewID",
+		`"terraform-provider-kion/internal/service/accounthelper"`,
+	} {
+		if !bytes.Contains(got, []byte(w)) {
+			t.Errorf("missing %q\n%s", w, got)
+		}
+	}
+	plain, err := renderEntity(labelResourceModel(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(plain, []byte("accounthelper")) {
+		t.Error("accounthelper imported without a move")
+	}
+}
+
 // TestRenderEntity_deterministic guards byte-stable output. Refresh the golden
 // with: UPDATE_GOLDEN=1 go test ./internal/kgen/crud/ -run TestRenderEntity_deterministic
 func TestRenderEntity_deterministic(t *testing.T) {

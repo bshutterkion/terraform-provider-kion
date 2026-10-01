@@ -5,8 +5,10 @@ package ou
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -225,6 +227,20 @@ func (r *ouResource) Update(ctx context.Context, req resource.UpdateRequest, res
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
+	}
+
+	// The update body cannot carry ParentOuId; it changes through its own
+	// endpoint, called first so a failed move leaves the other fields alone.
+	if !plan.ParentOuId.IsUnknown() && !plan.ParentOuId.Equal(state.ParentOuId) {
+		moveBody, merr := json.Marshal(plan.ParentOuId.ValueInt64())
+		if merr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("moving %s (ID: %d)", ResNameOu, idInt), merr.Error())
+			return
+		}
+		if _, merr := r.Meta().RawPost(ctx, strings.Replace("/v2/ou/{id}/move", "{id}", strconv.FormatInt(idInt, 10), 1), moveBody); merr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("moving %s (ID: %d)", ResNameOu, idInt), merr.Error())
+			return
+		}
 	}
 
 	// As in Create: captured before the read-back, which does not carry labels.

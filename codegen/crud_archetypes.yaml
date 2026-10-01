@@ -159,12 +159,22 @@ azure_account:
   raw_create:
     method: POST
     path: /v3/account?account-type=azure
+  # PATCH /v3/account/{id} has no project_id; the account changes project
+  # through POST /v3/account/{id}/move, which answers with its new id. #75.
+  moves:
+    - attr: project_id
+      account: true
 
 gcp_account:
   kind: entity
   raw_create:
     method: POST
     path: /v3/account?account-type=google-cloud
+  # PATCH /v3/account/{id} has no project_id; the account changes project
+  # through POST /v3/account/{id}/move, which answers with its new id. #75.
+  moves:
+    - attr: project_id
+      account: true
 
 # Raw create only (#102), same cause as custom_account: the SDK requests
 # /v3/account-cache/create/__qs__/account-type/aws, which does not exist.
@@ -191,6 +201,21 @@ custom_account:
   raw_create:
     method: POST
     path: /v3/account?account-type=custom
+  # PATCH /v3/account/{id} has no project_id; the account changes project
+  # through POST /v3/account/{id}/move, which answers with its new id. #75.
+  moves:
+    - attr: project_id
+      account: true
+
+# PATCH /v3/ou/{id} has no parent_ou_id. The public API publishes no OU move;
+# the private POST /v2/ou/{id}/move does it, taking the destination OU id as a
+# bare JSON number, and needs global admin. Recreating an OU to reparent it would
+# destroy everything under it. #75.
+ou:
+  kind: entity
+  moves:
+    - attr: parent_ou_id
+      raw_post: /v2/ou/{id}/move
 
 # Raw create only. POST /beta/scope answers {status, record_id}; the spec models
 # the response as {data: {...}}, so ScopeResponse carries no record_id field at
