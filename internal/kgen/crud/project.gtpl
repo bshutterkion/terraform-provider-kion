@@ -227,6 +227,22 @@ func (r *projectResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 {{- end}}
 
+	// Neither create body carries archived, so a project configured archived is
+	// archived by a PATCH straight after the create.
+	if !plan.Archived.IsNull() && !plan.Archived.IsUnknown() && plan.Archived.ValueBool() {
+		archOut, archErr := conn.PatchProject(ctx, &generated.ProjectUpdate{
+			Archived: flex.OptNilBoolFromFramework(plan.Archived),
+		}, generated.PatchProjectParams{ID: id})
+		if archErr != nil && !errs.IsUndeclaredSuccess(archErr) {
+			resp.Diagnostics.AddError(fmt.Sprintf("archiving %s (ID: %d)", ResNameProject, id), archErr.Error())
+			return
+		}
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("archiving %s", ResNameProject), archOut)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
 	// Read back the resource to populate computed fields.
 	readOut, readErr := conn.GetProject(ctx, generated.GetProjectParams{ID: id})
 	if readErr != nil {
@@ -249,6 +265,12 @@ func (r *projectResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+// ownersChanged reports an owner-set change worth sending. An unknown plan value
+// is not one: it would replace the owners with an empty set.
+func ownersChanged(plan, state types.Set) bool {
+	return !plan.IsUnknown() && !plan.Equal(state)
 }
 
 // expandProjectBudget builds the create body's budget array from the `budget`
@@ -432,6 +454,30 @@ func (r *projectResource) Update(ctx context.Context, req resource.UpdateRequest
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// ProjectUpdate carries no owners. POST /v3/project/{id}/owner replaces the
+	// whole owner set, so it is sent in full whenever either list changed.
+	if ownersChanged(plan.OwnerUserIds, state.OwnerUserIds) || ownersChanged(plan.OwnerUserGroupIds, state.OwnerUserGroupIds) {
+		ownerUserIds, d := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserIds)
+		resp.Diagnostics.Append(d...)
+		ownerUserGroupIds, d := flex.Uint64SliceFromFrameworkSet(ctx, plan.OwnerUserGroupIds)
+		resp.Diagnostics.Append(d...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		ownersOut, ownersErr := conn.UpdateProjectOwners(ctx, &generated.ProjectOwners{
+			OwnerUserIds:      generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
+			OwnerUserGroupIds: generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
+		}, generated.UpdateProjectOwnersParams{ID: idInt})
+		if ownersErr != nil && !errs.IsUndeclaredSuccess(ownersErr) {
+			resp.Diagnostics.AddError(fmt.Sprintf("updating owners of %s (ID: %d)", ResNameProject, idInt), ownersErr.Error())
+			return
+		}
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("updating owners of %s", ResNameProject), ownersOut)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	// Read back the resource to get the latest state.

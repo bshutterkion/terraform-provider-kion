@@ -252,6 +252,14 @@ resources:
       remove: WebhookRemoveOwners
       body: WebhookOwners
 
+  # PATCH /v3/user/{id} has no user_group_ids; the user's groups change through
+  # POST/DELETE /v3/user/{id}/user-group. #75.
+  user:
+    slice_members:
+      - field: user_group_ids
+        add: UserAddUGroups
+        remove: UserRemoveUGroups
+
   # Owners already bind through the create/update body; only the CAR
   # restriction needs the separate endpoints.
   gcp_iam_role:
