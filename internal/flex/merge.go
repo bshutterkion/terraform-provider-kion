@@ -16,6 +16,7 @@ import (
 // MergeKind says how a MergeField's value is written into the JSON body.
 type MergeKind string
 
+// The MergeKind values.
 const (
 	MergeString   MergeKind = "string"
 	MergeInt      MergeKind = "int"
@@ -122,8 +123,7 @@ func mergeWire(v attr.Value, f MergeField) (any, error) {
 			if m == nil {
 				return nil, fmt.Errorf("%q is not a YYYY-MM date", str)
 			}
-			code, _ := strconv.ParseInt(m[1]+m[2], 10, 64)
-			return code, nil
+			return strconv.ParseInt(m[1]+m[2], 10, 64)
 		case MergeEnum:
 			w, ok := f.Enum[strings.ToLower(str)]
 			if !ok {
@@ -184,8 +184,13 @@ func ObjectAsSDK[T any, PT interface {
 			m[k] = x.ValueFloat64()
 		}
 	}
-	if b, err := json.Marshal(m); err == nil {
-		_ = PT(&out).UnmarshalJSON(b)
+	b, err := json.Marshal(m)
+	if err != nil {
+		return out
+	}
+	if err := PT(&out).UnmarshalJSON(b); err != nil {
+		var zero T
+		return zero
 	}
 	return out
 }

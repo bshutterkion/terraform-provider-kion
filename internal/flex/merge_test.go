@@ -11,6 +11,15 @@ import (
 	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
 
+func asMap(t *testing.T, v any) map[string]any {
+	t.Helper()
+	m, ok := v.(map[string]any)
+	if !ok {
+		t.Fatalf("%v is not an object", v)
+	}
+	return m
+}
+
 func TestObjectAsSDK(t *testing.T) {
 	v := types.ObjectValueMust(
 		map[string]attr.Type{"dataset_name": types.StringType, "table_name": types.StringType},
@@ -51,7 +60,7 @@ func TestMergeJSON_OverlaysOntoTheReadRecord(t *testing.T) {
 		{Value: types.BoolValue(true), To: "skip_validation", Kind: MergeBool},
 		{Value: types.StringNull(), To: "aws_payer.key_id", Kind: MergeString},
 	})
-	aws := got["aws_payer"].(map[string]any)
+	aws := asMap(t, got["aws_payer"])
 	if aws["name"] != "new" {
 		t.Errorf("name = %v, want new", aws["name"])
 	}
@@ -72,7 +81,7 @@ func TestMergeJSON_CreatesMissingObjects(t *testing.T) {
 	got := mergeOut(t, `{"data":{"id":1}}`, []MergeField{
 		{Value: types.Int64Value(9), To: "gcp_billing_account_update.service_account_id", Kind: MergeInt},
 	})
-	upd := got["gcp_billing_account_update"].(map[string]any)
+	upd := asMap(t, got["gcp_billing_account_update"])
 	if upd["service_account_id"] != json.Number("9") {
 		t.Errorf("service_account_id = %v", upd["service_account_id"])
 	}
@@ -110,11 +119,11 @@ func TestMergeJSON_NestedSubAttribute(t *testing.T) {
 		{Value: outer, Sub: []string{"big_query_export", "table_name"}, To: "u.bq.table_name", Kind: MergeString},
 		{Value: outer, Sub: []string{"big_query_export", "dataset_name"}, To: "u.bq.dataset_name", Kind: MergeString},
 	})
-	u := got["u"].(map[string]any)
+	u := asMap(t, got["u"])
 	if u["name"] != "n" {
 		t.Errorf("name = %v", u["name"])
 	}
-	bqOut := u["bq"].(map[string]any)
+	bqOut := asMap(t, u["bq"])
 	if bqOut["table_name"] != "t1" {
 		t.Errorf("table_name = %v", bqOut["table_name"])
 	}
