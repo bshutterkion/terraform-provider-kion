@@ -75,6 +75,7 @@ type Parent struct {
 	// value. /v3/idms/{id}/group-association answers only for a SAML IDMS and
 	// fails for every other type, so reading the rest reports errors that say
 	// nothing about the resource. Parents that do not match are skipped.
+	// Authored as `match:` on the data source read in config_overrides.yaml.
 	Match map[string]string `json:"match,omitempty"`
 }
 

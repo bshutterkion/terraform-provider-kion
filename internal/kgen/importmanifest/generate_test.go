@@ -798,33 +798,3 @@ func TestBuildParentFallbackKeepsPlainID(t *testing.T) {
 	assert.Equal(t, FormatParentSlashKey, r2.ImportID.Format)
 	assert.Equal(t, "id", r2.ImportID.KeyField)
 }
-
-// TestBuildGroupAssociationsReadOnlySAMLParents guards parentMatchOverrides:
-// /v3/idms/{id}/group-association answers only for a SAML IDMS, so both
-// resources that list through it must filter the parent on its type.
-func TestBuildGroupAssociationsReadOnlySAMLParents(t *testing.T) {
-	t.Parallel()
-	m := Build(
-		map[string]string{},
-		map[string]string{
-			"idms_group_association":   "/v3/idms/{id}/group-association",
-			"saml_group_association":   "/v3/idms/{id}/group-association",
-			"idms_open_id_access_rule": "/v4/idms/open-id/{id}/access-rule",
-		},
-		map[string]string{},
-		map[string]string{},
-		map[string]archetypeInfo{},
-		[]string{"kion_idms_group_association", "kion_saml_group_association", "kion_idms_open_id_access_rule"},
-		map[string]bool{},
-	)
-
-	for _, tf := range []string{"kion_idms_group_association", "kion_saml_group_association"} {
-		r := byType(m, tf)
-		require.NotNil(t, r.Parent, tf)
-		assert.Equal(t, "/v3/idms", r.Parent.ListPath, tf)
-		assert.Equal(t, map[string]string{"idms_type_id": "3"}, r.Parent.Match, tf)
-	}
-	other := byType(m, "kion_idms_open_id_access_rule")
-	require.NotNil(t, other.Parent)
-	assert.Nil(t, other.Parent.Match, "only the SAML-only collection is filtered")
-}

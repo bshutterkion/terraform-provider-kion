@@ -1255,6 +1255,8 @@ data_sources:
     read:
       path: /v3/idms/{id}/group-association
       method: GET
+      match:
+        idms_type_id: "3"
     schema:
       ignores: [status, record_id]
   idms_open_id:
@@ -1363,6 +1365,8 @@ data_sources:
     read:
       path: /v3/idms/{id}/group-association
       method: GET
+      match:
+        idms_type_id: "3"
     schema:
       ignores: [status, record_id]
   scope:

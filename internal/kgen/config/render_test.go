@@ -178,6 +178,74 @@ data_sources:
 	assert.Contains(t, buf.String(), "ignores: [status, record_id, default_value]")
 }
 
+// A data source read's `match` carries through to the rendered config, where
+// the import manifest reads it as the parent filter.
+func TestGenDataSourceReadMatch(t *testing.T) {
+	m := newSource(t)
+
+	ovPath := filepath.Join(t.TempDir(), "overrides.yaml")
+	require.NoError(t, os.WriteFile(ovPath, []byte(`
+data_sources:
+  thing:
+    read:
+      path: /v3/owner/{id}/thing
+      method: GET
+      match: { owner_type_id: "3", region: east }
+`), 0o600))
+
+	var buf bytes.Buffer
+	require.NoError(t, config.Gen(m, config.Options{Overrides: ovPath}, &buf))
+	assert.Contains(t, buf.String(), `  thing:
+    read:
+      path: /v3/owner/{id}/thing
+      method: GET
+      match:
+        owner_type_id: "3"
+        region: "east"
+`)
+}
+
+func TestGenRejectsInvalidReadMatch(t *testing.T) {
+	cases := map[string]string{
+		"empty field": `
+data_sources:
+  thing:
+    read: { path: "/v3/owner/{id}/thing", method: GET, match: { "": "3" } }
+`,
+		"empty value": `
+data_sources:
+  thing:
+    read: { path: "/v3/owner/{id}/thing", method: GET, match: { owner_type_id: "" } }
+`,
+		"empty map": `
+data_sources:
+  thing:
+    read: { path: "/v3/owner/{id}/thing", method: GET, match: {} }
+`,
+		"no parent in path": `
+data_sources:
+  thing:
+    read: { path: /v3/thing, method: GET, match: { owner_type_id: "3" } }
+`,
+		"on a resource": `
+resources:
+  label:
+    read: { path: "/v3/owner/{id}/label", method: GET, match: { owner_type_id: "3" } }
+`,
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			m := newSource(t)
+			ovPath := filepath.Join(t.TempDir(), "overrides.yaml")
+			require.NoError(t, os.WriteFile(ovPath, []byte(body), 0o600))
+			var buf bytes.Buffer
+			err := config.Gen(m, config.Options{Overrides: ovPath}, &buf)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "match")
+		})
+	}
+}
+
 func TestGenMalformedOverrides(t *testing.T) {
 	m := newSource(t)
 
