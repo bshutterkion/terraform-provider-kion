@@ -107,7 +107,10 @@ func TestBaselineRoundTrip(t *testing.T) {
 	if len(got) != 2 || got["a.x:type"] != "kept reason" || !strings.HasPrefix(got["b.y:flex"], "TODO") {
 		t.Errorf("round trip = %v", got)
 	}
-	raw, _ := os.ReadFile(path)
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if strings.Index(string(raw), "a.x:type") > strings.Index(string(raw), "b.y:flex") {
 		t.Errorf("entries must be sorted:\n%s", raw)
 	}
