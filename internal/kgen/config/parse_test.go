@@ -131,6 +131,27 @@ func (r *Resource) Delete() { r.Meta().RawDelete(ctx, "/v3/account-cache/{id}") 
 	assert.Equal(t, "/v3/account-cache/{id}", got[0].RawDelete.Path)
 }
 
+// A read-modify-write update reads the record before it writes it; the op is
+// the write, not the read that precedes it.
+func TestFileSourceServiceOpsRawUpdatePrefersTheWrite(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "billing_source_aws")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "billing_source_aws.go"), []byte(`package billing_source_aws
+
+func (r *Resource) Update() {
+	r.Meta().RawGet(ctx, strings.Replace("/v1/payer/{id}", "{id}", id, 1))
+	r.Meta().RawPut(ctx, strings.Replace("/v1/payer/{id}", "{id}", id, 1), body)
+}
+`), 0o600))
+
+	got, err := config.NewFileSource().ServiceOps(root)
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	require.NotNil(t, got[0].RawUpdate)
+	assert.Equal(t, "PUT", got[0].RawUpdate.Method)
+}
+
 func TestFileSourceServiceOpsError(t *testing.T) {
 	src := config.NewFileSource()
 	_, err := src.ServiceOps(filepath.Join(t.TempDir(), "does-not-exist"))

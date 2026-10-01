@@ -151,7 +151,8 @@ func rawCallInMethod(f *ast.File, method string) *Op {
 		if !ok || fn.Recv == nil || fn.Name.Name != method || fn.Body == nil {
 			continue
 		}
-		var found *Op
+		// A write wins over a GET: a read-modify-write update reads first.
+		var found, get *Op
 		ast.Inspect(fn.Body, func(n ast.Node) bool {
 			if found != nil {
 				return false
@@ -174,7 +175,12 @@ func rawCallInMethod(f *ast.File, method string) *Op {
 			// so this searches the whole expression rather than just Args.
 			for _, arg := range call.Args {
 				if p, ok := pathLiteral(arg); ok {
-					found = &Op{Method: httpMethod, Path: specRoute(p)}
+					op := &Op{Method: httpMethod, Path: specRoute(p)}
+					if httpMethod != "GET" {
+						found = op
+					} else if get == nil {
+						get = op
+					}
 					return false
 				}
 			}
@@ -182,6 +188,9 @@ func rawCallInMethod(f *ast.File, method string) *Op {
 		})
 		if found != nil {
 			return found
+		}
+		if get != nil {
+			return get
 		}
 	}
 	return nil

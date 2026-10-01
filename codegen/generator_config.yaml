@@ -245,6 +245,9 @@ resources:
     read:
       path: /v4/billing-source
       method: GET
+    update:
+      path: /v1/payer/{id}
+      method: PUT
     delete:
       path: /v3/billing-source/{id}
       method: DELETE
@@ -257,6 +260,9 @@ resources:
     read:
       path: /v4/billing-source
       method: GET
+    update:
+      path: /v1/payer/{id}
+      method: PUT
     delete:
       path: /v3/billing-source/{id}
       method: DELETE

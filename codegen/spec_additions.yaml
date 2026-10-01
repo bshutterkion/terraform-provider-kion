@@ -175,6 +175,21 @@ paths:
       responses:
         "200":
           description: OK
+  # The AWS/GCP billing source update. No body declared: the update is
+  # read-modify-write over the payer record (see write_shape), and the schema
+  # stays the public create's.
+  /v1/payer/{id}:
+    put:
+      operationId: PutPayer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
   /v1/user/{id}:
     delete:
       operationId: DeleteUser
