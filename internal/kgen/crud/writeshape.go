@@ -106,6 +106,20 @@ func enumLiteral(values map[string]any) (string, error) {
 	return "map[string]any{" + strings.Join(parts, ", ") + "}", nil
 }
 
+// objectSubExpr expands a plain SDK struct field whose model sub-attribute is
+// an untyped object (a struct nested inside an already-nested object).
+func objectSubExpr(sf Field, vf ModelField, prefix string) (string, bool) {
+	if vf.Type != "basetypes.ObjectValue" || sf.Type == "" {
+		return "", false
+	}
+	for _, p := range []string{"Opt", "Nil", "[]", "*"} {
+		if strings.HasPrefix(sf.Type, p) {
+			return "", false
+		}
+	}
+	return "flex.ObjectAsSDK[generated." + sf.Type + "](" + prefix + "." + vf.GoName + ")", true
+}
+
 // kindModelType is the framework type a read_shape kind flattens to.
 func kindModelType(kind string) string {
 	switch kind {

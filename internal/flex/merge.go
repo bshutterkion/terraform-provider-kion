@@ -156,6 +156,40 @@ func mergeWire(v attr.Value, f MergeField) (any, error) {
 	return nil, fmt.Errorf("unknown merge kind %q", f.Kind)
 }
 
+// ObjectAsSDK converts an untyped object attribute into an SDK struct through
+// its JSON form; null attributes are omitted. The SDK structs it serves carry
+// only Opt fields of the object's scalar types, so decoding a value the schema
+// accepts does not fail.
+func ObjectAsSDK[T any, PT interface {
+	*T
+	json.Unmarshaler
+}](v basetypes.ObjectValue) T {
+	var out T
+	if v.IsNull() || v.IsUnknown() {
+		return out
+	}
+	m := map[string]any{}
+	for k, a := range v.Attributes() {
+		if a.IsNull() || a.IsUnknown() {
+			continue
+		}
+		switch x := a.(type) {
+		case basetypes.StringValue:
+			m[k] = x.ValueString()
+		case basetypes.Int64Value:
+			m[k] = x.ValueInt64()
+		case basetypes.BoolValue:
+			m[k] = x.ValueBool()
+		case basetypes.Float64Value:
+			m[k] = x.ValueFloat64()
+		}
+	}
+	if b, err := json.Marshal(m); err == nil {
+		_ = PT(&out).UnmarshalJSON(b)
+	}
+	return out
+}
+
 // setPath assigns val at a dotted path, creating (or replacing a null with)
 // intermediate objects.
 func setPath(m map[string]any, dotted string, val any) error {

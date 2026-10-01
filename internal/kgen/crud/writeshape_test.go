@@ -5,6 +5,22 @@ import (
 	"testing"
 )
 
+// A struct inside an already-nested object used to be skipped with a warning,
+// so kion_billing_source_gcp's big_query_export never reached the create body.
+func TestObjectSubExpr(t *testing.T) {
+	got, ok := objectSubExpr(Field{GoName: "BigQueryExport", JSONName: "big_query_export", Type: "GCPBigQueryExport"},
+		ModelField{GoName: "BigQueryExport", TFSDK: "big_query_export", Type: "basetypes.ObjectValue"}, "plan.Gcp")
+	if !ok || got != "flex.ObjectAsSDK[generated.GCPBigQueryExport](plan.Gcp.BigQueryExport)" {
+		t.Fatalf("got %q, %v", got, ok)
+	}
+	if _, ok := objectSubExpr(Field{Type: "OptGCPBigQueryExport"}, ModelField{Type: "basetypes.ObjectValue"}, "p"); ok {
+		t.Error("an Opt-wrapped struct is not handled")
+	}
+	if _, ok := objectSubExpr(Field{Type: "GCPBigQueryExport"}, ModelField{Type: "basetypes.StringValue"}, "p"); ok {
+		t.Error("a non-object model sub is not handled")
+	}
+}
+
 func writeLikeModel() map[string]ModelField {
 	return map[string]ModelField{
 		"id":                   {GoName: "Id", TFSDK: "id", Type: "types.String"},

@@ -837,6 +837,10 @@ func nestedSubs(src Source, schemaGen, valueType string, sdkStruct Struct, prefi
 		if !ok {
 			continue
 		}
+		if expr, ok := objectSubExpr(sf, vf, prefix); ok {
+			subs = append(subs, objSub{SDKField: sf.GoName, Expr: expr})
+			continue
+		}
 		conv, ok := expandConverter(sf)
 		if !ok {
 			// A sub-field the generator cannot express, in practice a struct

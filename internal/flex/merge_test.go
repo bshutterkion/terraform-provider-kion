@@ -8,7 +8,25 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 )
+
+func TestObjectAsSDK(t *testing.T) {
+	v := types.ObjectValueMust(
+		map[string]attr.Type{"dataset_name": types.StringType, "table_name": types.StringType},
+		map[string]attr.Value{"dataset_name": types.StringValue("ds"), "table_name": types.StringNull()},
+	)
+	got := ObjectAsSDK[generated.GCPBigQueryExport](v)
+	if got.DatasetName.Value != "ds" || !got.DatasetName.Set {
+		t.Errorf("dataset_name = %+v", got.DatasetName)
+	}
+	if got.TableName.Set {
+		t.Errorf("a null attribute must stay unset, got %+v", got.TableName)
+	}
+	if z := ObjectAsSDK[generated.GCPBigQueryExport](types.ObjectNull(v.AttributeTypes(context.Background()))); z.DatasetName.Set {
+		t.Error("a null object converts to the zero value")
+	}
+}
 
 func mergeOut(t *testing.T, current string, fields []MergeField) map[string]any {
 	t.Helper()

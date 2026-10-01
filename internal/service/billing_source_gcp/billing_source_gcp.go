@@ -113,6 +113,7 @@ func (r *billing_source_gcpResource) Create(ctx context.Context, req resource.Cr
 	}
 
 	gcpBillingAccountCreate := generated.GCPBillingAccountWithStart{
+		BigQueryExport:                     flex.ObjectAsSDK[generated.GCPBigQueryExport](plan.GcpBillingAccountCreate.BigQueryExport),
 		BillingAccountAttributionAccountID: flex.OptNilUint64FromFramework(plan.GcpBillingAccountCreate.BillingAccountAttributionAccountId),
 		BillingStartDate:                   flex.StringValueFromFramework(plan.GcpBillingAccountCreate.BillingStartDate),
 		GcpID:                              flex.StringValueFromFramework(plan.GcpBillingAccountCreate.GcpId),
