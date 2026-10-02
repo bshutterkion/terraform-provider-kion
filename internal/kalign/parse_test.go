@@ -31,6 +31,22 @@ type Empty struct{}`)
 	}
 }
 
+func TestStructsFromFile_namedBasicUnderlying(t *testing.T) {
+	f := parseSrc(t, `package generated
+type Stage uint64
+type OptStage struct {
+	Value Stage `+"`json:\"value\"`"+`
+}
+type Role struct {
+	Stage OptStage  `+"`json:\"stage\"`"+`
+	Name  OptString `+"`json:\"name\"`"+`
+}`)
+	got := structsFromFile(f)["Role"]
+	if len(got) != 2 || got[0].Underlying != "uint64" || got[1].Underlying != "" {
+		t.Errorf("Role fields = %+v, want Stage underlying uint64 only", got)
+	}
+}
+
 func TestModelFromFile(t *testing.T) {
 	f := parseSrc(t, `package ou_note
 import "github.com/hashicorp/terraform-plugin-framework/types"

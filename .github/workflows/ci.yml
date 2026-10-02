@@ -361,6 +361,23 @@ jobs:
 
       - run: go run ./scripts/acctestconfig
 
+  # kalign compares each schema model to the SDK struct it aligns to. A type
+  # mismatch or a missing flex converter fails unless codegen/align_baseline.yaml
+  # records why it is accepted; an entry that no longer occurs fails too. Needs
+  # only the SDK module, which go.mod already pins.
+  align-check:
+    name: Schema/SDK alignment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - run: make align-check
+
   internal-refs:
     name: No internal references
     runs-on: ubuntu-latest
@@ -453,6 +470,7 @@ jobs:
       - crud
       - docs
       - acctest-config
+      - align-check
       - internal-refs
       - secrets
       - codeql

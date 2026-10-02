@@ -37,12 +37,12 @@ func TestCheck_WithMockSource(t *testing.T) {
 	}}, nil)
 
 	var b bytes.Buffer
-	n, err := kalign.Check(m, &b, o)
+	findings, err := kalign.Check(m, &b, o)
 	require.NoError(t, err)
 	// The only finding here is a DRIFT one, which is advisory: it is printed
 	// but not counted, so the run reports nothing to fix. See
 	// Resolved.Actionable.
-	require.Equal(t, 0, n)
+	require.Empty(t, findings)
 	require.Contains(t, b.String(), "DRIFT no SDK field")
 	require.Contains(t, b.String(), "(advisory)")
 }

@@ -44,6 +44,7 @@ var listObjectAttrTypes = map[string]attr.Type{
 	"project_id":                  types.Int64Type,
 	"short_term_access_keys":      types.BoolType,
 	"web_access":                  types.BoolType,
+	"created_at":                  types.StringType,
 }
 
 // NewProjectCloudAccessRoleDataSource returns a new instance of the data source.
@@ -155,6 +156,9 @@ func (d *project_cloud_access_roleDataSource) Schema(_ context.Context, _ dataso
 							Computed: true,
 						},
 						"web_access": schema.BoolAttribute{
+							Computed: true,
+						},
+						"created_at": schema.StringAttribute{
 							Computed: true,
 						},
 					},
@@ -326,6 +330,7 @@ func project_cloud_access_roleToRow(lbl generated.ProjectCloudAccessRoleFull) ma
 		"project_id":                  int64(lbl.ProjectCloudAccessRole.Value.ProjectID.Or(0)),
 		"short_term_access_keys":      lbl.ProjectCloudAccessRole.Value.ShortTermAccessKeys.Or(false),
 		"web_access":                  lbl.ProjectCloudAccessRole.Value.WebAccess.Or(false),
+		"created_at":                  flex.OptNullTimeToFramework(lbl.ProjectCloudAccessRole.Value.CreatedAt).ValueString(),
 	}
 	if lbl.ProjectCloudAccessRole.Value.ID.Set {
 		row["id"] = int64(lbl.ProjectCloudAccessRole.Value.ID.Value)
@@ -356,6 +361,7 @@ func buildProjectCloudAccessRoleList(ctx context.Context, items []generated.Proj
 			"project_id":                  types.Int64Value(int64(lbl.ProjectCloudAccessRole.Value.ProjectID.Or(0))),
 			"short_term_access_keys":      types.BoolValue(lbl.ProjectCloudAccessRole.Value.ShortTermAccessKeys.Or(false)),
 			"web_access":                  types.BoolValue(lbl.ProjectCloudAccessRole.Value.WebAccess.Or(false)),
+			"created_at":                  types.StringValue(flex.OptNullTimeToFramework(lbl.ProjectCloudAccessRole.Value.CreatedAt).ValueString()),
 		})
 		if objDiags.HasError() {
 			return types.ListNull(types.ObjectType{AttrTypes: listObjectAttrTypes}), objDiags

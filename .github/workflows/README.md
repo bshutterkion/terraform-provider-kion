@@ -19,6 +19,7 @@ require the single `ci` check.
 | `modules` | generated Terraform modules build, validate, test, and are not stale | `make modules-check` |
 | `docs` | `docs/` and `examples/` are not stale | `make docs-check` |
 | `acctest-config` | acceptance-test HCL matches the provider schema | `make ci-acctest-config` |
+| `align-check` | no schema/SDK type mismatch or missing flex converter beyond `codegen/align_baseline.yaml`, and no stale entry in it | `make align-check` |
 | `internal-refs` | no internal paths/hostnames in tracked files | `scripts/check-no-internal-refs.sh` |
 | `secrets` | credential scan over the tree | `make ci-secrets` |
 | `codeql` | GitHub CodeQL analysis for Go | GitHub only |
@@ -35,6 +36,19 @@ regenerates `modules/` from the provider schema, injects docs with
 someone edited a resource without regenerating, so `modules/` no longer matches
 the schema it is supposed to describe. Regenerate and commit rather than
 hand-editing the output.
+
+### `align-check`
+
+`kalign check` pairs each schema model with the SDK struct whose json tags
+best cover its attributes, and reports two actionable signals: a primitive
+type mismatch and a missing `flex` converter. Some are expected, because the
+provider binds an attribute through a mechanism a one-struct comparison cannot
+see (a nested object's id, a raw wire struct). Those are recorded with a reason
+in `codegen/align_baseline.yaml`. The job fails on a finding the baseline does
+not record, on an entry that no longer occurs, and on an entry still marked
+TODO. `make align-baseline` rewrites the file, keeping existing reasons;
+`make align-report` prints the full report, including the advisory DRIFT lines.
+It needs only the SDK module go.mod pins, not the OpenAPI spec.
 
 ### `internal-refs`
 

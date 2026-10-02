@@ -21,19 +21,20 @@ func (o Options) SDKFile() string {
 }
 
 // Check resolves every service model via src and writes a drift report to w. It
-// returns the total number of drift findings across all models.
-func Check(src Source, w io.Writer, o Options) (int, error) {
+// returns every actionable finding across all models.
+func Check(src Source, w io.Writer, o Options) ([]Finding, error) {
 	resolved, err := resolveAll(src, o)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	ew := &errWriter{w: w}
-	total := 0
+	var findings []Finding
 	for _, r := range resolved {
-		total += checkOne(ew, r)
+		checkOne(ew, r)
+		findings = append(findings, r.ActionableFindings()...)
 	}
-	ew.Fprintf("\n%d model(s) checked, %d finding(s)\n", len(resolved), total)
-	return total, ew.err
+	ew.Fprintf("\n%d model(s) checked, %d finding(s)\n", len(resolved), len(findings))
+	return findings, ew.err
 }
 
 // Gen resolves every service model via src and writes flatten converters to w.

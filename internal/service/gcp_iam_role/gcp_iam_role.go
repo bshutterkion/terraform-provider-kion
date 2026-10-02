@@ -90,7 +90,7 @@ func (r *gcp_iam_roleResource) Create(ctx context.Context, req resource.CreateRe
 
 	input := &generated.GCPRoleCreate{
 		Description:               flex.OptStringFromFramework(plan.Description),
-		GcpRoleLaunchStage:        flex.GCPRoleLaunchStageFromFramework(plan.GcpRoleLaunchStage),
+		GcpRoleLaunchStage:        flex.OptGCPRoleLaunchStageFromFramework(plan.GcpRoleLaunchStage),
 		Name:                      flex.StringValueFromFramework(plan.Name),
 		CarRestrictedUserGroupIds: generated.OptNilUint64Array{Value: carRestrictedUserGroupIds, Set: true},
 		CarRestrictedUserIds:      generated.OptNilUint64Array{Value: carRestrictedUserIds, Set: true},
@@ -203,7 +203,7 @@ func (r *gcp_iam_roleResource) Update(ctx context.Context, req resource.UpdateRe
 
 	input := &generated.GCPRoleUpdate{
 		Description:        flex.OptStringFromFramework(plan.Description),
-		GcpRoleLaunchStage: flex.GCPRoleLaunchStageFromFramework(plan.GcpRoleLaunchStage),
+		GcpRoleLaunchStage: flex.OptGCPRoleLaunchStageFromFramework(plan.GcpRoleLaunchStage),
 		Name:               flex.OptStringFromFramework(plan.Name),
 		OwnerUserGroupIds:  generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
 		OwnerUserIds:       generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
@@ -311,7 +311,7 @@ func flattenGcpIamRole(ctx context.Context, apiObject any, model *GcpIamRoleMode
 	case *generated.GCPRoleResponse:
 		if v.Data.Set {
 			model.Description = flex.OptStringToFramework(v.Data.Value.GcpRole.Value.Description)
-			model.GcpRoleLaunchStage = flex.GCPRoleLaunchStageToFramework(v.Data.Value.GcpRole.Value.GcpRoleLaunchStage)
+			model.GcpRoleLaunchStage = flex.OptGCPRoleLaunchStageToFramework(v.Data.Value.GcpRole.Value.GcpRoleLaunchStage)
 			if v.Data.Value.GcpRole.Value.ID.Set {
 				model.Id = types.StringValue(strconv.FormatUint(v.Data.Value.GcpRole.Value.ID.Value, 10))
 			}
