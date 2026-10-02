@@ -35,7 +35,7 @@ resource "kion_gcp_account" "example" {
 
 - `account_name` (String) Name of the account in the application.
 - `payer_id` (Number) ID of the payer (aka Google Cloud Billing Account)
-- `project_id` (Number) ID of the project where the account is attached.
+- `project_id` (Number) ID of the project the account belongs to. Changing it moves the account in place through POST /v3/account/{id}/move rather than recreating it: Kion gives the account a new id, the resource adopts it, and the account's financial history stays with the old project (the move's preserve setting). The new project's cloud rules and cloud access roles apply after the move. Requires permission to manage accounts and projects.
 - `start_datecode` (String) Date when the GCP org will begin submitting payments against a funding source (YYYY-MM)
 
 ### Optional

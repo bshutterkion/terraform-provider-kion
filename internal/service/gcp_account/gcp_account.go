@@ -182,6 +182,15 @@ func (r *gcp_accountResource) Update(ctx context.Context, req resource.UpdateReq
 		}
 		idInt = moved.NewID
 		plan.Id = types.StringValue(strconv.FormatInt(idInt, 10))
+		// Recorded at once: if a later step fails, state must name the new
+		// account, or every later operation addresses one that no longer exists.
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), plan.Id)...)
+		// The move has landed; record it so a later failure cannot leave state
+		// naming the old parent.
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("project_id"), plan.ProjectId)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	input := &generated.AccountUpdatable{

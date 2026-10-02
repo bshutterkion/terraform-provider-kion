@@ -510,7 +510,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 			if (m.RawPost == "") == !m.Account || mf.Type != "types.Int64" {
 				return 0, fmt.Errorf("%s: move %q needs exactly one of raw_post/account and an int64 attribute", name, m.Attr)
 			}
-			rm.Moves = append(rm.Moves, moveBind{ModelGo: mf.GoName, RawPost: m.RawPost, AccountMove: m.Account})
+			rm.Moves = append(rm.Moves, moveBind{ModelGo: mf.GoName, TF: mf.TFSDK, RawPost: m.RawPost, AccountMove: m.Account})
 		}
 	}
 	rm.Renames = g.renames[name]

@@ -446,6 +446,9 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 		}
 		idInt = moved.NewID
 		plan.{{$.IDGo}} = types.StringValue(strconv.FormatInt(idInt, 10))
+		// Recorded at once: if a later step fails, state must name the new
+		// account, or every later operation addresses one that no longer exists.
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("{{$.IDTF}}"), plan.{{$.IDGo}})...)
 {{- else}}
 		moveBody, merr := json.Marshal(plan.{{.ModelGo}}.ValueInt64())
 		if merr != nil {
@@ -457,6 +460,12 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 			return
 		}
 {{- end}}
+		// The move has landed; record it so a later failure cannot leave state
+		// naming the old parent.
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("{{.TF}}"), plan.{{.ModelGo}})...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 {{- end}}
 {{- if .Labels}}

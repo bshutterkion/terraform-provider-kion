@@ -226,6 +226,7 @@ type ResourceModel struct {
 // endpoint: a raw POST whose body is the new value, or the account move.
 type moveBind struct {
 	ModelGo     string
+	TF          string
 	RawPost     string // path with an {id} placeholder
 	AccountMove bool   // POST /v3/account/{id}/move; the account gets a new id
 }

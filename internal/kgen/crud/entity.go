@@ -182,6 +182,7 @@ type entityData struct {
 	Moves          []moveBind
 	HasRawMove     bool
 	HasAccountMove bool
+	IDTF           string
 }
 
 // qsPathMarker is the synthetic path segment fixspec inserts for query-string-
@@ -235,6 +236,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		LabelsRespType: labelsRespType(rm.Labels),
 		SliceMembers:   rm.SliceMembers,
 		Moves:          rm.Moves,
+		IDTF:           rm.IDField.TFSDK,
 		UpdateIDExpr:   "idInt", // overwritten below when the op's param id type differs
 		DeleteIDExpr:   "idInt",
 		Pkg:            rm.Name,

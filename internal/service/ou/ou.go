@@ -241,6 +241,12 @@ func (r *ouResource) Update(ctx context.Context, req resource.UpdateRequest, res
 			resp.Diagnostics.AddError(fmt.Sprintf("moving %s (ID: %d)", ResNameOu, idInt), merr.Error())
 			return
 		}
+		// The move has landed; record it so a later failure cannot leave state
+		// naming the old parent.
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("parent_ou_id"), plan.ParentOuId)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	// As in Create: captured before the read-back, which does not carry labels.

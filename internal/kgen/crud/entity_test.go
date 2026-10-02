@@ -107,8 +107,8 @@ func TestRenderEntity_label(t *testing.T) {
 func TestRenderEntity_moves(t *testing.T) {
 	rm := labelResourceModel(t)
 	rm.Moves = []moveBind{
-		{ModelGo: "Color", RawPost: "/v2/label/{id}/move"},
-		{ModelGo: "Key", AccountMove: true},
+		{ModelGo: "Color", TF: "color", RawPost: "/v2/label/{id}/move"},
+		{ModelGo: "Key", TF: "key", AccountMove: true},
 	}
 	got, err := renderEntity(rm)
 	if err != nil {
@@ -124,6 +124,11 @@ func TestRenderEntity_moves(t *testing.T) {
 		"json.Marshal(plan.Color.ValueInt64())",
 		"accounthelper.MoveAccountBetweenProjects(ctx, conn, idInt, uint64(plan.Key.ValueInt64()), \"preserve\", 0)",
 		"idInt = moved.NewID",
+		// A completed move is recorded at once, so a later failure in Update
+		// cannot leave state pointing at the old parent or the old account id.
+		`resp.State.SetAttribute(ctx, path.Root("color"), plan.Color)`,
+		`resp.State.SetAttribute(ctx, path.Root("key"), plan.Key)`,
+		`resp.State.SetAttribute(ctx, path.Root("id"), plan.Id)`,
 		`"terraform-provider-kion/internal/service/accounthelper"`,
 	} {
 		if !bytes.Contains(got, []byte(w)) {
