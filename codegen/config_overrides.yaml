@@ -34,6 +34,11 @@ resources:
     read:
       path: /v3/account/{id}
       method: GET
+    # The create is raw (#102) and picks one of three routes at runtime, so no
+    # single call names it for kconfig to find. This is the create-new route.
+    create:
+      path: /v3/account-cache/create/__qs__/account-type/aws
+      method: POST
   billing_source_gcp:
     # GCP billing source. Like AWS: create + shared delete, no update endpoint,
     # and no public by-id read (private /v1/payer/{id}).
@@ -202,6 +207,10 @@ resources:
     read:
       path: /v3/account/{id}
       method: GET
+    # Raw create, as account's above.
+    create:
+      path: /v3/account-cache/create/__qs__/account-type/aws
+      method: POST
   ou_cloud_access_role:
     read:
       path: /v3/ou-cloud-access-role/{id}
