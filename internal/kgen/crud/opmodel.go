@@ -147,9 +147,11 @@ type ResourceModel struct {
 	// requires at least one of, emitted as a resource-level ConfigValidator.
 	AtLeastOneOf []string
 	// RequiredWhen are value-conditional constraints from the same file.
-	RequiredWhen   []RequiredWhen
-	RawDeletePath  string
-	ImportParentTF string
+	RequiredWhen []RequiredWhen
+	// RequiredTogether are all-or-none attribute groups from the same file.
+	RequiredTogether [][]string
+	RawDeletePath    string
+	ImportParentTF   string
 	// EmptyCollections: see archetype.EmptyCollections.
 	EmptyCollections []string
 	// Renames maps this resource's API attribute names to its provider ones.

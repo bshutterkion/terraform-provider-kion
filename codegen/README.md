@@ -102,6 +102,19 @@ dropped, and none needs a declaration of its own:
   that takes exactly one of them, and a flattener that takes the value back
   apart on read so it survives refresh and import.
 
+A private update that **overwrites every column** from its body (the payer PUT
+behind `kion_billing_source_aws`/`_gcp`) cannot be built from the model alone:
+whatever the model does not carry would be blanked. Declare a `write_shape` in
+`private_endpoints.yaml` beside the `read_shape`; the generated update reads the
+record, lays the listed plan values over it (`flex.MergeJSON`) and sends it back.
+A null plan value leaves the read value in place, and an enum value the map does
+not list fails the apply rather than being dropped.
+
+`kgen crud` also checks every `read_shape` kind against the model attribute it
+flattens into. A mismatch compiles and then fails every read in the Value
+constructor; that is how `kion_billing_source_gcp`'s `billing_start_date`,
+declared `int` against a string attribute, broke its every refresh.
+
 An attribute an update genuinely cannot change belongs under `RequiresReplace`,
 which removes it from the update side of the audit for the right reason. The
 provider barely uses it today; most `:update` entries in the baseline are that

@@ -24,6 +24,8 @@ type ConfigValidator struct {
 	// RequiredWhen covers a constraint conditional on another attribute's
 	// value, which none of the framework's own validators express.
 	RequiredWhen []RequiredWhen `yaml:"required_when"`
+	// RequiredTogether groups attributes that must be set all or none.
+	RequiredTogether [][]string `yaml:"required_together"`
 }
 
 // RequiredWhen requires Require once the Attribute attribute equals Equals.
@@ -58,10 +60,17 @@ func LoadConfigValidators(root string) (ConfigValidatorPolicy, error) {
 				"%s: %s.at_least_one_of needs at least two attributes, got %d",
 				ConfigValidatorsPath, pkg, len(v.AtLeastOneOf))
 		}
-		if len(v.AtLeastOneOf) == 0 && len(v.RequiredWhen) == 0 {
+		if len(v.AtLeastOneOf) == 0 && len(v.RequiredWhen) == 0 && len(v.RequiredTogether) == 0 {
 			return ConfigValidatorPolicy{}, fmt.Errorf(
-				"%s: %s declares neither at_least_one_of nor required_when",
+				"%s: %s declares none of at_least_one_of, required_when, required_together",
 				ConfigValidatorsPath, pkg)
+		}
+		for _, g := range v.RequiredTogether {
+			if len(g) < 2 {
+				return ConfigValidatorPolicy{}, fmt.Errorf(
+					"%s: %s.required_together groups need at least two attributes, got %v",
+					ConfigValidatorsPath, pkg, g)
+			}
 		}
 		for _, rw := range v.RequiredWhen {
 			if rw.Attribute == "" || len(rw.Require) == 0 {
@@ -77,6 +86,11 @@ func LoadConfigValidators(root string) (ConfigValidatorPolicy, error) {
 // For returns the attributes pkg must require at least one of, or nil.
 func (p ConfigValidatorPolicy) For(pkg string) []string {
 	return p.byPkg[pkg].AtLeastOneOf
+}
+
+// RequiredTogetherFor returns pkg's all-or-none attribute groups, or nil.
+func (p ConfigValidatorPolicy) RequiredTogetherFor(pkg string) [][]string {
+	return p.byPkg[pkg].RequiredTogether
 }
 
 // RequiredWhenFor returns pkg's value-conditional constraints, or nil.

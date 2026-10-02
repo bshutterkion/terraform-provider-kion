@@ -493,6 +493,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 
 	rm.AtLeastOneOf = g.configValidators.For(name)
 	rm.RequiredWhen = g.configValidators.RequiredWhenFor(name)
+	rm.RequiredTogether = g.configValidators.RequiredTogetherFor(name)
 	if entityArch != nil {
 		rm.EmptyCollections = entityArch.EmptyCollections
 		// An entity whose delete needs a parent the read does not return must

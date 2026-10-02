@@ -16,7 +16,8 @@ import (
 	{{end}}{{if .RawRead.Nested}}"github.com/hashicorp/terraform-plugin-framework/diag"
 	{{end}}"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/types"
+	{{if or .AtLeastOneOf .RequiredTogether}}"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	{{end}}"github.com/hashicorp/terraform-plugin-framework/types"
 	{{.SDKAlias}} "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
 	"terraform-provider-kion/internal/conns"
@@ -31,6 +32,9 @@ var (
 	_ resource.Resource                = &{{.Pkg}}Resource{}
 	_ resource.ResourceWithConfigure   = &{{.Pkg}}Resource{}
 	_ resource.ResourceWithImportState = &{{.Pkg}}Resource{}
+{{- if or .AtLeastOneOf .RequiredWhen .RequiredTogether}}
+	_ resource.ResourceWithConfigValidators = &{{.Pkg}}Resource{}
+{{- end}}
 )
 
 // New{{.Pascal}}Resource returns a new instance of the resource.
@@ -46,6 +50,37 @@ func (r *{{.Pkg}}Resource) Metadata(_ context.Context, req resource.MetadataRequ
 	resp.TypeName = req.ProviderTypeName + "_{{.Pkg}}"
 }
 
+{{if or .AtLeastOneOf .RequiredWhen .RequiredTogether}}// ConfigValidators expresses constraints the API enforces across attributes,
+// which the schema cannot: an attribute required only for some value of another
+// is not Required on its own, so without this the configuration reaches the API
+// and comes back as a validation error naming the Go struct field rather than
+// the Terraform attribute.
+func (r *{{.Pkg}}Resource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		{{- if .AtLeastOneOf}}
+		resourcevalidator.AtLeastOneOf(
+			{{- range .AtLeastOneOf}}
+			path.MatchRoot("{{.}}"),
+			{{- end}}
+		),
+		{{- end}}
+		{{- range .RequiredTogether}}
+		resourcevalidator.RequiredTogether(
+			{{- range .}}
+			path.MatchRoot("{{.}}"),
+			{{- end}}
+		),
+		{{- end}}
+		{{- range .RequiredWhen}}
+		framework.RequiredWhenInt64("{{.Attribute}}", {{.Equals}},
+			{{- range .Require}}
+			"{{.}}",
+			{{- end}}
+		),
+		{{- end}}
+	}
+}
+{{end}}
 func (r *{{.Pkg}}Resource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = {{.Pascal}}ResourceSchema(ctx)
 }
@@ -300,6 +335,22 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
 	}
+	{{- if .RawUpdate.MergeGo}}
+	// The update overwrites every column, so it is sent the current record with
+	// the planned values laid over it (write_shape).
+	current, err := r.Meta().{{.RawRead.Method}}(ctx, strings.Replace("{{.RawRead.Path}}", "{id}", strconv.FormatInt(id, 10), 1))
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("reading %s before update (ID: %d)", {{.ResConst}}, id), err.Error())
+		return
+	}
+	body, mergeDiags := flex.MergeJSON(ctx, current, []flex.MergeField{
+		{{.RawUpdate.MergeGo}}
+	})
+	resp.Diagnostics.Append(mergeDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	{{- else}}
 	wire := r.wireFromModel(&plan)
 	wire.ID = id
 	body, err := json.Marshal(wire)
@@ -307,6 +358,7 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 		resp.Diagnostics.AddError(fmt.Sprintf("updating %s", {{.ResConst}}), err.Error())
 		return
 	}
+	{{- end}}
 	if _, err := r.Meta().{{.RawUpdate.Method}}(ctx, strings.Replace("{{.RawUpdate.Path}}", "{id}", strconv.FormatInt(id, 10), 1), body); err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", {{.ResConst}}, id), err.Error())
 		return

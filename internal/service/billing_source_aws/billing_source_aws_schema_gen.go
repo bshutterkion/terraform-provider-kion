@@ -6,6 +6,7 @@ import (
 	"context"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -31,6 +32,9 @@ func BillingSourceAwsResourceSchema(ctx context.Context) schema.Schema {
 				Required:            true,
 				Description:         "The Account Type ID is the corresponding billing source account's type.\n1 - AWS Commercial\n2 - Govcloud\n4 - AWS C2S\n5 - AWS SC2S",
 				MarkdownDescription: "The Account Type ID is the corresponding billing source account's type.\n1 - AWS Commercial\n2 - Govcloud\n4 - AWS C2S\n5 - AWS SC2S",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.RequiresReplace(),
+				},
 			},
 			"aws_account_number": schema.StringAttribute{
 				Required:            true,
@@ -182,6 +186,7 @@ func BillingSourceAwsResourceSchema(ctx context.Context) schema.Schema {
 			"key_id": schema.StringAttribute{
 				Optional:            true,
 				Computed:            true,
+				Sensitive:           true,
 				Description:         "The AWS Access Key used to access the billing s3 bucket",
 				MarkdownDescription: "The AWS Access Key used to access the billing s3 bucket",
 				PlanModifiers: []planmodifier.String{
@@ -224,6 +229,7 @@ func BillingSourceAwsResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "DEPRECATED: Use billing_report_type to specify your billing report type\nOnly use the Detailed Billing Report and Detailed Billing Report With Resources And Tags for financial reports.",
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.UseStateForUnknown(),
+					boolplanmodifier.RequiresReplace(),
 				},
 			},
 			"skip_validation": schema.BoolAttribute{
