@@ -6,7 +6,9 @@ versionExt: md
 
 versionFormat: '## [{{.Version}}] - {{.Time.Format "2006-01-02"}}'
 kindFormat: '### {{.Kind}}'
-changeFormat: '- {{.Body}}'
+# A `body: >-` fragment folds its blank lines to single newlines; indenting
+# each one keeps every paragraph inside its bullet when rendered.
+changeFormat: '- {{ .Body | replace "\n" "\n\n  " }}'
 
 # Section names carried over from the hand-written CHANGELOG.
 kinds:
