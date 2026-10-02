@@ -34,6 +34,9 @@ var cloudAccountResourceTmpl string
 //go:embed cloud_account_create_test.gtpl
 var cloudAccountCreateTestTmpl string
 
+//go:embed cloud_account_update_test.gtpl
+var cloudAccountUpdateTestTmpl string
+
 //go:embed automation_policy.gtpl
 var automationPolicyResourceTmpl string
 
@@ -283,6 +286,7 @@ func (g *generator) generateCloudAccount(dir, name string, force bool) (int, err
 		{cloudAccountResourceTmpl, name + ".go"},
 		{dsTmpl, name + "_data_source.go"},
 		{cloudAccountCreateTestTmpl, name + "_create_test.go"},
+		{cloudAccountUpdateTestTmpl, name + "_update_test.go"},
 	}, force); err != nil {
 		return 0, err
 	}

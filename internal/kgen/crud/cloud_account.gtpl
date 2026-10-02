@@ -88,7 +88,10 @@ func (r *{{.Recv}}Resource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				Description: "The account number of the AWS account.  If account_number is provided, the existing account will be imported into Kion.  If account_number is omitted, a new account will be created.",
 				Optional:    true,
 				Computed:    true,
+				// UseStateForUnknown first: unconfigured, the value plans unknown on
+				// every update, which RequiresReplace alone reads as a new account.
 				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
@@ -239,7 +242,7 @@ func (r *{{.Recv}}Resource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				Description: "Parameters used when moving an account between Kion projects.  These settings are ignored unless moving an account.",
 				Attributes: map[string]schema.Attribute{
 					"financials": schema.StringAttribute{
-						Description: "One of \"move\" or \"preserve\".  If \"move\", financial history will be moved to the new project beginning on the date specified by the move_datecode parameter.  If \"preserve\", financial history will be preserved on the current project.",
+						Description: "One of \"move\" or \"preserve\".  If \"move\", financial history will be moved to the new project beginning on the date specified by the move_datecode parameter.  If \"preserve\", financial history will be preserved on the current project.  Defaults to \"preserve\" when omitted, so a move never discards history unless asked to.",
 						Optional:    true,
 					},
 					"move_datecode": schema.Int64Attribute{
@@ -437,22 +440,22 @@ func (r *{{.Recv}}Resource) Update(ctx context.Context, req resource.UpdateReque
 
 		case oldProjectID != 0 && newProjectID != 0:
 			// Project → Different Project
-			financials := ""
-			moveDatecode := int64(0)
-			if plan.MoveProjectSettings != nil {
-				financials = flex.StringValueFromFramework(plan.MoveProjectSettings.Financials)
-				moveDatecode = flex.Int64ValueFromFramework(plan.MoveProjectSettings.MoveDatecode)
-			}
-			result, diags := accounthelper.MoveAccountBetweenProjects(
-				ctx, conn, currentID, uint64(newProjectID),
-				financials, moveDatecode,
-			)
+			result, diags := {{.Recv}}MoveProject(ctx, conn, currentID, newProjectID, plan.MoveProjectSettings)
 			resp.Diagnostics.Append(diags...)
 			if resp.Diagnostics.HasError() {
 				return
 			}
 			currentID = result.NewID
 			currentLocation = result.Location
+		}
+
+		// Every transition gives the account a new id. Recorded at once: if a
+		// later step fails, state must name the account that now exists.
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), types.Int64Value(currentID))...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("location"), types.StringValue(currentLocation))...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("project_id"), plan.ProjectID)...)
+		if resp.Diagnostics.HasError() {
+			return
 		}
 	}
 
@@ -797,6 +800,21 @@ type {{.Recv}}AdoptWire struct {
 	LinkedRole                *string `json:"linked_role,omitempty"`
 	SkipAccessChecking        *bool   `json:"skip_access_checking,omitempty"`
 	UseOrgAccountInfo         *bool   `json:"use_org_account_info,omitempty"`
+}
+
+// {{.Recv}}MoveProject moves a project account to another project. The move
+// endpoint requires financials; unset, it is "preserve", as the sibling
+// account resources send, so history is kept rather than moved.
+func {{.Recv}}MoveProject(ctx context.Context, client *generated.Client, id, projectID int64, s *moveProjectSettingsModel) (*accounthelper.ConvertResult, diag.Diagnostics) {
+	financials := "preserve"
+	moveDatecode := int64(0)
+	if s != nil {
+		if v := flex.StringValueFromFramework(s.Financials); v != "" {
+			financials = v
+		}
+		moveDatecode = flex.Int64ValueFromFramework(s.MoveDatecode)
+	}
+	return accounthelper.MoveAccountBetweenProjects(ctx, client, id, uint64(projectID), financials, moveDatecode)
 }
 
 // {{.Recv}}PostCreate sends the create for plan to the route its account_number
