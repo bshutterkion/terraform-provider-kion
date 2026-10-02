@@ -493,12 +493,25 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 
 	rm.AtLeastOneOf = g.configValidators.For(name)
 	rm.RequiredWhen = g.configValidators.RequiredWhenFor(name)
+	rm.RequiredTogether = g.configValidators.RequiredTogetherFor(name)
 	if entityArch != nil {
 		rm.EmptyCollections = entityArch.EmptyCollections
 		// An entity whose delete needs a parent the read does not return must
 		// carry that parent in its import id.
 		if entityArch.DeleteExtraField != "" {
 			rm.ImportParentTF = entityArch.DeleteExtraField
+		}
+	}
+	if entityArch != nil {
+		for _, m := range entityArch.Moves {
+			mf, ok := byTF[m.Attr]
+			if !ok {
+				return 0, fmt.Errorf("%s: move attr %q not in model", name, m.Attr)
+			}
+			if (m.RawPost == "") == !m.Account || mf.Type != "types.Int64" {
+				return 0, fmt.Errorf("%s: move %q needs exactly one of raw_post/account and an int64 attribute", name, m.Attr)
+			}
+			rm.Moves = append(rm.Moves, moveBind{ModelGo: mf.GoName, TF: mf.TFSDK, RawPost: m.RawPost, AccountMove: m.Account})
 		}
 	}
 	rm.Renames = g.renames[name]

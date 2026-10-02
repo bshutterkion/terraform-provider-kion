@@ -102,10 +102,37 @@ dropped, and none needs a declaration of its own:
   that takes exactly one of them, and a flattener that takes the value back
   apart on read so it survives refresh and import.
 
-An attribute an update genuinely cannot change belongs under `RequiresReplace`,
-which removes it from the update side of the audit for the right reason. The
-provider barely uses it today; most `:update` entries in the baseline are that
-choice never having been made.
+A private update that **overwrites every column** from its body (the payer PUT
+behind `kion_billing_source_aws`/`_gcp`) cannot be built from the model alone:
+whatever the model does not carry would be blanked. Declare a `write_shape` in
+`private_endpoints.yaml` beside the `read_shape`; the generated update reads the
+record, lays the listed plan values over it (`flex.MergeJSON`) and sends it back.
+A null plan value leaves the read value in place, and an enum value the map does
+not list fails the apply rather than being dropped.
+
+`kgen crud` also checks every `read_shape` kind against the model attribute it
+flattens into. A mismatch compiles and then fails every read in the Value
+constructor; that is how `kion_billing_source_gcp`'s `billing_start_date`,
+declared `int` against a string attribute, broke its every refresh.
+
+Each baseline entry ends in one of four decisions:
+
+- **Bind it** through the endpoint that does change it: owners, associations and
+  slice members in `memberships.yaml` (parent_list resources included), or a
+  `moves` entry in `crud_archetypes.yaml` for a parent change that has its own
+  move endpoint (`kion_ou`, the azure/gcp/custom accounts). A completed move is
+  written to state at once, so a later failure cannot leave state naming the old
+  parent. An attribute only the update body carries is applied right after create
+  with `create_via_update` (parent_list) or the resource's own template.
+- **`RequiresReplace`** (`schema_overrides.yaml`) when the API fixes it at create
+  and recreating is what the change means. This removes it from the update side.
+- **Remove it** when it is not an input at all, such as a list endpoint's filter
+  query param leaking into a resource schema.
+- **Keep it with a reason** when nothing can change it and replacement would
+  destroy real data (an account, OU, project or funding source). The reason
+  names the body and, where one exists, the resource that owns the relation.
+
+New entries arrive as `TODO`; a `TODO` is debt, not a decision.
 
 ## Derivation guesses, and sometimes guesses wrong
 
@@ -123,6 +150,30 @@ reproducible.
   with `skip: true`. It is still importable: `kion-import` reads all three
   `/v3/{entity}/{id}/custom-variable` collections from `multiParentOverrides` in
   `internal/kgen/importmanifest/generate.go`, not from this file.
+
+**`match` restricts the parents a parent-scoped read is made under.** It sits on
+a data source's `read:`, maps a field of the parent's list record to the value
+it must have, and is carried into `generator_config.yaml` and from there into
+the manifest row's `parent.match`. `kion-import` skips a parent that does not
+match without requesting it. `idms_group_association` and
+`saml_group_association` carry `match: { idms_type_id: "3" }`, because the API
+serves `/v3/idms/{id}/group-association` only for a SAML IDMS and fails for every
+other type (#48).
+
+```yaml
+data_sources:
+  saml_group_association:
+    read:
+      path: /v3/idms/{id}/group-association
+      method: GET
+      match: { idms_type_id: "3" }
+```
+
+A rule that cannot apply fails the build rather than filtering nothing, or
+filtering out every parent. `kconfig` rejects `match` on a resource, on a read
+whose path has no parent placeholder, and an empty map, field or value.
+`kgen import-manifest` rejects a field the parent resource's schema does not
+declare, and a data source whose manifest row has no single parent.
 - `ou_permission_mapping` and `project_permission_mapping` create and update
   through the same PATCH upsert, and derivation attributes that one PATCH to
   create alone. Without a pinned `update` they become create-and-replace only.

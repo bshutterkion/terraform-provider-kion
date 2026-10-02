@@ -34,6 +34,10 @@ func TestSDKFamily(t *testing.T) {
 		"OptNullUint":  "int",
 		"*Nested":      "nested",
 		"OptFloat64":   "float",
+		// Terraform carries timestamps as RFC3339 strings.
+		"OptNullTime":    "string",
+		"OptDateTime":    "string",
+		"OptNilDateTime": "string",
 	}
 	for in, want := range cases {
 		if got := sdkFamily(in); got != want {
@@ -74,15 +78,47 @@ func TestBestOverlapType(t *testing.T) {
 		"AlsoTie": {{JSON: "a"}, {JSON: "b"}},
 	}
 	set := map[string]bool{"a": true, "b": true, "c": true}
-	got, ov := bestOverlapType(set, sdk)
+	got, ov := bestOverlapType("x", set, sdk)
 	if got != "Right" || ov != 3 {
 		t.Fatalf("bestOverlapType = (%q,%d), want (Right,3)", got, ov)
 	}
 
 	// no overlap
-	got, ov = bestOverlapType(map[string]bool{"zz": true}, sdk)
+	got, ov = bestOverlapType("x", map[string]bool{"zz": true}, sdk)
 	if got != "" || ov != 0 {
 		t.Errorf("no-overlap = (%q,%d), want (\"\",0)", got, ov)
+	}
+}
+
+// kion_ou tied CustomVariable and OUCreate at 6 fields and took CustomVariable
+// on lexical order; a tie goes to the type named after the service.
+func TestBestOverlapType_tieBreaksOnServiceName(t *testing.T) {
+	sdk := map[string][]SDKField{
+		"CustomVariable": {{JSON: "a"}, {JSON: "b"}},
+		"OUCreate":       {{JSON: "a"}, {JSON: "b"}},
+	}
+	set := map[string]bool{"a": true, "b": true}
+	if got, _ := bestOverlapType("ou", set, sdk); got != "OUCreate" {
+		t.Errorf("tie = %q, want OUCreate", got)
+	}
+	if got, _ := bestOverlapType("unrelated", set, sdk); got != "CustomVariable" {
+		t.Errorf("unnamed tie = %q, want lexical CustomVariable", got)
+	}
+}
+
+// An ogen enum is a named integer; its Opt wrapper must not read as a mismatch
+// against an Int64 attribute.
+func TestResolve_namedIntegerIsIntFamily(t *testing.T) {
+	model := ServiceModel{
+		Service: "gcp", Name: "GcpModel",
+		Fields: []ModelField{{GoName: "Stage", TFSDK: "stage", TFType: "types.Int64"}},
+	}
+	sdk := map[string][]SDKField{
+		"Gcp": {{GoName: "Stage", JSON: "stage", GoType: "OptStage", Underlying: "uint64"}},
+	}
+	r := Resolve(model, sdk, map[string]bool{"OptStageToFramework": true})
+	if len(r.TypeMismatch) != 0 {
+		t.Errorf("TypeMismatch = %v, want none", r.TypeMismatch)
 	}
 }
 

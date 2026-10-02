@@ -151,3 +151,31 @@ func TestRenderIDOnlyDataSource_label(t *testing.T) {
 		}
 	}
 }
+
+// kion_ami.expires_at and kion_gcp_iam_role.gcp_role_launch_stage were dropped
+// from their data sources because these SDK types had no list projection.
+func TestListValueExprs_nullTimeAndEnum(t *testing.T) {
+	cases := []struct {
+		sdk, model, attrType, obj, row string
+	}{
+		{
+			"OptNullTime", "types.String", "types.StringType",
+			"types.StringValue(flex.OptNullTimeToFramework(x.F).ValueString())",
+			"flex.OptNullTimeToFramework(x.F).ValueString()",
+		},
+		{
+			"OptGCPRoleLaunchStage", "types.Int64", "types.Int64Type",
+			"types.Int64Value(int64(x.F.Or(0)))",
+			"int64(x.F.Or(0))",
+		},
+	}
+	for _, c := range cases {
+		attrType, obj, row, ok := listValueExprs("x.F", c.sdk, c.model)
+		if !ok {
+			t.Fatalf("%s: no list projection", c.sdk)
+		}
+		if attrType != c.attrType || obj != c.obj || row != c.row {
+			t.Errorf("%s: got (%s, %s, %s)", c.sdk, attrType, obj, row)
+		}
+	}
+}

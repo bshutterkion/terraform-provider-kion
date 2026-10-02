@@ -77,6 +77,7 @@ func parseGoFile(path string) (*ast.File, error) {
 // structsFromFile returns typeName -> ordered json-tagged fields for every
 // struct type in f. Fields without a json tag are skipped.
 func structsFromFile(f *ast.File) map[string][]SDKField {
+	named := namedBasicTypes(f)
 	out := map[string][]SDKField{}
 	forEachStruct(f, func(name string, st *ast.StructType) {
 		var fields []SDKField
@@ -88,13 +89,65 @@ func structsFromFile(f *ast.File) map[string][]SDKField {
 			if j == "" {
 				continue
 			}
-			fields = append(fields, SDKField{GoName: fld.Names[0].Name, JSON: j, GoType: typeString(fld.Type)})
+			goType := typeString(fld.Type)
+			fields = append(fields, SDKField{
+				GoName: fld.Names[0].Name, JSON: j, GoType: goType,
+				Underlying: named[stripWrappers(goType)],
+			})
 		}
 		if len(fields) > 0 {
 			out[name] = fields
 		}
 	})
 	return out
+}
+
+// namedBasicTypes maps each `type X <basic>` declaration in f (an ogen enum
+// such as `type GCPRoleLaunchStage uint64`) to its basic type.
+func namedBasicTypes(f *ast.File) map[string]string {
+	out := map[string]string{}
+	for _, decl := range f.Decls {
+		gd, ok := decl.(*ast.GenDecl)
+		if !ok || gd.Tok != token.TYPE {
+			continue
+		}
+		for _, spec := range gd.Specs {
+			ts, ok := spec.(*ast.TypeSpec)
+			if !ok || ts.Assign.IsValid() {
+				continue
+			}
+			if id, ok := ts.Type.(*ast.Ident); ok && isBasic(id.Name) {
+				out[ts.Name.Name] = id.Name
+			}
+		}
+	}
+	return out
+}
+
+func isBasic(name string) bool {
+	switch name {
+	case "string", "bool", "int", "int8", "int16", "int32", "int64",
+		"uint", "uint8", "uint16", "uint32", "uint64", "float32", "float64":
+		return true
+	}
+	return false
+}
+
+// stripWrappers removes a leading pointer and ogen's Opt/Nil/Null prefixes.
+func stripWrappers(goType string) string {
+	base := strings.TrimPrefix(goType, "*")
+	for {
+		switch {
+		case strings.HasPrefix(base, "Opt"):
+			base = base[3:]
+		case strings.HasPrefix(base, "Nil"):
+			base = base[3:]
+		case strings.HasPrefix(base, "Null"):
+			base = base[4:]
+		default:
+			return base
+		}
+	}
 }
 
 // modelFromFile returns the first *Model struct in f as a ServiceModel, or nil.

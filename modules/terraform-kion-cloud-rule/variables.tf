@@ -124,9 +124,3 @@ variable "service_control_policy_ids" {
   type        = set(number)
   default     = null
 }
-
-variable "cloud_rule_source" {
-  description = "Filters results to only return Cloud Rules from a given source Example\\: user, action_plan, enforcement, funding_source"
-  type        = string
-  default     = null
-}

@@ -44,7 +44,7 @@ No modules.
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
 | name | Name of the OU in the application. | `string` | n/a | yes |
-| parent\_ou\_id | ID of the OU containing this OU. A parent OU ID of 0 will create a top-level OU. | `number` | n/a | yes |
+| parent\_ou\_id | ID of the OU containing this OU. A parent OU ID of 0 will create a top-level OU. Changing it moves the OU in place, with its child OUs and projects, rather than recreating it: inherited cloud rules and permissions are then those of the new ancestry. The move goes through Kion's internal POST /v2/ou/{id}/move route, which the public API does not publish, and requires global admin. | `number` | n/a | yes |
 | permission\_scheme\_id | ID of the permission scheme applied to the ou. | `number` | n/a | yes |
 | description | Description for the OU in the application. | `string` | `null` | no |
 | labels | The labels applied to the OU. | `map(string)` | `null` | no |

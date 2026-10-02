@@ -11,7 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hashicorp/terraform-plugin-framework/path"
+	{{if .HasUpdate}}"github.com/hashicorp/terraform-plugin-framework/diag"
+	{{end}}"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	{{if .AtLeastOneOf}}"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	{{end}}	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -166,6 +167,27 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}
 	plan.{{.IDGo}} = types.StringValue(strconv.FormatInt(id, 10))
+{{- if .CreateViaUpdate}}
+
+	// The create body does not carry these; a configured value is applied by an
+	// update straight after the create rather than dropped.
+	if {{range $i, $f := .CreateViaUpdate}}{{if $i}} || {{end}}(!plan.{{$f}}.IsNull() && !plan.{{$f}}.IsUnknown()){{end}} {
+		input, inputDiags := expand{{.Pascal}}Update(ctx, plan)
+		resp.Diagnostics.Append(inputDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		out, err := conn.{{.UpdateMethod}}(ctx, input, {{.SDKAlias}}.{{.UpdateParams}}{ {{.ParentParam}}: {{if .ParentCast}}{{.ParentCast}}(parentID){{else}}parentID{{end}}, {{.ChildParam}}: {{if .ChildCast}}{{.ChildCast}}(id){{else}}id{{end}} })
+		if err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", {{.ResConst}}, id), err.Error())
+			return
+		}
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("updating %s", {{.ResConst}}), out)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+{{- end}}
 
 	list, err := r.list{{.Pascal}}(ctx, parentID)
 	if err != nil {
@@ -239,41 +261,67 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	{{if .UpdateSliceBinds}}{{range .UpdateSliceBinds}}{{.Var}}, {{.Var}}Diags := {{.Func}}(ctx, plan.{{.ModelGo}})
-	resp.Diagnostics.Append({{.Var}}Diags...)
-	{{end}}if resp.Diagnostics.HasError() {
+	input, inputDiags := expand{{.Pascal}}Update(ctx, plan)
+	resp.Diagnostics.Append(inputDiags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	{{end}}input := {{if .UpdateBodyPtr}}&{{.SDKAlias}}.{{.UpdateBody}}{
-		{{- range .UpdateBinds}}
-		{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
-		{{- end}}
-		{{- range .UpdateSliceBinds}}
-		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
-		{{- end}}
-	}{{else}}{{.SDKAlias}}.{{.UpdateBodyOpt}}{
-		Value: {{.SDKAlias}}.{{.UpdateBody}}{
-			{{- range .UpdateBinds}}
-			{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
-			{{- end}}
-			{{- range .UpdateSliceBinds}}
-			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
-			{{- end}}
-		},
-		Set: true,
-	}{{end}}
-
 	out, err := conn.{{.UpdateMethod}}(ctx, input, {{.SDKAlias}}.{{.UpdateParams}}{ {{.ParentParam}}: {{if .ParentCast}}{{.ParentCast}}(parentID){{else}}parentID{{end}}, {{.ChildParam}}: {{if .ChildCast}}{{.ChildCast}}(id){{else}}id{{end}} })
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", {{.ResConst}}, id), err.Error())
 		return
 	}
-	diags := errs.ResponseDiagnostics(fmt.Sprintf("updating %s", {{.ResConst}}), out)
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("updating %s", {{.ResConst}}), out)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+{{- if .Assocs}}
+
+	var state {{.Model}}
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+{{- end}}
+{{- range .Assocs}}
+
+	// Sync associations: the update body carries none, so diff prior state vs
+	// plan per id-list and add/remove via the dedicated endpoints.
+	{{range .Fields}}assocAdd{{.ModelGo}}, assocRemove{{.ModelGo}} := flex.Uint64{{.Coll}}Diff(ctx, state.{{.ModelGo}}, plan.{{.ModelGo}}, &resp.Diagnostics)
+	{{end}}if resp.Diagnostics.HasError() {
+		return
+	}
+	if {{range $i, $f := .Fields}}{{if $i}} || {{end}}len(assocAdd{{$f.ModelGo}}) > 0{{end}} {
+		addOut, addErr := conn.{{.AddMethod}}(ctx, {{if .Ptr}}&{{$.SDKAlias}}.{{.Body}}{{else}}{{$.SDKAlias}}.{{.BodyOpt}}{Value: {{$.SDKAlias}}.{{.Body}}{{end}}{
+			{{- range .Fields}}
+			{{.BodyGo}}: {{$.SDKAlias}}.OptNilUint64Array{Value: assocAdd{{.ModelGo}}, Set: true},
+			{{- end}}
+		}{{if not .Ptr}}, Set: true}{{end}}, {{$.SDKAlias}}.{{.AddParams}}{ {{$.ParentParam}}: {{if $.ParentCast}}{{$.ParentCast}}(parentID){{else}}parentID{{end}}, {{$.ChildParam}}: {{if $.ChildCast}}{{$.ChildCast}}(id){{else}}id{{end}} })
+		if addErr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("adding associations to %s (ID: %d)", {{$.ResConst}}, id), addErr.Error())
+			return
+		}
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("adding associations to %s", {{$.ResConst}}), addOut)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+	if {{range $i, $f := .Fields}}{{if $i}} || {{end}}len(assocRemove{{$f.ModelGo}}) > 0{{end}} {
+		removeOut, removeErr := conn.{{.RemoveMethod}}(ctx, {{if .Ptr}}&{{$.SDKAlias}}.{{.Body}}{{else}}{{$.SDKAlias}}.{{.BodyOpt}}{Value: {{$.SDKAlias}}.{{.Body}}{{end}}{
+			{{- range .Fields}}
+			{{.BodyGo}}: {{$.SDKAlias}}.OptNilUint64Array{Value: assocRemove{{.ModelGo}}, Set: true},
+			{{- end}}
+		}{{if not .Ptr}}, Set: true}{{end}}, {{$.SDKAlias}}.{{.RemoveParams}}{ {{$.ParentParam}}: {{if $.ParentCast}}{{$.ParentCast}}(parentID){{else}}parentID{{end}}, {{$.ChildParam}}: {{if $.ChildCast}}{{$.ChildCast}}(id){{else}}id{{end}} })
+		if removeErr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("removing associations from %s (ID: %d)", {{$.ResConst}}, id), removeErr.Error())
+			return
+		}
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("removing associations from %s", {{$.ResConst}}), removeOut)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+{{- end}}
 
 	list, err := r.list{{.Pascal}}(ctx, parentID)
 	if err != nil {
@@ -290,6 +338,33 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+// expand{{.Pascal}}Update builds the update body from plan. Create uses it too,
+// for attributes only the update body carries.
+func expand{{.Pascal}}Update(ctx context.Context, plan {{.Model}}) ({{if .UpdateBodyPtr}}*{{.SDKAlias}}.{{.UpdateBody}}{{else}}{{.SDKAlias}}.{{.UpdateBodyOpt}}{{end}}, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	{{range .UpdateSliceBinds}}{{.Var}}, {{.Var}}Diags := {{.Func}}(ctx, plan.{{.ModelGo}})
+	diags.Append({{.Var}}Diags...)
+	{{end}}
+	return {{if .UpdateBodyPtr}}&{{.SDKAlias}}.{{.UpdateBody}}{
+		{{- range .UpdateBinds}}
+		{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
+		{{- end}}
+		{{- range .UpdateSliceBinds}}
+		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+		{{- end}}
+	}{{else}}{{.SDKAlias}}.{{.UpdateBodyOpt}}{
+		Value: {{.SDKAlias}}.{{.UpdateBody}}{
+			{{- range .UpdateBinds}}
+			{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
+			{{- end}}
+			{{- range .UpdateSliceBinds}}
+			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+			{{- end}}
+		},
+		Set: true,
+	}{{end}}, diags
 }
 {{else}}
 func (r *{{.Pkg}}Resource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {

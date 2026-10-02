@@ -320,14 +320,14 @@ func TestNormalizedToFramework(t *testing.T) {
 
 // --- GCPRoleLaunchStage (enum) ---
 
-func TestGCPRoleLaunchStageFromFramework(t *testing.T) {
-	assert.Equal(t, generated.OptGCPRoleLaunchStage{Value: generated.GCPRoleLaunchStage(2), Set: true}, flex.GCPRoleLaunchStageFromFramework(types.Int64Value(2)))
-	assert.False(t, flex.GCPRoleLaunchStageFromFramework(types.Int64Null()).Set)
+func TestOptGCPRoleLaunchStageFromFramework(t *testing.T) {
+	assert.Equal(t, generated.OptGCPRoleLaunchStage{Value: generated.GCPRoleLaunchStage(2), Set: true}, flex.OptGCPRoleLaunchStageFromFramework(types.Int64Value(2)))
+	assert.False(t, flex.OptGCPRoleLaunchStageFromFramework(types.Int64Null()).Set)
 }
 
-func TestGCPRoleLaunchStageToFramework(t *testing.T) {
-	assert.Equal(t, types.Int64Value(2), flex.GCPRoleLaunchStageToFramework(generated.OptGCPRoleLaunchStage{Value: 2, Set: true}))
-	assert.Equal(t, types.Int64Null(), flex.GCPRoleLaunchStageToFramework(generated.OptGCPRoleLaunchStage{}))
+func TestOptGCPRoleLaunchStageToFramework(t *testing.T) {
+	assert.Equal(t, types.Int64Value(2), flex.OptGCPRoleLaunchStageToFramework(generated.OptGCPRoleLaunchStage{Value: 2, Set: true}))
+	assert.Equal(t, types.Int64Null(), flex.OptGCPRoleLaunchStageToFramework(generated.OptGCPRoleLaunchStage{}))
 }
 
 // --- OptNullString / OptNullTime (SQL-null wrappers) ---

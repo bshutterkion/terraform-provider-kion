@@ -62,7 +62,7 @@ func findProjectCloudAccessRoleExemption(ctx context.Context, rs *terraform.Reso
 	if parent == "" {
 		return false, fmt.Errorf("no project_id in state for %s", rs.Primary.ID)
 	}
-	path := strings.Replace("/v3/project/{id}/cloud-rule/exemption", "{id}", parent, 1)
+	path := strings.Replace("/v1/project/{id}/ou-cloud-access-role", "{id}", parent, 1)
 	body, err := conn.RawGet(ctx, path)
 	if err != nil {
 		if conns.IsRawNotFound(err) {
@@ -72,14 +72,16 @@ func findProjectCloudAccessRoleExemption(ctx context.Context, rs *terraform.Reso
 	}
 
 	var env struct {
-		Data []struct {
-			ID int64 `json:"id"`
+		Data struct {
+			Records []struct {
+				ID int64 `json:"id"`
+			} `json:"project_exemptions"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(body, &env); err != nil {
 		return false, fmt.Errorf("decoding %s: %w", path, err)
 	}
-	for _, rec := range env.Data {
+	for _, rec := range env.Data.Records {
 		if rec.ID == want {
 			return true, nil
 		}

@@ -124,20 +124,19 @@ func (g *generator) generateNoRead(dir, name string, ops resOps, idx sdkIndex, m
 		if ops.Read != nil {
 			listPath = ops.Read.Path
 		}
-		if listPath == "" {
+		var pr *parentRead
+		if pe, ok := g.privEnds[name]; ok {
+			pr = pe.ParentRead
+		}
+		scan := noReadScanFor(name, pr, listPath, model)
+		if scan.ListPath == "" {
 			return 0, fmt.Errorf("%s: no-read archetype has test values but no read path to scan; record one in codegen/config_overrides.yaml", name)
 		}
-		// A {id} in the collection path is the PARENT's id: these resources are
-		// listed per parent, not globally.
-		parentIDTF := ""
-		if strings.Contains(listPath, "{id}") {
-			parentIDTF = parentAttrFor(name, model)
-			if parentIDTF == "" {
-				return 0, fmt.Errorf("%s: collection path %q is parent-scoped but no *_id attribute matches", name, listPath)
-			}
+		if strings.Contains(scan.ListPath, "{id}") && scan.ParentIDTF == "" {
+			return 0, fmt.Errorf("%s: collection path %q is parent-scoped but no *_id attribute matches", name, scan.ListPath)
 		}
 		test, err := execGoTemplate("noreadtest", noReadTestTmpl,
-			buildNoReadTestData(rm, "kion_"+name, listPath, parentIDTF, tv), name+"_test.go")
+			buildNoReadTestData(rm, "kion_"+name, scan, tv), name+"_test.go")
 		if err != nil {
 			return 0, err
 		}
@@ -154,6 +153,31 @@ func (g *generator) generateNoRead(dir, name string, ops resOps, idx sdkIndex, m
 		return 0, err
 	}
 	return 1, nil
+}
+
+// noReadScan is the collection a no_read acceptance test scans for the record.
+type noReadScan struct {
+	ListPath   string // "{id}" stands for the parent id
+	ParentIDTF string
+	RecordsKey string // key inside data holding the records; "" when data is the list
+}
+
+// noReadScanFor picks the collection the existence check reads: the one the
+// resource's own Read uses when it has a parent_read, else the spec read path.
+func noReadScanFor(name string, pr *parentRead, readPath string, model []ModelField) noReadScan {
+	if pr != nil {
+		return noReadScan{
+			ListPath:   strings.ReplaceAll(pr.Path, "{parent_id}", "{id}"),
+			ParentIDTF: pr.ParentTF,
+			RecordsKey: pr.Records,
+		}
+	}
+	s := noReadScan{ListPath: readPath}
+	// A {id} in the collection path is the PARENT's id.
+	if strings.Contains(readPath, "{id}") {
+		s.ParentIDTF = parentAttrFor(name, model)
+	}
+	return s
 }
 
 // parentAttrFor picks the model attribute naming the parent a parent-scoped

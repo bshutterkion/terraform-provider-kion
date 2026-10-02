@@ -3,17 +3,29 @@
 //
 // Usage:
 //
-//	kalign check [-sdk DIR] [-version v3_16] [-service NAME]   # report drift (#1)
-//	kalign gen   [-sdk DIR] [-version v3_16] [-service NAME]   # emit flatten converters (#2)
+//	kalign check [-sdk DIR] [-version v3_16] [-service NAME] [-baseline FILE] [-update]
+//	kalign gen   [-sdk DIR] [-version v3_16] [-service NAME]
+//
+// check fails on any finding not recorded in the baseline and on any baseline
+// entry that no longer occurs; -update rewrites the baseline instead. -sdk
+// defaults to the SDK module go.mod resolves, so no checkout is needed.
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"strings"
 
 	"terraform-provider-kion/internal/kalign"
+)
+
+const (
+	sdkModule       = "github.com/kionsoftware/kion-sdk-go"
+	defaultBaseline = "codegen/align_baseline.yaml"
 )
 
 func main() {
@@ -43,24 +55,52 @@ func (d *diag) println(a ...any) {
 	_, d.err = fmt.Fprintln(d.w, a...)
 }
 
+// resolveSDKDir is a seam so tests do not shell out to the go tool.
+var resolveSDKDir = func() (string, error) {
+	out, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", sdkModule).Output()
+	if err != nil {
+		return "", fmt.Errorf("resolving %s: %w", sdkModule, err)
+	}
+	dir := strings.TrimSpace(string(out))
+	if dir == "" {
+		return "", errors.New("resolving " + sdkModule + ": not in the module cache (run go mod download)")
+	}
+	return dir, nil
+}
+
 // run is the testable entry point: it takes the CLI arguments (excluding the
 // program name) and its output streams, and returns the process exit code
 // instead of calling os.Exit directly.
 func run(args []string, stdout, stderr io.Writer) int {
 	d := &diag{w: stderr}
 	if len(args) < 1 || (args[0] != "check" && args[0] != "gen") {
-		d.println("usage: kalign <check|gen> [-sdk DIR] [-version v3_16] [-service NAME]")
+		d.println("usage: kalign <check|gen> [-sdk DIR] [-version v3_16] [-service NAME] [-baseline FILE] [-update]")
 		return 2
 	}
 	mode := args[0]
 	fs := flag.NewFlagSet(mode, flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	sdkDir := fs.String("sdk", "../kion-sdk-go", "path to the kion-sdk-go checkout")
+	sdkDir := fs.String("sdk", "", "path to the kion-sdk-go source (default: the module go.mod resolves)")
 	version := fs.String("version", "v3_16", "SDK sub-package version to align against")
 	only := fs.String("service", "", "limit to a single service (default: all)")
+	baseline := fs.String("baseline", defaultBaseline, "accepted findings (check only)")
+	update := fs.Bool("update", false, "rewrite the baseline from the current findings (check only)")
 	if err := fs.Parse(args[1:]); err != nil {
 		d.printf("error: %v\n", err)
 		return 2
+	}
+	if *only != "" {
+		// A one-service run would report every other baseline entry as stale.
+		*baseline, *update = "", false
+	}
+
+	if *sdkDir == "" {
+		dir, err := resolveSDKDir()
+		if err != nil {
+			d.printf("error: %v\n", err)
+			return 1
+		}
+		*sdkDir = dir
 	}
 
 	opts := kalign.Options{
@@ -72,22 +112,50 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	src := kalign.NewFileSource()
 
-	var (
-		problems int
-		err      error
-	)
-	switch mode {
-	case "check":
-		problems, err = kalign.Check(src, stdout, opts)
-	case "gen":
-		_, err = kalign.Gen(src, stdout, opts)
+	if mode == "gen" {
+		if _, err := kalign.Gen(src, stdout, opts); err != nil {
+			d.printf("error: %v\n", err)
+			return 1
+		}
+		return 0
 	}
+
+	findings, err := kalign.Check(src, stdout, opts)
 	if err != nil {
 		d.printf("error: %v\n", err)
 		return 1
 	}
-	if mode == "check" && problems > 0 {
-		return 1 // non-zero so CI fails on drift
+	return gate(findings, *baseline, *update, stderr)
+}
+
+// gate applies the baseline ratchet. With no baseline every finding fails.
+func gate(findings []kalign.Finding, path string, update bool, stderr io.Writer) int {
+	d := &diag{w: stderr}
+	if path == "" {
+		if len(findings) > 0 {
+			return 1
+		}
+		return 0
+	}
+	prev, err := kalign.LoadBaseline(path)
+	if update {
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			d.printf("error: %v\n", err)
+			return 1
+		}
+		if err := kalign.WriteBaseline(path, findings, prev); err != nil {
+			d.printf("error: %v\n", err)
+			return 1
+		}
+		d.printf("wrote %s (%d finding(s)); triage any TODO entry\n", path, len(findings))
+		return 0
+	}
+	if err != nil {
+		d.printf("error: reading baseline: %v\n", err)
+		return 1
+	}
+	if !kalign.ReportRatchet(stderr, findings, prev, path) {
+		return 1
 	}
 	return 0
 }

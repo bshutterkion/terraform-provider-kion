@@ -44,3 +44,28 @@ func TestGenerateUpgrade_userGroup(t *testing.T) {
 		}
 	}
 }
+
+// TestGenerateUpgrade_padsNewNestedFields: a block whose new nested object gained
+// a field must have the key added as null, since tftypes rejects a missing key.
+func TestGenerateUpgrade_padsNewNestedFields(t *testing.T) {
+	oldS, err := LoadSchema(oldSnap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newS, err := LoadSchema(newSnap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ups, err := LoadUpgrades("../../../codegen/state_upgrades.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := GenerateUpgrade("../../..", "kion_project", ups["kion_project"], oldS["kion_project"], newS["kion_project"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `migratehelper.PadObjectKeys(old["move_ou_settings"], "spend_plan_setting")`
+	if !strings.Contains(string(out), want) {
+		t.Errorf("generated upgrader missing: %s\n---\n%s", want, out)
+	}
+}

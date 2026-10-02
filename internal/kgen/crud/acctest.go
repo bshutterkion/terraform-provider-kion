@@ -35,9 +35,64 @@ type testValues struct {
 	Fixtures []string `yaml:"fixtures"`
 	// ExtraArgs are Go expressions appended to the config Sprintf after rName
 	// and the env args, for a value the HCL cannot state literally.
-	ExtraArgs []string          `yaml:"extra_args"`
-	Create    map[string]string `yaml:"create"`
-	Update    map[string]string `yaml:"update"`
+	ExtraArgs []string `yaml:"extra_args"`
+	// RequireEnv are variables the test cannot run without but whose values the
+	// config does not use; each is checked in PreCheck and skips when unset.
+	RequireEnv []envRequirement `yaml:"require_env"`
+	// KnownIssues are open defects the test is expected to surface.
+	KnownIssues []knownIssue      `yaml:"known_issues"`
+	Create      map[string]string `yaml:"create"`
+	Update      map[string]string `yaml:"update"`
+}
+
+// envRequirement is a skip guard: Reason completes "<Name> must be set to ...".
+type envRequirement struct {
+	Name   string `yaml:"name"`
+	Reason string `yaml:"reason"`
+}
+
+// knownIssue names an open defect in a comment atop the generated test file;
+// ExpectNonEmptyPlan tolerates the plan drift it causes on every apply step.
+type knownIssue struct {
+	Issue              int    `yaml:"issue"`
+	Note               string `yaml:"note"`
+	ExpectNonEmptyPlan bool   `yaml:"expect_non_empty_plan"`
+}
+
+// validate rejects an entry whose guard or issue record is incomplete, so a
+// typo cannot turn into a gate or a comment that says nothing.
+func (tv testValues) validate() error {
+	for _, r := range tv.RequireEnv {
+		if r.Name == "" || r.Reason == "" {
+			return fmt.Errorf("require_env entry %+v needs both name and reason", r)
+		}
+		if slices.Contains(tv.EnvArgs, r.Name) {
+			return fmt.Errorf("require_env %s is already in env_args, which gates it", r.Name)
+		}
+	}
+	for _, k := range tv.KnownIssues {
+		if k.Issue <= 0 || strings.TrimSpace(k.Note) == "" {
+			return fmt.Errorf("known_issues entry %+v needs an issue number and a note", k)
+		}
+	}
+	return nil
+}
+
+// acctestKnownIssue is a knownIssue split into comment lines for the template.
+type acctestKnownIssue struct {
+	Issue int
+	Lines []string
+}
+
+// fillGuards copies the skip guards and known issues into the payload.
+func fillGuards(d *acctestData, tv testValues) {
+	d.RequireEnv = tv.RequireEnv
+	for _, k := range tv.KnownIssues {
+		d.KnownIssues = append(d.KnownIssues, acctestKnownIssue{
+			Issue: k.Issue, Lines: strings.Split(strings.TrimSpace(k.Note), "\n"),
+		})
+		d.ExpectNonEmptyPlan = d.ExpectNonEmptyPlan || k.ExpectNonEmptyPlan
+	}
 }
 
 // hclPrefix marks a value as an HCL expression rather than a literal: it is
@@ -64,6 +119,9 @@ func loadTestValues(path, resource string) (testValues, bool, error) {
 		return testValues{}, false, fmt.Errorf("parsing test values %s: %w", path, err)
 	}
 	tv, ok := tvf.Resources[resource]
+	if err := tv.validate(); err != nil {
+		return testValues{}, false, fmt.Errorf("test values for %s: %w", resource, err)
+	}
 	return tv, ok, nil
 }
 
@@ -116,6 +174,10 @@ type acctestData struct {
 	// marks optional (kion_category's payer_id) is install-specific, so it
 	// cannot be a literal in test_values.yaml.
 	EnvArgs []acctestEnvArg
+	// RequireEnv are PreCheck skip guards whose values the config ignores.
+	RequireEnv         []envRequirement
+	KnownIssues        []acctestKnownIssue
+	ExpectNonEmptyPlan bool
 }
 
 func buildAcctestData(rm ResourceModel, tv testValues) (acctestData, error) {
@@ -140,6 +202,7 @@ func buildAcctestData(rm ResourceModel, tv testValues) (acctestData, error) {
 	}
 	d.HasUpdate = rm.Update != nil && len(tv.Update) > 0
 	d.EnvArgs = envArgsFor(tv.EnvArgs)
+	fillGuards(&d, tv)
 	d.Fixtures = tv.Fixtures
 	d.ExtraArgs = tv.ExtraArgs
 	setCheckExprs(d.CreateAttrs, d.EnvArgs, d.ExtraArgs)
@@ -163,6 +226,7 @@ func fillConfig(d *acctestData, tv testValues, stringAttrs map[string]bool, hasU
 	}
 	d.HasUpdate = hasUpdate && len(tv.Update) > 0
 	d.EnvArgs = envArgsFor(tv.EnvArgs)
+	fillGuards(d, tv)
 	d.Fixtures, d.ExtraArgs = tv.Fixtures, tv.ExtraArgs
 	setCheckExprs(d.CreateAttrs, d.EnvArgs, d.ExtraArgs)
 	setCheckExprs(d.UpdateAttrs, d.EnvArgs, d.ExtraArgs)
@@ -236,17 +300,17 @@ func buildRawTestData(r rawData, model []ModelField, tv testValues) blendedTestD
 // the collection path a test must scan, since there is no single-record GET.
 type noReadTestData struct {
 	acctestData
-	TypeName, ListPath, ParentIDTF string
+	TypeName, ListPath, ParentIDTF, RecordsKey string
 }
 
-func buildNoReadTestData(rm ResourceModel, typeName, listPath, parentIDTF string, tv testValues) noReadTestData {
+func buildNoReadTestData(rm ResourceModel, typeName string, scan noReadScan, tv testValues) noReadTestData {
 	sa := map[string]bool{}
 	for _, mf := range rm.Fields {
 		sa[mf.TFSDK] = mf.Type == "types.String"
 	}
 	out := noReadTestData{
 		acctestData: acctestData{Pkg: rm.Name, Pascal: rm.Pascal, SDKAlias: "generated"},
-		TypeName:    typeName, ListPath: listPath, ParentIDTF: parentIDTF,
+		TypeName:    typeName, ListPath: scan.ListPath, ParentIDTF: scan.ParentIDTF, RecordsKey: scan.RecordsKey,
 	}
 	fillConfig(&out.acctestData, tv, sa, rm.Update != nil)
 	return out

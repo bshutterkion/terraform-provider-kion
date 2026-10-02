@@ -16,7 +16,7 @@ func Resolve(m ServiceModel, sdkTypes map[string][]SDKField, flexFuncs map[strin
 	for _, f := range m.Fields {
 		tfsdkSet[f.TFSDK] = true
 	}
-	r.SDKType, r.Overlap = bestOverlapType(tfsdkSet, sdkTypes)
+	r.SDKType, r.Overlap = bestOverlapType(m.Service, tfsdkSet, sdkTypes)
 	if r.SDKType == "" || r.Overlap*2 < len(m.Fields) {
 		r.LowConfidence = true
 	}
@@ -36,9 +36,14 @@ func Resolve(m ServiceModel, sdkTypes map[string][]SDKField, flexFuncs map[strin
 			p.Nested = true
 			r.NestedAttrs = append(r.NestedAttrs, mf.TFSDK)
 		} else {
-			if !typesCompatible(mf.TFType, sf.GoType) && !deliberateStringID(mf.TFSDK, mf.TFType, sf.GoType) {
+			sdkType := sf.GoType
+			if sf.Underlying != "" {
+				sdkType = sf.Underlying
+			}
+			if !typesCompatible(mf.TFType, sdkType) && !deliberateStringID(mf.TFSDK, mf.TFType, sf.GoType) {
 				r.TypeMismatch = append(r.TypeMismatch,
 					fmt.Sprintf("%s: schema %s vs SDK %s", mf.TFSDK, mf.TFType, sf.GoType))
+				r.findings = append(r.findings, Finding{m.Service, mf.TFSDK, KindType})
 			}
 			// Exported: flex converters are StringToFramework, not
 			// stringToFramework. Concatenating the Go type name verbatim made
@@ -51,6 +56,7 @@ func Resolve(m ServiceModel, sdkTypes map[string][]SDKField, flexFuncs map[strin
 			if !p.HaveFlex {
 				r.MissingFlex = append(r.MissingFlex,
 					fmt.Sprintf("%s (for field %q of type %s)", p.FlexFn, mf.TFSDK, sf.GoType))
+				r.findings = append(r.findings, Finding{m.Service, mf.TFSDK, KindFlex})
 			}
 		}
 		r.Pairs = append(r.Pairs, p)
@@ -59,9 +65,9 @@ func Resolve(m ServiceModel, sdkTypes map[string][]SDKField, flexFuncs map[strin
 }
 
 // bestOverlapType picks the SDK struct whose json tags cover the most of the
-// model's tfsdk tags. Ties break lexically for determinism. Returns ("", 0) when
-// nothing overlaps.
-func bestOverlapType(tfsdkSet map[string]bool, sdkTypes map[string][]SDKField) (string, int) {
+// model's tfsdk tags. A tie goes to a type named after the service, then breaks
+// lexically for determinism. Returns ("", 0) when nothing overlaps.
+func bestOverlapType(service string, tfsdkSet map[string]bool, sdkTypes map[string][]SDKField) (string, int) {
 	names := make([]string, 0, len(sdkTypes))
 	for n := range sdkTypes {
 		names = append(names, n)
@@ -75,11 +81,21 @@ func bestOverlapType(tfsdkSet map[string]bool, sdkTypes map[string][]SDKField) (
 				overlap++
 			}
 		}
-		if overlap > bestOverlap {
+		switch {
+		case overlap > bestOverlap:
 			best, bestOverlap = name, overlap
+		case overlap == bestOverlap && overlap > 0 && namedFor(name, service) && !namedFor(best, service):
+			best = name
 		}
 	}
 	return best, bestOverlap
+}
+
+// namedFor reports whether an SDK type name starts with the service name,
+// ignoring case and underscores ("OUCreate" is named for "ou").
+func namedFor(typeName, service string) bool {
+	s := strings.ReplaceAll(strings.ToLower(service), "_", "")
+	return s != "" && strings.HasPrefix(strings.ToLower(typeName), s)
 }
 
 // typesCompatible reports whether a Framework type and an SDK Go type describe
@@ -113,21 +129,7 @@ func tfFamily(tf string) string {
 // sdkFamily strips ogen optionality prefixes (Opt/Nil/Null) and a leading
 // pointer, then maps the base type to a primitive family.
 func sdkFamily(sdk string) string {
-	base := strings.TrimPrefix(sdk, "*")
-	for {
-		switch {
-		case strings.HasPrefix(base, "Opt"):
-			base = base[3:]
-		case strings.HasPrefix(base, "Nil"):
-			base = base[3:]
-		case strings.HasPrefix(base, "Null"):
-			base = base[4:]
-		default:
-			goto done
-		}
-	}
-done:
-	base = strings.ToLower(base)
+	base := strings.ToLower(stripWrappers(sdk))
 	switch {
 	case base == "string":
 		return "string"
@@ -137,6 +139,8 @@ done:
 		return "int"
 	case strings.HasPrefix(base, "float"):
 		return "float"
+	case base == "time" || base == "datetime":
+		return "string" // Terraform carries timestamps as RFC3339 strings
 	default:
 		return base
 	}

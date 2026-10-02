@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -167,6 +168,25 @@ func (r *project_enforcementResource) Create(ctx context.Context, req resource.C
 	}
 	plan.Id = types.StringValue(strconv.FormatInt(id, 10))
 
+	// The create body does not carry these; a configured value is applied by an
+	// update straight after the create rather than dropped.
+	if !plan.Enabled.IsNull() && !plan.Enabled.IsUnknown() {
+		input, inputDiags := expandProjectEnforcementUpdate(ctx, plan)
+		resp.Diagnostics.Append(inputDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		out, err := conn.PatchProjectEnforcements(ctx, input, generated.PatchProjectEnforcementsParams{ID: parentID, EnforcementID: id})
+		if err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameProjectEnforcement, id), err.Error())
+			return
+		}
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("updating %s", ResNameProjectEnforcement), out)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
 	list, err := r.listProjectEnforcement(ctx, parentID)
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("reading %s after creation (ID: %d)", ResNameProjectEnforcement, id), err.Error())
@@ -227,39 +247,61 @@ func (r *project_enforcementResource) Update(ctx context.Context, req resource.U
 		return
 	}
 
-	notificationEmails, notificationEmailsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.NotificationEmails)
-	resp.Diagnostics.Append(notificationEmailsDiags...)
+	input, inputDiags := expandProjectEnforcementUpdate(ctx, plan)
+	resp.Diagnostics.Append(inputDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	input := generated.OptProjectEnforcementUpdate{
-		Value: generated.ProjectEnforcementUpdate{
-			AmountType:            flex.OptStringFromFramework(plan.AmountType),
-			CloudRuleID:           flex.OptNilUint64FromFramework(plan.CloudRuleId),
-			Description:           flex.OptStringFromFramework(plan.Description),
-			Enabled:               flex.OptNilBoolFromFramework(plan.Enabled),
-			NotificationFrequency: flex.OptStringFromFramework(plan.NotificationFrequency),
-			Overburn:              flex.OptNilBoolFromFramework(plan.Overburn),
-			ServiceID:             flex.OptNilUint64FromFramework(plan.ServiceId),
-			SpendOption:           flex.OptStringFromFramework(plan.SpendOption),
-			Threshold:             flex.OptInt64FromFramework(plan.Threshold),
-			ThresholdType:         flex.OptStringFromFramework(plan.ThresholdType),
-			Timeframe:             flex.OptStringFromFramework(plan.Timeframe),
-			NotificationEmails:    generated.OptNilStringArray{Value: notificationEmails, Set: true},
-		},
-		Set: true,
-	}
-
 	out, err := conn.PatchProjectEnforcements(ctx, input, generated.PatchProjectEnforcementsParams{ID: parentID, EnforcementID: id})
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameProjectEnforcement, id), err.Error())
 		return
 	}
-	diags := errs.ResponseDiagnostics(fmt.Sprintf("updating %s", ResNameProjectEnforcement), out)
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("updating %s", ResNameProjectEnforcement), out)...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	var state ProjectEnforcementModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Sync associations: the update body carries none, so diff prior state vs
+	// plan per id-list and add/remove via the dedicated endpoints.
+	assocAddUserIds, assocRemoveUserIds := flex.Uint64SetDiff(ctx, state.UserIds, plan.UserIds, &resp.Diagnostics)
+	assocAddUserGroupIds, assocRemoveUserGroupIds := flex.Uint64SetDiff(ctx, state.UserGroupIds, plan.UserGroupIds, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if len(assocAddUserIds) > 0 || len(assocAddUserGroupIds) > 0 {
+		addOut, addErr := conn.PostProjectEnforcementUsers(ctx, generated.OptProjectEnforcementUsers{Value: generated.ProjectEnforcementUsers{
+			UserIds:      generated.OptNilUint64Array{Value: assocAddUserIds, Set: true},
+			UserGroupIds: generated.OptNilUint64Array{Value: assocAddUserGroupIds, Set: true},
+		}, Set: true}, generated.PostProjectEnforcementUsersParams{ID: parentID, EnforcementID: id})
+		if addErr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("adding associations to %s (ID: %d)", ResNameProjectEnforcement, id), addErr.Error())
+			return
+		}
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("adding associations to %s", ResNameProjectEnforcement), addOut)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+	if len(assocRemoveUserIds) > 0 || len(assocRemoveUserGroupIds) > 0 {
+		removeOut, removeErr := conn.DeleteProjectEnforcementUsers(ctx, generated.OptProjectEnforcementUsers{Value: generated.ProjectEnforcementUsers{
+			UserIds:      generated.OptNilUint64Array{Value: assocRemoveUserIds, Set: true},
+			UserGroupIds: generated.OptNilUint64Array{Value: assocRemoveUserGroupIds, Set: true},
+		}, Set: true}, generated.DeleteProjectEnforcementUsersParams{ID: parentID, EnforcementID: id})
+		if removeErr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("removing associations from %s (ID: %d)", ResNameProjectEnforcement, id), removeErr.Error())
+			return
+		}
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("removing associations from %s", ResNameProjectEnforcement), removeOut)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
 	}
 
 	list, err := r.listProjectEnforcement(ctx, parentID)
@@ -277,6 +319,32 @@ func (r *project_enforcementResource) Update(ctx context.Context, req resource.U
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+// expandProjectEnforcementUpdate builds the update body from plan. Create uses it too,
+// for attributes only the update body carries.
+func expandProjectEnforcementUpdate(ctx context.Context, plan ProjectEnforcementModel) (generated.OptProjectEnforcementUpdate, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	notificationEmails, notificationEmailsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.NotificationEmails)
+	diags.Append(notificationEmailsDiags...)
+
+	return generated.OptProjectEnforcementUpdate{
+		Value: generated.ProjectEnforcementUpdate{
+			AmountType:            flex.OptStringFromFramework(plan.AmountType),
+			CloudRuleID:           flex.OptNilUint64FromFramework(plan.CloudRuleId),
+			Description:           flex.OptStringFromFramework(plan.Description),
+			Enabled:               flex.OptNilBoolFromFramework(plan.Enabled),
+			NotificationFrequency: flex.OptStringFromFramework(plan.NotificationFrequency),
+			Overburn:              flex.OptNilBoolFromFramework(plan.Overburn),
+			ServiceID:             flex.OptNilUint64FromFramework(plan.ServiceId),
+			SpendOption:           flex.OptStringFromFramework(plan.SpendOption),
+			Threshold:             flex.OptInt64FromFramework(plan.Threshold),
+			ThresholdType:         flex.OptStringFromFramework(plan.ThresholdType),
+			Timeframe:             flex.OptStringFromFramework(plan.Timeframe),
+			NotificationEmails:    generated.OptNilStringArray{Value: notificationEmails, Set: true},
+		},
+		Set: true,
+	}, diags
 }
 
 func (r *project_enforcementResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

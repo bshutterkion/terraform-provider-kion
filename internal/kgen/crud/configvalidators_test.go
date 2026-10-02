@@ -40,8 +40,9 @@ func TestConfigValidatorsMatchDeclaration(t *testing.T) {
 	entries, err := os.ReadDir(root)
 	require.NoError(t, err)
 
-	// path.MatchRoot("x") inside a ConfigValidators body.
+	// path.MatchRoot("x") inside the AtLeastOneOf call of a ConfigValidators body.
 	matchRoot := regexp.MustCompile(`path\.MatchRoot\("([a-z0-9_]+)"\)`)
+	atLeastOneOfCall := regexp.MustCompile(`(?s)resourcevalidator\.AtLeastOneOf\((.*?)\n\s*\),`)
 
 	for _, e := range entries {
 		if !e.IsDir() {
@@ -61,8 +62,10 @@ func TestConfigValidatorsMatchDeclaration(t *testing.T) {
 				continue
 			}
 			var attrs []string
-			for _, m := range matchRoot.FindAllStringSubmatch(body[i:], -1) {
-				attrs = append(attrs, m[1])
+			if g := atLeastOneOfCall.FindStringSubmatch(body[i:]); g != nil {
+				for _, m := range matchRoot.FindAllStringSubmatch(g[1], -1) {
+					attrs = append(attrs, m[1])
+				}
 			}
 			sort.Strings(attrs)
 			emitted[e.Name()] = attrs
@@ -188,5 +191,60 @@ func TestRequiredWhenMatchDeclaration(t *testing.T) {
 				assert.Equalf(t, want, got, "%s %s: declared and emitted differ", pkg, key)
 			}
 		}
+	}
+}
+
+// TestRequiredTogetherMatchDeclaration checks required_together both ways, like
+// the two tests above do for their kinds.
+func TestRequiredTogetherMatchDeclaration(t *testing.T) {
+	t.Parallel()
+
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "codegen", "config_validators.yaml"))
+	require.NoError(t, err)
+
+	var declared map[string]struct {
+		RequiredTogether [][]string `yaml:"required_together"`
+	}
+	require.NoError(t, yaml.Unmarshal(raw, &declared))
+
+	call := regexp.MustCompile(`(?s)resourcevalidator\.RequiredTogether\((.*?)\n\s*\),`)
+	matchRoot := regexp.MustCompile(`path\.MatchRoot\("([a-z0-9_]+)"\)`)
+
+	root := filepath.Join("..", "..", "service")
+	entries, err := os.ReadDir(root)
+	require.NoError(t, err)
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		pkg := e.Name()
+		files, err := filepath.Glob(filepath.Join(root, pkg, "*.go"))
+		require.NoError(t, err)
+		var emitted []string
+		for _, f := range files {
+			if strings.HasSuffix(f, "_test.go") {
+				continue
+			}
+			src, err := os.ReadFile(f)
+			require.NoError(t, err)
+			for _, m := range call.FindAllStringSubmatch(string(src), -1) {
+				var group []string
+				for _, n := range matchRoot.FindAllStringSubmatch(m[1], -1) {
+					group = append(group, n[1])
+				}
+				sort.Strings(group)
+				emitted = append(emitted, strings.Join(group, ","))
+			}
+		}
+		var want []string
+		for _, g := range declared[pkg].RequiredTogether {
+			g = append([]string(nil), g...)
+			sort.Strings(g)
+			want = append(want, strings.Join(g, ","))
+		}
+		sort.Strings(want)
+		sort.Strings(emitted)
+		assert.Equalf(t, want, emitted,
+			"%s: declared and emitted required_together differ; run `make crud-force`", pkg)
 	}
 }

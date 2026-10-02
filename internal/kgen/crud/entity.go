@@ -67,6 +67,8 @@ type entityData struct {
 	AtLeastOneOf []string
 	// RequiredWhen are attributes required only for a given value of another.
 	RequiredWhen []RequiredWhen
+	// RequiredTogether are attribute groups that must be set all or none.
+	RequiredTogether [][]string
 	// RawDeletePath is the private route to DELETE through when the public spec
 	// publishes no delete. Without it the generator emits a Delete that only
 	// warns, so every record a configuration creates survives `terraform
@@ -179,6 +181,10 @@ type entityData struct {
 	// LabelsRespType is the 200 payload of Labels.Get, e.g. OULabelsResponse.
 	LabelsRespType string
 	SliceMembers   []*sliceMemberBind
+	Moves          []moveBind
+	HasRawMove     bool
+	HasAccountMove bool
+	IDTF           string
 }
 
 // qsPathMarker is the synthetic path segment fixspec inserts for query-string-
@@ -226,36 +232,43 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 	}
 
 	d := entityData{
-		Owners:         rm.Owners,
-		Assocs:         rm.Assocs,
-		Labels:         rm.Labels,
-		LabelsRespType: labelsRespType(rm.Labels),
-		SliceMembers:   rm.SliceMembers,
-		UpdateIDExpr:   "idInt", // overwritten below when the op's param id type differs
-		DeleteIDExpr:   "idInt",
-		Pkg:            rm.Name,
-		Pascal:         rm.Pascal,
-		Model:          rm.Model,
-		ResConst:       "ResName" + rm.Pascal,
-		ResName:        rm.Pascal,
-		TypeName:       "kion_" + rm.Name,
-		IDGo:           rm.IDField.GoName,
-		ParentRead:     rm.ParentRead,
-		SDKAlias:       "generated",
-		CreateMethod:   rm.Create.Method.Name,
-		CreateBodyOpt:  rm.Create.Method.BodyType,
-		ReadMethod:     rm.Read.Method.Name,
-		ReadParams:     rm.Read.Method.ParamsType,
-		RespType:       rm.Read.RespType,
-		Gated:          rm.Gated,
-		AtLeastOneOf:   rm.AtLeastOneOf,
-		RequiredWhen:   rm.RequiredWhen,
-		RawDeletePath:  rm.RawDeletePath,
-		ImportParentTF: rm.ImportParentTF,
-		SchemaVersion:  rm.SchemaVersion,
-		ReadCompanion:  rm.ReadCompanion,
-		Rewritten:      rm.Rewritten,
-		RawCreate:      rm.RawCreate,
+		Owners:           rm.Owners,
+		Assocs:           rm.Assocs,
+		Labels:           rm.Labels,
+		LabelsRespType:   labelsRespType(rm.Labels),
+		SliceMembers:     rm.SliceMembers,
+		Moves:            rm.Moves,
+		IDTF:             rm.IDField.TFSDK,
+		UpdateIDExpr:     "idInt", // overwritten below when the op's param id type differs
+		DeleteIDExpr:     "idInt",
+		Pkg:              rm.Name,
+		Pascal:           rm.Pascal,
+		Model:            rm.Model,
+		ResConst:         "ResName" + rm.Pascal,
+		ResName:          rm.Pascal,
+		TypeName:         "kion_" + rm.Name,
+		IDGo:             rm.IDField.GoName,
+		ParentRead:       rm.ParentRead,
+		SDKAlias:         "generated",
+		CreateMethod:     rm.Create.Method.Name,
+		CreateBodyOpt:    rm.Create.Method.BodyType,
+		ReadMethod:       rm.Read.Method.Name,
+		ReadParams:       rm.Read.Method.ParamsType,
+		RespType:         rm.Read.RespType,
+		Gated:            rm.Gated,
+		AtLeastOneOf:     rm.AtLeastOneOf,
+		RequiredWhen:     rm.RequiredWhen,
+		RequiredTogether: rm.RequiredTogether,
+		RawDeletePath:    rm.RawDeletePath,
+		ImportParentTF:   rm.ImportParentTF,
+		SchemaVersion:    rm.SchemaVersion,
+		ReadCompanion:    rm.ReadCompanion,
+		Rewritten:        rm.Rewritten,
+		RawCreate:        rm.RawCreate,
+	}
+	for _, m := range rm.Moves {
+		d.HasRawMove = d.HasRawMove || m.RawPost != ""
+		d.HasAccountMove = d.HasAccountMove || m.AccountMove
 	}
 
 	if rm.Create.Body == nil {

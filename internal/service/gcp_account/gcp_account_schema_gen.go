@@ -51,6 +51,7 @@ func GcpAccountResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "Google Cloud Project ID.\nCan be found in the project id field here: https://console.cloud.google.com/iam-admin/settings",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"id": schema.StringAttribute{
@@ -68,8 +69,8 @@ func GcpAccountResourceSchema(ctx context.Context) schema.Schema {
 			},
 			"project_id": schema.Int64Attribute{
 				Required:            true,
-				Description:         "ID of the project where the account is attached.",
-				MarkdownDescription: "ID of the project where the account is attached.",
+				Description:         "ID of the project the account belongs to. Changing it moves the account in place through POST /v3/account/{id}/move rather than recreating it: Kion gives the account a new id, the resource adopts it, and the account's financial history stays with the old project (the move's preserve setting). The new project's cloud rules and cloud access roles apply after the move. Requires permission to manage accounts and projects.",
+				MarkdownDescription: "ID of the project the account belongs to. Changing it moves the account in place through POST /v3/account/{id}/move rather than recreating it: Kion gives the account a new id, the resource adopts it, and the account's financial history stays with the old project (the move's preserve setting). The new project's cloud rules and cloud access roles apply after the move. Requires permission to manage accounts and projects.",
 			},
 			"skip_access_checking": schema.BoolAttribute{
 				Optional:            true,

@@ -1,0 +1,8 @@
+kind: BUG FIXES
+body: >-
+  The `kion_ami` data source now exposes `expires_at`, and `kion_gcp_iam_role`
+  now exposes `gcp_role_launch_stage`, both as top-level attributes and in each
+  `list` object. The `list` objects of `kion_project_cloud_access_role` now
+  carry `created_at`. These attributes were previously left out of the data
+  sources because the generator could not project their SDK types.
+time: 2026-09-30T19:26:23Z

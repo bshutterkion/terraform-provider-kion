@@ -23,7 +23,7 @@ variable "payer_id" {
 }
 
 variable "project_id" {
-  description = "ID of the project where the account is attached."
+  description = "ID of the project the account belongs to. Changing it moves the account in place through POST /v3/account/{id}/move rather than recreating it: Kion gives the account a new id, the resource adopts it, and the account's financial history stays with the old project (the move's preserve setting). The new project's cloud rules and cloud access roles apply after the move. Requires permission to manage accounts and projects."
   type        = number
 }
 

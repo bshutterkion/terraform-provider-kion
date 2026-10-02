@@ -157,8 +157,8 @@ func TestCreate_NoWebsiteDir(t *testing.T) {
 	err := Create("CloudRule", "cloud_rule", true, false, true)
 	require.NoError(t, err)
 
-	// Only the data source file. No acceptance test (deferred to make
-	// tests-gen) and no website doc.
+	// Only the data source file. No acceptance test (kgen crud owns those)
+	// and no website doc.
 	require.ElementsMatch(t, []string{
 		"cloud_rule_data_source.go",
 	}, written)

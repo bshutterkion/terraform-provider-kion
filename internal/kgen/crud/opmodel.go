@@ -147,9 +147,11 @@ type ResourceModel struct {
 	// requires at least one of, emitted as a resource-level ConfigValidator.
 	AtLeastOneOf []string
 	// RequiredWhen are value-conditional constraints from the same file.
-	RequiredWhen   []RequiredWhen
-	RawDeletePath  string
-	ImportParentTF string
+	RequiredWhen []RequiredWhen
+	// RequiredTogether are all-or-none attribute groups from the same file.
+	RequiredTogether [][]string
+	RawDeletePath    string
+	ImportParentTF   string
 	// EmptyCollections: see archetype.EmptyCollections.
 	EmptyCollections []string
 	// Renames maps this resource's API attribute names to its provider ones.
@@ -218,6 +220,17 @@ type ResourceModel struct {
 	Labels *labelSyncBind
 	// Slice member syncs ([]int64 add/remove endpoints, e.g. user_group users).
 	SliceMembers []*sliceMemberBind
+	// Moves change an attribute through a dedicated endpoint before the PATCH.
+	Moves []moveBind
+}
+
+// moveBind is one attribute the update body cannot carry, moved through its own
+// endpoint: a raw POST whose body is the new value, or the account move.
+type moveBind struct {
+	ModelGo     string
+	TF          string
+	RawPost     string // path with an {id} placeholder
+	AccountMove bool   // POST /v3/account/{id}/move; the account gets a new id
 }
 
 // sweepList is the collection the sweeper enumerates: the parent-scoped one

@@ -1419,11 +1419,6 @@
           "attr": "service_control_policy_ids",
           "var": "service_control_policy_ids",
           "block": false
-        },
-        {
-          "attr": "source",
-          "var": "cloud_rule_source",
-          "block": false
         }
       ]
     },
@@ -2922,11 +2917,6 @@
         {
           "attr": "name",
           "var": "name",
-          "block": false
-        },
-        {
-          "attr": "policytype",
-          "var": "policytype",
           "block": false
         },
         {

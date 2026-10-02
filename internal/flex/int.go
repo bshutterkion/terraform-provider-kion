@@ -126,18 +126,18 @@ func NilUint64ToFramework(v generated.NilUint64) types.Int64 {
 
 // --- GCPRoleLaunchStage (a uint64-backed ogen enum) ---
 
-// GCPRoleLaunchStageFromFramework converts a types.Int64 to an OptGCPRoleLaunchStage.
+// OptGCPRoleLaunchStageFromFramework converts a types.Int64 to an OptGCPRoleLaunchStage.
 // Null or unknown values produce an unset OptGCPRoleLaunchStage.
-func GCPRoleLaunchStageFromFramework(v types.Int64) generated.OptGCPRoleLaunchStage {
+func OptGCPRoleLaunchStageFromFramework(v types.Int64) generated.OptGCPRoleLaunchStage {
 	if v.IsNull() || v.IsUnknown() {
 		return generated.OptGCPRoleLaunchStage{}
 	}
 	return generated.OptGCPRoleLaunchStage{Value: generated.GCPRoleLaunchStage(v.ValueInt64()), Set: true}
 }
 
-// GCPRoleLaunchStageToFramework converts an OptGCPRoleLaunchStage to a types.Int64.
+// OptGCPRoleLaunchStageToFramework converts an OptGCPRoleLaunchStage to a types.Int64.
 // Unset values produce a null types.Int64.
-func GCPRoleLaunchStageToFramework(v generated.OptGCPRoleLaunchStage) types.Int64 {
+func OptGCPRoleLaunchStageToFramework(v generated.OptGCPRoleLaunchStage) types.Int64 {
 	if !v.IsSet() {
 		return types.Int64Null()
 	}

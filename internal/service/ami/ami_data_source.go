@@ -34,6 +34,7 @@ var listObjectAttrTypes = map[string]attr.Type{
 	"account_id":         types.Int64Type,
 	"aws_ami_id":         types.StringType,
 	"description":        types.StringType,
+	"expires_at":         types.StringType,
 	"name":               types.StringType,
 	"region":             types.StringType,
 	"sync_deprecation":   types.BoolType,
@@ -75,6 +76,9 @@ func (d *amiDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, re
 			"description": schema.StringAttribute{
 				Computed: true,
 			},
+			"expires_at": schema.StringAttribute{
+				Computed: true,
+			},
 			"name": schema.StringAttribute{
 				Computed: true,
 			},
@@ -102,6 +106,9 @@ func (d *amiDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, re
 							Computed: true,
 						},
 						"description": schema.StringAttribute{
+							Computed: true,
+						},
+						"expires_at": schema.StringAttribute{
 							Computed: true,
 						},
 						"name": schema.StringAttribute{
@@ -183,6 +190,7 @@ func (d *amiDataSource) readByID(ctx context.Context, conn *generated.Client, da
 	data.AccountId = flex.OptNilUint64ToFramework(lbl.Ami.Value.AccountID)
 	data.AwsAmiId = flex.OptStringToFramework(lbl.Ami.Value.AWSAmiID)
 	data.Description = flex.OptStringToFramework(lbl.Ami.Value.Description)
+	data.ExpiresAt = flex.OptNullTimeToFramework(lbl.Ami.Value.ExpiresAt)
 	data.Name = flex.OptStringToFramework(lbl.Ami.Value.Name)
 	data.Region = flex.OptStringToFramework(lbl.Ami.Value.Region)
 	data.SyncDeprecation = flex.OptNilBoolToFramework(lbl.Ami.Value.SyncDeprecation)
@@ -227,6 +235,7 @@ func (d *amiDataSource) readByFilter(ctx context.Context, conn *generated.Client
 	data.AccountId = types.Int64Null()
 	data.AwsAmiId = types.StringNull()
 	data.Description = types.StringNull()
+	data.ExpiresAt = types.StringNull()
 	data.Name = types.StringNull()
 	data.Region = types.StringNull()
 	data.SyncDeprecation = types.BoolNull()
@@ -261,6 +270,7 @@ func amiToRow(lbl generated.AMIWithOwners) map[string]any {
 		"account_id":         int64(lbl.Ami.Value.AccountID.Or(0)),
 		"aws_ami_id":         lbl.Ami.Value.AWSAmiID.Or(""),
 		"description":        lbl.Ami.Value.Description.Or(""),
+		"expires_at":         flex.OptNullTimeToFramework(lbl.Ami.Value.ExpiresAt).ValueString(),
 		"name":               lbl.Ami.Value.Name.Or(""),
 		"region":             lbl.Ami.Value.Region.Or(""),
 		"sync_deprecation":   lbl.Ami.Value.SyncDeprecation.Or(false),
@@ -286,6 +296,7 @@ func buildAmiList(ctx context.Context, items []generated.AMIWithOwners) (types.L
 			"account_id":         types.Int64Value(int64(lbl.Ami.Value.AccountID.Or(0))),
 			"aws_ami_id":         types.StringValue(lbl.Ami.Value.AWSAmiID.Or("")),
 			"description":        types.StringValue(lbl.Ami.Value.Description.Or("")),
+			"expires_at":         types.StringValue(flex.OptNullTimeToFramework(lbl.Ami.Value.ExpiresAt).ValueString()),
 			"name":               types.StringValue(lbl.Ami.Value.Name.Or("")),
 			"region":             types.StringValue(lbl.Ami.Value.Region.Or("")),
 			"sync_deprecation":   types.BoolValue(lbl.Ami.Value.SyncDeprecation.Or(false)),
@@ -305,6 +316,7 @@ type amiDataSourceModel struct {
 	AccountId       types.Int64    `tfsdk:"account_id"`
 	AwsAmiId        types.String   `tfsdk:"aws_ami_id"`
 	Description     types.String   `tfsdk:"description"`
+	ExpiresAt       types.String   `tfsdk:"expires_at"`
 	Name            types.String   `tfsdk:"name"`
 	Region          types.String   `tfsdk:"region"`
 	SyncDeprecation types.Bool     `tfsdk:"sync_deprecation"`

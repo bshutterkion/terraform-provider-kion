@@ -108,7 +108,7 @@ resources:
     # ScheduledFrequency renders start_date/end_date through domain/util.NullTime,
     # which has no MarshalJSON, so they arrive as {"Time":…,"Valid":false} rather
     # than a bare string -- the same defect that made project_note and dashboard
-    # undecodable (#48). These are nested under scheduled_frequency, so the
+    # undecodable (#19). These are nested under scheduled_frequency, so the
     # template handles them directly rather than through read_kinds, which keys
     # on top-level attributes.
 
@@ -262,16 +262,23 @@ resources:
         - { tf: fingerprint,        from: "oci_billing_source.fingerprint",        kind: string }
         - { tf: is_parent_tenancy,  from: "oci_billing_source.is_parent_tenancy",  kind: bool }
         - { tf: private_key,        from: "oci_billing_source.oci_tenancy_credentials.private_key", kind: string, write_only: true }
-  # AWS billing source. Create + delete are public; there is no update endpoint
-  # and no public by-id read, so the read is private /v1/payer/{id}, nesting the
+  # AWS billing source. Create + delete are public; there is no public update
+  # and no public by-id read, so both are private /v1/payer/{id}, nesting the
   # record under aws_payer.
   #
   # key_id and key_secret are write_only: Payer.Sanitize replaces both with the
   # literal "REDACTED".
+  #
+  # The PUT overwrites every aws_payer column (org_id, support settings, the
+  # inner record id it keys on) plus account_creation and both report flags,
+  # so the update is read-modify-write: see write_shape. Sending REDACTED keys
+  # back keeps the stored ones. account_type_id and the deprecated only_dbr
+  # have no column the PUT writes, so both force replacement instead.
   billing_source_aws:
-    reason: no public by-id read and no update; private /v1/payer nests under aws_payer
+    reason: no public by-id read and no public update; private /v1/payer nests under aws_payer
     create: { method: POST,   path: "/v3/billing-source/aws",  spec: public }
     read:   { method: GET,    path: "/v1/payer/{id}",          spec: private }
+    update: { method: PUT,    path: "/v1/payer/{id}",          spec: private }
     delete: { method: DELETE, path: "/v3/billing-source/{id}", spec: public }
     read_shape:
       scalars:
@@ -292,19 +299,53 @@ resources:
         - { tf: billing_bucket_account_number, from: "aws_payer.billing_bucket_account_number", kind: string }
         - { tf: key_id,             from: "aws_payer.key_id",     kind: string, write_only: true }
         - { tf: key_secret,         from: "aws_payer.key_secret", kind: string, write_only: true }
+    write_shape:
+      - { tf: name,                                to: "aws_payer.name",                                kind: string }
+      - { tf: aws_account_number,                  to: "aws_payer.account_number",                      kind: string }
+      - { tf: billing_start_date,                  to: "aws_payer.billing_start_date",                  kind: datecode }
+      - { tf: bucket_access_role,                  to: "aws_payer.bucket_access_role",                  kind: string }
+      - { tf: billing_region,                      to: "aws_payer.billing_region",                      kind: string }
+      - { tf: cur_bucket,                          to: "aws_payer.billing_report_bucket",               kind: string }
+      - { tf: cur_bucket_region,                   to: "aws_payer.billing_report_bucket_region",        kind: string }
+      - { tf: cur_name,                            to: "aws_payer.billing_report_name",                 kind: string }
+      - { tf: cur_prefix,                          to: "aws_payer.billing_report_prefix",               kind: string }
+      - { tf: billing_bucket_account_number,       to: "aws_payer.billing_bucket_account_number",       kind: string }
+      - { tf: mr_bucket,                           to: "aws_payer.detailed_billing_bucket",             kind: string }
+      - { tf: linked_role,                         to: "aws_payer.linked_role",                         kind: string }
+      - { tf: key_id,                              to: "aws_payer.key_id",                              kind: string }
+      - { tf: key_secret,                          to: "aws_payer.key_secret",                          kind: string }
+      - { tf: focus_billing_bucket_account_number, to: "aws_payer.focus_billing_bucket_account_number", kind: string }
+      - { tf: focus_bucket_access_role,            to: "aws_payer.focus_bucket_access_role",            kind: string }
+      - { tf: focus_billing_report_bucket,         to: "aws_payer.focus_billing_report_bucket",         kind: string }
+      - { tf: focus_billing_report_bucket_region,  to: "aws_payer.focus_billing_report_bucket_region",  kind: string }
+      - { tf: focus_billing_report_name,           to: "aws_payer.focus_billing_report_name",           kind: string }
+      - { tf: focus_billing_report_prefix,         to: "aws_payer.focus_billing_report_prefix",         kind: string }
+      # The create takes the report type by name and derives the numeric id and
+      # use_proprietary_reports from it; the PUT takes both directly.
+      - { tf: billing_report_type, to: "aws_payer.billing_report_type_id", kind: enum, values: { none: 0, cur: 1, dbrrt: 2, only_cur: 1, only_dbrrt: 2, dbr_and_cur: 1, dbr_and_dbrrt: 2 } }
+      - { tf: billing_report_type, to: "use_proprietary_reports",          kind: enum, values: { none: false, cur: true, dbrrt: true, only_cur: true, only_dbrrt: true, dbr_and_cur: true, dbr_and_dbrrt: true } }
+      - { tf: account_creation,    to: "account_creation",                 kind: bool }
+      - { tf: use_focus_reports,   to: "use_focus_reports",                kind: bool }
+      - { tf: skip_validation,     to: "skip_validation",                  kind: bool }
 
   # GCP billing source. Same shape as AWS: public create + shared delete, no
-  # update endpoint, no public by-id read. The private read nests the record two
+  # public update, no public by-id read. The private read nests the record two
   # levels deep, under gcp_billing_account.billing_account (the backend
   # GCPBillingAccountAugmented.BillingAccount).
+  #
+  # The update is the private PUT, which takes the billing account's changes
+  # under gcp_billing_account_update and the report flags at the top level,
+  # which it overwrites -- hence read-modify-write. account_type_id has no
+  # column the PUT writes, so it forces replacement.
   #
   # The service-account key is not modelled: Sanitize replaces
   # ServiceAccount.Key.KeyData with "REDACTED" and the
   # create body references the key by service_account_id rather than inline.
   billing_source_gcp:
-    reason: no public by-id read and no update; private /v1/payer nests under gcp_billing_account
+    reason: no public by-id read and no public update; private /v1/payer nests under gcp_billing_account
     create: { method: POST,   path: "/v3/billing-source/gcp",  spec: public }
     read:   { method: GET,    path: "/v1/payer/{id}",          spec: private }
+    update: { method: PUT,    path: "/v1/payer/{id}",          spec: private }
     delete: { method: DELETE, path: "/v3/billing-source/{id}", spec: public }
     read_shape:
       scalars:
@@ -322,7 +363,9 @@ resources:
           subs:
             - { tf: name,               from: name,               kind: string }
             - { tf: gcp_id,             from: gcp_id,             kind: string }
-            - { tf: billing_start_date, from: billing_start_date, kind: int }
+            # YYYYMM on the wire, YYYY-MM in the schema. Declared int, it
+            # handed an Int64 to a string attribute and every read failed.
+            - { tf: billing_start_date, from: billing_start_date, kind: datecode }
             - { tf: is_reseller,        from: is_reseller,        kind: bool }
             - { tf: service_account_id, from: service_account_id, kind: int }
             # Not returned by the payer read in a form the generator can convert
@@ -332,6 +375,20 @@ resources:
             - { tf: billing_account_attribution_account_id, from: billing_account_attribution_account_id, kind: string, write_only: true }
             - { tf: use_focus,                              from: use_focus,                              kind: bool,   write_only: true }
             - { tf: use_proprietary,                        from: use_proprietary,                        kind: bool,   write_only: true }
+    write_shape:
+      - { tf: gcp_billing_account_create.name,                                   to: "gcp_billing_account_update.name",                                   kind: string }
+      - { tf: gcp_billing_account_create.gcp_id,                                 to: "gcp_billing_account_update.gcp_id",                                 kind: string }
+      - { tf: gcp_billing_account_create.billing_start_date,                     to: "gcp_billing_account_update.billing_start_date",                     kind: datecode }
+      - { tf: gcp_billing_account_create.is_reseller,                            to: "gcp_billing_account_update.is_reseller",                            kind: bool }
+      - { tf: gcp_billing_account_create.service_account_id,                     to: "gcp_billing_account_update.service_account_id",                     kind: int }
+      - { tf: gcp_billing_account_create.billing_account_attribution_account_id, to: "gcp_billing_account_update.billing_account_attribution_account_id", kind: int }
+      - { tf: gcp_billing_account_create.big_query_export.gcp_project_id,        to: "gcp_billing_account_update.big_query_export.gcp_project_id",        kind: string }
+      - { tf: gcp_billing_account_create.big_query_export.dataset_name,          to: "gcp_billing_account_update.big_query_export.dataset_name",          kind: string }
+      - { tf: gcp_billing_account_create.big_query_export.table_name,            to: "gcp_billing_account_update.big_query_export.table_name",            kind: string }
+      - { tf: gcp_billing_account_create.big_query_export.table_format,          to: "gcp_billing_account_update.big_query_export.table_format",          kind: string }
+      - { tf: gcp_billing_account_create.big_query_export.focus_view_name,       to: "gcp_billing_account_update.big_query_export.focus_view_name",       kind: string }
+      - { tf: gcp_billing_account_create.use_focus,                              to: "use_focus_reports",                          kind: bool }
+      - { tf: gcp_billing_account_create.use_proprietary,                        to: "use_proprietary_reports",                    kind: bool }
 
   service_catalog:
     reason: public surface is minimal; richer portfolio ops are private
@@ -339,56 +396,50 @@ resources:
     read:   { method: GET,    path: "/v2/aws-service-catalog/portfolio/{id}", spec: private }
     delete: { method: DELETE, path: "/v2/aws-service-catalog/portfolio/{id}", spec: private }
 
-  # Public /v3/*-cloud-access-role-exemption has create+delete but no read; the
-  # reads are internal /v1 lists under the parent OU/project.
+  # Public /v3/*-cloud-access-role-exemption has create+delete but no read (a
+  # by-id GET is 405). The records are returned by the parent's cloud access
+  # role listing, GET /v1/{ou,project}/{id}/ou-cloud-access-role, under
+  # data.ou_exemptions / data.project_exemptions as
+  # {id, ou_id|project_id, ou_cloud_access_role_id, reason, ou_cloud_access_role}.
+  # That list holds only the exemptions the parent itself owns, and only cloud
+  # access role exemptions, so no discriminator is needed.
   #
-  # Both carry a `parent_read`, which is what turns their no-op read into a real
-  # one (see internal/kgen/crud/parentread.go). Without it they imported as
-  # empty shells -- `resource "kion_ou_cloud_access_role_exemption" "x" {}` --
-  # and the plan reported no changes, because every attribute is
-  # Optional+Computed and null. All 22 records on a live install did that.
+  # The exemption list is populated only for a caller holding Browse All Cloud
+  # Access Roles and Manage OU (Manage Project) on the parent; for anyone else
+  # it comes back null and the record reads as gone.
   #
-  # Two traps, both observed live and both handled here:
-  #   * the collection is INHERITED, so one record comes back under every OU in
-  #     its subtree (329 rows, 22 distinct records) and the id in the path is
-  #     not its owner -- the record's own OUID is. Hence parent_json.
-  #   * it mixes cloud RULE exemptions in with cloud ACCESS ROLE exemptions.
-  #     Only 6 of those 22 were the latter. Hence `require`.
-  # `reason` is in the schema and in the create body and is never stored: no
-  # column on cloud_access_role_exemption, no field on the backend entity, and
-  # the /v3 controller never reads it off the request. Nothing to add to the
-  # read shape -- see docs/IMPORTING.md's "Attributes the API accepts and
-  # discards".
+  # Both previously read /v1/{ou,project}/{id}/cloud-access-role-exemption,
+  # which lists a different exemption kind tied to cloud rules, so a created
+  # record was never found and every refresh dropped it from state (#80).
   ou_cloud_access_role_exemption:
-    reason: no public read; internal list under the parent OU
+    reason: no public read; the parent OU's private cloud access role listing
     create: { method: POST,   path: "/v3/ou-cloud-access-role-exemption",      spec: public }
-    read:   { method: GET,    path: "/v1/ou/{id}/cloud-access-role-exemption", spec: private }
+    read:   { method: GET,    path: "/v1/ou/{id}/ou-cloud-access-role",        spec: private }
     delete: { method: DELETE, path: "/v3/ou-cloud-access-role-exemption/{id}", spec: public }
     parent_read:
-      path: "/v1/ou/{parent_id}/cloud-access-role-exemption"
+      path: "/v1/ou/{parent_id}/ou-cloud-access-role"
+      records: ou_exemptions
       parent_tf: ou_id
-      parent_json: OUID
-      require: ou_cloud_access_role_id
+      parent_json: ou_id
       fields:
-        - { tf: ou_cloud_access_role_id, from: ou_cloud_access_role_id, kind: null_int }
+        - { tf: ou_cloud_access_role_id, from: ou_cloud_access_role_id, kind: int }
+        - { tf: reason,                  from: reason,                  kind: string }
 
   # A project exemption exempts an OU cloud access role FOR a project, so it
-  # keys on ou_cloud_access_role_id too -- see the ProjectCloudAccessRoleExemption
-  # create body, which is {id, ou_cloud_access_role_id, project_id, reason}.
-  # The verification install has none (all 12 records its collection returns are
-  # cloud RULE exemptions), so the filter is what keeps them out.
+  # keys on ou_cloud_access_role_id too.
   project_cloud_access_role_exemption:
-    reason: no public read; internal list under the parent project
+    reason: no public read; the parent project's private cloud access role listing
     create: { method: POST,   path: "/v3/project-cloud-access-role-exemption",      spec: public }
-    read:   { method: GET,    path: "/v1/project/{id}/cloud-access-role-exemption", spec: private }
+    read:   { method: GET,    path: "/v1/project/{id}/ou-cloud-access-role",         spec: private }
     delete: { method: DELETE, path: "/v3/project-cloud-access-role-exemption/{id}", spec: public }
     parent_read:
-      path: "/v1/project/{parent_id}/cloud-access-role-exemption"
+      path: "/v1/project/{parent_id}/ou-cloud-access-role"
+      records: project_exemptions
       parent_tf: project_id
       parent_json: project_id
-      require: ou_cloud_access_role_id
       fields:
-        - { tf: ou_cloud_access_role_id, from: ou_cloud_access_role_id, kind: null_int }
+        - { tf: ou_cloud_access_role_id, from: ou_cloud_access_role_id, kind: int }
+        - { tf: reason,                  from: reason,                  kind: string }
 
   # The third resource that had a no-op read, and the easy one: the spec has the
   # collection GET, POST and DELETE, but no by-id GET, so it too imported as an

@@ -32,6 +32,7 @@ var (
 var listObjectAttrTypes = map[string]attr.Type{
 	"id":                    types.Int64Type,
 	"description":           types.StringType,
+	"gcp_role_launch_stage": types.Int64Type,
 	"name":                  types.StringType,
 	"car_restricted":        types.BoolType,
 	"gcp_id":                types.StringType,
@@ -67,6 +68,9 @@ func (d *gcp_iam_roleDataSource) Schema(_ context.Context, _ datasource.SchemaRe
 			"description": schema.StringAttribute{
 				Computed: true,
 			},
+			"gcp_role_launch_stage": schema.Int64Attribute{
+				Computed: true,
+			},
 			"name": schema.StringAttribute{
 				Computed: true,
 			},
@@ -79,6 +83,9 @@ func (d *gcp_iam_roleDataSource) Schema(_ context.Context, _ datasource.SchemaRe
 							Computed: true,
 						},
 						"description": schema.StringAttribute{
+							Computed: true,
+						},
+						"gcp_role_launch_stage": schema.Int64Attribute{
 							Computed: true,
 						},
 						"name": schema.StringAttribute{
@@ -158,6 +165,7 @@ func (d *gcp_iam_roleDataSource) readByID(ctx context.Context, conn *generated.C
 	lbl := api.Data.Value
 	data.Id = flex.OptUint64ToFramework(lbl.GcpRole.Value.ID)
 	data.Description = flex.OptStringToFramework(lbl.GcpRole.Value.Description)
+	data.GcpRoleLaunchStage = flex.OptGCPRoleLaunchStageToFramework(lbl.GcpRole.Value.GcpRoleLaunchStage)
 	data.Name = flex.OptStringToFramework(lbl.GcpRole.Value.Name)
 
 	listVal, listDiags := buildGcpIamRoleList(ctx, []generated.GCPRoleWithOwners{lbl})
@@ -197,6 +205,7 @@ func (d *gcp_iam_roleDataSource) readByFilter(ctx context.Context, conn *generat
 	// Scalar fields stay null in filter mode.
 	data.Id = types.Int64Null()
 	data.Description = types.StringNull()
+	data.GcpRoleLaunchStage = types.Int64Null()
 	data.Name = types.StringNull()
 }
 
@@ -226,6 +235,7 @@ func fetchAllGcpIamRole(ctx context.Context, conn *generated.Client) ([]generate
 func gcp_iam_roleToRow(lbl generated.GCPRoleWithOwners) map[string]any {
 	row := map[string]any{
 		"description":           lbl.GcpRole.Value.Description.Or(""),
+		"gcp_role_launch_stage": int64(lbl.GcpRole.Value.GcpRoleLaunchStage.Or(0)),
 		"name":                  lbl.GcpRole.Value.Name.Or(""),
 		"car_restricted":        lbl.GcpRole.Value.CarRestricted.Or(false),
 		"gcp_id":                lbl.GcpRole.Value.GcpID.Or(""),
@@ -249,6 +259,7 @@ func buildGcpIamRoleList(ctx context.Context, items []generated.GCPRoleWithOwner
 		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
 			"id":                    idVal,
 			"description":           types.StringValue(lbl.GcpRole.Value.Description.Or("")),
+			"gcp_role_launch_stage": types.Int64Value(int64(lbl.GcpRole.Value.GcpRoleLaunchStage.Or(0))),
 			"name":                  types.StringValue(lbl.GcpRole.Value.Name.Or("")),
 			"car_restricted":        types.BoolValue(lbl.GcpRole.Value.CarRestricted.Or(false)),
 			"gcp_id":                types.StringValue(lbl.GcpRole.Value.GcpID.Or("")),
@@ -264,9 +275,10 @@ func buildGcpIamRoleList(ctx context.Context, items []generated.GCPRoleWithOwner
 }
 
 type gcp_iam_roleDataSourceModel struct {
-	Id          types.Int64    `tfsdk:"id"`
-	Description types.String   `tfsdk:"description"`
-	Name        types.String   `tfsdk:"name"`
-	Filter      []filter.Model `tfsdk:"filter"`
-	List        types.List     `tfsdk:"list"`
+	Id                 types.Int64    `tfsdk:"id"`
+	Description        types.String   `tfsdk:"description"`
+	GcpRoleLaunchStage types.Int64    `tfsdk:"gcp_role_launch_stage"`
+	Name               types.String   `tfsdk:"name"`
+	Filter             []filter.Model `tfsdk:"filter"`
+	List               types.List     `tfsdk:"list"`
 }

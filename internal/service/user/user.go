@@ -166,6 +166,12 @@ func (r *userResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
+	var state UserModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	idInt, err := strconv.ParseInt(plan.Id.ValueString(), 10, 64)
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
@@ -197,6 +203,25 @@ func (r *userResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// Sync UserGroupIds: the update body carries none, so diff prior state vs plan
+	// and add/remove via the dedicated []int64 endpoints.
+	addUserGroupIds, removeUserGroupIds := flex.Int64SetDiff(ctx, state.UserGroupIds, plan.UserGroupIds, &resp.Diagnostics)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if len(addUserGroupIds) > 0 {
+		if _, err := conn.UserAddUGroups(ctx, addUserGroupIds, generated.UserAddUGroupsParams{ID: idInt}); err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("adding %s members (ID: %d)", ResNameUser, idInt), err.Error())
+			return
+		}
+	}
+	if len(removeUserGroupIds) > 0 {
+		if _, err := conn.UserRemoveUGroups(ctx, removeUserGroupIds, generated.UserRemoveUGroupsParams{ID: idInt}); err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("removing %s members (ID: %d)", ResNameUser, idInt), err.Error())
+			return
+		}
 	}
 
 	// Read back the resource to get the latest state.

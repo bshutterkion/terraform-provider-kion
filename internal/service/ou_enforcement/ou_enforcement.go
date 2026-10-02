@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -214,35 +215,17 @@ func (r *ou_enforcementResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
-	ugroupIds, ugroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserGroupIds)
-	resp.Diagnostics.Append(ugroupIdsDiags...)
-	userIds, userIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserIds)
-	resp.Diagnostics.Append(userIdsDiags...)
+	input, inputDiags := expandOuEnforcementUpdate(ctx, plan)
+	resp.Diagnostics.Append(inputDiags...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	input := &generated.OUEnforcementUpdate{
-		CloudRuleID:              flex.OptNilUint64FromFramework(plan.CloudRuleId),
-		Description:              flex.OptStringFromFramework(plan.Description),
-		Enabled:                  flex.OptNilBoolFromFramework(plan.Enabled),
-		Overburn:                 flex.OptNilBoolFromFramework(plan.Overburn),
-		ServiceID:                flex.OptNilUint64FromFramework(plan.ServiceId),
-		Threshold:                flex.OptInt64FromFramework(plan.Threshold),
-		ThresholdType:            flex.OptStringFromFramework(plan.ThresholdType),
-		Timeframe:                flex.OptStringFromFramework(plan.Timeframe),
-		TriggerPlannedAmountType: flex.OptStringFromFramework(plan.TriggerPlannedAmountType),
-		UgroupIds:                generated.OptNilUint64Array{Value: ugroupIds, Set: true},
-		UserIds:                  generated.OptNilUint64Array{Value: userIds, Set: true},
-	}
-
 	out, err := conn.UpdateOUEnforcement(ctx, input, generated.UpdateOUEnforcementParams{ID: uint64(parentID), EnforcementID: uint64(id)})
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameOuEnforcement, id), err.Error())
 		return
 	}
-	diags := errs.ResponseDiagnostics(fmt.Sprintf("updating %s", ResNameOuEnforcement), out)
-	resp.Diagnostics.Append(diags...)
+	resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("updating %s", ResNameOuEnforcement), out)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -262,6 +245,30 @@ func (r *ou_enforcementResource) Update(ctx context.Context, req resource.Update
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+}
+
+// expandOuEnforcementUpdate builds the update body from plan. Create uses it too,
+// for attributes only the update body carries.
+func expandOuEnforcementUpdate(ctx context.Context, plan OuEnforcementModel) (*generated.OUEnforcementUpdate, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	ugroupIds, ugroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserGroupIds)
+	diags.Append(ugroupIdsDiags...)
+	userIds, userIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserIds)
+	diags.Append(userIdsDiags...)
+
+	return &generated.OUEnforcementUpdate{
+		CloudRuleID:              flex.OptNilUint64FromFramework(plan.CloudRuleId),
+		Description:              flex.OptStringFromFramework(plan.Description),
+		Enabled:                  flex.OptNilBoolFromFramework(plan.Enabled),
+		Overburn:                 flex.OptNilBoolFromFramework(plan.Overburn),
+		ServiceID:                flex.OptNilUint64FromFramework(plan.ServiceId),
+		Threshold:                flex.OptInt64FromFramework(plan.Threshold),
+		ThresholdType:            flex.OptStringFromFramework(plan.ThresholdType),
+		Timeframe:                flex.OptStringFromFramework(plan.Timeframe),
+		TriggerPlannedAmountType: flex.OptStringFromFramework(plan.TriggerPlannedAmountType),
+		UgroupIds:                generated.OptNilUint64Array{Value: ugroupIds, Set: true},
+		UserIds:                  generated.OptNilUint64Array{Value: userIds, Set: true},
+	}, diags
 }
 
 func (r *ou_enforcementResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

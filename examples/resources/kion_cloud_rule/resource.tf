@@ -24,5 +24,4 @@ resource "kion_cloud_rule" "example" {
   # pre_webhook_id                    = 1
   # project_ids                       = []
   # service_control_policy_ids        = []
-  # source                            = "example"
 }

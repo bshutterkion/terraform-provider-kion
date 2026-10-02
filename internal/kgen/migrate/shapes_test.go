@@ -209,10 +209,14 @@ func TestUpgradeShapes_passthroughObjectsMatchFieldForField(t *testing.T) {
 				continue
 			}
 			checked++
-			if !eqStrs(oa.NestedAttrs, na.NestedAttrs) {
-				t.Errorf("%s.%s: passed through unchanged but the object's fields differ; "+
-					"old %v, new %v; tftypes rejects missing and extra keys alike",
-					oldType, name, oa.NestedAttrs, na.NestedAttrs)
+			// Fields only the new object has are padded with null by the
+			// generated upgrader; an old field the new object lacks is not.
+			for _, f := range oa.NestedAttrs {
+				if !contains(na.NestedAttrs, f) {
+					t.Errorf("%s.%s: passed through but old field %q is gone from the new object "+
+						"(old %v, new %v); tftypes rejects the extra key",
+						oldType, name, f, oa.NestedAttrs, na.NestedAttrs)
+				}
 			}
 		}
 	}

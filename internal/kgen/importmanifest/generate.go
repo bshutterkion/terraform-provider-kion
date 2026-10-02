@@ -69,12 +69,11 @@ type archetypeInfo struct {
 // The two *_cloud_access_role_exemption entries have the same root cause: the
 // chosen read path resolves (via private_endpoints.yaml's resources: section,
 // since crud_archetypes.yaml declares both no_read) to the internal
-// /v1/ou/{id}/cloud-access-role-exemption and
-// /v1/project/{id}/cloud-access-role-exemption reads, so unaided
-// placeholder-based derivation would pick /v1/ou and /v1/project as the
-// parent list -- neither is the real, listable collection. /v3/ou and
-// /v3/project are (they are also the public API surface these resources'
-// own create/delete already use).
+// /v1/ou/{id}/ou-cloud-access-role and /v1/project/{id}/ou-cloud-access-role
+// reads, so unaided placeholder-based derivation would pick /v1/ou and
+// /v1/project as the parent list -- neither is the real, listable collection.
+// /v3/ou and /v3/project are. The child route returns the parent's cloud
+// access roles with the exemptions beside them, hence ChildRecordsKey.
 var parentOverrides = map[string]Parent{
 	"kion_idms_open_id": {
 		Kind: "idms", ListPath: "/v3/idms",
@@ -88,18 +87,15 @@ var parentOverrides = map[string]Parent{
 		Kind: "idms", ListPath: "/v3/idms",
 		ChildPath: "/v4/idms/open-id/{parent_id}/group-association", ParentIDField: "idms_id",
 	},
-	// ParentIDJSON: both collections are inherited, not owned -- see Parent's
-	// field doc. OUID is a bare number on the wire, project_id a SQL null
-	// wrapper; the enumerator reads either.
 	"kion_ou_cloud_access_role_exemption": {
 		Kind: "ou", ListPath: "/v3/ou",
-		ChildPath: "/v1/ou/{parent_id}/cloud-access-role-exemption", ParentIDField: "ou_id",
-		ParentIDJSON: "OUID",
+		ChildPath: "/v1/ou/{parent_id}/ou-cloud-access-role", ParentIDField: "ou_id",
+		ChildRecordsKey: "ou_exemptions",
 	},
 	"kion_project_cloud_access_role_exemption": {
 		Kind: "project", ListPath: "/v3/project",
-		ChildPath: "/v1/project/{parent_id}/cloud-access-role-exemption", ParentIDField: "project_id",
-		ParentIDJSON: "project_id",
+		ChildPath: "/v1/project/{parent_id}/ou-cloud-access-role", ParentIDField: "project_id",
+		ChildRecordsKey: "project_exemptions",
 	},
 }
 
@@ -129,10 +125,9 @@ func importStateSplits(archetype string) bool {
 }
 
 // requireValidOverrides records the discriminator for collections that mix
-// resource kinds; see Resource.RequireValidField. Both exemption endpoints
-// return cloud RULE exemptions alongside cloud ACCESS ROLE exemptions, and only
-// the latter are these resources. Kept beside parentOverrides because it is the
-// same class of authored, live-verified knowledge the schema cannot supply.
+// resource kinds; see Resource.RequireValidField. Kept beside parentOverrides
+// because it is the same class of authored, live-verified knowledge the schema
+// cannot supply.
 // kion_custom_variable_override's collections list every custom variable
 // visible at the entity, most of them merely inherited; "override" is non-null
 // on exactly the ones actually set there. Measured on a demo install: 151
@@ -147,10 +142,8 @@ func importStateSplits(archetype string) bool {
 // 6,611 accounts to be unlinked from their billing source. Measured across five
 // installs, the count reading a real id equals the custom count exactly.
 var requireValidOverrides = map[string]string{
-	"kion_ou_cloud_access_role_exemption":      "ou_cloud_access_role_id",
-	"kion_project_cloud_access_role_exemption": "ou_cloud_access_role_id",
-	"kion_custom_variable_override":            "override",
-	"kion_billing_source":                      "custom_billing_source",
+	"kion_custom_variable_override": "override",
+	"kion_billing_source":           "custom_billing_source",
 }
 
 // multiParentOverrides corrects resources enumerable under more than one
@@ -595,7 +588,19 @@ func Generate(fsw kfs.FS, root string) (*Manifest, error) {
 		return nil, err
 	}
 
+	matches, err := loadDataSourceMatches(fsw, filepath.Join(root, "codegen", "generator_config.yaml"))
+	if err != nil {
+		return nil, err
+	}
+	attrs, err := loadResourceAttrs(fsw, filepath.Join(root, "codegen", "schema_snapshots", "new.json"))
+	if err != nil {
+		return nil, err
+	}
+
 	m := Build(readPaths, dataSourcePaths, privateListPaths, privateResourcePaths, archetypes, tfTypes, hasNameAttr)
+	if err := applyParentMatches(m, matches, attrs); err != nil {
+		return nil, err
+	}
 	data, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return nil, err
@@ -651,6 +656,99 @@ func loadDataSourceReadPaths(fsw kfs.FS, path string) (map[string]string, error)
 	out := make(map[string]string, len(doc.DataSources))
 	for kind, entry := range doc.DataSources {
 		out[kind] = entry.Read.Path
+	}
+	return out, nil
+}
+
+// loadDataSourceMatches reads each data source read's `match`, authored in
+// config_overrides.yaml and carried into generator_config.yaml by kconfig.
+func loadDataSourceMatches(fsw kfs.FS, path string) (map[string]map[string]string, error) {
+	raw, err := fsw.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	var doc struct {
+		DataSources map[string]struct {
+			Read struct {
+				Match map[string]string `yaml:"match"`
+			} `yaml:"read"`
+		} `yaml:"data_sources"`
+	}
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	out := map[string]map[string]string{}
+	for kind, entry := range doc.DataSources {
+		if len(entry.Read.Match) > 0 {
+			out[kind] = entry.Read.Match
+		}
+	}
+	return out, nil
+}
+
+// applyParentMatches sets Parent.Match from the authored rules. A rule that
+// names no parent-scoped manifest row, or a field the parent's schema lacks,
+// is an error: it would otherwise filter nothing, or filter every parent out.
+func applyParentMatches(m *Manifest, matches map[string]map[string]string, attrs map[string]map[string]bool) error {
+	kinds := make([]string, 0, len(matches))
+	for k := range matches {
+		kinds = append(kinds, k)
+	}
+	sort.Strings(kinds)
+	for _, kind := range kinds {
+		tfType := "kion_" + kind
+		idx := -1
+		for i := range m.Resources {
+			if m.Resources[i].TFType == tfType {
+				idx = i
+			}
+		}
+		if idx < 0 {
+			return fmt.Errorf("match on data source %q: no manifest row for %s", kind, tfType)
+		}
+		r := &m.Resources[idx]
+		if r.Parent == nil || len(r.Parents) > 0 {
+			return fmt.Errorf("match on data source %q: %s is not read under a single parent", kind, tfType)
+		}
+		parentType := "kion_" + r.Parent.Kind
+		for field := range matches[kind] {
+			if !attrs[parentType][field] {
+				return fmt.Errorf("match on data source %q: parent %s has no attribute %q", kind, parentType, field)
+			}
+		}
+		r.Parent.Match = matches[kind]
+	}
+	return nil
+}
+
+// loadResourceAttrs returns every resource's top-level attribute names from
+// the schema snapshot.
+func loadResourceAttrs(fsw kfs.FS, path string) (map[string]map[string]bool, error) {
+	raw, err := fsw.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	var doc struct {
+		ProviderSchemas map[string]struct {
+			ResourceSchemas map[string]struct {
+				Block struct {
+					Attributes map[string]json.RawMessage `json:"attributes"`
+				} `json:"block"`
+			} `json:"resource_schemas"`
+		} `json:"provider_schemas"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	out := map[string]map[string]bool{}
+	for _, provider := range doc.ProviderSchemas {
+		for tfType, schema := range provider.ResourceSchemas {
+			set := make(map[string]bool, len(schema.Block.Attributes))
+			for a := range schema.Block.Attributes {
+				set[a] = true
+			}
+			out[tfType] = set
+		}
 	}
 	return out, nil
 }

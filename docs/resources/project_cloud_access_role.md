@@ -44,7 +44,6 @@ resource "kion_project_cloud_access_role" "example" {
   # gcp_iam_roles                = []
   # last_updated                 = "example"
   # long_term_access_keys        = false
-  # policytype                   = "example"
   # short_term_access_keys       = false
   # user_group_ids               = []
   # user_ids                     = []
@@ -93,7 +92,6 @@ This will only be for new accounts that match the given CSP type. Will default t
 - `last_updated` (String) The last time this resource was updated.
 - `long_term_access_keys` (Boolean) If long term access is true, users of this cloud access role can generate aws long-term access keys.
 Will default to false if not set.
-- `policytype` (String) Enclosed policy type filter. Valid values are "awsiam" or "azurerole"
 - `short_term_access_keys` (Boolean) If short term access is true, users of this cloud access role can generate short-term access keys.
 Will default to false if not set.
 - `user_group_ids` (Set of Number) IDs of the user groups allowed to use this role to access the AWS console.

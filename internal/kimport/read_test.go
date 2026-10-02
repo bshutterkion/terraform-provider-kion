@@ -35,6 +35,33 @@ func (r *routeLister) List(_ context.Context, path string) ([]map[string]any, er
 	return records, nil
 }
 
+// ListUnder serves a route whose value is the data object, returning its key.
+func (r *routeLister) ListUnder(_ context.Context, path, key string) ([]map[string]any, error) {
+	r.calls = append(r.calls, path)
+	v, ok := r.routes[path]
+	if !ok {
+		return nil, errors.New("404 " + path)
+	}
+	if err, isErr := v.(error); isErr {
+		return nil, err
+	}
+	obj, isObj := v.(map[string]any)
+	if !isObj {
+		return nil, fmt.Errorf("routeLister: route %q is not a data object", path)
+	}
+	items, isList := obj[key].([]any)
+	if !isList {
+		return []map[string]any{}, nil // absent or null means no records
+	}
+	out := make([]map[string]any, 0, len(items))
+	for _, it := range items {
+		if m, isMap := it.(map[string]any); isMap {
+			out = append(out, m)
+		}
+	}
+	return out, nil
+}
+
 func rec(kv ...any) map[string]any {
 	m := map[string]any{}
 	for i := 0; i+1 < len(kv); i += 2 {

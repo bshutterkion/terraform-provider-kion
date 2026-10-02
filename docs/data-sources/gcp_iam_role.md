@@ -36,6 +36,7 @@ data "kion_gcp_iam_role" "example" {
 ### Read-Only
 
 - `description` (String)
+- `gcp_role_launch_stage` (Number)
 - `list` (Attributes List) All gcp_iam_roles matching the supplied id or filter blocks. (see [below for nested schema](#nestedatt--list))
 - `name` (String)
 
@@ -61,6 +62,7 @@ Read-Only:
 - `description` (String)
 - `gcp_id` (String)
 - `gcp_managed_policy` (Boolean)
+- `gcp_role_launch_stage` (Number)
 - `id` (Number)
 - `name` (String)
 - `system_managed_policy` (Boolean)

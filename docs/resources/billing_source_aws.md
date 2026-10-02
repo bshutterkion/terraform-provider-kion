@@ -83,7 +83,7 @@ If omitted, "cur" is assumed.
 - `focus_billing_report_name` (String) Name of the FOCUS billing report
 - `focus_billing_report_prefix` (String) Prefix for the FOCUS billing reports
 - `focus_bucket_access_role` (String) Alternate role for accessing the focus billing buckets (optional).
-- `key_id` (String) The AWS Access Key used to access the billing s3 bucket
+- `key_id` (String, Sensitive) The AWS Access Key used to access the billing s3 bucket
 - `key_secret` (String, Sensitive) The AWS Secret Access Key used to access the billing s3 bucket
 - `mr_bucket` (String) Name of the bucket containing the monthly reports (detailed billing reports). Only required when Only CUR is false
 - `only_dbr` (Boolean) DEPRECATED: Use billing_report_type to specify your billing report type

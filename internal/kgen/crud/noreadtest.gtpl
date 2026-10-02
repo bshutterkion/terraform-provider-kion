@@ -16,6 +16,9 @@ import (
 	"terraform-provider-kion/internal/acctest"
 	"terraform-provider-kion/internal/conns"
 )
+{{range .KnownIssues}}
+// Known issue #{{.Issue}}:{{range $i, $l := .Lines}}{{if $i}}
+//{{end}} {{$l}}{{end}}{{end}}
 
 func TestAccKion{{.Pascal}}_basic(t *testing.T) {
 	if testing.Short() {
@@ -30,12 +33,16 @@ func TestAccKion{{.Pascal}}_basic(t *testing.T) {
 	resourceName := "{{.TypeName}}.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		{{if .RequireEnv}}PreCheck: func() {
+			acctest.PreCheck(t){{range .RequireEnv}}
+			acctest.RequireEnv(t, {{printf "%q" .Name}}, {{printf "%q" .Reason}}){{end}}
+		},{{else}}PreCheck:                 func() { acctest.PreCheck(t) },{{end}}
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheck{{.Pascal}}Destroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAcc{{.Pascal}}Config_basic(rName{{range .EnvArgs}}, {{.Param}}{{end}}),
+				Config: testAcc{{.Pascal}}Config_basic(rName{{range .EnvArgs}}, {{.Param}}{{end}}),{{if $.ExpectNonEmptyPlan}}
+				ExpectNonEmptyPlan: true,{{end}}
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheck{{.Pascal}}Exists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
@@ -61,16 +68,21 @@ func TestAccKion{{.Pascal}}_update(t *testing.T) {
 	resourceName := "{{.TypeName}}.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		{{if .RequireEnv}}PreCheck: func() {
+			acctest.PreCheck(t){{range .RequireEnv}}
+			acctest.RequireEnv(t, {{printf "%q" .Name}}, {{printf "%q" .Reason}}){{end}}
+		},{{else}}PreCheck:                 func() { acctest.PreCheck(t) },{{end}}
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheck{{.Pascal}}Destroy(ctx),
 		Steps: []resource.TestStep{
 			{
-				Config: testAcc{{.Pascal}}Config_basic(rName{{range .EnvArgs}}, {{.Param}}{{end}}),
+				Config: testAcc{{.Pascal}}Config_basic(rName{{range .EnvArgs}}, {{.Param}}{{end}}),{{if $.ExpectNonEmptyPlan}}
+				ExpectNonEmptyPlan: true,{{end}}
 				Check:  testAccCheck{{.Pascal}}Exists(ctx, resourceName),
 			},
 			{
-				Config: testAcc{{.Pascal}}Config_update(rName{{range .EnvArgs}}, {{.Param}}{{end}}),
+				Config: testAcc{{.Pascal}}Config_update(rName{{range .EnvArgs}}, {{.Param}}{{end}}),{{if $.ExpectNonEmptyPlan}}
+				ExpectNonEmptyPlan: true,{{end}}
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheck{{.Pascal}}Exists(ctx, resourceName),
 					{{- range .UpdateAttrs}}
@@ -114,14 +126,22 @@ func find{{.Pascal}}(ctx context.Context, rs *terraform.ResourceState) (bool, er
 	}
 
 	var env struct {
+{{- if .RecordsKey}}
+		Data struct {
+			Records []struct {
+				ID int64 `json:"id"`
+			} `json:"{{.RecordsKey}}"`
+		} `json:"data"`
+{{- else}}
 		Data []struct {
 			ID int64 `json:"id"`
 		} `json:"data"`
+{{- end}}
 	}
 	if err := json.Unmarshal(body, &env); err != nil {
 		return false, fmt.Errorf("decoding %s: %w", path, err)
 	}
-	for _, rec := range env.Data {
+	for _, rec := range env.Data{{if .RecordsKey}}.Records{{end}} {
 		if rec.ID == want {
 			return true, nil
 		}

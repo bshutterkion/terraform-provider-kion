@@ -103,7 +103,7 @@ func byTF(model []ModelField) map[string]ModelField {
 
 // TestBuildParentReadOwnerAndFilter covers what turns a no_read resource's
 // empty-shell import into a real one: the owner comes from the record's own key
-// (the collection is inherited, so the path parent is not the owner), and the
+// (a collection may return records the path parent does not own), and the
 // discriminator is declared so records of a neighboring kind are rejected.
 func TestBuildParentReadOwnerAndFilter(t *testing.T) {
 	pr := parentRead{
@@ -228,4 +228,47 @@ func TestBuildParentReadRejectsBadDeclaration(t *testing.T) {
 	_, err = buildParentRead("x", parentRead{Path: "/v1/ou/{parent_id}/e", ParentTF: "ou_id"}, m, "Id")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "needs parent_json")
+}
+
+// TestBuildParentReadNamedRecords: a collection whose records sit under a named
+// key inside data ({"data":{"ou_exemptions":[...]}}) decodes that key, not data.
+func TestBuildParentReadNamedRecords(t *testing.T) {
+	d, err := buildParentRead("ou_cloud_access_role_exemption", parentRead{
+		Path:       "/v1/ou/{parent_id}/ou-cloud-access-role",
+		Records:    "ou_exemptions",
+		ParentTF:   "ou_id",
+		ParentJSON: "ou_id",
+		Fields: []readShapeSub{
+			{TF: "ou_cloud_access_role_id", From: "ou_cloud_access_role_id", Kind: "int"},
+		},
+	}, byTF(exemptionModel()), "Id")
+	require.NoError(t, err)
+
+	assert.Contains(t, d.EnvelopeGo, "Records []ou_cloud_access_role_exemptionRecord `json:\"ou_exemptions\"`")
+	assert.Contains(t, d.EnvelopeGo, "`json:\"data\"`")
+	assert.Equal(t, "env.Data.Records", d.RecordsExpr)
+	assert.Contains(t, d.FlattenGo, "m.OuCloudAccessRoleId = types.Int64Value(rec.OuCloudAccessRoleId)")
+}
+
+// TestBuildParentReadFlatEnvelope pins the default: records are data itself.
+func TestBuildParentReadFlatEnvelope(t *testing.T) {
+	d, err := buildParentRead("aws_resource_tag", parentRead{Path: "/v3/aws-resource-tag"},
+		byTF([]ModelField{{TFSDK: "id", GoName: "Id", Type: "types.String"}}), "Id")
+	require.NoError(t, err)
+	assert.Equal(t, "Data []aws_resource_tagRecord `json:\"data\"`", d.EnvelopeGo)
+	assert.Equal(t, "env.Data", d.RecordsExpr)
+}
+
+// TestNoReadScanPrefersParentRead: the acceptance test's existence check reads
+// the same collection Read does, not the spec's unrelated read path.
+func TestNoReadScanPrefersParentRead(t *testing.T) {
+	pr := &parentRead{Path: "/v1/ou/{parent_id}/ou-cloud-access-role", ParentTF: "ou_id", Records: "ou_exemptions"}
+	s := noReadScanFor("ou_cloud_access_role_exemption", pr, "/v3/ou/{id}/cloud-rule/exemption", exemptionModel())
+	assert.Equal(t, noReadScan{ListPath: "/v1/ou/{id}/ou-cloud-access-role", ParentIDTF: "ou_id", RecordsKey: "ou_exemptions"}, s)
+
+	flat := noReadScanFor("aws_resource_tag", &parentRead{Path: "/v3/aws-resource-tag"}, "/v3/aws-resource-tag", nil)
+	assert.Equal(t, noReadScan{ListPath: "/v3/aws-resource-tag"}, flat)
+
+	none := noReadScanFor("ou_thing", nil, "/v3/ou/{id}/thing", []ModelField{{TFSDK: "ou_id"}})
+	assert.Equal(t, noReadScan{ListPath: "/v3/ou/{id}/thing", ParentIDTF: "ou_id"}, none)
 }

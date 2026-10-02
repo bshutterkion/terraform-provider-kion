@@ -45,7 +45,7 @@ func expandConverter(f Field) (string, bool) {
 	case "OptUint64":
 		return "flex.OptUint64FromFramework", true
 	case "OptGCPRoleLaunchStage":
-		return "flex.GCPRoleLaunchStageFromFramework", true
+		return "flex.OptGCPRoleLaunchStageFromFramework", true
 	case "OptNullString":
 		return "flex.OptNullStringFromFramework", true
 	case "OptNullTime":
@@ -90,7 +90,7 @@ func flattenConverter(f Field) (string, bool) {
 	case "OptUint64":
 		return "flex.OptUint64ToFramework", true
 	case "OptGCPRoleLaunchStage":
-		return "flex.GCPRoleLaunchStageToFramework", true
+		return "flex.OptGCPRoleLaunchStageToFramework", true
 	case "OptNullString":
 		return "flex.OptNullStringToFramework", true
 	case "OptNullTime":

@@ -111,6 +111,31 @@ func MapToObjectList(raw json.RawMessage, keyField, valField string) json.RawMes
 	return b
 }
 
+// PadObjectKeys adds each key, as null, to every object of an old block array
+// that lacks it, for a nested object that gained fields: tftypes rejects a
+// missing key. Existing keys are kept. Null/absent → null.
+func PadObjectKeys(raw json.RawMessage, keys ...string) json.RawMessage {
+	if len(raw) == 0 || string(raw) == "null" {
+		return Null
+	}
+	var elems []map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &elems); err != nil {
+		return raw
+	}
+	for _, e := range elems {
+		for _, k := range keys {
+			if _, ok := e[k]; !ok {
+				e[k] = Null
+			}
+		}
+	}
+	b, err := json.Marshal(elems)
+	if err != nil {
+		return raw
+	}
+	return b
+}
+
 // StringToNum converts an old string id ("42") to a JSON number (42), used where
 // the new schema declares id as a number (e.g. aws_account). Null/absent → null.
 func StringToNum(raw json.RawMessage) json.RawMessage {

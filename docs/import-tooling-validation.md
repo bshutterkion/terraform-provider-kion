@@ -43,7 +43,9 @@ count is a property of the install, not a regression: it holds little data.
 
 Its two errors are both #48 -- `kion_idms_group_association` and
 `kion_saml_group_association` fail on `GET /v3/idms/1/group-association`, which
-closes the connection. No other resource errored.
+closes the connection. No other resource errored. `kion-import` has since
+stopped reading that collection under non-SAML parents; see *The IDMS
+group-association endpoint*.
 
 `unsupported` is 2 rather than the 3 in the five-install table for the reason
 already recorded below: the third was `kion_custom_variable_override`, refused
@@ -104,8 +106,9 @@ responded and had no records.
 collections "mixing kinds" (237 records of another kind -- every other install
 returns those collections empty), and `kion_ami`, `kion_category`,
 `kion_funding_source_note`, `kion_project_line_item` and `kion_service_catalog`
-having records at all. The kind filter is still correct and still necessary; the
-ratio is a property of that install's data.
+having records at all. The ratio was a property of that install's data. (The
+exemption resources have since moved to a different collection that needs no
+kind filter; see *Correction: the exemptions read the wrong collection*.)
 
 **One finding recorded as install-specific is universal** -- the next section.
 That is the mistake this table exists to prevent.
@@ -132,11 +135,16 @@ install is a proxy rendering a backend that died, so that is likely the same
 fault without a proxy in front of it.
 
 `kion_idms_group_association` and `kion_saml_group_association` both enumerate
-through this endpoint, so an install whose IDMSes are not all SAML loses those
-parents. The QA install has no SAML IDMS at all, so both come back `error` there
-rather than caveated. The tooling behaves correctly: one bad parent does not sink
-the resource, and the failure is reported rather than swallowed. Tracked in #48;
-the fix is upstream.
+through this endpoint. Before #48 was addressed, an install whose IDMSes were not
+all SAML reported every other IDMS as a failed parent, and the QA install, with
+no SAML IDMS at all, reported both resources as `error`.
+
+`kion-import` now reads the collection only under SAML parents: the manifest
+row carries `"match": {"idms_type_id": "3"}` on its parent block, and a parent
+whose list record does not match is skipped without a request. Group
+associations exist only on a SAML IDMS, so nothing is lost. An install with no
+SAML IDMS reports both resources `empty`, naming the skipped parents. The
+server defect itself is still upstream; the rows below predate the change.
 
 ## Result
 
@@ -343,11 +351,15 @@ wrong -- see *`no_read` did not mean unreadable*. It also used to include
 | `project_cloud_access_role_exemption` | 12 such records, so none remain |
 | `custom_variable_override` | 1,791 records with no `override` set |
 
-The 502 is server-side and specific to IDMS 1 on that install -- IDMS 2/3/4
-answer 200/404 normally, and three consecutive retries all returned 502. It is
-reported rather than swallowed, and one bad parent does not sink the resource.
+The 502 was recorded here as specific to IDMS 1 on that install. It is not: the
+API fails this read for every IDMS that is not SAML, on every install measured
+(see *The IDMS group-association endpoint*, #48). IDMS 1 is the Internal
+Directory. `kion-import` now skips non-SAML parents, so these two rows no longer
+report a failed parent.
 
-The two exemption caveats are the kind-mixing filter working; see below.
+The two exemption caveats are the kind-mixing filter working; see below. Those
+rows were read from a collection the exemption resources no longer use; see
+*Correction: the exemptions read the wrong collection*.
 
 This table used to carry three more rows -- `compliance_control` (3592),
 `compliance_family` (10) and `scope_criteria` (9), each reported as
@@ -590,6 +602,28 @@ read payload, so it stays unreadable.
 
 **A green `terraform plan` is not proof of coverage.** Check that the generated
 configuration has attributes in it.
+
+### Correction: the exemptions read the wrong collection
+
+The section above is a faithful record of what that run measured, but the
+collection it measured is not where these resources' records live (#80, #44).
+`/v1/{ou,project}/{id}/cloud-access-role-exemption` lists an older,
+cloud-rule-linked exemption kind. `POST /v3/ou-cloud-access-role-exemption` and
+`POST /v3/project-cloud-access-role-exemption` store somewhere else, which is why
+an exemption created through the provider was never found there, and why the
+"6 OU exemptions" above were not records these resources could have created.
+
+Both resources now read the parent's cloud access role listing,
+`GET /v1/ou/{id}/ou-cloud-access-role` (`data.ou_exemptions`) and
+`GET /v1/project/{id}/ou-cloud-access-role` (`data.project_exemptions`). Each
+record there is `{id, ou_id|project_id, ou_cloud_access_role_id, reason}`: the
+list holds only exemptions the parent itself owns and only this kind, so neither
+the owner key nor the kind filter is needed, and `reason` is stored and read
+back. The lists are filled only for a caller with Browse All Cloud Access Roles
+and Manage OU / Manage Project on the parent.
+
+This was derived from the API's source, not from a live run. It has not yet been
+re-measured with `kion-import --probe`.
 
 ## Reproducing
 

@@ -39,7 +39,6 @@ resource "kion_cloud_rule" "example" {
   # pre_webhook_id                    = 1
   # project_ids                       = []
   # service_control_policy_ids        = []
-  # source                            = "example"
 }
 ```
 
@@ -75,9 +74,6 @@ If false, the application will deploy each template in order and wait for comple
 - `pre_webhook_id` (Number) ID of a pre-rule webhook to attach to the Cloud Rule.
 - `project_ids` (Set of Number) List of projects where the Cloud Rule will be applied.
 - `service_control_policy_ids` (Set of Number) List of Service Control Policies attached to the Cloud Rule
-- `source` (String) Filters results to only return Cloud Rules from a given source
-
-Example\: user, action_plan, enforcement, funding_source
 
 ### Read-Only
 

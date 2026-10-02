@@ -240,12 +240,20 @@ generate-schemas: _spec-guard ## Generate resource/data-source schemas + schema 
 	@echo "$(GREEN)✓ Schemas generated$(RESET)"
 
 .PHONY: align-check
-align-check: ## Check schema<->SDK drift: schema attrs with no SDK field / bad type / missing flex (kalign #1)
-	@go run ./cmd/kalign check
+align-check: ## Fail on a schema<->SDK type mismatch or missing flex converter not in codegen/align_baseline.yaml
+	@go run ./cmd/kalign check -sdk $(SDK_DIR) >/dev/null
+
+.PHONY: align-report
+align-report: ## Print the full kalign alignment report (DRIFT lines are advisory)
+	@go run ./cmd/kalign check -sdk $(SDK_DIR) -baseline "" || true
+
+.PHONY: align-baseline
+align-baseline: ## Rewrite codegen/align_baseline.yaml from the current findings (new entries arrive as TODO)
+	@go run ./cmd/kalign check -sdk $(SDK_DIR) -update >/dev/null
 
 .PHONY: align-gen
 align-gen: ## Generate flatten (SDK->Framework) flex converters from the alignment (kalign #2)
-	@go run ./cmd/kalign gen
+	@go run ./cmd/kalign gen -sdk $(SDK_DIR)
 
 .PHONY: config-gen
 config-gen: _spec-guard ## Derive the generator config from the service packages (prints; add --write to update)
@@ -395,12 +403,6 @@ examples: ## Generate example .tf files from resource/data source schemas
 	@go run -tags kgendocs ./cmd/kgen examples --force
 	@echo "$(GREEN)✓ Examples generated$(RESET)"
 
-.PHONY: tests-gen
-tests-gen: ## Generate acceptance test files from schemas (skips existing)
-	@echo "$(BLUE)Generating acceptance test files...$(RESET)"
-	@go run -tags kgendocs ./cmd/kgen tests
-	@echo "$(GREEN)✓ Tests generated$(RESET)"
-
 .PHONY: docs
 docs: examples ## Generate provider documentation (regenerates examples first)
 	@echo "$(BLUE)Generating provider documentation...$(RESET)"
@@ -456,7 +458,7 @@ clean: ## Remove build artifacts (binary, release bin/, coverage files)
 #==============================================================================
 
 .PHONY: ci
-ci: ci-fmt ci-vet ci-lint ci-test ci-acctest-config ci-crud ci-docs ci-modules ci-internal-refs ci-secrets ## Run every CI check that can run locally (all of ci.yml except CodeQL)
+ci: ci-fmt ci-vet ci-lint ci-test ci-acctest-config ci-crud ci-docs ci-modules ci-align ci-internal-refs ci-secrets ## Run every CI check that can run locally (all of ci.yml except CodeQL)
 	@echo ""
 	@echo "$(GREEN)All CI checks passed$(RESET)"
 	@echo "$(YELLOW)note: CodeQL runs only on GitHub and was not checked here.$(RESET)"
@@ -527,6 +529,11 @@ ci-modules: install-terraform-docs ## Check modules/ is current and plans cleanl
 	@$(MAKE) --no-print-directory modules-check
 	@$(MAKE) --no-print-directory modules-test
 
+.PHONY: ci-align
+ci-align: ## Check the schema<->SDK alignment against its baseline (matches the align-check CI job)
+	@echo "$(BLUE)Checking schema<->SDK alignment...$(RESET)"
+	@$(MAKE) --no-print-directory align-check
+
 .PHONY: ci-internal-refs
 ci-internal-refs: ## Check for internal-only references (matches internal-refs CI job)
 	@echo "$(BLUE)Checking for internal references...$(RESET)"
@@ -565,8 +572,8 @@ release-prepare: ## Validate and batch the changelog: make release-prepare RELEA
 	@$(MAKE) changelog-release RELEASE_VERSION=$(RELEASE_VERSION)
 	@echo ""
 	@echo "$(BLUE)Next:$(RESET)"
-	@echo "  git commit -am 'release $(RELEASE_VERSION)'"
-	@echo "  git tag v$(RELEASE_VERSION) && git push --follow-tags"
+	@echo "  git add .changes CHANGELOG.md && git commit -m 'release $(RELEASE_VERSION)'"
+	@echo "  git tag -a v$(RELEASE_VERSION) -m v$(RELEASE_VERSION) && git push origin main v$(RELEASE_VERSION)"
 	@echo "  the tag triggers release.yml, which builds and publishes"
 
 # ── Terraform modules ──────────────────────────────────────────────────

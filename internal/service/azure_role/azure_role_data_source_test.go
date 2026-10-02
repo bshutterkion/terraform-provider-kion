@@ -20,7 +20,10 @@ func TestAccKionAzureRoleDataSource_basic(t *testing.T) {
 	dataSourceName := "data.kion_azure_role.test"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { acctest.PreCheck(t) },
+		PreCheck: func() {
+			acctest.PreCheck(t)
+			acctest.RequireEnv(t, "KION_ACC_AZURE_PAYER_ID", "an Azure billing source on this install; POST /v3/azure-role returns 500 without one")
+		},
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{

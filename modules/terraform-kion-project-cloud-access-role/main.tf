@@ -20,7 +20,6 @@ resource "kion_project_cloud_access_role" "this" {
   gcp_iam_roles                = var.gcp_iam_roles
   long_term_access_keys        = var.long_term_access_keys
   name                         = var.name
-  policytype                   = var.policytype
   project_id                   = var.project_id
   short_term_access_keys       = var.short_term_access_keys
   user_group_ids               = var.user_group_ids

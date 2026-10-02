@@ -62,6 +62,7 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "Text of the IAM Path in AWS to be stored in AWS.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"aws_iam_permissions_boundary": schema.Int64Attribute{
@@ -90,6 +91,7 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "AWS IAM role name corresponding to the cloud access role.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"aws_iam_role_trust_policy": schema.StringAttribute{
@@ -263,19 +265,13 @@ func ProjectCloudAccessRoleResourceSchema(ctx context.Context) schema.Schema {
 				Description:         "Name of the cloud access role in the application.",
 				MarkdownDescription: "Name of the cloud access role in the application.",
 			},
-			"policytype": schema.StringAttribute{
-				Optional:            true,
-				Computed:            true,
-				Description:         "Enclosed policy type filter. Valid values are \"awsiam\" or \"azurerole\"",
-				MarkdownDescription: "Enclosed policy type filter. Valid values are \"awsiam\" or \"azurerole\"",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
 			"project_id": schema.Int64Attribute{
 				Required:            true,
 				Description:         "ID of the project where the cloud access role is attached.",
 				MarkdownDescription: "ID of the project where the cloud access role is attached.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.RequiresReplace(),
+				},
 			},
 			"short_term_access_keys": schema.BoolAttribute{
 				Optional:            true,
@@ -342,7 +338,6 @@ type ProjectCloudAccessRoleModel struct {
 	LastUpdated               types.String `tfsdk:"last_updated"`
 	LongTermAccessKeys        types.Bool   `tfsdk:"long_term_access_keys"`
 	Name                      types.String `tfsdk:"name"`
-	Policytype                types.String `tfsdk:"policytype"`
 	ProjectId                 types.Int64  `tfsdk:"project_id"`
 	ShortTermAccessKeys       types.Bool   `tfsdk:"short_term_access_keys"`
 	UserGroupIds              types.Set    `tfsdk:"user_group_ids"`

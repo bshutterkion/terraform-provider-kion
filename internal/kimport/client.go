@@ -31,6 +31,8 @@ const (
 // without a server.
 type Lister interface {
 	List(ctx context.Context, path string) ([]map[string]any, error)
+	// ListUnder returns the records at data.<key> of a single GET.
+	ListUnder(ctx context.Context, path, key string) ([]map[string]any, error)
 }
 
 // StatusError is a non-2xx response. Callers need the code, not just the text:
@@ -333,6 +335,32 @@ func (c *Client) List(ctx context.Context, path string) ([]map[string]any, error
 		}
 		return paging.Page[map[string]any]{Items: dropBlanks(records), Total: total}, nil
 	})
+}
+
+// ListUnder GETs path once and returns the records under data.<key>. It is for
+// a response whose data object holds several arrays, where List's structural
+// unwrapping would pick the wrong one or return the object itself. A null or
+// absent key is no records.
+func (c *Client) ListUnder(ctx context.Context, path, key string) ([]map[string]any, error) {
+	body, err := c.get(ctx, path, 1)
+	if err != nil {
+		return nil, err
+	}
+	var env struct {
+		Data map[string]json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil, fmt.Errorf("GET %s: %w", path, err)
+	}
+	raw, ok := env.Data[key]
+	if !ok || string(bytes.TrimSpace(raw)) == "null" {
+		return []map[string]any{}, nil
+	}
+	var records []map[string]any
+	if err := json.Unmarshal(raw, &records); err != nil {
+		return nil, fmt.Errorf("GET %s: data.%s: %w", path, key, err)
+	}
+	return dropBlanks(records), nil
 }
 
 // dropBlanks removes zero-valued padding records.

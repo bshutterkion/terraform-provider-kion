@@ -252,8 +252,8 @@ make changelog-preview    # what the next release notes would say
 
 ```bash
 make release-prepare RELEASE_VERSION=1.0.0   # make ci, then batch fragments into CHANGELOG.md
-git commit -am "release 1.0.0"
-git tag v1.0.0 && git push --follow-tags
+git add .changes CHANGELOG.md && git commit -m "release 1.0.0"
+git tag -a v1.0.0 -m v1.0.0 && git push origin main v1.0.0
 ```
 
 The tag is the version. Nothing in the repo records it. `make version` reports the latest release tag (`0.0.0-dev` on an untagged tree), and that is what `make install` uses for the local plugin path. `make release-snapshot` builds the real artifact set locally without publishing.

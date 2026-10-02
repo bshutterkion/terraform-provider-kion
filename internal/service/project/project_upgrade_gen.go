@@ -37,7 +37,7 @@ func (r *projectResource) UpgradeState(ctx context.Context) map[int64]resource.S
 					"id":                   migratehelper.OrNull(old["id"]),
 					"labels":               migratehelper.OrNull(old["labels"]),
 					"last_updated":         migratehelper.OrNull(old["last_updated"]),
-					"move_ou_settings":     migratehelper.OrNull(old["move_ou_settings"]),
+					"move_ou_settings":     migratehelper.PadObjectKeys(old["move_ou_settings"], "spend_plan_setting"),
 					"name":                 migratehelper.OrNull(old["name"]),
 					"ou_id":                migratehelper.OrNull(old["ou_id"]),
 					"owner_user_group_ids": migratehelper.ProjectIDs(old["owner_user_group_ids"], "id"),
