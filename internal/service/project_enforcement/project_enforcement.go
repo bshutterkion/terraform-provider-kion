@@ -171,7 +171,17 @@ func (r *project_enforcementResource) Create(ctx context.Context, req resource.C
 	// The create body does not carry these; a configured value is applied by an
 	// update straight after the create rather than dropped.
 	if !plan.Enabled.IsNull() && !plan.Enabled.IsUnknown() {
-		resp.Diagnostics.Append(r.patchProjectEnforcement(ctx, plan, parentID, id)...)
+		input, inputDiags := expandProjectEnforcementUpdate(ctx, plan)
+		resp.Diagnostics.Append(inputDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		out, err := conn.PatchProjectEnforcements(ctx, input, generated.PatchProjectEnforcementsParams{ID: parentID, EnforcementID: id})
+		if err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameProjectEnforcement, id), err.Error())
+			return
+		}
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("updating %s", ResNameProjectEnforcement), out)...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
@@ -237,7 +247,17 @@ func (r *project_enforcementResource) Update(ctx context.Context, req resource.U
 		return
 	}
 
-	resp.Diagnostics.Append(r.patchProjectEnforcement(ctx, plan, parentID, id)...)
+	input, inputDiags := expandProjectEnforcementUpdate(ctx, plan)
+	resp.Diagnostics.Append(inputDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	out, err := conn.PatchProjectEnforcements(ctx, input, generated.PatchProjectEnforcementsParams{ID: parentID, EnforcementID: id})
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameProjectEnforcement, id), err.Error())
+		return
+	}
+	resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("updating %s", ResNameProjectEnforcement), out)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -301,18 +321,14 @@ func (r *project_enforcementResource) Update(ctx context.Context, req resource.U
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
-// patchProjectEnforcement sends the update body built from plan.
-func (r *project_enforcementResource) patchProjectEnforcement(ctx context.Context, plan ProjectEnforcementModel, parentID, id int64) diag.Diagnostics {
+// expandProjectEnforcementUpdate builds the update body from plan. Create uses it too,
+// for attributes only the update body carries.
+func expandProjectEnforcementUpdate(ctx context.Context, plan ProjectEnforcementModel) (generated.OptProjectEnforcementUpdate, diag.Diagnostics) {
 	var diags diag.Diagnostics
-	conn := r.Meta().Client
-
 	notificationEmails, notificationEmailsDiags := flex.StringSliceFromFrameworkSet(ctx, plan.NotificationEmails)
 	diags.Append(notificationEmailsDiags...)
-	if diags.HasError() {
-		return diags
-	}
 
-	input := generated.OptProjectEnforcementUpdate{
+	return generated.OptProjectEnforcementUpdate{
 		Value: generated.ProjectEnforcementUpdate{
 			AmountType:            flex.OptStringFromFramework(plan.AmountType),
 			CloudRuleID:           flex.OptNilUint64FromFramework(plan.CloudRuleId),
@@ -328,15 +344,7 @@ func (r *project_enforcementResource) patchProjectEnforcement(ctx context.Contex
 			NotificationEmails:    generated.OptNilStringArray{Value: notificationEmails, Set: true},
 		},
 		Set: true,
-	}
-
-	out, err := conn.PatchProjectEnforcements(ctx, input, generated.PatchProjectEnforcementsParams{ID: parentID, EnforcementID: id})
-	if err != nil {
-		diags.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameProjectEnforcement, id), err.Error())
-		return diags
-	}
-	diags.Append(errs.ResponseDiagnostics(fmt.Sprintf("updating %s", ResNameProjectEnforcement), out)...)
-	return diags
+	}, diags
 }
 
 func (r *project_enforcementResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

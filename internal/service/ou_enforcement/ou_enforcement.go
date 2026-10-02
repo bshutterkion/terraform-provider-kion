@@ -201,6 +201,8 @@ func (r *ou_enforcementResource) Read(ctx context.Context, req resource.ReadRequ
 }
 
 func (r *ou_enforcementResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	conn := r.Meta().Client
+
 	var plan OuEnforcementModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -213,7 +215,17 @@ func (r *ou_enforcementResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
-	resp.Diagnostics.Append(r.patchOuEnforcement(ctx, plan, parentID, id)...)
+	input, inputDiags := expandOuEnforcementUpdate(ctx, plan)
+	resp.Diagnostics.Append(inputDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	out, err := conn.UpdateOUEnforcement(ctx, input, generated.UpdateOUEnforcementParams{ID: uint64(parentID), EnforcementID: uint64(id)})
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameOuEnforcement, id), err.Error())
+		return
+	}
+	resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("updating %s", ResNameOuEnforcement), out)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -235,20 +247,16 @@ func (r *ou_enforcementResource) Update(ctx context.Context, req resource.Update
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
-// patchOuEnforcement sends the update body built from plan.
-func (r *ou_enforcementResource) patchOuEnforcement(ctx context.Context, plan OuEnforcementModel, parentID, id int64) diag.Diagnostics {
+// expandOuEnforcementUpdate builds the update body from plan. Create uses it too,
+// for attributes only the update body carries.
+func expandOuEnforcementUpdate(ctx context.Context, plan OuEnforcementModel) (*generated.OUEnforcementUpdate, diag.Diagnostics) {
 	var diags diag.Diagnostics
-	conn := r.Meta().Client
-
 	ugroupIds, ugroupIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserGroupIds)
 	diags.Append(ugroupIdsDiags...)
 	userIds, userIdsDiags := flex.Uint64SliceFromFrameworkSet(ctx, plan.UserIds)
 	diags.Append(userIdsDiags...)
-	if diags.HasError() {
-		return diags
-	}
 
-	input := &generated.OUEnforcementUpdate{
+	return &generated.OUEnforcementUpdate{
 		CloudRuleID:              flex.OptNilUint64FromFramework(plan.CloudRuleId),
 		Description:              flex.OptStringFromFramework(plan.Description),
 		Enabled:                  flex.OptNilBoolFromFramework(plan.Enabled),
@@ -260,15 +268,7 @@ func (r *ou_enforcementResource) patchOuEnforcement(ctx context.Context, plan Ou
 		TriggerPlannedAmountType: flex.OptStringFromFramework(plan.TriggerPlannedAmountType),
 		UgroupIds:                generated.OptNilUint64Array{Value: ugroupIds, Set: true},
 		UserIds:                  generated.OptNilUint64Array{Value: userIds, Set: true},
-	}
-
-	out, err := conn.UpdateOUEnforcement(ctx, input, generated.UpdateOUEnforcementParams{ID: uint64(parentID), EnforcementID: uint64(id)})
-	if err != nil {
-		diags.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameOuEnforcement, id), err.Error())
-		return diags
-	}
-	diags.Append(errs.ResponseDiagnostics(fmt.Sprintf("updating %s", ResNameOuEnforcement), out)...)
-	return diags
+	}, diags
 }
 
 func (r *ou_enforcementResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

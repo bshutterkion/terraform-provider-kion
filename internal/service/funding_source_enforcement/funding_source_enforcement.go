@@ -154,7 +154,17 @@ func (r *funding_source_enforcementResource) Create(ctx context.Context, req res
 	// The create body does not carry these; a configured value is applied by an
 	// update straight after the create rather than dropped.
 	if !plan.Enabled.IsNull() && !plan.Enabled.IsUnknown() {
-		resp.Diagnostics.Append(r.patchFundingSourceEnforcement(ctx, plan, parentID, id)...)
+		input, inputDiags := expandFundingSourceEnforcementUpdate(ctx, plan)
+		resp.Diagnostics.Append(inputDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		out, err := conn.PatchFundingSourceEnforcements(ctx, input, generated.PatchFundingSourceEnforcementsParams{ID: parentID, EnforcementID: id})
+		if err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameFundingSourceEnforcement, id), err.Error())
+			return
+		}
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("updating %s", ResNameFundingSourceEnforcement), out)...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
@@ -220,7 +230,17 @@ func (r *funding_source_enforcementResource) Update(ctx context.Context, req res
 		return
 	}
 
-	resp.Diagnostics.Append(r.patchFundingSourceEnforcement(ctx, plan, parentID, id)...)
+	input, inputDiags := expandFundingSourceEnforcementUpdate(ctx, plan)
+	resp.Diagnostics.Append(inputDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	out, err := conn.PatchFundingSourceEnforcements(ctx, input, generated.PatchFundingSourceEnforcementsParams{ID: parentID, EnforcementID: id})
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameFundingSourceEnforcement, id), err.Error())
+		return
+	}
+	resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("updating %s", ResNameFundingSourceEnforcement), out)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -284,12 +304,12 @@ func (r *funding_source_enforcementResource) Update(ctx context.Context, req res
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
-// patchFundingSourceEnforcement sends the update body built from plan.
-func (r *funding_source_enforcementResource) patchFundingSourceEnforcement(ctx context.Context, plan FundingSourceEnforcementModel, parentID, id int64) diag.Diagnostics {
+// expandFundingSourceEnforcementUpdate builds the update body from plan. Create uses it too,
+// for attributes only the update body carries.
+func expandFundingSourceEnforcementUpdate(ctx context.Context, plan FundingSourceEnforcementModel) (generated.OptFundingSourceEnforcementUpdate, diag.Diagnostics) {
 	var diags diag.Diagnostics
-	conn := r.Meta().Client
 
-	input := generated.OptFundingSourceEnforcementUpdate{
+	return generated.OptFundingSourceEnforcementUpdate{
 		Value: generated.FundingSourceEnforcementUpdate{
 			CloudRuleID: flex.OptNilUint64FromFramework(plan.CloudRuleId),
 			Description: flex.OptStringFromFramework(plan.Description),
@@ -300,15 +320,7 @@ func (r *funding_source_enforcementResource) patchFundingSourceEnforcement(ctx c
 			Timeframe:   flex.OptStringFromFramework(plan.Timeframe),
 		},
 		Set: true,
-	}
-
-	out, err := conn.PatchFundingSourceEnforcements(ctx, input, generated.PatchFundingSourceEnforcementsParams{ID: parentID, EnforcementID: id})
-	if err != nil {
-		diags.AddError(fmt.Sprintf("updating %s (ID: %d)", ResNameFundingSourceEnforcement, id), err.Error())
-		return diags
-	}
-	diags.Append(errs.ResponseDiagnostics(fmt.Sprintf("updating %s", ResNameFundingSourceEnforcement), out)...)
-	return diags
+	}, diags
 }
 
 func (r *funding_source_enforcementResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {

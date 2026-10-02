@@ -71,19 +71,20 @@ func TestRenderParentList_createViaUpdate(t *testing.T) {
 	got := renderParentList(t, d)
 	for _, w := range []string{
 		"!plan.Enabled.IsNull() && !plan.Enabled.IsUnknown()",
-		"r.patchProjectEnforcement(ctx, plan, parentID, id)",
-		"func (r *project_enforcementResource) patchProjectEnforcement(",
+		"expandProjectEnforcementUpdate(ctx, plan)",
+		"func expandProjectEnforcementUpdate(",
 	} {
 		if !bytes.Contains(got, []byte(w)) {
 			t.Errorf("missing %q\n%s", w, got)
 		}
 	}
-	// Update calls the helper once; Create adds a second call only when declared.
-	call := []byte("r.patchProjectEnforcement(ctx, plan, parentID, id)")
+	// Update sends the update once; Create adds a second only when declared. The
+	// call stays inline in each so config derivation still sees Update's op.
+	call := []byte("conn.PatchProjectEnforcements(ctx, input,")
 	if n := bytes.Count(got, call); n != 2 {
-		t.Errorf("want 2 patch calls with create_via_update, got %d", n)
+		t.Errorf("want 2 update calls with create_via_update, got %d", n)
 	}
 	if n := bytes.Count(renderParentList(t, enforcementData()), call); n != 1 {
-		t.Errorf("want 1 patch call without create_via_update, got %d", n)
+		t.Errorf("want 1 update call without create_via_update, got %d", n)
 	}
 }

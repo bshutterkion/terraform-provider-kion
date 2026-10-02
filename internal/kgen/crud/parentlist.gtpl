@@ -172,7 +172,17 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 	// The create body does not carry these; a configured value is applied by an
 	// update straight after the create rather than dropped.
 	if {{range $i, $f := .CreateViaUpdate}}{{if $i}} || {{end}}(!plan.{{$f}}.IsNull() && !plan.{{$f}}.IsUnknown()){{end}} {
-		resp.Diagnostics.Append(r.patch{{.Pascal}}(ctx, plan, parentID, id)...)
+		input, inputDiags := expand{{.Pascal}}Update(ctx, plan)
+		resp.Diagnostics.Append(inputDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		out, err := conn.{{.UpdateMethod}}(ctx, input, {{.SDKAlias}}.{{.UpdateParams}}{ {{.ParentParam}}: {{if .ParentCast}}{{.ParentCast}}(parentID){{else}}parentID{{end}}, {{.ChildParam}}: {{if .ChildCast}}{{.ChildCast}}(id){{else}}id{{end}} })
+		if err != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", {{.ResConst}}, id), err.Error())
+			return
+		}
+		resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("updating %s", {{.ResConst}}), out)...)
 		if resp.Diagnostics.HasError() {
 			return
 		}
@@ -237,9 +247,8 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 	{{end}}
-	{{- if .Assocs}}
 	conn := r.Meta().Client
-	{{end}}
+
 	var plan {{.Model}}
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -252,7 +261,17 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
-	resp.Diagnostics.Append(r.patch{{.Pascal}}(ctx, plan, parentID, id)...)
+	input, inputDiags := expand{{.Pascal}}Update(ctx, plan)
+	resp.Diagnostics.Append(inputDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	out, err := conn.{{.UpdateMethod}}(ctx, input, {{.SDKAlias}}.{{.UpdateParams}}{ {{.ParentParam}}: {{if .ParentCast}}{{.ParentCast}}(parentID){{else}}parentID{{end}}, {{.ChildParam}}: {{if .ChildCast}}{{.ChildCast}}(id){{else}}id{{end}} })
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", {{.ResConst}}, id), err.Error())
+		return
+	}
+	resp.Diagnostics.Append(errs.ResponseDiagnostics(fmt.Sprintf("updating %s", {{.ResConst}}), out)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -321,18 +340,14 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
-// patch{{.Pascal}} sends the update body built from plan.
-func (r *{{.Pkg}}Resource) patch{{.Pascal}}(ctx context.Context, plan {{.Model}}, parentID, id int64) diag.Diagnostics {
+// expand{{.Pascal}}Update builds the update body from plan. Create uses it too,
+// for attributes only the update body carries.
+func expand{{.Pascal}}Update(ctx context.Context, plan {{.Model}}) ({{if .UpdateBodyPtr}}*{{.SDKAlias}}.{{.UpdateBody}}{{else}}{{.SDKAlias}}.{{.UpdateBodyOpt}}{{end}}, diag.Diagnostics) {
 	var diags diag.Diagnostics
-	conn := r.Meta().Client
-
-	{{if .UpdateSliceBinds}}{{range .UpdateSliceBinds}}{{.Var}}, {{.Var}}Diags := {{.Func}}(ctx, plan.{{.ModelGo}})
+	{{range .UpdateSliceBinds}}{{.Var}}, {{.Var}}Diags := {{.Func}}(ctx, plan.{{.ModelGo}})
 	diags.Append({{.Var}}Diags...)
-	{{end}}if diags.HasError() {
-		return diags
-	}
-
-	{{end}}input := {{if .UpdateBodyPtr}}&{{.SDKAlias}}.{{.UpdateBody}}{
+	{{end}}
+	return {{if .UpdateBodyPtr}}&{{.SDKAlias}}.{{.UpdateBody}}{
 		{{- range .UpdateBinds}}
 		{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 		{{- end}}
@@ -349,15 +364,7 @@ func (r *{{.Pkg}}Resource) patch{{.Pascal}}(ctx context.Context, plan {{.Model}}
 			{{- end}}
 		},
 		Set: true,
-	}{{end}}
-
-	out, err := conn.{{.UpdateMethod}}(ctx, input, {{.SDKAlias}}.{{.UpdateParams}}{ {{.ParentParam}}: {{if .ParentCast}}{{.ParentCast}}(parentID){{else}}parentID{{end}}, {{.ChildParam}}: {{if .ChildCast}}{{.ChildCast}}(id){{else}}id{{end}} })
-	if err != nil {
-		diags.AddError(fmt.Sprintf("updating %s (ID: %d)", {{.ResConst}}, id), err.Error())
-		return diags
-	}
-	diags.Append(errs.ResponseDiagnostics(fmt.Sprintf("updating %s", {{.ResConst}}), out)...)
-	return diags
+	}{{end}}, diags
 }
 {{else}}
 func (r *{{.Pkg}}Resource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
