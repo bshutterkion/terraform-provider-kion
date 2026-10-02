@@ -59,15 +59,16 @@ export TF_ACC=1
 A resource whose test needs something install- or cloud-specific reads it from
 the environment through `acctest.RequireEnv`, which **skips** that test when the
 variable is unset rather than sending an empty attribute. The list is generated
-from the `env_args` entries in `codegen/test_values.yaml`; regenerate this table
-after changing them:
+from the `env_args` entries (values the config uses) and `require_env` entries
+(prerequisites checked in `PreCheck` whose values it does not) in
+`codegen/test_values.yaml`; regenerate this table after changing them:
 
 ```bash
 python3 - <<'EOF'
 import yaml
 r = yaml.safe_load(open("codegen/test_values.yaml"))["resources"]
 for name in sorted(r):
-    env = r[name].get("env_args") or []
+    env = (r[name].get("env_args") or []) + [e["name"] for e in r[name].get("require_env") or []]
     if env:
         print(f"| `kion_{name}` | {', '.join('`%s`' % e for e in env)} |")
 EOF
@@ -79,7 +80,8 @@ EOF
 | `kion_account_linkage` | `KION_ACC_AZURE_PAYER_ID` |
 | `kion_ami` | `KION_ACC_ACCOUNT_ID`, `KION_ACC_AWS_AMI_ID` |
 | `kion_azure_account` | `KION_ACC_AZURE_PAYER_ID`, `KION_ACC_AZURE_SUBSCRIPTION_UUID` |
-| `kion_azure_arm_template` | `KION_ACC_AZURE_REGION_ID` |
+| `kion_azure_arm_template` | `KION_ACC_AZURE_REGION_ID`, `KION_ACC_AZURE_PAYER_ID`, `KION_ACC_AZURE_SUBSCRIPTION_UUID` |
+| `kion_azure_role` | `KION_ACC_AZURE_PAYER_ID` |
 | `kion_billing_rule` | `KION_ACC_BILLING_SOURCE_ID` |
 | `kion_billing_source` | `KION_ACC_AWS_ACCOUNT_NUMBER`, `KION_ACC_AWS_BILLING_ROLE`, `KION_ACC_AWS_BILLING_BUCKET`, `KION_ACC_AWS_REGION` |
 | `kion_billing_source_aws` | `KION_ACC_AWS_ACCOUNT_NUMBER`, `KION_ACC_AWS_BILLING_ROLE` |
@@ -90,6 +92,7 @@ EOF
 | `kion_custom_account` | `KION_ACC_CUSTOM_PAYER_ID`, `KION_ACC_CUSTOM_ACCOUNT_NUMBER` |
 | `kion_funding_source_permission_mapping` | `KION_ACC_APP_ROLE_ID` |
 | `kion_gcp_account` | `KION_ACC_GCP_PAYER_ID`, `KION_ACC_GCP_PROJECT_ID` |
+| `kion_gcp_service_account` | `KION_ACC_GCP_SERVICE_ACCOUNT_EMAIL` |
 | `kion_global_permission_mapping` | `KION_ACC_GLOBAL_APP_ROLE_ID` |
 | `kion_idms_group_association` | `KION_ACC_SAML_IDMS_ID` |
 | `kion_ou_permission_mapping` | `KION_ACC_APP_ROLE_ID` |

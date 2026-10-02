@@ -18,6 +18,17 @@
 #   extra_args Go expressions appended to the Sprintf args, for a value the HCL
 #              cannot state literally (kion_scope's alias is varchar(16) and
 #              rName is 17 chars, so it uses acctest.ShortName(rName, 16)).
+#   require_env  list of {name, reason}: prerequisites whose VALUES the config
+#              does not use (a billing source the create checks for). Each
+#              becomes acctest.RequireEnv(t, name, reason) in PreCheck, so the
+#              test skips with "<name> must be set to <reason>". A variable
+#              already in env_args is gated there; listing it twice is an error.
+#   known_issues list of {issue, note, expect_non_empty_plan}: an open defect
+#              the test is expected to surface, named in a comment atop the
+#              generated file so a red test reads as a recorded finding.
+#              expect_non_empty_plan: true sets ExpectNonEmptyPlan on every
+#              apply step, for a defect that leaves the plan dirty. Remove the
+#              entry when the issue closes.
 #
 # A value prefixed "hcl:" is an expression, not a literal: emitted unquoted and
 # asserted only for presence, since a reference like kion_project.test.id has no
@@ -26,8 +37,7 @@
 # resource that accepts an attribute and discards it fails the test.
 resources:
   # payer_id is optional in the schema and the spec, and REQUIRED by
-  # POST /v3/category. %[2]s is the KION_ACC_BILLING_SOURCE_ID value, threaded
-  # in by the EnvArgs entry in internal/kgen/tests/resource_meta.go.
+  # POST /v3/category. %[2]s is the KION_ACC_BILLING_SOURCE_ID value.
   category:
     env_args: [KION_ACC_BILLING_SOURCE_ID]
     create:
@@ -75,8 +85,16 @@ resources:
       name: "%[1]s"
     update:
       name: "%[1]s"
+  # Creating an ARM template makes Kion validate a deployment into a real
+  # resource group, so it needs an Azure billing source whose tenant exposes a
+  # subscription; without one the API answers an opaque 500.
   azure_arm_template:
     env_args: [KION_ACC_AZURE_REGION_ID]
+    require_env:
+      - name: KION_ACC_AZURE_PAYER_ID
+        reason: the ID of an Azure billing source on the target Kion
+      - name: KION_ACC_AZURE_SUBSCRIPTION_UUID
+        reason: an Azure subscription UUID the payer's tenant exposes; ARM template validation deploys into one
     create:
       template: "hcl:jsonencode({ \"$schema\" = \"https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#\", contentVersion = \"1.0.0.0\", resources = [] })"
       deployment_mode: "1"
@@ -101,6 +119,9 @@ resources:
       azure_policy: "hcl:{ name = \"%[1]s\", description = \"test-acc Azure policy updated\", policy = jsonencode({ policyRule = { if = { field = \"type\", equals = \"Microsoft.Resources/subscriptions\" }, then = { effect = \"audit\" } } }) }"
       owner_users: "hcl:[1]"
   azure_role:
+    require_env:
+      - name: KION_ACC_AZURE_PAYER_ID
+        reason: an Azure billing source on this install; POST /v3/azure-role returns 500 without one
     create:
       name: "%[1]s"
       owner_user_ids: "hcl:[1]"
@@ -217,20 +238,26 @@ resources:
       name: "%[1]s"
       owner_user_ids: "hcl:[1]"
       role_permissions: "hcl:[\"resourcemanager.projects.get\"]"
+  # The record stands for a Google-issued service account, so the email comes
+  # from the install. The create rejects a unique_id already on record, so it
+  # is per-run. The PATCH body carries none of email/gcp_project_id/unique_id
+  # (ratcheted in codegen/unbound_attributes.yaml), so the update step changing
+  # them surfaces that debt.
   gcp_service_account:
+    env_args: [KION_ACC_GCP_SERVICE_ACCOUNT_EMAIL]
     create:
-      email: "test-acc-value"
+      email: "%[2]s"
       enable_federation_support: "false"
       gcp_project_id: "test-acc-value"
       name: "%[1]s"
-      unique_id: "test-acc-value"
+      unique_id: "test-acc-%[1]s"
     update:
       description: "test-acc-updated"
-      email: "test-acc-updated"
+      email: "%[2]s"
       enable_federation_support: "true"
       gcp_project_id: "test-acc-updated"
       name: "%[1]s"
-      unique_id: "test-acc-updated"
+      unique_id: "test-acc-%[1]s-upd"
   iam_policy:
     create:
       policy: "hcl:jsonencode({ Version = \"2012-10-17\", Statement = [{ Effect = \"Deny\", Action = \"s3:*\", Resource = \"*\" }] })"

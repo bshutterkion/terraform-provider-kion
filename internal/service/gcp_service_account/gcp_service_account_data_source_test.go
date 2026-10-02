@@ -17,6 +17,7 @@ func TestAccKionGcpServiceAccountDataSource_basic(t *testing.T) {
 	}
 
 	rName := acctest.RandomWithPrefix(acctest.ResourcePrefix)
+	gcpServiceAccountEmail := acctest.RequireEnv(t, "KION_ACC_GCP_SERVICE_ACCOUNT_EMAIL", "the gcp service account email")
 	dataSourceName := "data.kion_gcp_service_account.test"
 
 	resource.Test(t, resource.TestCase{
@@ -24,7 +25,7 @@ func TestAccKionGcpServiceAccountDataSource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccGcpServiceAccountDataSourceConfig_basic(rName),
+				Config: testAccGcpServiceAccountDataSourceConfig_basic(rName, gcpServiceAccountEmail),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "email"),
@@ -38,18 +39,18 @@ func TestAccKionGcpServiceAccountDataSource_basic(t *testing.T) {
 	})
 }
 
-func testAccGcpServiceAccountDataSourceConfig_basic(rName string) string {
+func testAccGcpServiceAccountDataSourceConfig_basic(rName string, gcpServiceAccountEmail string) string {
 	return fmt.Sprintf(`
 resource "kion_gcp_service_account" "test" {
-  email = "test-acc-value"
+  email = "%[2]s"
   enable_federation_support = false
   gcp_project_id = "test-acc-value"
   name = "%[1]s"
-  unique_id = "test-acc-value"
+  unique_id = "test-acc-%[1]s"
 }
 
 data "kion_gcp_service_account" "test" {
   id = kion_gcp_service_account.test.id
 }
-`, rName)
+`, rName, gcpServiceAccountEmail)
 }
