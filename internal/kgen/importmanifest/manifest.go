@@ -69,6 +69,14 @@ type Parent struct {
 	// the path is not its owner. When set, the enumerator takes the parent from
 	// this key instead, which is what makes a "<parent>/<id>" import id resolve.
 	ParentIDJSON string `json:"parent_id_json,omitempty"`
+
+	// Match restricts which parents have their child collection read: a parent
+	// is read only when every named field on its list record equals the given
+	// value. /v3/idms/{id}/group-association answers only for a SAML IDMS and
+	// fails for every other type, so reading the rest reports errors that say
+	// nothing about the resource. Parents that do not match are skipped.
+	// Authored as `match:` on the data source read in config_overrides.yaml.
+	Match map[string]string `json:"match,omitempty"`
 }
 
 // ImportID describes how to build the id for an `import` block.

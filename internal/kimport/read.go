@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	"terraform-provider-kion/internal/kgen/importmanifest"
@@ -124,6 +125,7 @@ type parentSetOutcome struct {
 	// discriminator without re-threading the manifest row.
 	requireValidField string
 	parentsSkipped    int // parents with no usable id
+	parentsUnmatched  int // parents excluded by Parent.Match, never read
 	skippedNoID       int // toRecords: records with no id
 	skippedNoKey      int // toRecords: FormatParentSlashKey records missing their key field
 }
@@ -162,6 +164,10 @@ func readParentSet(ctx context.Context, l Lister, p importmanifest.Parent, r imp
 		pid := stringify(fields["id"])
 		if pid == "" {
 			out.parentsSkipped++
+			continue
+		}
+		if !parentMatches(fields, p.Match) {
+			out.parentsUnmatched++
 			continue
 		}
 		path := strings.ReplaceAll(p.ChildPath, "{parent_id}", pid)
@@ -215,6 +221,28 @@ func readParentSet(ctx context.Context, l Lister, p importmanifest.Parent, r imp
 		out.skippedNoKey += noKey
 	}
 	return out, nil
+}
+
+// parentMatches reports whether a parent record satisfies every Parent.Match
+// condition. A missing or null field matches nothing.
+func parentMatches(fields map[string]any, match map[string]string) bool {
+	for k, want := range match {
+		if stringifyWrapper(fields[k]) != want {
+			return false
+		}
+	}
+	return true
+}
+
+// unmatchedReason renders the parents Parent.Match excluded, e.g.
+// "2 parent(s) not matching idms_type_id=3".
+func unmatchedReason(n int, match map[string]string) string {
+	conds := make([]string, 0, len(match))
+	for k, v := range match {
+		conds = append(conds, k+"="+v)
+	}
+	sort.Strings(conds)
+	return fmt.Sprintf("%d parent(s) not matching %s", n, strings.Join(conds, ", "))
 }
 
 // parentSegment renders the parent portion of a compound import id: the bare
@@ -317,6 +345,9 @@ func parentScopedResult(ctx context.Context, l Lister, r importmanifest.Resource
 	if outcome.absentParents > 0 && len(res.Records) == 0 {
 		parts = append(parts, fmt.Sprintf("%d parent(s) had none", outcome.absentParents))
 	}
+	if outcome.parentsUnmatched > 0 && len(res.Records) == 0 {
+		parts = append(parts, unmatchedReason(outcome.parentsUnmatched, r.Parent.Match))
+	}
 	res.Reason = strings.Join(parts, "; ")
 
 	// This also fires when failures are only partial and the surviving
@@ -353,6 +384,7 @@ func multiParentScopedResult(ctx context.Context, l Lister, r importmanifest.Res
 	var reasonParts []string
 	anyFailure := false
 	totalAbsent := 0
+	var unmatched []string
 	for i := range r.Parents {
 		p := r.Parents[i]
 		outcome, err := readParentSet(ctx, l, p, r)
@@ -363,6 +395,9 @@ func multiParentScopedResult(ctx context.Context, l Lister, r importmanifest.Res
 		}
 		res.Records = append(res.Records, outcome.records...)
 		totalAbsent += outcome.absentParents
+		if outcome.parentsUnmatched > 0 {
+			unmatched = append(unmatched, fmt.Sprintf("%s: %s", p.Kind, unmatchedReason(outcome.parentsUnmatched, p.Match)))
+		}
 		if len(outcome.failures) > 0 {
 			anyFailure = true
 		}
@@ -372,6 +407,9 @@ func multiParentScopedResult(ctx context.Context, l Lister, r importmanifest.Res
 	}
 	if totalAbsent > 0 && len(res.Records) == 0 {
 		reasonParts = append(reasonParts, fmt.Sprintf("%d parent(s) had none", totalAbsent))
+	}
+	if len(res.Records) == 0 {
+		reasonParts = append(reasonParts, unmatched...)
 	}
 	res.Reason = strings.Join(reasonParts, "; ")
 

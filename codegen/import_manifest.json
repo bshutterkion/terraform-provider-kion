@@ -635,7 +635,10 @@
         "kind": "idms",
         "list_path": "/v3/idms",
         "child_path": "/v3/idms/{parent_id}/group-association",
-        "parent_id_field": "idms_id"
+        "parent_id_field": "idms_id",
+        "match": {
+          "idms_type_id": "3"
+        }
       },
       "import_id": {
         "format": "id"
@@ -917,7 +920,10 @@
         "kind": "idms",
         "list_path": "/v3/idms",
         "child_path": "/v3/idms/{parent_id}/group-association",
-        "parent_id_field": "idms_id"
+        "parent_id_field": "idms_id",
+        "match": {
+          "idms_type_id": "3"
+        }
       },
       "import_id": {
         "format": "id"

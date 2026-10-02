@@ -595,7 +595,19 @@ func Generate(fsw kfs.FS, root string) (*Manifest, error) {
 		return nil, err
 	}
 
+	matches, err := loadDataSourceMatches(fsw, filepath.Join(root, "codegen", "generator_config.yaml"))
+	if err != nil {
+		return nil, err
+	}
+	attrs, err := loadResourceAttrs(fsw, filepath.Join(root, "codegen", "schema_snapshots", "new.json"))
+	if err != nil {
+		return nil, err
+	}
+
 	m := Build(readPaths, dataSourcePaths, privateListPaths, privateResourcePaths, archetypes, tfTypes, hasNameAttr)
+	if err := applyParentMatches(m, matches, attrs); err != nil {
+		return nil, err
+	}
 	data, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return nil, err
@@ -651,6 +663,99 @@ func loadDataSourceReadPaths(fsw kfs.FS, path string) (map[string]string, error)
 	out := make(map[string]string, len(doc.DataSources))
 	for kind, entry := range doc.DataSources {
 		out[kind] = entry.Read.Path
+	}
+	return out, nil
+}
+
+// loadDataSourceMatches reads each data source read's `match`, authored in
+// config_overrides.yaml and carried into generator_config.yaml by kconfig.
+func loadDataSourceMatches(fsw kfs.FS, path string) (map[string]map[string]string, error) {
+	raw, err := fsw.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	var doc struct {
+		DataSources map[string]struct {
+			Read struct {
+				Match map[string]string `yaml:"match"`
+			} `yaml:"read"`
+		} `yaml:"data_sources"`
+	}
+	if err := yaml.Unmarshal(raw, &doc); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	out := map[string]map[string]string{}
+	for kind, entry := range doc.DataSources {
+		if len(entry.Read.Match) > 0 {
+			out[kind] = entry.Read.Match
+		}
+	}
+	return out, nil
+}
+
+// applyParentMatches sets Parent.Match from the authored rules. A rule that
+// names no parent-scoped manifest row, or a field the parent's schema lacks,
+// is an error: it would otherwise filter nothing, or filter every parent out.
+func applyParentMatches(m *Manifest, matches map[string]map[string]string, attrs map[string]map[string]bool) error {
+	kinds := make([]string, 0, len(matches))
+	for k := range matches {
+		kinds = append(kinds, k)
+	}
+	sort.Strings(kinds)
+	for _, kind := range kinds {
+		tfType := "kion_" + kind
+		idx := -1
+		for i := range m.Resources {
+			if m.Resources[i].TFType == tfType {
+				idx = i
+			}
+		}
+		if idx < 0 {
+			return fmt.Errorf("match on data source %q: no manifest row for %s", kind, tfType)
+		}
+		r := &m.Resources[idx]
+		if r.Parent == nil || len(r.Parents) > 0 {
+			return fmt.Errorf("match on data source %q: %s is not read under a single parent", kind, tfType)
+		}
+		parentType := "kion_" + r.Parent.Kind
+		for field := range matches[kind] {
+			if !attrs[parentType][field] {
+				return fmt.Errorf("match on data source %q: parent %s has no attribute %q", kind, parentType, field)
+			}
+		}
+		r.Parent.Match = matches[kind]
+	}
+	return nil
+}
+
+// loadResourceAttrs returns every resource's top-level attribute names from
+// the schema snapshot.
+func loadResourceAttrs(fsw kfs.FS, path string) (map[string]map[string]bool, error) {
+	raw, err := fsw.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	var doc struct {
+		ProviderSchemas map[string]struct {
+			ResourceSchemas map[string]struct {
+				Block struct {
+					Attributes map[string]json.RawMessage `json:"attributes"`
+				} `json:"block"`
+			} `json:"resource_schemas"`
+		} `json:"provider_schemas"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	out := map[string]map[string]bool{}
+	for _, provider := range doc.ProviderSchemas {
+		for tfType, schema := range provider.ResourceSchemas {
+			set := make(map[string]bool, len(schema.Block.Attributes))
+			for a := range schema.Block.Attributes {
+				set[a] = true
+			}
+			out[tfType] = set
+		}
 	}
 	return out, nil
 }

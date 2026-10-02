@@ -43,7 +43,9 @@ count is a property of the install, not a regression: it holds little data.
 
 Its two errors are both #48 -- `kion_idms_group_association` and
 `kion_saml_group_association` fail on `GET /v3/idms/1/group-association`, which
-closes the connection. No other resource errored.
+closes the connection. No other resource errored. `kion-import` has since
+stopped reading that collection under non-SAML parents; see *The IDMS
+group-association endpoint*.
 
 `unsupported` is 2 rather than the 3 in the five-install table for the reason
 already recorded below: the third was `kion_custom_variable_override`, refused
@@ -132,11 +134,16 @@ install is a proxy rendering a backend that died, so that is likely the same
 fault without a proxy in front of it.
 
 `kion_idms_group_association` and `kion_saml_group_association` both enumerate
-through this endpoint, so an install whose IDMSes are not all SAML loses those
-parents. The QA install has no SAML IDMS at all, so both come back `error` there
-rather than caveated. The tooling behaves correctly: one bad parent does not sink
-the resource, and the failure is reported rather than swallowed. Tracked in #48;
-the fix is upstream.
+through this endpoint. Before #48 was addressed, an install whose IDMSes were not
+all SAML reported every other IDMS as a failed parent, and the QA install, with
+no SAML IDMS at all, reported both resources as `error`.
+
+`kion-import` now reads the collection only under SAML parents: the manifest
+row carries `"match": {"idms_type_id": "3"}` on its parent block, and a parent
+whose list record does not match is skipped without a request. Group
+associations exist only on a SAML IDMS, so nothing is lost. An install with no
+SAML IDMS reports both resources `empty`, naming the skipped parents. The
+server defect itself is still upstream; the rows below predate the change.
 
 ## Result
 
@@ -343,9 +350,11 @@ wrong -- see *`no_read` did not mean unreadable*. It also used to include
 | `project_cloud_access_role_exemption` | 12 such records, so none remain |
 | `custom_variable_override` | 1,791 records with no `override` set |
 
-The 502 is server-side and specific to IDMS 1 on that install -- IDMS 2/3/4
-answer 200/404 normally, and three consecutive retries all returned 502. It is
-reported rather than swallowed, and one bad parent does not sink the resource.
+The 502 was recorded here as specific to IDMS 1 on that install. It is not: the
+API fails this read for every IDMS that is not SAML, on every install measured
+(see *The IDMS group-association endpoint*, #48). IDMS 1 is the Internal
+Directory. `kion-import` now skips non-SAML parents, so these two rows no longer
+report a failed parent.
 
 The two exemption caveats are the kind-mixing filter working; see below.
 

@@ -688,10 +688,14 @@ data_sources:
     read:
       path: /v3/idms
       method: GET
+  # The API serves this collection only for a SAML IDMS (idms_type_id 3) and
+  # fails for every other type, on every install measured (#48). `match` makes
+  # kion-import read it only under parents whose list record matches.
   idms_group_association:
     read:
       path: /v3/idms/{id}/group-association
       method: GET
+      match: { idms_type_id: "3" }
   label:
     read:
       path: /v3/label
@@ -784,11 +788,13 @@ data_sources:
 
   # Derivation picks /v3/idms/group-association/{id}, whose collection is POST
   # only, so the import manifest would list from a path that cannot be listed.
-  # The records hang off the parent.
+  # The records hang off the parent, and only a SAML parent; see
+  # idms_group_association above.
   saml_group_association:
     read:
       path: /v3/idms/{id}/group-association
       method: GET
+      match: { idms_type_id: "3" }
 
   # Polymorphic across account/ou/project, so derivation resolves whichever GET
   # the data source reaches first (/v3/ou) and calls it the collection. There is

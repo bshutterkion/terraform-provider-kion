@@ -127,3 +127,45 @@ func TestIsValidWrapper(t *testing.T) {
 	assert.True(t, isValidWrapper(map[string]any{"value": "x"}), "plain non-empty object is present")
 	assert.False(t, isValidWrapper(map[string]any{}), "empty object is not")
 }
+
+// TestParentMatchSkipsIneligibleParents covers /v3/idms/{id}/group-association,
+// which fails for every IDMS that is not SAML. Those parents must never be
+// read, so they cannot turn the resource into an error.
+func TestParentMatchSkipsIneligibleParents(t *testing.T) {
+	r := importmanifest.Resource{
+		TFType:    "kion_saml_group_association",
+		ReadShape: importmanifest.ShapeParentList,
+		Readable:  true,
+		Parent: &importmanifest.Parent{
+			Kind: "idms", ListPath: "/v3/idms",
+			ChildPath:     "/v3/idms/{parent_id}/group-association",
+			ParentIDField: "idms_id",
+			Match:         map[string]string{"idms_type_id": "3"},
+		},
+		ImportID: importmanifest.ImportID{Format: importmanifest.FormatID},
+	}
+	l := &routeLister{routes: map[string]any{
+		"/v3/idms": []map[string]any{
+			{"id": float64(1), "idms_type_id": float64(1)},
+			{"id": float64(2), "idms_type_id": float64(3)},
+			{"id": float64(3), "idms_type_id": nil},
+		},
+		"/v3/idms/2/group-association": []map[string]any{{"id": float64(7)}},
+	}}
+
+	res := Enumerate(context.Background(), l, r)
+	require.Equal(t, "ok", res.Status, res.Reason)
+	assert.Empty(t, res.Reason)
+	require.Len(t, res.Records, 1)
+	assert.Equal(t, "7", res.Records[0].ID)
+	assert.NotContains(t, l.calls, "/v3/idms/1/group-association")
+	assert.NotContains(t, l.calls, "/v3/idms/3/group-association")
+
+	// No eligible parent at all is empty, not an error.
+	l2 := &routeLister{routes: map[string]any{
+		"/v3/idms": []map[string]any{{"id": float64(1), "idms_type_id": float64(1)}},
+	}}
+	res = Enumerate(context.Background(), l2, r)
+	assert.Equal(t, "empty", res.Status, res.Reason)
+	assert.Contains(t, res.Reason, "1 parent(s) not matching")
+}

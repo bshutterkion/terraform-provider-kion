@@ -108,7 +108,7 @@ resources:
     # ScheduledFrequency renders start_date/end_date through domain/util.NullTime,
     # which has no MarshalJSON, so they arrive as {"Time":…,"Valid":false} rather
     # than a bare string -- the same defect that made project_note and dashboard
-    # undecodable (#48). These are nested under scheduled_frequency, so the
+    # undecodable (#19). These are nested under scheduled_frequency, so the
     # template handles them directly rather than through read_kinds, which keys
     # on top-level attributes.
 

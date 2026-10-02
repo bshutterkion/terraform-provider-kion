@@ -1,0 +1,14 @@
+kind: BUG FIXES
+body: >-
+  The `kion_account_linkage` data source could not read a linkage that had not
+  been finalized, which is every active one: Kion returns
+  `delete_finalized_at` as null and the SDK decodes it as a non-nullable string,
+  so both the `id` lookup and the `filter` listing failed on decode. The data
+  source now reads `/v3/account-linkages` directly, as the resource already
+  did, and tolerates the null.
+
+
+  In `list`, a field Kion returns as null (`delete_finalized_at`, `deleted_at`,
+  `updated_at`, `payer_id`, `user_id`, and so on) is now null rather than an
+  empty string or zero.
+time: 2026-09-30T19:30:00Z

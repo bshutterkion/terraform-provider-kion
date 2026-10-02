@@ -123,6 +123,30 @@ reproducible.
   with `skip: true`. It is still importable: `kion-import` reads all three
   `/v3/{entity}/{id}/custom-variable` collections from `multiParentOverrides` in
   `internal/kgen/importmanifest/generate.go`, not from this file.
+
+**`match` restricts the parents a parent-scoped read is made under.** It sits on
+a data source's `read:`, maps a field of the parent's list record to the value
+it must have, and is carried into `generator_config.yaml` and from there into
+the manifest row's `parent.match`. `kion-import` skips a parent that does not
+match without requesting it. `idms_group_association` and
+`saml_group_association` carry `match: { idms_type_id: "3" }`, because the API
+serves `/v3/idms/{id}/group-association` only for a SAML IDMS and fails for every
+other type (#48).
+
+```yaml
+data_sources:
+  saml_group_association:
+    read:
+      path: /v3/idms/{id}/group-association
+      method: GET
+      match: { idms_type_id: "3" }
+```
+
+A rule that cannot apply fails the build rather than filtering nothing, or
+filtering out every parent. `kconfig` rejects `match` on a resource, on a read
+whose path has no parent placeholder, and an empty map, field or value.
+`kgen import-manifest` rejects a field the parent resource's schema does not
+declare, and a data source whose manifest row has no single parent.
 - `ou_permission_mapping` and `project_permission_mapping` create and update
   through the same PATCH upsert, and derivation attributes that one PATCH to
   create alone. Without a pinned `update` they become create-and-replace only.

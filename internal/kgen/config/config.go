@@ -50,6 +50,9 @@ type ServiceConfig struct {
 	ExtraIgnores           []string // extra OAS attributes to drop, from config_overrides (appended to baked-in ignores)
 	DataSourceRead         *Op
 	DataSourceExtraIgnores []string // as ExtraIgnores, for the data-source schema
+	// DataSourceReadMatch filters which parents a parent-scoped read is made
+	// under; the import manifest reads it from the rendered config.
+	DataSourceReadMatch map[string]string
 }
 
 var acronyms = map[string]string{
@@ -243,6 +246,7 @@ func render(configs []ServiceConfig) string {
 		}
 		fmt.Fprintf(&b, "  %s:\n", c.Name)
 		writeOp(&b, "read", c.DataSourceRead)
+		writeMatch(&b, c.DataSourceReadMatch)
 		dsIgnores := dedupe(append([]string{"status", "record_id"}, c.DataSourceExtraIgnores...))
 		fmt.Fprintf(&b, "    schema:\n      ignores: [%s]\n", strings.Join(dsIgnores, ", "))
 	}
@@ -284,6 +288,23 @@ func dedupe(in []string) []string {
 	return out
 }
 
+// writeMatch renders a read's match under it, sorted and with every value
+// quoted so a number stays a string.
+func writeMatch(b *strings.Builder, match map[string]string) {
+	if len(match) == 0 {
+		return
+	}
+	keys := make([]string, 0, len(match))
+	for k := range match {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	b.WriteString("      match:\n")
+	for _, k := range keys {
+		fmt.Fprintf(b, "        %s: %q\n", k, match[k])
+	}
+}
+
 func writeOp(b *strings.Builder, verb string, op *Op) {
 	if op == nil {
 		return
@@ -296,6 +317,9 @@ func writeOp(b *strings.Builder, verb string, op *Op) {
 type yOp struct {
 	Path   string `yaml:"path"`
 	Method string `yaml:"method"`
+	// Match is valid only on a data source's parent-scoped read; see
+	// validateMatches.
+	Match map[string]string `yaml:"match"`
 }
 type yEntry struct {
 	Create yOp `yaml:"create"`
@@ -458,7 +482,40 @@ func withOverrides(configs []ServiceConfig, opts Options) ([]ServiceConfig, erro
 	if err := dec.Decode(&ov); err != nil && !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("parsing overrides %s: %w", path, err)
 	}
+	if err := validateMatches(ov); err != nil {
+		return nil, fmt.Errorf("overrides %s: %w", path, err)
+	}
 	return applyOverrides(configs, ov), nil
+}
+
+// validateMatches rejects a `match` that could never be applied: one on a
+// resource (only data source reads are list reads), one on a read with no
+// parent placeholder, or one with an empty map, field or value.
+func validateMatches(ov overridesFile) error {
+	for name, e := range ov.Resources {
+		for verb, op := range map[string]*yOp{"create": e.Create, "read": e.Read, "update": e.Update, "delete": e.Delete} {
+			if op != nil && op.Match != nil {
+				return fmt.Errorf("resource %q %s: match is only valid on a data source read", name, verb)
+			}
+		}
+	}
+	for name, e := range ov.DataSources {
+		if e.Read == nil || e.Read.Match == nil {
+			continue
+		}
+		if len(e.Read.Match) == 0 {
+			return fmt.Errorf("data source %q read: match is empty", name)
+		}
+		if !strings.Contains(e.Read.Path, "{") || strings.HasSuffix(e.Read.Path, "}") {
+			return fmt.Errorf("data source %q read: match needs a parent-scoped path (/parent/{id}/child), got %q", name, e.Read.Path)
+		}
+		for k, v := range e.Read.Match {
+			if strings.TrimSpace(k) == "" || strings.TrimSpace(v) == "" {
+				return fmt.Errorf("data source %q read: match field and value must be non-empty, got %q: %q", name, k, v)
+			}
+		}
+	}
+	return nil
 }
 
 // applyOverrides overlays overrides onto the derived configs: overridden verbs
@@ -502,6 +559,7 @@ func applyOverrides(configs []ServiceConfig, ov overridesFile) []ServiceConfig {
 		}
 		if op := e.Read.toOp(); op != nil {
 			sc.DataSourceRead = op
+			sc.DataSourceReadMatch = e.Read.Match
 		}
 		sc.DataSourceExtraIgnores = append(sc.DataSourceExtraIgnores, e.allIgnores()...)
 		m[name] = sc

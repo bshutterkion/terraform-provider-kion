@@ -68,6 +68,9 @@ var webhookTestTmpl string
 //go:embed companion_webhook_data_source_test.gtpl
 var webhookDataSourceTestTmpl string
 
+//go:embed companion_account_linkage_data_source_decode_test.gtpl
+var accountLinkageDataSourceDecodeTestTmpl string
+
 //go:embed companion_account_linkage_data_source.gtpl
 var accountLinkageDataSourceTmpl string
 
@@ -135,6 +138,7 @@ var companionTestsByName = map[string][]bespokeFile{
 	},
 	"account_linkage": {
 		{accountLinkageDataSourceTestTmpl, "account_linkage_data_source_test.go"},
+		{accountLinkageDataSourceDecodeTestTmpl, "account_linkage_data_source_decode_test.go"},
 	},
 	"app_config": {
 		{appConfigDataSourceTestTmpl, "app_config_data_source_test.go"},
