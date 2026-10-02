@@ -135,7 +135,11 @@ func (g *generator) resolveBlended(name string, ops resOps, idx sdkIndex, pe raw
 	}
 
 	pascal := pascalCase(name)
-	rm := ResourceModel{Name: name, Pascal: pascal, Model: pascal + "Model", Gated: gated}
+	rm := ResourceModel{Name: name, Pascal: pascal, Model: pascal + "Model", Gated: gated,
+		AtLeastOneOf:     g.configValidators.For(name),
+		RequiredWhen:     g.configValidators.RequiredWhenFor(name),
+		RequiredTogether: g.configValidators.RequiredTogetherFor(name),
+	}
 
 	// Typed public create (required).
 	create, err := resolveOp("create", ops.Create, idx)

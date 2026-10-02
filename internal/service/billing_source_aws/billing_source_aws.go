@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -27,9 +28,10 @@ import (
 const ResNameBillingSourceAws = "BillingSourceAws"
 
 var (
-	_ resource.Resource                = &billing_source_awsResource{}
-	_ resource.ResourceWithConfigure   = &billing_source_awsResource{}
-	_ resource.ResourceWithImportState = &billing_source_awsResource{}
+	_ resource.Resource                     = &billing_source_awsResource{}
+	_ resource.ResourceWithConfigure        = &billing_source_awsResource{}
+	_ resource.ResourceWithImportState      = &billing_source_awsResource{}
+	_ resource.ResourceWithConfigValidators = &billing_source_awsResource{}
 )
 
 // NewBillingSourceAwsResource returns a new instance of the resource.
@@ -43,6 +45,20 @@ type billing_source_awsResource struct {
 
 func (r *billing_source_awsResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_billing_source_aws"
+}
+
+// ConfigValidators expresses constraints the API enforces across attributes,
+// which the schema cannot: an attribute required only for some value of another
+// is not Required on its own, so without this the configuration reaches the API
+// and comes back as a validation error naming the Go struct field rather than
+// the Terraform attribute.
+func (r *billing_source_awsResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		resourcevalidator.RequiredTogether(
+			path.MatchRoot("key_id"),
+			path.MatchRoot("key_secret"),
+		),
+	}
 }
 
 func (r *billing_source_awsResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {

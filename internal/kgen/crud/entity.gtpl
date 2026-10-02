@@ -17,7 +17,7 @@ import (
 	{{end}}"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	{{if .AtLeastOneOf}}"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	{{if or .AtLeastOneOf .RequiredTogether}}"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	{{end}}	"github.com/hashicorp/terraform-plugin-framework/types"
 	{{.SDKAlias}} "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
 
@@ -32,7 +32,7 @@ var (
 	_ resource.Resource                = &{{.Pkg}}Resource{}
 	_ resource.ResourceWithConfigure   = &{{.Pkg}}Resource{}
 	_ resource.ResourceWithImportState = &{{.Pkg}}Resource{}
-{{- if or .AtLeastOneOf .RequiredWhen}}
+{{- if or .AtLeastOneOf .RequiredWhen .RequiredTogether}}
 	_ resource.ResourceWithConfigValidators = &{{.Pkg}}Resource{}
 {{- end}}
 )
@@ -50,7 +50,7 @@ func (r *{{.Pkg}}Resource) Metadata(_ context.Context, req resource.MetadataRequ
 	resp.TypeName = req.ProviderTypeName + "_{{.Pkg}}"
 }
 
-{{if or .AtLeastOneOf .RequiredWhen}}// ConfigValidators expresses constraints the API enforces across attributes,
+{{if or .AtLeastOneOf .RequiredWhen .RequiredTogether}}// ConfigValidators expresses constraints the API enforces across attributes,
 // which the schema cannot: an attribute required only for some value of another
 // is not Required on its own, so without this the configuration reaches the API
 // and comes back as a validation error naming the Go struct field rather than
@@ -60,6 +60,13 @@ func (r *{{.Pkg}}Resource) ConfigValidators(_ context.Context) []resource.Config
 		{{- if .AtLeastOneOf}}
 		resourcevalidator.AtLeastOneOf(
 			{{- range .AtLeastOneOf}}
+			path.MatchRoot("{{.}}"),
+			{{- end}}
+		),
+		{{- end}}
+		{{- range .RequiredTogether}}
+		resourcevalidator.RequiredTogether(
+			{{- range .}}
 			path.MatchRoot("{{.}}"),
 			{{- end}}
 		),

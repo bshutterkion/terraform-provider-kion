@@ -8,6 +8,11 @@ body: >-
   them. `key_id` is now marked sensitive.
 
 
+  `kion_billing_source_aws` now rejects `key_id` without `key_secret` (or the
+  reverse) at plan time. The API uses an access key pair only when both halves
+  are set, so setting one alone was accepted and then ignored.
+
+
   `kion_billing_source_gcp` now reads `billing_start_date` back correctly, and
   its create now sends `big_query_export`. Before this fix, every refresh failed
   and the BigQuery export settings were dropped on create.
