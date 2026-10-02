@@ -59,10 +59,11 @@ release in the layout the Terraform Registry expects.
 | `GPG_PRIVATE_KEY` | ASCII-armored private key whose public half is registered with the Terraform Registry |
 | `PASSPHRASE` | passphrase for that key |
 
-To cut a release: `make release-prepare`, then tag and push.
+To cut a release: `make release-prepare`, then commit, tag and push.
 
 ```bash
-git tag vX.Y.Z && git push origin vX.Y.Z
+git add .changes CHANGELOG.md && git commit -m "release X.Y.Z"
+git tag -a vX.Y.Z -m vX.Y.Z && git push origin main vX.Y.Z
 ```
 
 `make release-snapshot` builds the artifacts locally without publishing, which

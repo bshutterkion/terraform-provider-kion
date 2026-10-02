@@ -3,7 +3,10 @@ name: Release
 # Triggered by pushing a tag: the Terraform Registry keys a release off the git
 # tag, so the tag is the release. Cut one with:
 #   make changelog-release RELEASE_VERSION=1.0.0
-#   git commit -am "release 1.0.0" && git tag v1.0.0 && git push --follow-tags
+#   git add .changes CHANGELOG.md && git commit -m "release 1.0.0"
+#   git tag -a v1.0.0 -m v1.0.0 && git push origin main v1.0.0
+# (commit -a would skip the new, untracked .changes/1.0.0.md; a tag without -a
+# is lightweight, which --follow-tags does not push)
 on:
   push:
     tags:
