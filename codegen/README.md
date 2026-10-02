@@ -115,10 +115,24 @@ flattens into. A mismatch compiles and then fails every read in the Value
 constructor; that is how `kion_billing_source_gcp`'s `billing_start_date`,
 declared `int` against a string attribute, broke its every refresh.
 
-An attribute an update genuinely cannot change belongs under `RequiresReplace`,
-which removes it from the update side of the audit for the right reason. The
-provider barely uses it today; most `:update` entries in the baseline are that
-choice never having been made.
+Each baseline entry ends in one of four decisions:
+
+- **Bind it** through the endpoint that does change it: owners, associations and
+  slice members in `memberships.yaml` (parent_list resources included), or a
+  `moves` entry in `crud_archetypes.yaml` for a parent change that has its own
+  move endpoint (`kion_ou`, the azure/gcp/custom accounts). A completed move is
+  written to state at once, so a later failure cannot leave state naming the old
+  parent. An attribute only the update body carries is applied right after create
+  with `create_via_update` (parent_list) or the resource's own template.
+- **`RequiresReplace`** (`schema_overrides.yaml`) when the API fixes it at create
+  and recreating is what the change means. This removes it from the update side.
+- **Remove it** when it is not an input at all, such as a list endpoint's filter
+  query param leaking into a resource schema.
+- **Keep it with a reason** when nothing can change it and replacement would
+  destroy real data (an account, OU, project or funding source). The reason
+  names the body and, where one exists, the resource that owns the relation.
+
+New entries arrive as `TODO`; a `TODO` is debt, not a decision.
 
 ## Derivation guesses, and sometimes guesses wrong
 

@@ -502,6 +502,18 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 			rm.ImportParentTF = entityArch.DeleteExtraField
 		}
 	}
+	if entityArch != nil {
+		for _, m := range entityArch.Moves {
+			mf, ok := byTF[m.Attr]
+			if !ok {
+				return 0, fmt.Errorf("%s: move attr %q not in model", name, m.Attr)
+			}
+			if (m.RawPost == "") == !m.Account || mf.Type != "types.Int64" {
+				return 0, fmt.Errorf("%s: move %q needs exactly one of raw_post/account and an int64 attribute", name, m.Attr)
+			}
+			rm.Moves = append(rm.Moves, moveBind{ModelGo: mf.GoName, TF: mf.TFSDK, RawPost: m.RawPost, AccountMove: m.Account})
+		}
+	}
 	rm.Renames = g.renames[name]
 	// A private delete only applies when the public spec published none; if the
 	// SDK has a typed delete the generator must keep using it.

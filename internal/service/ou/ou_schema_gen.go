@@ -87,8 +87,8 @@ func OuResourceSchema(ctx context.Context) schema.Schema {
 			},
 			"parent_ou_id": schema.Int64Attribute{
 				Required:            true,
-				Description:         "ID of the OU containing this OU. A parent OU ID of 0 will create a top-level OU.",
-				MarkdownDescription: "ID of the OU containing this OU. A parent OU ID of 0 will create a top-level OU.",
+				Description:         "ID of the OU containing this OU. A parent OU ID of 0 will create a top-level OU. Changing it moves the OU in place, with its child OUs and projects, rather than recreating it: inherited cloud rules and permissions are then those of the new ancestry. The move goes through Kion's internal POST /v2/ou/{id}/move route, which the public API does not publish, and requires global admin.",
+				MarkdownDescription: "ID of the OU containing this OU. A parent OU ID of 0 will create a top-level OU. Changing it moves the OU in place, with its child OUs and projects, rather than recreating it: inherited cloud rules and permissions are then those of the new ancestry. The move goes through Kion's internal POST /v2/ou/{id}/move route, which the public API does not publish, and requires global admin.",
 			},
 			"permission_scheme_id": schema.Int64Attribute{
 				Required:            true,

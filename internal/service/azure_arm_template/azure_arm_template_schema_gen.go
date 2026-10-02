@@ -4,6 +4,7 @@ package azure_arm_template
 
 import (
 	"context"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -66,11 +67,17 @@ func AzureArmTemplateResourceSchema(ctx context.Context) schema.Schema {
 				Required:            true,
 				Description:         "Name of the resource group where these resources should be deployed",
 				MarkdownDescription: "Name of the resource group where these resources should be deployed",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"resource_group_region_id": schema.Int64Attribute{
 				Required:            true,
 				Description:         "Database ID of the Azure region where the ARM template should be deployed",
 				MarkdownDescription: "Database ID of the Azure region where the ARM template should be deployed",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.RequiresReplace(),
+				},
 			},
 			"template": schema.StringAttribute{
 				Required:            true,

@@ -49,6 +49,7 @@ func IdmsGroupAssociationResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "ID of the idms the group association will apply to.",
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.UseStateForUnknown(),
+					int64planmodifier.RequiresReplace(),
 				},
 			},
 			"update_on_login": schema.BoolAttribute{

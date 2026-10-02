@@ -34,7 +34,7 @@ resource "kion_custom_account" "example" {
 - `account_name` (String) The name of the account as it will appear in the application.
 - `account_number` (String) The account number or identifier for the custom account.
 - `payer_id` (Number) The ID of the payer to link the account to.
-- `project_id` (Number) The ID of the project to link the account to.
+- `project_id` (Number) ID of the project the account belongs to. Changing it moves the account in place through POST /v3/account/{id}/move rather than recreating it: Kion gives the account a new id, the resource adopts it, and the account's financial history stays with the old project (the move's preserve setting). The new project's cloud rules and cloud access roles apply after the move. Requires permission to manage accounts and projects.
 - `start_datecode` (String) The start date that the account's spend accrues against the linked project.
 
 ### Optional

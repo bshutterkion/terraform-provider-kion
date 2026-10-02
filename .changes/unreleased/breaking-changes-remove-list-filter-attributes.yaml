@@ -1,0 +1,4 @@
+kind: BREAKING CHANGES
+body: >-
+  `kion_cloud_rule.source` and `kion_project_cloud_access_role.policytype` are removed. Both were filter parameters of the list endpoints that leaked into the resource schemas; no request ever carried them, so setting either had no effect. A configuration that sets one must drop it. Neither existed in the previous provider, so migrated configurations are unaffected.
+time: 2026-10-02T17:08:55.000000Z

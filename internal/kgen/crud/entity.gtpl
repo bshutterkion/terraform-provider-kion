@@ -6,11 +6,11 @@ package {{.Pkg}}
 import (
 	{{if .RespRawValues}}"bytes"
 	{{end}}"context"
-	{{if or .RawValueHelpers .RespRawValues .RawCreate}}"encoding/json"
+	{{if or .RawValueHelpers .RespRawValues .RawCreate .HasRawMove}}"encoding/json"
 	{{end}}"fmt"
 	{{if .RespSums}}"math"
 	{{end}}"strconv"
-	{{if or .RawDeletePath .ImportParentTF}}"strings"
+	{{if or .RawDeletePath .ImportParentTF .HasRawMove}}"strings"
 	{{end}}
 	{{if or .RawValueHelpers .RespRawValues}}"github.com/go-faster/jx"
 	{{end}}{{if .HasNestedFlat}}"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -24,6 +24,9 @@ import (
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
 	"terraform-provider-kion/internal/framework"
+	{{- if .HasAccountMove}}
+	"terraform-provider-kion/internal/service/accounthelper"
+	{{- end}}
 )
 
 const {{.ResConst}} = "{{.ResName}}"
@@ -421,7 +424,7 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-{{- if or .Owners .Assocs .SliceMembers}}
+{{- if or .Owners .Assocs .SliceMembers .Moves}}
 
 	var state {{.Model}}
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
@@ -435,6 +438,43 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
 	}
+{{- range .Moves}}
+
+	// The update body cannot carry {{.ModelGo}}; it changes through its own
+	// endpoint, called first so a failed move leaves the other fields alone.
+	if !plan.{{.ModelGo}}.IsUnknown() && !plan.{{.ModelGo}}.Equal(state.{{.ModelGo}}) {
+{{- if .AccountMove}}
+		// Financial history stays with the old project; the move answers with
+		// the account's new id.
+		moved, moveDiags := accounthelper.MoveAccountBetweenProjects(ctx, conn, idInt, uint64(plan.{{.ModelGo}}.ValueInt64()), "preserve", 0)
+		resp.Diagnostics.Append(moveDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		idInt = moved.NewID
+		plan.{{$.IDGo}} = types.StringValue(strconv.FormatInt(idInt, 10))
+		// Recorded at once: if a later step fails, state must name the new
+		// account, or every later operation addresses one that no longer exists.
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("{{$.IDTF}}"), plan.{{$.IDGo}})...)
+{{- else}}
+		moveBody, merr := json.Marshal(plan.{{.ModelGo}}.ValueInt64())
+		if merr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("moving %s (ID: %d)", {{$.ResConst}}, idInt), merr.Error())
+			return
+		}
+		if _, merr := r.Meta().RawPost(ctx, strings.Replace("{{.RawPost}}", "{id}", strconv.FormatInt(idInt, 10), 1), moveBody); merr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("moving %s (ID: %d)", {{$.ResConst}}, idInt), merr.Error())
+			return
+		}
+{{- end}}
+		// The move has landed; record it so a later failure cannot leave state
+		// naming the old parent.
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("{{.TF}}"), plan.{{.ModelGo}})...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+{{- end}}
 {{- if .Labels}}
 
 	// As in Create: captured before the read-back, which does not carry labels.

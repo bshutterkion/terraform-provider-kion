@@ -53,7 +53,6 @@ func (r *cloud_ruleResource) UpgradeState(ctx context.Context) map[int64]resourc
 					"pre_webhook_id":                    migratehelper.OrNull(old["pre_webhook_id"]),
 					"project_ids":                       migratehelper.ProjectIDs(old["projects"], "id"),
 					"service_control_policy_ids":        migratehelper.ProjectIDs(old["service_control_policies"], "id"),
-					"source":                            migratehelper.Null,
 				}
 				b, err := json.Marshal(nw)
 				if err != nil {

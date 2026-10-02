@@ -35,6 +35,9 @@ func CustomAccountResourceSchema(ctx context.Context) schema.Schema {
 				Required:            true,
 				Description:         "The account number or identifier for the custom account.",
 				MarkdownDescription: "The account number or identifier for the custom account.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -51,8 +54,8 @@ func CustomAccountResourceSchema(ctx context.Context) schema.Schema {
 			},
 			"project_id": schema.Int64Attribute{
 				Required:            true,
-				Description:         "The ID of the project to link the account to.",
-				MarkdownDescription: "The ID of the project to link the account to.",
+				Description:         "ID of the project the account belongs to. Changing it moves the account in place through POST /v3/account/{id}/move rather than recreating it: Kion gives the account a new id, the resource adopts it, and the account's financial history stays with the old project (the move's preserve setting). The new project's cloud rules and cloud access roles apply after the move. Requires permission to manage accounts and projects.",
+				MarkdownDescription: "ID of the project the account belongs to. Changing it moves the account in place through POST /v3/account/{id}/move rather than recreating it: Kion gives the account a new id, the resource adopts it, and the account's financial history stays with the old project (the move's preserve setting). The new project's cloud rules and cloud access roles apply after the move. Requires permission to manage accounts and projects.",
 			},
 			"start_datecode": schema.StringAttribute{
 				Required:            true,

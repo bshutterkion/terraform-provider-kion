@@ -23,6 +23,7 @@ func IamPolicyResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "Text of the IAM Path in AWS to be stored in AWS.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"aws_managed_policy": schema.BoolAttribute{

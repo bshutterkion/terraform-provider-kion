@@ -54,6 +54,9 @@ func IdmsOpenIdAccessRuleResourceSchema(ctx context.Context) schema.Schema {
 				Required:            true,
 				Description:         "The ID of the OpenID IDMS the access rule belongs to.",
 				MarkdownDescription: "The ID of the OpenID IDMS the access rule belongs to.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.RequiresReplace(),
+				},
 			},
 		},
 		Description: "Manages an access rule for a Kion OpenID Connect IDMS.",

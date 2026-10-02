@@ -48,7 +48,7 @@ No modules.
 | account\_name | The name of the account as it will appear in the application. | `string` | n/a | yes |
 | account\_number | The account number or identifier for the custom account. | `string` | n/a | yes |
 | payer\_id | The ID of the payer to link the account to. | `number` | n/a | yes |
-| project\_id | The ID of the project to link the account to. | `number` | n/a | yes |
+| project\_id | ID of the project the account belongs to. Changing it moves the account in place through POST /v3/account/{id}/move rather than recreating it: Kion gives the account a new id, the resource adopts it, and the account's financial history stays with the old project (the move's preserve setting). The new project's cloud rules and cloud access roles apply after the move. Requires permission to manage accounts and projects. | `number` | n/a | yes |
 | start\_datecode | The start date that the account's spend accrues against the linked project. | `string` | n/a | yes |
 | account\_alias | Alias of the account in the application. | `string` | `null` | no |
 

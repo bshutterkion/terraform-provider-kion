@@ -49,6 +49,7 @@ func SamlGroupAssociationResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "ID of the idms the group association will apply to.",
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.UseStateForUnknown(),
+					int64planmodifier.RequiresReplace(),
 				},
 			},
 			"idms_saml_id": schema.Int64Attribute{

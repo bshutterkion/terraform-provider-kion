@@ -46,7 +46,7 @@ No modules.
 | ---- | ----------- | ---- | ------- | :------: |
 | account\_name | Name of the account in the application. | `string` | n/a | yes |
 | payer\_id | ID of the payer (aka Google Cloud Billing Account) | `number` | n/a | yes |
-| project\_id | ID of the project where the account is attached. | `number` | n/a | yes |
+| project\_id | ID of the project the account belongs to. Changing it moves the account in place through POST /v3/account/{id}/move rather than recreating it: Kion gives the account a new id, the resource adopts it, and the account's financial history stays with the old project (the move's preserve setting). The new project's cloud rules and cloud access roles apply after the move. Requires permission to manage accounts and projects. | `number` | n/a | yes |
 | start\_datecode | Date when the GCP org will begin submitting payments against a funding source (YYYY-MM) | `string` | n/a | yes |
 | account\_alias | Alias of the account in the application. | `string` | `null` | no |
 | account\_type\_id | The AccountTypeID is the corresponding account's type. Will default to 15 for GCP if not given. | `number` | `null` | no |

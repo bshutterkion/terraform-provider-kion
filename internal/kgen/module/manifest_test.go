@@ -31,11 +31,10 @@ func TestManifestIsCurrent(t *testing.T) {
 		"modules/module_manifest.json is stale -- run: make modules")
 }
 
-// TestBuildManifest_knownCollisions locks in the two attribute names that
-// collide with a `module` block meta-argument, so a rewriter reading this
-// manifest never emits `source = ...` or `version = ...` as a plain attribute
-// inside a module block, which Terraform would misread as the module's own
-// source address / version constraint.
+// TestBuildManifest_knownCollisions locks in the attribute name that collides
+// with a `module` block meta-argument, so a rewriter reading this manifest never
+// emits `version = ...` as a plain attribute inside a module block, which
+// Terraform would misread as the module's own version constraint.
 func TestBuildManifest_knownCollisions(t *testing.T) {
 	t.Parallel()
 	m := BuildManifest()
@@ -43,7 +42,6 @@ func TestBuildManifest_knownCollisions(t *testing.T) {
 	cases := []struct {
 		tfType, attr, wantVar string
 	}{
-		{"kion_cloud_rule", "source", "cloud_rule_source"},
 		{"kion_compliance_program", "version", "compliance_program_version"},
 	}
 	for _, c := range cases {

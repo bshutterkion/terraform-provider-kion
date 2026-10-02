@@ -57,6 +57,13 @@ type parentListData struct {
 
 	DeleteMethod, DeleteParams string
 
+	// Assocs are id lists the update body does not carry, synced through
+	// add/remove endpoints addressed by parent and child id (memberships.yaml).
+	Assocs []*assocMembershipBind
+	// CreateViaUpdate are model fields only the update body carries; when one is
+	// configured, Create applies it with an update straight after the create.
+	CreateViaUpdate []string
+
 	// StringAttrs marks the string-typed attributes, so a generated test
 	// quotes only what HCL needs quoted.
 	StringAttrs map[string]bool
@@ -207,6 +214,29 @@ func (g *generator) resolveParentList(name string, ops resOps, idx sdkIndex, arc
 		return d, fmt.Errorf("%s: parent_list requires a delete op", name)
 	}
 	d.DeleteMethod, d.DeleteParams = del.Method.Name, del.Method.ParamsType
+
+	if mc, ok := g.memberships[name]; ok {
+		if mc.Labels != nil || mc.Owners != nil || len(mc.SliceMembers) > 0 {
+			return d, fmt.Errorf("%s: parent_list supports only associations memberships", name)
+		}
+		for i := range mc.Associations {
+			a, aerr := resolveAssocMembership(mc.Associations[i], byTF, idx)
+			if aerr != nil {
+				return d, fmt.Errorf("%s associations: %w", name, aerr)
+			}
+			d.Assocs = append(d.Assocs, a)
+		}
+	}
+	for _, tf := range arch.CreateViaUpdate {
+		mf, ok := byTF[tf]
+		if !ok {
+			return d, fmt.Errorf("%s: create_via_update field %q not in model", name, tf)
+		}
+		if !d.HasUpdate {
+			return d, fmt.Errorf("%s: create_via_update needs an update op", name)
+		}
+		d.CreateViaUpdate = append(d.CreateViaUpdate, mf.GoName)
+	}
 
 	// The parent/child ids come from the model (types.Int64 -> int64); cast when
 	// the SDK params field is a different integer type (e.g. OU uses uint64).

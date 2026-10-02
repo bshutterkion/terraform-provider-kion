@@ -19,6 +19,14 @@ var dataSourceCompoundTmpl string
 // archetype is a compound-key / parent-read declaration from
 // codegen/crud_archetypes.yaml, the shape the op-set and SDK AST cannot
 // express on their own (see the file's header comment).
+// archMove declares one move: raw_post is a private route taking the new value
+// as its bare JSON body; account is POST /v3/account/{id}/move.
+type archMove struct {
+	Attr    string `yaml:"attr"`
+	RawPost string `yaml:"raw_post"`
+	Account bool   `yaml:"account"`
+}
+
 type archetype struct {
 	Kind          string `yaml:"kind"`
 	ParentIDField string `yaml:"parent_id_field"`
@@ -57,6 +65,12 @@ type archetype struct {
 	// record by its own id (e.g. idms open-id access-rule / group-association).
 	CreateParentParam string `yaml:"create_parent_param"` // SDK create-params field naming the parent id
 	CreateParentField string `yaml:"create_parent_field"` // model attribute holding the parent id
+	// CreateViaUpdate (kind: parent_list) lists attributes only the update body
+	// carries; a configured value is applied by an update right after create.
+	CreateViaUpdate []string `yaml:"create_via_update"`
+	// Moves (kind: entity) are attributes the update body cannot carry, changed
+	// through a dedicated endpoint before the PATCH.
+	Moves []archMove `yaml:"moves"`
 	// Association (kind: association), one list-member row keyed by KeyField,
 	// scoped by an optional ParentField, over a bulk read + replace-list API.
 	KeyField     string   `yaml:"key_field"`

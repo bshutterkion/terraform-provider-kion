@@ -48,6 +48,9 @@ func GcpServiceAccountResourceSchema(ctx context.Context) schema.Schema {
 				Required:            true,
 				Description:         "Email is the google-designated email id for the service account",
 				MarkdownDescription: "Email is the google-designated email id for the service account",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"enable_federation_support": schema.BoolAttribute{
 				Required:            true,
@@ -58,6 +61,9 @@ func GcpServiceAccountResourceSchema(ctx context.Context) schema.Schema {
 				Required:            true,
 				Description:         "GCPProjectID is the Google Cloud Project that the service account was created in",
 				MarkdownDescription: "GCPProjectID is the Google Cloud Project that the service account was created in",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"id": schema.StringAttribute{
 				Computed:            true,
@@ -95,6 +101,9 @@ func GcpServiceAccountResourceSchema(ctx context.Context) schema.Schema {
 				Required:            true,
 				Description:         "UniqueID is the client id used to authenticate in tandem with a key",
 				MarkdownDescription: "UniqueID is the client id used to authenticate in tandem with a key",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 		},
 		Description: "Manages a Kion Gcp Service Account.",

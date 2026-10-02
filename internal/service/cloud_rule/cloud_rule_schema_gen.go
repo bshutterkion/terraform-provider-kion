@@ -244,15 +244,6 @@ func CloudRuleResourceSchema(ctx context.Context) schema.Schema {
 					setplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"source": schema.StringAttribute{
-				Optional:            true,
-				Computed:            true,
-				Description:         "Filters results to only return Cloud Rules from a given source\n\nExample\\: user, action_plan, enforcement, funding_source",
-				MarkdownDescription: "Filters results to only return Cloud Rules from a given source\n\nExample\\: user, action_plan, enforcement, funding_source",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.UseStateForUnknown(),
-				},
-			},
 		},
 		Description: "Manages a Kion Cloud Rule.",
 	}
@@ -283,5 +274,4 @@ type CloudRuleModel struct {
 	PreWebhookId                  types.Int64  `tfsdk:"pre_webhook_id"`
 	ProjectIds                    types.Set    `tfsdk:"project_ids"`
 	ServiceControlPolicyIds       types.Set    `tfsdk:"service_control_policy_ids"`
-	Source                        types.String `tfsdk:"source"`
 }

@@ -50,7 +50,6 @@ func (r *project_cloud_access_roleResource) UpgradeState(ctx context.Context) ma
 					"last_updated":                 migratehelper.OrNull(old["last_updated"]),
 					"long_term_access_keys":        migratehelper.OrNull(old["long_term_access_keys"]),
 					"name":                         migratehelper.OrNull(old["name"]),
-					"policytype":                   migratehelper.Null,
 					"project_id":                   migratehelper.OrNull(old["project_id"]),
 					"short_term_access_keys":       migratehelper.OrNull(old["short_term_access_keys"]),
 					"user_group_ids":               migratehelper.ProjectIDs(old["user_groups"], "id"),

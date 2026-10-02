@@ -174,7 +174,18 @@ resources:
     # The spec's polymorphic `default_value` is ignored in config_overrides.yaml
     # (tfplugingen can't type it); re-express it as the three typed sub-attributes
     # the resource actually uses. These are inserted (add-if-missing), not retyped.
+    #
+    # PUT /v3/custom-variable/{id} carries neither name nor type, so both force
+    # replacement rather than being accepted and ignored. #75.
     attributes:
+      name:
+        plan_modifiers:
+          - stringplanmodifier.UseStateForUnknown()
+          - stringplanmodifier.RequiresReplace()
+      type:
+        plan_modifiers:
+          - stringplanmodifier.UseStateForUnknown()
+          - stringplanmodifier.RequiresReplace()
       default_value_string:
         type: string
         computed_optional_required: optional
@@ -281,7 +292,12 @@ resources:
         description: The last time this resource was updated.
   iam_policy:
     description: "Manages a Kion Iam Policy."
+    # PATCH /v3/iam-policy/{id} has no aws_iam_path, so it forces replacement. #75.
     attributes:
+      aws_iam_path:
+        plan_modifiers:
+          - stringplanmodifier.UseStateForUnknown()
+          - stringplanmodifier.RequiresReplace()
       aws_managed_policy:
         type: bool
         computed_optional_required: computed
@@ -319,6 +335,8 @@ resources:
   ou:
     description: "Manages a Kion OU."
     attributes:
+      parent_ou_id:
+        description: "ID of the OU containing this OU. A parent OU ID of 0 will create a top-level OU. Changing it moves the OU in place, with its child OUs and projects, rather than recreating it: inherited cloud rules and permissions are then those of the new ancestry. The move goes through Kion's internal POST /v2/ou/{id}/move route, which the public API does not publish, and requires global admin."
       created_at:
         type: string
         computed_optional_required: computed
@@ -334,7 +352,13 @@ resources:
         description: The last time this resource was updated.
   saml_group_association:
     description: "Manages a Kion Saml Group Association."
+    # PATCH /v3/idms/group-association/{id} has no idms_id, so it forces
+    # replacement. #75.
     attributes:
+      idms_id:
+        plan_modifiers:
+          - int64planmodifier.UseStateForUnknown()
+          - int64planmodifier.RequiresReplace()
       idms_saml_id:
         type: int64
         computed_optional_required: computed
@@ -381,6 +405,10 @@ resources:
   cloud_rule:
     description: "Manages a Kion Cloud Rule."
     attributes:
+      # A filter query param of GET /v3/cloud-rule that leaked into the resource
+      # schema. No request body has it, so it was accepted and discarded. #75.
+      source:
+        remove: true
       built_in:
         type: bool
         computed_optional_required: computed
@@ -396,7 +424,20 @@ resources:
         description: The last time this resource was updated.
   ou_cloud_access_role:
     description: "Manages a Kion Ou Cloud Access Role."
+    # The PATCH body carries no role name, IAM path or ou_id: the role is
+    # created under them, so a change forces a new role. #75.
     attributes:
+      aws_iam_role_name:
+        plan_modifiers:
+          - stringplanmodifier.UseStateForUnknown()
+          - stringplanmodifier.RequiresReplace()
+      aws_iam_path:
+        plan_modifiers:
+          - stringplanmodifier.UseStateForUnknown()
+          - stringplanmodifier.RequiresReplace()
+      ou_id:
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
       cloud_access_role_type_id:
         type: int64
         computed_optional_required: computed_optional
@@ -417,7 +458,24 @@ resources:
         description: The last time this resource was updated.
   project_cloud_access_role:
     description: "Manages a Kion Project Cloud Access Role."
+    # The PATCH body carries no role name, IAM path or project_id: the role is
+    # created under them, so a change forces a new role. #75.
+    # policytype is a filter query param of the list endpoint that leaked into
+    # the resource schema; no request body has it.
     attributes:
+      policytype:
+        remove: true
+      aws_iam_role_name:
+        plan_modifiers:
+          - stringplanmodifier.UseStateForUnknown()
+          - stringplanmodifier.RequiresReplace()
+      aws_iam_path:
+        plan_modifiers:
+          - stringplanmodifier.UseStateForUnknown()
+          - stringplanmodifier.RequiresReplace()
+      project_id:
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
       cloud_access_role_type_id:
         type: int64
         computed_optional_required: computed_optional
@@ -564,6 +622,8 @@ resources:
         type: int64
         computed_optional_required: required
         description: The ID of the OpenID IDMS the access rule belongs to.
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
   idms_open_id_group_association:
     description: "Manages a group association for a Kion OpenID Connect IDMS."
     attributes:
@@ -571,6 +631,9 @@ resources:
         type: int64
         computed_optional_required: computed_optional
         description: The ID of the OpenID IDMS the group association belongs to.
+        plan_modifiers:
+          - int64planmodifier.UseStateForUnknown()
+          - int64planmodifier.RequiresReplace()
   aws_account:
     description: "Creates or imports an AWS Account and adds it to a Kion project or the Kion account cache. If account_number is provided, an existing account will be imported into Kion, otherwise a new AWS account will be created.  If project_id is provided the account will be added to the corresponding project, otherwise the account will be added to the account cache. Once added, an account can be moved between projects or in and out of the account cache by changing the project_id.  When moving accounts between projects, use move_project_settings to control how financials will be treated between the old and new project. NOTE: This resource requires Kion v3.8.4 or greater."
     # email/name/aws_organizational_unit come via renames.yaml. Add the computed
@@ -1051,12 +1114,26 @@ resources:
     description: "Manages a Kion App Api Key."
   azure_account:
     description: "Manages a Kion Azure Account."
+    # PATCH /v3/account/{id} has no subscription_uuid: pointing the resource at
+    # a different subscription is a different account. #75.
     attributes:
+      project_id:
+        description: "ID of the project the account belongs to. Changing it moves the account in place through POST /v3/account/{id}/move rather than recreating it: Kion gives the account a new id, the resource adopts it, and the account's financial history stays with the old project (the move's preserve setting). The new project's cloud rules and cloud access roles apply after the move. Requires permission to manage accounts and projects."
       subscription_uuid:
         computed_optional_required: computed_optional
+        plan_modifiers:
+          - stringplanmodifier.UseStateForUnknown()
+          - stringplanmodifier.RequiresReplace()
   azure_arm_template:
     description: "Manages a Kion Azure Arm Template."
+    # PATCH /v3/azure-arm-template/{id} has no resource group fields. #75.
     attributes:
+      resource_group_name:
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
+      resource_group_region_id:
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
   azure_policy:
     description: "Manages a Kion Azure Policy."
   azure_role:
@@ -1179,6 +1256,14 @@ resources:
           - stringplanmodifier.RequiresReplace()
   custom_account:
     description: "Attaches a custom account to a project in Kion. If project_id is provided, the account will be added to the corresponding project, otherwise the account will be added to the account cache. Once added, an account can be moved between projects or in and out of the account cache by changing the project_id. When importing existing Kion accounts into terraform state, you can use one of these methods:  Default import (tries project first, then cache): terraform import kion_custom_account.example 123 Explicit project account import: terraform import kion_custom_account.example account_id=123 Explicit cache account import: terraform import kion_custom_account.example account_cache_id=123"
+    # PATCH /v3/account/{id} has no account_number, and a custom account's
+    # spend is matched to it, so a new number is a different account. #75.
+    attributes:
+      project_id:
+        description: "ID of the project the account belongs to. Changing it moves the account in place through POST /v3/account/{id}/move rather than recreating it: Kion gives the account a new id, the resource adopts it, and the account's financial history stays with the old project (the move's preserve setting). The new project's cloud rules and cloud access roles apply after the move. Requires permission to manage accounts and projects."
+      account_number:
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
   forecast:
     description: "Manages a Kion Forecast."
   forecast_category:
@@ -1191,9 +1276,16 @@ resources:
         computed_optional_required: computed_optional
   gcp_account:
     description: "Creates or imports a Google Cloud Project and adds it to a Kion project or the Kion account cache. If create_mode is set to import, an existing project will be imported into Kion, otherwise if create_mode is set to create, a new GCP Project will be created.  If project_id is provided the account will be added to the corresponding project, otherwise the account will be added to the account cache. Once added, an account can be moved between projects or in and out of the account cache by changing the project_id.  When moving accounts between projects, use move_project_settings to control how financials will be treated between the old and new project. When importing an existing Kion account into terraform state (different from using terraform to import an existing GCP Project into Kion), you must use the account_id= or account_cache_id= ID prefix to indicate whether the ID is an account ID or a cached account ID. For example: terraform import kion_gcp_account.test-account account_id=123 terraform import kion_gcp_account.test-cached-account account_cache_id=321  NOTE: This resource requires Kion v3.8.4 or greater."
+    # PATCH /v3/account/{id} has no google_cloud_project_id: pointing the
+    # resource at a different GCP project is a different account. #75.
     attributes:
+      project_id:
+        description: "ID of the project the account belongs to. Changing it moves the account in place through POST /v3/account/{id}/move rather than recreating it: Kion gives the account a new id, the resource adopts it, and the account's financial history stays with the old project (the move's preserve setting). The new project's cloud rules and cloud access roles apply after the move. Requires permission to manage accounts and projects."
       google_cloud_project_id:
         computed_optional_required: computed_optional
+        plan_modifiers:
+          - stringplanmodifier.UseStateForUnknown()
+          - stringplanmodifier.RequiresReplace()
   gcp_iam_role:
     description: "Manages a Kion Gcp Iam Role."
     attributes:
@@ -1203,7 +1295,19 @@ resources:
         computed_optional_required: computed_optional
   gcp_service_account:
     description: "Manages a Kion Gcp Service Account."
+    # PATCH /v3/gcp/service-account/{id} has none of email, gcp_project_id or
+    # unique_id: together they name the GCP service account, so a change is a
+    # different one. #75.
     attributes:
+      email:
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
+      gcp_project_id:
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
+      unique_id:
+        plan_modifiers:
+          - stringplanmodifier.RequiresReplace()
       oauth_client_secret:
         type: string
         computed_optional_required: computed_optional
@@ -1213,6 +1317,13 @@ resources:
     description: "Manages a Kion Idms."
   idms_group_association:
     description: "Manages a Kion IDMS Group Association."
+    # PATCH /v3/idms/group-association/{id} has no idms_id, so it forces
+    # replacement. #75.
+    attributes:
+      idms_id:
+        plan_modifiers:
+          - int64planmodifier.UseStateForUnknown()
+          - int64planmodifier.RequiresReplace()
   permission_scheme:
     description: "Manages a Kion Permission Scheme."
   project_line_item:
@@ -1293,6 +1404,15 @@ resources:
           - stringplanmodifier.RequiresReplace()
   ou_note:
     description: "Manages a Kion OU Note."
+    # PATCH /v3/ou-note/{id} carries name and text only; the OU and author are
+    # fixed at create. #75.
+    attributes:
+      ou_id:
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
+      create_user_id:
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
   project_cloud_access_role_exemption:
     description: "Manages a Kion Project Cloud Access Role Exemption."
     # No update endpoint: the generated Update raises a diagnostic saying

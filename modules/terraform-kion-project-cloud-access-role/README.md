@@ -62,7 +62,6 @@ No modules.
 | future\_accounts | If future accounts is true, this cloud access role will be added to any account that is added to this project. This will only be for new accounts that match the given CSP type. Will default to false if not set. | `bool` | `null` | no |
 | gcp\_iam\_roles | IDs of the Google Cloud IAM roles attached to this role. Will be filtered if GCP Cloud Provider ID is not given. | `set(number)` | `null` | no |
 | long\_term\_access\_keys | If long term access is true, users of this cloud access role can generate aws long-term access keys. Will default to false if not set. | `bool` | `null` | no |
-| policytype | Enclosed policy type filter. Valid values are "awsiam" or "azurerole" | `string` | `null` | no |
 | short\_term\_access\_keys | If short term access is true, users of this cloud access role can generate short-term access keys. Will default to false if not set. | `bool` | `null` | no |
 | user\_group\_ids | IDs of the user groups allowed to use this role to access the AWS console. | `set(number)` | `null` | no |
 | user\_ids | IDs of the users allowed to use this role to access the AWS console. | `set(number)` | `null` | no |
