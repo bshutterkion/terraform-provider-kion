@@ -106,8 +106,9 @@ responded and had no records.
 collections "mixing kinds" (237 records of another kind -- every other install
 returns those collections empty), and `kion_ami`, `kion_category`,
 `kion_funding_source_note`, `kion_project_line_item` and `kion_service_catalog`
-having records at all. The kind filter is still correct and still necessary; the
-ratio is a property of that install's data.
+having records at all. The ratio was a property of that install's data. (The
+exemption resources have since moved to a different collection that needs no
+kind filter; see *Correction: the exemptions read the wrong collection*.)
 
 **One finding recorded as install-specific is universal** -- the next section.
 That is the mistake this table exists to prevent.
@@ -356,7 +357,9 @@ API fails this read for every IDMS that is not SAML, on every install measured
 Directory. `kion-import` now skips non-SAML parents, so these two rows no longer
 report a failed parent.
 
-The two exemption caveats are the kind-mixing filter working; see below.
+The two exemption caveats are the kind-mixing filter working; see below. Those
+rows were read from a collection the exemption resources no longer use; see
+*Correction: the exemptions read the wrong collection*.
 
 This table used to carry three more rows -- `compliance_control` (3592),
 `compliance_family` (10) and `scope_criteria` (9), each reported as
@@ -599,6 +602,28 @@ read payload, so it stays unreadable.
 
 **A green `terraform plan` is not proof of coverage.** Check that the generated
 configuration has attributes in it.
+
+### Correction: the exemptions read the wrong collection
+
+The section above is a faithful record of what that run measured, but the
+collection it measured is not where these resources' records live (#80, #44).
+`/v1/{ou,project}/{id}/cloud-access-role-exemption` lists an older,
+cloud-rule-linked exemption kind. `POST /v3/ou-cloud-access-role-exemption` and
+`POST /v3/project-cloud-access-role-exemption` store somewhere else, which is why
+an exemption created through the provider was never found there, and why the
+"6 OU exemptions" above were not records these resources could have created.
+
+Both resources now read the parent's cloud access role listing,
+`GET /v1/ou/{id}/ou-cloud-access-role` (`data.ou_exemptions`) and
+`GET /v1/project/{id}/ou-cloud-access-role` (`data.project_exemptions`). Each
+record there is `{id, ou_id|project_id, ou_cloud_access_role_id, reason}`: the
+list holds only exemptions the parent itself owns and only this kind, so neither
+the owner key nor the kind filter is needed, and `reason` is stored and read
+back. The lists are filled only for a caller with Browse All Cloud Access Roles
+and Manage OU / Manage Project on the parent.
+
+This was derived from the API's source, not from a live run. It has not yet been
+re-measured with `kion-import --probe`.
 
 ## Reproducing
 

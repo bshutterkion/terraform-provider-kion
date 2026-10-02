@@ -89,23 +89,23 @@ func (r *ou_cloud_access_role_exemptionResource) Create(ctx context.Context, req
 // DELETE, so this collection is the only way to read one back.
 type ou_cloud_access_role_exemptionRecord struct {
 	ID                  int64         `json:"id"`
-	OUID                *flex.NullInt `json:"OUID"`
-	OuCloudAccessRoleId *flex.NullInt `json:"ou_cloud_access_role_id"`
+	OuId                *flex.NullInt `json:"ou_id"`
+	OuCloudAccessRoleId int64         `json:"ou_cloud_access_role_id"`
+	Reason              string        `json:"reason"`
 }
 
 type ou_cloud_access_role_exemptionEnvelope struct {
-	Data []ou_cloud_access_role_exemptionRecord `json:"data"`
+	Data struct {
+		Records []ou_cloud_access_role_exemptionRecord `json:"ou_exemptions"`
+	} `json:"data"`
 }
 
 // readOuCloudAccessRoleExemption returns the record with the given id from the collection,
 // or found=false when it holds no such record.
 //
-// The collection is inherited, not owned: it returns every record visible to
-// that parent's subtree, so the same record comes back under many parents and
-// the id in the path is not its owner. The owner is taken from the record's own
-// OUID.
+// The owner is taken from the record's own ou_id, not the path.
 func (r *ou_cloud_access_role_exemptionResource) readOuCloudAccessRoleExemption(ctx context.Context, parentID int64, id int64) (ou_cloud_access_role_exemptionRecord, bool, error) {
-	path := strings.Replace("/v1/ou/{parent_id}/cloud-access-role-exemption", "{parent_id}", strconv.FormatInt(parentID, 10), 1)
+	path := strings.Replace("/v1/ou/{parent_id}/ou-cloud-access-role", "{parent_id}", strconv.FormatInt(parentID, 10), 1)
 	body, err := r.Meta().RawGet(ctx, path)
 	if err != nil {
 		if conns.IsRawNotFound(err) {
@@ -117,14 +117,9 @@ func (r *ou_cloud_access_role_exemptionResource) readOuCloudAccessRoleExemption(
 	if err := json.Unmarshal(body, &env); err != nil {
 		return ou_cloud_access_role_exemptionRecord{}, false, fmt.Errorf("decoding response: %w", err)
 	}
-	for _, rec := range env.Data {
+	for _, rec := range env.Data.Records {
 		if rec.ID != id {
 			continue
-		}
-		// The collection mixes in records of a neighboring kind; only those
-		// carrying a valid ou_cloud_access_role_id are kion_ou_cloud_access_role_exemption.
-		if rec.OuCloudAccessRoleId == nil || !rec.OuCloudAccessRoleId.Valid {
-			return ou_cloud_access_role_exemptionRecord{}, false, nil
 		}
 		return rec, true, nil
 	}
@@ -133,8 +128,9 @@ func (r *ou_cloud_access_role_exemptionResource) readOuCloudAccessRoleExemption(
 
 func (r *ou_cloud_access_role_exemptionResource) flattenOuCloudAccessRoleExemption(rec ou_cloud_access_role_exemptionRecord, m *OuCloudAccessRoleExemptionModel) {
 	m.Id = types.StringValue(strconv.FormatInt(rec.ID, 10))
-	m.OuId = flex.NullIntPtrToFramework(rec.OUID)
-	m.OuCloudAccessRoleId = flex.NullIntPtrToFramework(rec.OuCloudAccessRoleId)
+	m.OuId = flex.NullIntPtrToFramework(rec.OuId)
+	m.OuCloudAccessRoleId = types.Int64Value(rec.OuCloudAccessRoleId)
+	m.Reason = types.StringValue(rec.Reason)
 
 }
 

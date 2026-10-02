@@ -142,26 +142,24 @@ expressed, from the other end. The refusal is per id, so a list keeps every
 reference that was not part of a loop, and which direction wins is fixed by
 block order in the file — the same edge loses on every run.
 
-### Attributes the API accepts and discards
+### Cloud access role exemptions
 
-`reason` on `kion_ou_cloud_access_role_exemption` and
-`kion_project_cloud_access_role_exemption` is **never stored**. It is not that
-the read omits it — there is nothing to read:
+`kion_ou_cloud_access_role_exemption` and
+`kion_project_cloud_access_role_exemption` are read from the parent's cloud
+access role listing (`GET /v1/ou/{id}/ou-cloud-access-role`, field
+`ou_exemptions`; `GET /v1/project/{id}/ou-cloud-access-role`, field
+`project_exemptions`). Each record carries `id`, the parent id,
+`ou_cloud_access_role_id` and `reason`, so `reason` is stored and imports with
+its value.
 
-- the `cloud_access_role_exemption` table has no `reason` column
-- the backend's exemption entity has no such field
-- the `/v3` controller that handles the create never reads `Reason` off the
-  request, though the request model declares it with a swagger example
+The API fills those exemption lists only for a caller holding **Browse All Cloud
+Access Roles** and **Manage OU** (**Manage Project** for a project) on the
+parent. With less, the list comes back empty: `kion-import` finds no exemptions
+under that parent, and a managed exemption refreshes as deleted.
 
-So an exemption imports with `reason = null` because no exemption has ever had
-one. Setting it in a configuration is silently a no-op: the provider sends it,
-the API accepts the request, and the value goes nowhere. **Do not re-enter these
-by hand after an import** — there is nothing to restore, and a value you set
-will not persist.
-
-(The `additional_comments` and `approver_comments` fields that do exist belong
-to `cloud_access_role_exemption_request`, a pending request awaiting approval —
-a different table and a different thing from a granted exemption.)
+Earlier releases read `/v1/{ou,project}/{id}/cloud-access-role-exemption`
+instead. That route lists a different, cloud-rule-linked exemption kind, so an
+exemption created through these resources was never found there (#80).
 
 ## Rewrite into module calls
 

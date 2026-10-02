@@ -339,56 +339,50 @@ resources:
     read:   { method: GET,    path: "/v2/aws-service-catalog/portfolio/{id}", spec: private }
     delete: { method: DELETE, path: "/v2/aws-service-catalog/portfolio/{id}", spec: private }
 
-  # Public /v3/*-cloud-access-role-exemption has create+delete but no read; the
-  # reads are internal /v1 lists under the parent OU/project.
+  # Public /v3/*-cloud-access-role-exemption has create+delete but no read (a
+  # by-id GET is 405). The records are returned by the parent's cloud access
+  # role listing, GET /v1/{ou,project}/{id}/ou-cloud-access-role, under
+  # data.ou_exemptions / data.project_exemptions as
+  # {id, ou_id|project_id, ou_cloud_access_role_id, reason, ou_cloud_access_role}.
+  # That list holds only the exemptions the parent itself owns, and only cloud
+  # access role exemptions, so no discriminator is needed.
   #
-  # Both carry a `parent_read`, which is what turns their no-op read into a real
-  # one (see internal/kgen/crud/parentread.go). Without it they imported as
-  # empty shells -- `resource "kion_ou_cloud_access_role_exemption" "x" {}` --
-  # and the plan reported no changes, because every attribute is
-  # Optional+Computed and null. All 22 records on a live install did that.
+  # The exemption list is populated only for a caller holding Browse All Cloud
+  # Access Roles and Manage OU (Manage Project) on the parent; for anyone else
+  # it comes back null and the record reads as gone.
   #
-  # Two traps, both observed live and both handled here:
-  #   * the collection is INHERITED, so one record comes back under every OU in
-  #     its subtree (329 rows, 22 distinct records) and the id in the path is
-  #     not its owner -- the record's own OUID is. Hence parent_json.
-  #   * it mixes cloud RULE exemptions in with cloud ACCESS ROLE exemptions.
-  #     Only 6 of those 22 were the latter. Hence `require`.
-  # `reason` is in the schema and in the create body and is never stored: no
-  # column on cloud_access_role_exemption, no field on the backend entity, and
-  # the /v3 controller never reads it off the request. Nothing to add to the
-  # read shape -- see docs/IMPORTING.md's "Attributes the API accepts and
-  # discards".
+  # Both previously read /v1/{ou,project}/{id}/cloud-access-role-exemption,
+  # which lists a different exemption kind tied to cloud rules, so a created
+  # record was never found and every refresh dropped it from state (#80).
   ou_cloud_access_role_exemption:
-    reason: no public read; internal list under the parent OU
+    reason: no public read; the parent OU's private cloud access role listing
     create: { method: POST,   path: "/v3/ou-cloud-access-role-exemption",      spec: public }
-    read:   { method: GET,    path: "/v1/ou/{id}/cloud-access-role-exemption", spec: private }
+    read:   { method: GET,    path: "/v1/ou/{id}/ou-cloud-access-role",        spec: private }
     delete: { method: DELETE, path: "/v3/ou-cloud-access-role-exemption/{id}", spec: public }
     parent_read:
-      path: "/v1/ou/{parent_id}/cloud-access-role-exemption"
+      path: "/v1/ou/{parent_id}/ou-cloud-access-role"
+      records: ou_exemptions
       parent_tf: ou_id
-      parent_json: OUID
-      require: ou_cloud_access_role_id
+      parent_json: ou_id
       fields:
-        - { tf: ou_cloud_access_role_id, from: ou_cloud_access_role_id, kind: null_int }
+        - { tf: ou_cloud_access_role_id, from: ou_cloud_access_role_id, kind: int }
+        - { tf: reason,                  from: reason,                  kind: string }
 
   # A project exemption exempts an OU cloud access role FOR a project, so it
-  # keys on ou_cloud_access_role_id too -- see the ProjectCloudAccessRoleExemption
-  # create body, which is {id, ou_cloud_access_role_id, project_id, reason}.
-  # The verification install has none (all 12 records its collection returns are
-  # cloud RULE exemptions), so the filter is what keeps them out.
+  # keys on ou_cloud_access_role_id too.
   project_cloud_access_role_exemption:
-    reason: no public read; internal list under the parent project
+    reason: no public read; the parent project's private cloud access role listing
     create: { method: POST,   path: "/v3/project-cloud-access-role-exemption",      spec: public }
-    read:   { method: GET,    path: "/v1/project/{id}/cloud-access-role-exemption", spec: private }
+    read:   { method: GET,    path: "/v1/project/{id}/ou-cloud-access-role",         spec: private }
     delete: { method: DELETE, path: "/v3/project-cloud-access-role-exemption/{id}", spec: public }
     parent_read:
-      path: "/v1/project/{parent_id}/cloud-access-role-exemption"
+      path: "/v1/project/{parent_id}/ou-cloud-access-role"
+      records: project_exemptions
       parent_tf: project_id
       parent_json: project_id
-      require: ou_cloud_access_role_id
       fields:
-        - { tf: ou_cloud_access_role_id, from: ou_cloud_access_role_id, kind: null_int }
+        - { tf: ou_cloud_access_role_id, from: ou_cloud_access_role_id, kind: int }
+        - { tf: reason,                  from: reason,                  kind: string }
 
   # The third resource that had a no-op read, and the easy one: the spec has the
   # collection GET, POST and DELETE, but no by-id GET, so it too imported as an

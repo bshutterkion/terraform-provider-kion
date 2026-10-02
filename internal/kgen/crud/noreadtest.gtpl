@@ -126,14 +126,22 @@ func find{{.Pascal}}(ctx context.Context, rs *terraform.ResourceState) (bool, er
 	}
 
 	var env struct {
+{{- if .RecordsKey}}
+		Data struct {
+			Records []struct {
+				ID int64 `json:"id"`
+			} `json:"{{.RecordsKey}}"`
+		} `json:"data"`
+{{- else}}
 		Data []struct {
 			ID int64 `json:"id"`
 		} `json:"data"`
+{{- end}}
 	}
 	if err := json.Unmarshal(body, &env); err != nil {
 		return false, fmt.Errorf("decoding %s: %w", path, err)
 	}
-	for _, rec := range env.Data {
+	for _, rec := range env.Data{{if .RecordsKey}}.Records{{end}} {
 		if rec.ID == want {
 			return true, nil
 		}

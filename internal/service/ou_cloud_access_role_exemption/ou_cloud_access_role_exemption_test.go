@@ -58,11 +58,11 @@ func findOuCloudAccessRoleExemption(ctx context.Context, rs *terraform.ResourceS
 	if err != nil {
 		return false, fmt.Errorf("parsing ID %q: %w", rs.Primary.ID, err)
 	}
-	parent := rs.Primary.Attributes["ou_cloud_access_role_id"]
+	parent := rs.Primary.Attributes["ou_id"]
 	if parent == "" {
-		return false, fmt.Errorf("no ou_cloud_access_role_id in state for %s", rs.Primary.ID)
+		return false, fmt.Errorf("no ou_id in state for %s", rs.Primary.ID)
 	}
-	path := strings.Replace("/v3/ou/{id}/cloud-rule/exemption", "{id}", parent, 1)
+	path := strings.Replace("/v1/ou/{id}/ou-cloud-access-role", "{id}", parent, 1)
 	body, err := conn.RawGet(ctx, path)
 	if err != nil {
 		if conns.IsRawNotFound(err) {
@@ -72,14 +72,16 @@ func findOuCloudAccessRoleExemption(ctx context.Context, rs *terraform.ResourceS
 	}
 
 	var env struct {
-		Data []struct {
-			ID int64 `json:"id"`
+		Data struct {
+			Records []struct {
+				ID int64 `json:"id"`
+			} `json:"ou_exemptions"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(body, &env); err != nil {
 		return false, fmt.Errorf("decoding %s: %w", path, err)
 	}
-	for _, rec := range env.Data {
+	for _, rec := range env.Data.Records {
 		if rec.ID == want {
 			return true, nil
 		}

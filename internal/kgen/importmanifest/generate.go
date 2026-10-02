@@ -69,12 +69,11 @@ type archetypeInfo struct {
 // The two *_cloud_access_role_exemption entries have the same root cause: the
 // chosen read path resolves (via private_endpoints.yaml's resources: section,
 // since crud_archetypes.yaml declares both no_read) to the internal
-// /v1/ou/{id}/cloud-access-role-exemption and
-// /v1/project/{id}/cloud-access-role-exemption reads, so unaided
-// placeholder-based derivation would pick /v1/ou and /v1/project as the
-// parent list -- neither is the real, listable collection. /v3/ou and
-// /v3/project are (they are also the public API surface these resources'
-// own create/delete already use).
+// /v1/ou/{id}/ou-cloud-access-role and /v1/project/{id}/ou-cloud-access-role
+// reads, so unaided placeholder-based derivation would pick /v1/ou and
+// /v1/project as the parent list -- neither is the real, listable collection.
+// /v3/ou and /v3/project are. The child route returns the parent's cloud
+// access roles with the exemptions beside them, hence ChildRecordsKey.
 var parentOverrides = map[string]Parent{
 	"kion_idms_open_id": {
 		Kind: "idms", ListPath: "/v3/idms",
@@ -88,18 +87,15 @@ var parentOverrides = map[string]Parent{
 		Kind: "idms", ListPath: "/v3/idms",
 		ChildPath: "/v4/idms/open-id/{parent_id}/group-association", ParentIDField: "idms_id",
 	},
-	// ParentIDJSON: both collections are inherited, not owned -- see Parent's
-	// field doc. OUID is a bare number on the wire, project_id a SQL null
-	// wrapper; the enumerator reads either.
 	"kion_ou_cloud_access_role_exemption": {
 		Kind: "ou", ListPath: "/v3/ou",
-		ChildPath: "/v1/ou/{parent_id}/cloud-access-role-exemption", ParentIDField: "ou_id",
-		ParentIDJSON: "OUID",
+		ChildPath: "/v1/ou/{parent_id}/ou-cloud-access-role", ParentIDField: "ou_id",
+		ChildRecordsKey: "ou_exemptions",
 	},
 	"kion_project_cloud_access_role_exemption": {
 		Kind: "project", ListPath: "/v3/project",
-		ChildPath: "/v1/project/{parent_id}/cloud-access-role-exemption", ParentIDField: "project_id",
-		ParentIDJSON: "project_id",
+		ChildPath: "/v1/project/{parent_id}/ou-cloud-access-role", ParentIDField: "project_id",
+		ChildRecordsKey: "project_exemptions",
 	},
 }
 
@@ -129,10 +125,9 @@ func importStateSplits(archetype string) bool {
 }
 
 // requireValidOverrides records the discriminator for collections that mix
-// resource kinds; see Resource.RequireValidField. Both exemption endpoints
-// return cloud RULE exemptions alongside cloud ACCESS ROLE exemptions, and only
-// the latter are these resources. Kept beside parentOverrides because it is the
-// same class of authored, live-verified knowledge the schema cannot supply.
+// resource kinds; see Resource.RequireValidField. Kept beside parentOverrides
+// because it is the same class of authored, live-verified knowledge the schema
+// cannot supply.
 // kion_custom_variable_override's collections list every custom variable
 // visible at the entity, most of them merely inherited; "override" is non-null
 // on exactly the ones actually set there. Measured on a demo install: 151
@@ -147,10 +142,8 @@ func importStateSplits(archetype string) bool {
 // 6,611 accounts to be unlinked from their billing source. Measured across five
 // installs, the count reading a real id equals the custom count exactly.
 var requireValidOverrides = map[string]string{
-	"kion_ou_cloud_access_role_exemption":      "ou_cloud_access_role_id",
-	"kion_project_cloud_access_role_exemption": "ou_cloud_access_role_id",
-	"kion_custom_variable_override":            "override",
-	"kion_billing_source":                      "custom_billing_source",
+	"kion_custom_variable_override": "override",
+	"kion_billing_source":           "custom_billing_source",
 }
 
 // multiParentOverrides corrects resources enumerable under more than one
