@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"terraform-provider-kion/internal/kgen/kfs"
 	"terraform-provider-kion/internal/kgen/migrate"
@@ -87,6 +88,21 @@ type generator struct {
 	// enumerates its parent's collection.
 	dataSources map[string]dsOps
 	unswept     []downgrade // resources that got no sweeper this run, with the reason
+	failed      []string    // per-resource generation failures this run
+}
+
+// recordFailure notes a resource whose generation failed; failureError turns
+// the set into the run's error so a failed resource cannot exit 0.
+func (g *generator) recordFailure(name string, err error) {
+	fmt.Fprintf(os.Stderr, "kgen crud: FAILED %s: %v\n", name, err)
+	g.failed = append(g.failed, fmt.Sprintf("%s: %v", name, err))
+}
+
+func (g *generator) failureError() error {
+	if len(g.failed) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%d resource(s) failed to generate:\n  %s", len(g.failed), strings.Join(g.failed, "\n  "))
 }
 
 // Generate is the stage entry point.
@@ -216,18 +232,22 @@ func (g *generator) generate(opts Options) (int, error) {
 		}
 		n, err := g.generateResource(root, name, resources[name], dataSources[name], idx, tvPath, gated[name], arch, opts.Force)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "kgen crud: skip %s: %v\n", name, err)
+			g.recordFailure(name, err)
 			continue
 		}
 		// Emit the state upgrader for any resource that migrates old SDKv2 state.
 		if err := g.emitUpgrade(name, opts.Force); err != nil {
-			fmt.Fprintf(os.Stderr, "kgen crud: %s upgrader: %v\n", name, err)
+			g.recordFailure(name+" upgrader", err)
 		}
 		written += n
 	}
 	g.reportUnswept()
 	g.reportDropped()
-	return written, g.reportDowngrades(opts.Strict)
+	dErr := g.reportDowngrades(opts.Strict)
+	if fErr := g.failureError(); fErr != nil {
+		return written, fErr
+	}
+	return written, dErr
 }
 
 // reportUnswept prints the aggregated no-sweeper report. Each entry is a
