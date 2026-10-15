@@ -46,3 +46,6 @@ docs/superpowers/
 
 # Private denylist for check-no-internal-refs.sh (see that script's header)
 scripts/.internal-refs-private
+
+# Per-checkout Makefile overrides (SDK_SPEC_ROOT, ...)
+local.mk

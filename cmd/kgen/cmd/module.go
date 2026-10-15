@@ -34,7 +34,7 @@ README.md (terraform-docs markers), examples/complete and a plan-only test.`,
 
 func init() {
 	moduleCmd.Flags().StringVar(&moduleOutDir, "out", "", "output directory (default: <project root>/modules)")
-	moduleCmd.Flags().StringVar(&moduleProviderVersion, "provider-version", "1.0.0", "provider version constraint written to versions.tf")
+	moduleCmd.Flags().StringVar(&moduleProviderVersion, "provider-version", module.DefaultProviderConstraint, "provider version constraint written to versions.tf")
 	moduleCmd.Flags().StringVar(&moduleFilterResource, "resource", "", "generate only for a specific resource (e.g., kion_ou)")
 	moduleCmd.Flags().BoolVarP(&moduleForce, "force", "f", false, "force creation, overwriting existing modules")
 	rootCmd.AddCommand(moduleCmd)

@@ -21,13 +21,13 @@ module "custom_variable_override" {
 | Name | Version |
 | ---- | ------- |
 | terraform | >= 1.0 |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Modules
 
@@ -37,7 +37,7 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
-| [kion_custom_variable_override.this](https://registry.terraform.io/providers/kionsoftware/kion/1.0.0/docs/resources/custom_variable_override) | resource |
+| [kion_custom_variable_override.this](https://registry.terraform.io/providers/kionsoftware/kion/latest/docs/resources/custom_variable_override) | resource |
 
 ## Inputs
 

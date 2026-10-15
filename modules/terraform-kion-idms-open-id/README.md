@@ -18,13 +18,13 @@ module "idms_open_id" {
 | Name | Version |
 | ---- | ------- |
 | terraform | >= 1.0 |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Modules
 
@@ -34,7 +34,7 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
-| [kion_idms_open_id.this](https://registry.terraform.io/providers/kionsoftware/kion/1.0.0/docs/resources/idms_open_id) | resource |
+| [kion_idms_open_id.this](https://registry.terraform.io/providers/kionsoftware/kion/latest/docs/resources/idms_open_id) | resource |
 
 ## Inputs
 

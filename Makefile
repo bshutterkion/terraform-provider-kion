@@ -25,9 +25,9 @@ TEST ?= $$(go list ./... | grep -v 'vendor')
 # ci-fmt and pre-push hook. vet/lint/test use `go list ./...`, which stops at
 # those worktrees' own module boundaries and never had the problem.
 GOFILES := $(shell git ls-files --cached --others --exclude-standard '*.go' 2>/dev/null)
-# The provider version modules/*/versions.tf pins. The terraform-driven targets
-# serve the working-tree provider under this version so `terraform init` in a
-# module resolves without reaching the registry, which has no 1.0.0 yet.
+# The version the terraform-driven targets serve the working-tree provider
+# under, from a local mirror. It must satisfy modules/*/versions.tf (">= 1.0.0")
+# so `terraform init` in a module resolves without reaching the registry.
 MODULE_PROVIDER_VERSION := 1.0.0
 # Defaults for the import rewrite; override on the command line.
 IMPORT_IN ?= generated.tf
@@ -54,10 +54,13 @@ SCHEMA_OVERRIDES := codegen/schema_overrides.yaml
 # Go code imports (generated/$(SDK_VERSION)) and the spec schemas are generated
 # from. Bumping the provider to a new Kion release is this line plus the imports.
 SDK_VERSION ?= v3_17
-# refresh-spec reads the kion-sdk MONOREPO, not the published mirror: mirrors are
-# customer-facing and ship only the client, never spec/. Needed to regenerate
+# refresh-spec reads the SDK's spec source, not the published mirror: mirrors
+# are customer-facing and ship only the client, never spec/. Needed to regenerate
 # schemas; building and testing work from the committed generated code alone.
-SDK_SPEC ?= ../../kion-sdk/kion-sdk-monorepo/spec/$(SDK_VERSION)/openapi3.json
+# Set SDK_SPEC_ROOT (the spec/ directory) in the environment or in local.mk,
+# which is gitignored so a checkout's own paths stay out of this public repo.
+-include local.mk
+SDK_SPEC ?= $(SDK_SPEC_ROOT)/$(SDK_VERSION)/openapi3.json
 # Root of the SDK module go.mod pins (holds generated/<v>/oas_client_gen.go per
 # support version), so codegen reads the same SDK the build compiles against.
 SDK_DIR ?= $(shell go mod download github.com/kionsoftware/kion-sdk-go && go list -m -f '{{.Dir}}' github.com/kionsoftware/kion-sdk-go)
@@ -220,9 +223,9 @@ changelog-release: ## Cut a release section: make changelog-release RELEASE_VERS
 	@echo "$(GREEN)✓ CHANGELOG.md updated for $(RELEASE_VERSION); .changes/unreleased/ is now empty$(RESET)"
 
 .PHONY: refresh-spec
-refresh-spec: ## Copy the OpenAPI spec from the kion-sdk monorepo (override SDK_SPEC=<path>)
+refresh-spec: ## Copy the OpenAPI spec from the SDK spec source (set SDK_SPEC_ROOT, or SDK_SPEC=<path>)
 	@echo "$(BLUE)Refreshing $(OPENAPI_SPEC) from $(SDK_SPEC)...$(RESET)"
-	@test -f "$(SDK_SPEC)" || (echo "$(RED)Spec not found at $(SDK_SPEC). Set SDK_SPEC to a local SDK spec checkout.$(RESET)"; exit 1)
+	@test -f "$(SDK_SPEC)" || (echo "$(RED)Spec not found at $(SDK_SPEC). Set SDK_SPEC_ROOT (env or local.mk) to the SDK spec/ directory, or SDK_SPEC to the file.$(RESET)"; exit 1)
 	@mkdir -p "$(dir $(OPENAPI_SPEC))"
 	@cp "$(SDK_SPEC)" "$(OPENAPI_SPEC)"
 	@echo "$(GREEN)✓ $(OPENAPI_SPEC) updated$(RESET)"

@@ -19,13 +19,13 @@ module "project_note" {
 | Name | Version |
 | ---- | ------- |
 | terraform | >= 1.0 |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Modules
 
@@ -35,7 +35,7 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
-| [kion_project_note.this](https://registry.terraform.io/providers/kionsoftware/kion/1.0.0/docs/resources/project_note) | resource |
+| [kion_project_note.this](https://registry.terraform.io/providers/kionsoftware/kion/latest/docs/resources/project_note) | resource |
 
 ## Inputs
 

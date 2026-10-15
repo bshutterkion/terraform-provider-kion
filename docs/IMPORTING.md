@@ -386,13 +386,16 @@ Coverage: 68 resource types, 53513 records
 Errors and unsupported types appear in the generated file as comments too, so the
 output records what it could not reach rather than quietly omitting it.
 
+If every read fails -- a rejected API key, the wrong `--url` or `--api-prefix` --
+the run exits non-zero and writes nothing, `--probe` included.
+
 ## Other flags
 
 | flag | |
 |---|---|
 | `--api-prefix` | defaults to `/api`. Use `--api-prefix ""` for an app serving the API at the root |
 | `--skip-ssl-validation` | skip TLS verification |
-| `--provider-version` | version constraint written into the generated config |
+| `--provider-version` | version constraint written into the generated config. Defaults to `>= ` the release that built the binary (`kion-import --version`), which the `>= 1.0.0` in `modules/*/versions.tf` overlaps |
 | `--manifest` | override the embedded manifest. Maintainers only; see `codegen/README.md` |
 
 ## Differences from the previous importer

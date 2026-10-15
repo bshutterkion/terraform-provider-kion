@@ -18,13 +18,13 @@ module "app_config" {
 | Name | Version |
 | ---- | ------- |
 | terraform | >= 1.0 |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Modules
 
@@ -34,7 +34,7 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
-| [kion_app_config.this](https://registry.terraform.io/providers/kionsoftware/kion/1.0.0/docs/resources/app_config) | resource |
+| [kion_app_config.this](https://registry.terraform.io/providers/kionsoftware/kion/latest/docs/resources/app_config) | resource |
 
 ## Inputs
 

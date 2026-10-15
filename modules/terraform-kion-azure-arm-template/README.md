@@ -23,13 +23,13 @@ module "azure_arm_template" {
 | Name | Version |
 | ---- | ------- |
 | terraform | >= 1.0 |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Modules
 
@@ -39,7 +39,7 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
-| [kion_azure_arm_template.this](https://registry.terraform.io/providers/kionsoftware/kion/1.0.0/docs/resources/azure_arm_template) | resource |
+| [kion_azure_arm_template.this](https://registry.terraform.io/providers/kionsoftware/kion/latest/docs/resources/azure_arm_template) | resource |
 
 ## Inputs
 

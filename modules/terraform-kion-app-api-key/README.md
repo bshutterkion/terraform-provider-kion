@@ -19,13 +19,13 @@ module "app_api_key" {
 | Name | Version |
 | ---- | ------- |
 | terraform | >= 1.0 |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Modules
 
@@ -35,7 +35,7 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
-| [kion_app_api_key.this](https://registry.terraform.io/providers/kionsoftware/kion/1.0.0/docs/resources/app_api_key) | resource |
+| [kion_app_api_key.this](https://registry.terraform.io/providers/kionsoftware/kion/latest/docs/resources/app_api_key) | resource |
 
 ## Inputs
 

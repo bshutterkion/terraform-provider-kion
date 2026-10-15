@@ -20,13 +20,13 @@ module "service_control_policy" {
 | Name | Version |
 | ---- | ------- |
 | terraform | >= 1.0 |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Modules
 
@@ -36,7 +36,7 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
-| [kion_service_control_policy.this](https://registry.terraform.io/providers/kionsoftware/kion/1.0.0/docs/resources/service_control_policy) | resource |
+| [kion_service_control_policy.this](https://registry.terraform.io/providers/kionsoftware/kion/latest/docs/resources/service_control_policy) | resource |
 
 ## Inputs
 

@@ -18,13 +18,13 @@ module "billing_rule" {
 | Name | Version |
 | ---- | ------- |
 | terraform | >= 1.0 |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Modules
 
@@ -34,7 +34,7 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
-| [kion_billing_rule.this](https://registry.terraform.io/providers/kionsoftware/kion/1.0.0/docs/resources/billing_rule) | resource |
+| [kion_billing_rule.this](https://registry.terraform.io/providers/kionsoftware/kion/latest/docs/resources/billing_rule) | resource |
 
 ## Inputs
 

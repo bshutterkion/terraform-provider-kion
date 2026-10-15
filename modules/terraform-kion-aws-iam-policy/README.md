@@ -20,13 +20,13 @@ module "aws_iam_policy" {
 | Name | Version |
 | ---- | ------- |
 | terraform | >= 1.0 |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Modules
 
@@ -36,7 +36,7 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
-| [kion_aws_iam_policy.this](https://registry.terraform.io/providers/kionsoftware/kion/1.0.0/docs/resources/aws_iam_policy) | resource |
+| [kion_aws_iam_policy.this](https://registry.terraform.io/providers/kionsoftware/kion/latest/docs/resources/aws_iam_policy) | resource |
 
 ## Inputs
 
