@@ -29,8 +29,6 @@ func TestAccKionGcpIamRoleDataSource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "gcp_role_launch_stage"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "name"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "owner_user_ids"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "role_permissions"),
 				),
 			},
 		},

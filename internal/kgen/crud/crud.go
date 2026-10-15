@@ -92,9 +92,9 @@ type generator struct {
 	dataSources map[string]dsOps
 
 	// idx is this run's SDK index, which companion templates resolve routes in.
-	idx *sdkIndex
-	unswept     []downgrade // resources that got no sweeper this run, with the reason
-	failed      []string    // per-resource generation failures this run
+	idx     *sdkIndex
+	unswept []downgrade // resources that got no sweeper this run, with the reason
+	failed  []string    // per-resource generation failures this run
 }
 
 // recordFailure notes a resource whose generation failed; failureError turns
@@ -622,7 +622,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 			return 0, err
 		}
 	}
-	dataSourceGo, dsDowngrade, dsDrops, err := renderDataSource(rm, g.fieldPolicy)
+	dataSourceGo, dsDowngrade, dsDrops, dsAttrs, err := renderDataSourceAttrs(rm, g.fieldPolicy)
 	if err != nil {
 		return 0, err
 	}
@@ -663,7 +663,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		if err != nil {
 			return 0, err
 		}
-		dsTest, err := renderDataSourceTest(rm, tv)
+		dsTest, err := renderDataSourceTest(rm, tv, dsAttrs)
 		if err != nil {
 			return 0, err
 		}

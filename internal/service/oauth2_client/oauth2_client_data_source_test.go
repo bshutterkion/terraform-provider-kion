@@ -27,12 +27,9 @@ func TestAccKionOauth2ClientDataSource_basic(t *testing.T) {
 				Config: testAccOauth2ClientDataSourceConfig_basic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "allowed_scopes"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "description"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "grant_types"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "is_public"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "name"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "redirect_uris"),
 				),
 			},
 		},

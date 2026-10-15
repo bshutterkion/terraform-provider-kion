@@ -39,7 +39,7 @@ func TestAccKionUserGroup_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc user group"),
 					resource.TestCheckResourceAttr(resourceName, "idms_id", "1"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 				),
 			},
 			{
@@ -73,7 +73,7 @@ func TestAccKionUserGroup_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc user group"),
 					resource.TestCheckResourceAttr(resourceName, "idms_id", "1"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 				),
 			},
 			{
@@ -84,7 +84,7 @@ func TestAccKionUserGroup_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc user group updated"),
 					resource.TestCheckResourceAttr(resourceName, "idms_id", "1"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 				),
 			},
 			{

@@ -32,7 +32,6 @@ func TestAccKionAmiDataSource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(dataSourceName, "account_id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "aws_ami_id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "name"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "owner_user_ids"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "region"),
 				),
 			},

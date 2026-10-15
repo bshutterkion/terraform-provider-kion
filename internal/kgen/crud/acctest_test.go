@@ -45,7 +45,7 @@ func TestRenderResourceTest_label(t *testing.T) {
 }
 
 func TestRenderDataSourceTest_label(t *testing.T) {
-	got, err := renderDataSourceTest(labelResourceModel(t), labelTestValues())
+	got, err := renderDataSourceTest(labelResourceModel(t), labelTestValues(), []string{"color", "key", "value"})
 	if err != nil {
 		t.Fatalf("renderDataSourceTest: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestRenderDataSourceTest_requireEnv(t *testing.T) {
 	tv := labelTestValues()
 	tv.RequireEnv = []envRequirement{{Name: "KION_ACC_X", Reason: "an x"}}
 	tv.KnownIssues = []knownIssue{{Issue: 9, Note: "n", ExpectNonEmptyPlan: true}}
-	got, err := renderDataSourceTest(labelResourceModel(t), tv)
+	got, err := renderDataSourceTest(labelResourceModel(t), tv, []string{"color", "key", "value"})
 	if err != nil {
 		t.Fatalf("renderDataSourceTest: %v", err)
 	}
@@ -203,5 +203,118 @@ func TestLoadTestValues_rejectsIncompleteEntries(t *testing.T) {
 				t.Errorf("loadTestValues accepted %s", name)
 			}
 		})
+	}
+}
+
+// collectionResourceModel is the label model plus a list and a set attribute.
+func collectionResourceModel(t *testing.T) ResourceModel {
+	rm := labelResourceModel(t)
+	rm.Fields = append(rm.Fields,
+		ModelField{GoName: "GrantTypes", TFSDK: "grant_types", Type: "types.List"},
+		ModelField{GoName: "Scopes", TFSDK: "scopes", Type: "types.List"},
+		ModelField{GoName: "OwnerIds", TFSDK: "owner_ids", Type: "types.Set"},
+		ModelField{GoName: "Tags", TFSDK: "tags", Type: "types.Set"},
+	)
+	return rm
+}
+
+// terraform-plugin-testing rejects TestCheckResourceAttrSet on a list or set
+// ("must be checked by element count key"), so a collection is checked by .#.
+func TestRenderResourceTest_collectionsCheckedByCount(t *testing.T) {
+	tv := labelTestValues()
+	tv.Create["grant_types"] = `hcl:["authorization_code", "refresh_token"]`
+	tv.Create["scopes"] = "hcl:var.scopes"
+	tv.Create["owner_ids"] = "hcl:[kion_user.a.id]"
+	tv.Create["tags"] = `hcl:["a", "b", "c"]`
+	tv.Update["grant_types"] = `hcl:[]`
+	got, err := renderResourceTest(collectionResourceModel(t), tv)
+	if err != nil {
+		t.Fatalf("renderResourceTest: %v", err)
+	}
+	for _, w := range []string{
+		`resource.TestCheckResourceAttr(resourceName, "grant_types.#", "2")`,
+		`resource.TestCheckResourceAttr(resourceName, "grant_types.#", "0")`,
+		`resource.TestCheckResourceAttrSet(resourceName, "scopes.#")`,
+		`resource.TestCheckResourceAttrSet(resourceName, "owner_ids.#")`,
+		`resource.TestCheckResourceAttr(resourceName, "tags.#", "3")`,
+	} {
+		if !bytes.Contains(got, []byte(w)) {
+			t.Errorf("generated resource test missing %q:\n%s", w, got)
+		}
+	}
+	for _, name := range []string{"grant_types", "scopes", "owner_ids", "tags"} {
+		if bad := `TestCheckResourceAttrSet(resourceName, "` + name + `")`; bytes.Contains(got, []byte(bad)) {
+			t.Errorf("collection %s checked with AttrSet on the attribute itself", name)
+		}
+	}
+}
+
+func TestHCLListLen(t *testing.T) {
+	cases := map[string]int{
+		`[]`:                         0,
+		`["a"]`:                      1,
+		`["a", "b,c"]`:               2,
+		`[ "a" , "b" , ]`:            2,
+		`[{ a = 1, b = 2 }, [1, 2]]`: 2,
+		`[kion_user.a.id, 3]`:        2,
+	}
+	for in, want := range cases {
+		if n, ok := hclListLen(in); !ok || n != want {
+			t.Errorf("hclListLen(%q) = %d, %v; want %d", in, n, ok, want)
+		}
+	}
+	for _, in := range []string{`var.x`, `[for s in var.x : s]`, `concat(["a"], ["b"])`, `["a"]...`} {
+		if _, ok := hclListLen(in); ok {
+			t.Errorf("hclListLen(%q) claimed a literal count", in)
+		}
+	}
+}
+
+// A data source test may assert only what the data source's schema has.
+func TestRenderDataSourceTest_onlyDataSourceAttrs(t *testing.T) {
+	tv := labelTestValues()
+	got, err := renderDataSourceTest(labelResourceModel(t), tv, []string{"key"})
+	if err != nil {
+		t.Fatalf("renderDataSourceTest: %v", err)
+	}
+	if !bytes.Contains(got, []byte(`TestCheckResourceAttrSet(dataSourceName, "key")`)) {
+		t.Errorf("data source test does not assert key:\n%s", got)
+	}
+	for _, name := range []string{"color", "value"} {
+		if bytes.Contains(got, []byte(`(dataSourceName, "`+name+`")`)) {
+			t.Errorf("data source test asserts %s, which its schema lacks:\n%s", name, got)
+		}
+	}
+}
+
+// A create_only attribute exists only in the create response; the test must
+// see it captured, unless the config produces none.
+func TestRenderResourceTest_createOnlyAssertedSet(t *testing.T) {
+	rm := labelResourceModel(t)
+	rm.CreateOnly = []createOnlyAttr{{TF: "secret", ModelGo: "Secret"}}
+	got, err := renderResourceTest(rm, labelTestValues())
+	if err != nil {
+		t.Fatalf("renderResourceTest: %v", err)
+	}
+	if n := bytes.Count(got, []byte(`resource.TestCheckResourceAttrSet(resourceName, "secret")`)); n != 2 {
+		t.Errorf("want secret asserted set after each create (basic and update), found %d:\n%s", n, got)
+	}
+	if !bytes.Contains(got, []byte(`ImportStateVerifyIgnore: []string{"secret"}`)) {
+		t.Errorf("import verify no longer ignores secret:\n%s", got)
+	}
+
+	tv := labelTestValues()
+	tv.CreateOnlyUnset = []string{"secret"}
+	got, err = renderResourceTest(rm, tv)
+	if err != nil {
+		t.Fatalf("renderResourceTest: %v", err)
+	}
+	if bytes.Contains(got, []byte(`(resourceName, "secret")`)) {
+		t.Errorf("create_only_unset secret is still asserted:\n%s", got)
+	}
+
+	tv.CreateOnlyUnset = []string{"nope"}
+	if _, err := renderResourceTest(rm, tv); err == nil {
+		t.Error("create_only_unset naming a non-create_only attribute was accepted")
 	}
 }

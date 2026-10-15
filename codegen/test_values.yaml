@@ -29,11 +29,15 @@
 #              expect_non_empty_plan: true sets ExpectNonEmptyPlan on every
 #              apply step, for a defect that leaves the plan dirty. Remove the
 #              entry when the issue closes.
+#   create_only_unset  create_only attributes (crud_archetypes.yaml) this config
+#              does not produce. Every other one is asserted set after create.
 #
 # A value prefixed "hcl:" is an expression, not a literal: emitted unquoted and
 # asserted only for presence, since a reference like kion_project.test.id has no
 # value until apply. Use it for references, jsonencode bodies, and nested
-# objects. Everything else is compared against the value the config used, so a
+# objects. A list or set is asserted by element count (name.#): the count when
+# the value is a plain [a, b] literal, presence of the count otherwise.
+# Everything else is compared against the value the config used, so a
 # resource that accepts an attribute and discards it fails the test.
 resources:
   # payer_id is optional in the schema and the spec, and REQUIRED by

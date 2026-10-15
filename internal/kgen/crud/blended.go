@@ -112,7 +112,11 @@ func (g *generator) generateBlended(dir, name string, ops resOps, idx sdkIndex, 
 		return 0, err
 	}
 	if hasTV {
-		test, err := execGoTemplate("blendedtest", blendedTestTmpl, buildBlendedTestData(d, model, tv), name+"_test.go")
+		td, err := buildBlendedTestData(d, model, tv)
+		if err != nil {
+			return 0, err
+		}
+		test, err := execGoTemplate("blendedtest", blendedTestTmpl, td, name+"_test.go")
 		if err != nil {
 			return 0, err
 		}

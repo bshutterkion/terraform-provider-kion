@@ -30,7 +30,6 @@ func TestAccKionIdmsOpenIdAccessRuleDataSource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(dataSourceName, "assertion_name"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "assertion_regex"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "cloudtamer_access_level_id"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "open_id_id"),
 				),
 			},
 		},

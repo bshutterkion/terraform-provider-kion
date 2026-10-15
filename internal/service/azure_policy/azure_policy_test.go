@@ -37,7 +37,7 @@ func TestAccKionAzurePolicy_basic(t *testing.T) {
 					testAccCheckAzurePolicyExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttrSet(resourceName, "azure_policy"),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_users"),
+					resource.TestCheckResourceAttr(resourceName, "owner_users.#", "1"),
 				),
 			},
 			{
@@ -69,7 +69,7 @@ func TestAccKionAzurePolicy_update(t *testing.T) {
 					testAccCheckAzurePolicyExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttrSet(resourceName, "azure_policy"),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_users"),
+					resource.TestCheckResourceAttr(resourceName, "owner_users.#", "1"),
 				),
 			},
 			{
@@ -78,7 +78,7 @@ func TestAccKionAzurePolicy_update(t *testing.T) {
 					testAccCheckAzurePolicyExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttrSet(resourceName, "azure_policy"),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_users"),
+					resource.TestCheckResourceAttr(resourceName, "owner_users.#", "1"),
 				),
 			},
 			{

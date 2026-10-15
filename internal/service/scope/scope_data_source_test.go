@@ -28,7 +28,6 @@ func TestAccKionScopeDataSource_basic(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "alias"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "criteria"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "description"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "end_datecode"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "name"),

@@ -28,7 +28,6 @@ func TestAccKionProjectLineItemDataSource_basic(t *testing.T) {
 				Config: testAccProjectLineItemDataSourceConfig_basic(rName, billingSourceID),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "amount"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "category_id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "datecode"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "description"),

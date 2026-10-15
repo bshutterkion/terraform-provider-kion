@@ -59,8 +59,8 @@ type assocData struct {
 
 	Members []assocMember
 
-	// StringAttrs marks the string-typed attributes for a generated test.
-	StringAttrs map[string]bool
+	// AttrTypes is each attribute's model type, for a generated test.
+	AttrTypes map[string]string
 }
 
 // resolveAssoc assembles an assocData from the op-set, SDK index, archetype
@@ -79,10 +79,10 @@ func resolveAssoc(name string, ops resOps, idx sdkIndex, arch archetype, model [
 	}
 
 	byTF := map[string]ModelField{}
-	d.StringAttrs = map[string]bool{}
+	d.AttrTypes = map[string]string{}
 	for _, mf := range model {
 		byTF[mf.TFSDK] = mf
-		d.StringAttrs[mf.TFSDK] = mf.Type == "types.String"
+		d.AttrTypes[mf.TFSDK] = mf.Type
 		switch mf.TFSDK {
 		case "id":
 			d.IDGo = mf.GoName
@@ -228,7 +228,11 @@ func (g *generator) generateAssoc(dir, name string, ops resOps, idx sdkIndex, ar
 		return 0, err
 	}
 	if hasTV {
-		test, err := execGoTemplate("assoctest", assocTestTmpl, buildAssocTestData(d, tv), name+"_test.go")
+		td, err := buildAssocTestData(d, tv)
+		if err != nil {
+			return 0, err
+		}
+		test, err := execGoTemplate("assoctest", assocTestTmpl, td, name+"_test.go")
 		if err != nil {
 			return 0, err
 		}

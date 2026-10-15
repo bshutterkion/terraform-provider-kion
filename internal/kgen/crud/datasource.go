@@ -79,17 +79,38 @@ func (d dsData) NeedsPayload() bool {
 // configured but the filter-capable data source could not be built; drops lists
 // the fields the dual-mode build could not project.
 func renderDataSource(rm ResourceModel, policy FieldPolicy) (out []byte, downgrade string, drops []dropped, err error) {
+	out, downgrade, drops, _, err = renderDataSourceAttrs(rm, policy)
+	return out, downgrade, drops, err
+}
+
+// renderDataSourceAttrs is renderDataSource that also returns the top-level
+// attributes the rendered schema has, besides id.
+func renderDataSourceAttrs(rm ResourceModel, policy FieldPolicy) (out []byte, downgrade string, drops []dropped, attrs []string, err error) {
 	if rm.List != nil {
-		b, d, berr := renderListDataSource(rm, policy)
+		data, d, berr := buildListDSData(rm, policy)
 		if berr == nil {
-			return b, "", d, nil
+			b, err := execGoTemplate("datasource_list", dataSourceListTmpl, data, rm.Name+"_data_source.go")
+			return b, "", d, data.attrNames(), err
 		}
 		downgrade = berr.Error()
 	} else {
 		downgrade = rm.ListDowngrade
 	}
-	b, err := renderIDOnlyDataSource(rm)
-	return b, downgrade, nil, err
+	data, err := buildDSData(rm)
+	if err != nil {
+		return nil, downgrade, nil, nil, err
+	}
+	b, err := execGoTemplate("datasource", dataSourceTmpl, data, rm.Name+"_data_source.go")
+	return b, downgrade, nil, data.attrNames(), err
+}
+
+// attrNames are the schema's top-level attributes besides id.
+func (d dsData) attrNames() []string {
+	var out []string
+	for _, f := range append(slices.Clone(d.Attrs), d.OuterAttrs...) {
+		out = append(out, f.TFName)
+	}
+	return out
 }
 
 // renderIDOnlyDataSource renders an id-only <name>_data_source.go (single read
@@ -332,15 +353,6 @@ type listDSData struct {
 type dropped struct {
 	Field  string
 	Reason string
-}
-
-func renderListDataSource(rm ResourceModel, policy FieldPolicy) ([]byte, []dropped, error) {
-	data, drops, err := buildListDSData(rm, policy)
-	if err != nil {
-		return nil, nil, err
-	}
-	out, err := execGoTemplate("datasource_list", dataSourceListTmpl, data, rm.Name+"_data_source.go")
-	return out, drops, err
 }
 
 func buildListDSData(rm ResourceModel, policy FieldPolicy) (listDSData, []dropped, error) {

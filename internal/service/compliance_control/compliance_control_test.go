@@ -87,7 +87,7 @@ func TestAccKionComplianceControl_update(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckComplianceControlExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
-					resource.TestCheckResourceAttrSet(resourceName, "arm_template_definition_ids"),
+					resource.TestCheckResourceAttr(resourceName, "arm_template_definition_ids.#", "0"),
 					resource.TestCheckResourceAttrSet(resourceName, "compliance_family_id"),
 					resource.TestCheckResourceAttr(resourceName, "control_number", "1"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc control"),

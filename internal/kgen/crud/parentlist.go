@@ -65,9 +65,8 @@ type parentListData struct {
 	// configured, Create applies it with an update straight after the create.
 	CreateViaUpdate []string
 
-	// StringAttrs marks the string-typed attributes, so a generated test
-	// quotes only what HCL needs quoted.
-	StringAttrs map[string]bool
+	// AttrTypes is each attribute's model type, for a generated test.
+	AttrTypes map[string]string
 }
 
 // generateParentList resolves and writes a parent_list resource (resource +
@@ -99,7 +98,11 @@ func (g *generator) generateParentList(dir, name string, ops resOps, idx sdkInde
 		return 0, err
 	}
 	if hasTV {
-		test, err := execGoTemplate("parentlisttest", parentListTestTmpl, buildParentListTestData(d, tv), name+"_test.go")
+		td, err := buildParentListTestData(d, tv)
+		if err != nil {
+			return 0, err
+		}
+		test, err := execGoTemplate("parentlisttest", parentListTestTmpl, td, name+"_test.go")
 		if err != nil {
 			return 0, err
 		}
@@ -132,10 +135,10 @@ func (g *generator) resolveParentList(name string, ops resOps, idx sdkIndex, arc
 	}
 
 	byTF := map[string]ModelField{}
-	d.StringAttrs = map[string]bool{}
+	d.AttrTypes = map[string]string{}
 	for _, mf := range model {
 		byTF[mf.TFSDK] = mf
-		d.StringAttrs[mf.TFSDK] = mf.Type == "types.String"
+		d.AttrTypes[mf.TFSDK] = mf.Type
 		if mf.TFSDK == "id" {
 			d.IDGo = mf.GoName
 		}

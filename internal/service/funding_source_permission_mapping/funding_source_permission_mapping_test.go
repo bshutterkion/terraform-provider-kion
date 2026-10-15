@@ -39,7 +39,7 @@ func TestAccKionFundingSourcePermissionMapping_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttrSet(resourceName, "app_role_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "funding_source_id"),
-					resource.TestCheckResourceAttrSet(resourceName, "user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "user_ids.#", "1"),
 				),
 			},
 		},

@@ -36,7 +36,6 @@ func TestAccKionIdmsOpenIdDataSource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(dataSourceName, "last_name_claim"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "name"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "phone_claim"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "scopes"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "username_claim"),
 				),
 			},

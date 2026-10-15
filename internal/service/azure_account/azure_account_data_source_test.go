@@ -33,7 +33,6 @@ func TestAccKionAzureAccountDataSource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(dataSourceName, "payer_id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "project_id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "start_datecode"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "subscription_uuid"),
 				),
 			},
 		},

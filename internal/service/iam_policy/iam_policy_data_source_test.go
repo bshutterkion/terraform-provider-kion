@@ -29,7 +29,6 @@ func TestAccKionIamPolicyDataSource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "description"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "name"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "owner_user_ids"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "policy"),
 				),
 			},

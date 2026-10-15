@@ -35,7 +35,6 @@ func TestAccKionAzureArmTemplateDataSource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(dataSourceName, "deployment_mode"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "description"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "name"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "owner_user_ids"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "resource_group_name"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "resource_group_region_id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "template"),
