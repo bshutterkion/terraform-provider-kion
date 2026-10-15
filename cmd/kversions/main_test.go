@@ -263,7 +263,8 @@ func TestDeriveSectionAndMarshal(t *testing.T) {
 	versionOps[0][forecast] = struct{}{}
 	versionOps[1][forecast] = struct{}{}
 
-	out := deriveSection("resources", entries, versionOps, &diag{w: io.Discard})
+	out, err := deriveSection("resources", entries, versionOps, nil, &diag{w: io.Discard})
+	require.NoError(t, err)
 
 	// account is fully supported (omitted); ghost is unresolved (omitted).
 	byName := map[string]support{}
@@ -390,6 +391,83 @@ resources:
 	require.NotContains(t, doc.Resources, "thing")
 	// data source gcp_regions points at ou-note op (only v3_16) -> min 3.16.0.
 	require.Equal(t, support{Min: "3.17.0"}, doc.DataSources["gcp_regions"])
+}
+
+// floorFixture writes a one-resource SDK (op in the named versions), a config
+// with a resource and data source named thing, and the given attr overrides.
+func floorFixture(t *testing.T, presentIn []string, attrOverrides string) (args []string, outPath string) {
+	t.Helper()
+	root := t.TempDir()
+	sdkDir := filepath.Join(root, "sdk")
+	thing := op{method: "POST", path: "/v3/thing"}
+	in := map[string]bool{}
+	for _, d := range presentIn {
+		in[d] = true
+	}
+	for _, v := range trackedVersions {
+		if in[v.dir] {
+			writeClient(t, sdkDir, v.dir, []op{thing})
+		} else {
+			writeClient(t, sdkDir, v.dir, nil)
+		}
+	}
+	cfgPath := filepath.Join(root, "generator_config.yaml")
+	require.NoError(t, os.WriteFile(cfgPath, []byte(`
+resources:
+  thing:
+    create: {path: /v3/thing, method: POST}
+data_sources:
+  thing:
+    read: {path: /v3/thing, method: POST}
+`), 0o644))
+	attrPath := filepath.Join(root, "attr.yaml")
+	require.NoError(t, os.WriteFile(attrPath, []byte(attrOverrides), 0o644))
+	outPath = filepath.Join(root, "version_support.yaml")
+	return []string{"-sdk", sdkDir, "-config", cfgPath, "-overrides", filepath.Join(root, "none.yaml"),
+		"-attr-overrides", attrPath, "-out", outPath}, outPath
+}
+
+func readSupport(t *testing.T, path string) (res, ds map[string]support) {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var doc struct {
+		Resources   map[string]support `yaml:"resources"`
+		DataSources map[string]support `yaml:"data_sources"`
+	}
+	require.NoError(t, yaml.Unmarshal(b, &doc))
+	return doc.Resources, doc.DataSources
+}
+
+func TestRun_resourceFloorRaisesMin(t *testing.T) {
+	args, out := floorFixture(t, []string{"v3_17"}, `resource_floors: { thing: "3.17.3" }`)
+	require.Equal(t, 0, run(args, io.Discard, io.Discard))
+	res, ds := readSupport(t, out)
+	require.Equal(t, support{Min: "3.17.3"}, res["thing"])
+	require.Equal(t, support{Min: "3.17.3"}, ds["thing"], "the data source takes the floor too")
+}
+
+func TestRun_resourceFloorOnUngatedEntryAppears(t *testing.T) {
+	args, out := floorFixture(t, []string{"v3_14", "v3_15", "v3_16", "v3_17"}, `resource_floors: { thing: "3.17.3" }`)
+	require.Equal(t, 0, run(args, io.Discard, io.Discard))
+	res, ds := readSupport(t, out)
+	require.Equal(t, support{Min: "3.17.3"}, res["thing"])
+	require.Equal(t, support{Min: "3.17.3"}, ds["thing"])
+}
+
+func TestRun_resourceFloorErrors(t *testing.T) {
+	for name, tc := range map[string]struct{ yaml, want string }{
+		"below derived": {`resource_floors: { thing: "3.16.0" }`, "below the derived minimum"},
+		"unknown name":  {`resource_floors: { nope: "3.17.3" }`, "neither a resource nor a data source"},
+		"malformed":     {`resource_floors: { thing: "3.17" }`, "not a 3.N.P version"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			args, _ := floorFixture(t, []string{"v3_17"}, tc.yaml)
+			var errb bytes.Buffer
+			require.Equal(t, 1, run(args, io.Discard, &errb))
+			require.Contains(t, errb.String(), tc.want)
+		})
+	}
 }
 
 // TestRunMissingOverridesOK confirms a missing overrides file is non-fatal.

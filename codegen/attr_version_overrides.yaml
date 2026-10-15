@@ -12,6 +12,14 @@
 # too low is worse than none: the attribute is accepted, the API ignores it,
 # and the practitioner is told the write succeeded.
 
+# resource_floors raises the derived MINIMUM of a resource and its data source
+# to a patch release, e.g. `kion_oauth2_client: "3.17.3"`. Derivation can only
+# say "3.NN.0". A floor below the derived minimum, or naming something that is
+# neither a resource nor a data source, fails generation. It also gates an entry
+# present in every tracked version. Verify against the release notes; a floor
+# that is too low is worse than none.
+resource_floors: {}
+
 resources:
   # Cloud access role types (3.15.13, 3.16.5 and 3.17.1). The public API
   # previously created every role as a User role; these six open it to the other

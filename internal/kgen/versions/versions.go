@@ -354,8 +354,24 @@ func (g *generator) generate(opts Options) (int, error) {
 		versionOps[i] = ops
 	}
 
-	resources := deriveSection("resources", merged.Resources, versionOps, logw)
-	dataSources := deriveSection("data_sources", merged.DataSources, versionOps, logw)
+	floors := map[string]string{}
+	if b, err := g.fs.ReadFile(orDefault(opts.AttrOverrides, defaultAttrOverrides)); err == nil {
+		if floors, err = ParseResourceFloors(b); err != nil {
+			return 0, err
+		}
+	}
+	if err := CheckFloorTargets(floors, SortedKeys(merged.Resources), SortedKeys(merged.DataSources)); err != nil {
+		return 0, err
+	}
+
+	resources, err := deriveSection("resources", merged.Resources, versionOps, floors, logw)
+	if err != nil {
+		return 0, err
+	}
+	dataSources, err := deriveSection("data_sources", merged.DataSources, versionOps, floors, logw)
+	if err != nil {
+		return 0, err
+	}
 
 	// Attribute gating is independent of resource gating: a resource present in
 	// every tracked version can still carry a field only newer Kions accept.
@@ -507,7 +523,10 @@ func (g *generator) loadVersionOps(sdkDir string, v version) (map[op]struct{}, e
 // (resources or data_sources). It returns the entries that should be emitted
 // (sorted by name) and logs unresolved / non-contiguous / fully-supported
 // entries to the writer.
-func deriveSection(section string, entries map[string]entry, versionOps []map[op]struct{}, logw io.Writer) []resolvedEntry {
+//
+// A floor raises the derived minimum, and forces a gate for an entry that would
+// otherwise need none. An entry a floor names that derives nothing is an error.
+func deriveSection(section string, entries map[string]entry, versionOps []map[op]struct{}, floors map[string]string, logw io.Writer) ([]resolvedEntry, error) {
 	names := make([]string, 0, len(entries))
 	for k := range entries {
 		names = append(names, k)
@@ -519,6 +538,9 @@ func deriveSection(section string, entries map[string]entry, versionOps []map[op
 		e := entries[name]
 		defOp, ok := definingOp(e)
 		if !ok {
+			if f := floors[name]; f != "" {
+				return nil, fmt.Errorf("resource_floors: %s (%s): %s has no create or read operation to derive a range from", name, f, section)
+			}
 			fmt.Fprintf(logw, "skip: %s/%s has no create or read operation\n", section, name)
 			continue
 		}
@@ -530,8 +552,19 @@ func deriveSection(section string, entries map[string]entry, versionOps []map[op
 		}
 		r := computeRange(present)
 		if !r.resolved {
+			if f := floors[name]; f != "" {
+				return nil, fmt.Errorf("resource_floors: %s (%s): %s defining op %q is in no tracked SDK version", name, f, section, defOp)
+			}
 			fmt.Fprintf(logw, "skip: %s/%s defining op %q not found in any tracked SDK version\n", section, name, defOp)
 			continue
+		}
+		if f := floors[name]; f != "" {
+			raised, err := RaiseMin(name, r.support.Min, r.support.Max, f)
+			if err != nil {
+				return nil, err
+			}
+			r.support.Min = raised
+			r.emit = true
 		}
 		if !r.contiguous {
 			fmt.Fprintf(logw, "warning: %s/%s defining op %q present in a non-contiguous set of versions; using overall min/max (%s..%s)\n",
@@ -543,7 +576,7 @@ func deriveSection(section string, entries map[string]entry, versionOps []map[op
 		}
 		out = append(out, resolvedEntry{name: name, support: r.support})
 	}
-	return out
+	return out, nil
 }
 
 // renderVersionGen renders (and gofmts) the <name>_version_gen.go source for a

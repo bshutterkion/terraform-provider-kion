@@ -280,6 +280,7 @@ type attrOverridesFile struct {
 		Min    string `yaml:"min"`
 		Before string `yaml:"before"`
 	} `yaml:"resources"`
+	ResourceFloors map[string]string `yaml:"resource_floors"`
 }
 
 // applyAttrOverrides replaces derived ranges with authored ones, in place. The
