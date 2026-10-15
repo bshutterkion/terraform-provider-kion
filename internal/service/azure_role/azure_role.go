@@ -88,10 +88,10 @@ func (r *azure_roleResource) Create(ctx context.Context, req resource.CreateRequ
 		Description:               flex.OptStringFromFramework(plan.Description),
 		Name:                      flex.StringValueFromFramework(plan.Name),
 		RolePermissions:           flex.StringValueFromFramework(plan.RolePermissions),
-		CarRestrictedUserGroupIds: generated.OptNilUint64Array{Value: carRestrictedUserGroupIds, Set: true},
-		CarRestrictedUserIds:      generated.OptNilUint64Array{Value: carRestrictedUserIds, Set: true},
-		OwnerUserGroupIds:         generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
-		OwnerUserIds:              generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
+		CarRestrictedUserGroupIds: generated.OptNilUint64Array{Value: carRestrictedUserGroupIds, Set: !plan.CarRestrictedUserGroupIds.IsUnknown()},
+		CarRestrictedUserIds:      generated.OptNilUint64Array{Value: carRestrictedUserIds, Set: !plan.CarRestrictedUserIds.IsUnknown()},
+		OwnerUserGroupIds:         generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: !plan.OwnerUserGroupIds.IsUnknown()},
+		OwnerUserIds:              generated.OptNilUint64Array{Value: ownerUserIds, Set: !plan.OwnerUserIds.IsUnknown()},
 	}
 
 	out, err := conn.PostAzureRole(ctx, input)

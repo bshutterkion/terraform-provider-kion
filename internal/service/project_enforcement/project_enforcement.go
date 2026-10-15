@@ -149,9 +149,9 @@ func (r *project_enforcementResource) Create(ctx context.Context, req resource.C
 			Threshold:             flex.Int64ValueFromFramework(plan.Threshold),
 			ThresholdType:         flex.OptStringFromFramework(plan.ThresholdType),
 			Timeframe:             flex.StringValueFromFramework(plan.Timeframe),
-			NotificationEmails:    generated.OptNilStringArray{Value: notificationEmails, Set: true},
-			UgroupIds:             generated.OptNilUint64Array{Value: ugroupIds, Set: true},
-			UserIds:               generated.OptNilUint64Array{Value: userIds, Set: true},
+			NotificationEmails:    generated.OptNilStringArray{Value: notificationEmails, Set: !plan.NotificationEmails.IsUnknown()},
+			UgroupIds:             generated.OptNilUint64Array{Value: ugroupIds, Set: !plan.UserGroupIds.IsUnknown()},
+			UserIds:               generated.OptNilUint64Array{Value: userIds, Set: !plan.UserIds.IsUnknown()},
 		},
 		Set: true,
 	}
@@ -341,7 +341,7 @@ func expandProjectEnforcementUpdate(ctx context.Context, plan ProjectEnforcement
 			Threshold:             flex.OptInt64FromFramework(plan.Threshold),
 			ThresholdType:         flex.OptStringFromFramework(plan.ThresholdType),
 			Timeframe:             flex.OptStringFromFramework(plan.Timeframe),
-			NotificationEmails:    generated.OptNilStringArray{Value: notificationEmails, Set: true},
+			NotificationEmails:    generated.OptNilStringArray{Value: notificationEmails, Set: !plan.NotificationEmails.IsUnknown()},
 		},
 		Set: true,
 	}, diags

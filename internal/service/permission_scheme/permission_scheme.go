@@ -135,7 +135,7 @@ func (r *permission_schemeResource) Create(ctx context.Context, req resource.Cre
 	input := &generated.PermissionSchemeCreate{
 		Name:  flex.StringValueFromFramework(plan.Name),
 		Type:  flex.StringValueFromFramework(plan.Type),
-		Roles: generated.OptNilAppRolePermissionArray{Value: roles, Set: true},
+		Roles: generated.OptNilAppRolePermissionArray{Value: roles, Set: !plan.Roles.IsUnknown()},
 	}
 
 	out, err := conn.PostPermissionScheme(ctx, input)
@@ -243,7 +243,7 @@ func (r *permission_schemeResource) Update(ctx context.Context, req resource.Upd
 
 	input := &generated.PermissionSchemeUpdateRequest{
 		AppPolicy:       generated.OptPermissionSchemeToUpdate{Value: appPolicy, Set: true},
-		PermissionRoles: generated.OptNilAppRoleArrayPermissionArray{Value: permissionRoles, Set: true},
+		PermissionRoles: generated.OptNilAppRoleArrayPermissionArray{Value: permissionRoles, Set: !plan.Roles.IsUnknown()},
 	}
 
 	out, err := conn.UpdatePermissionScheme(ctx, input, generated.UpdatePermissionSchemeParams{ID: idInt})

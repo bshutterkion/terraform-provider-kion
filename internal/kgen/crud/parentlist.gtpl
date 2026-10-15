@@ -142,7 +142,7 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 		{{- end}}
 		{{- range .CreateSliceBinds}}
-		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 		{{- end}}
 	}{{else}}{{.SDKAlias}}.{{.CreateBodyOpt}}{
 		Value: {{.SDKAlias}}.{{.CreateBody}}{
@@ -150,7 +150,7 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 			{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 			{{- end}}
 			{{- range .CreateSliceBinds}}
-			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 			{{- end}}
 		},
 		Set: true,
@@ -352,7 +352,7 @@ func expand{{.Pascal}}Update(ctx context.Context, plan {{.Model}}) ({{if .Update
 		{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 		{{- end}}
 		{{- range .UpdateSliceBinds}}
-		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 		{{- end}}
 	}{{else}}{{.SDKAlias}}.{{.UpdateBodyOpt}}{
 		Value: {{.SDKAlias}}.{{.UpdateBody}}{
@@ -360,7 +360,7 @@ func expand{{.Pascal}}Update(ctx context.Context, plan {{.Model}}) ({{if .Update
 			{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 			{{- end}}
 			{{- range .UpdateSliceBinds}}
-			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 			{{- end}}
 		},
 		Set: true,

@@ -93,8 +93,8 @@ func (r *amiResource) Create(ctx context.Context, req resource.CreateRequest, re
 		Region:                  flex.StringValueFromFramework(plan.Region),
 		SyncDeprecation:         flex.OptNilBoolFromFramework(plan.SyncDeprecation),
 		SyncTags:                flex.OptNilBoolFromFramework(plan.SyncTags),
-		OwnerUserGroupIds:       generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
-		OwnerUserIds:            generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
+		OwnerUserGroupIds:       generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: !plan.OwnerUserGroupIds.IsUnknown()},
+		OwnerUserIds:            generated.OptNilUint64Array{Value: ownerUserIds, Set: !plan.OwnerUserIds.IsUnknown()},
 	}
 
 	out, err := conn.PostAMI(ctx, input)

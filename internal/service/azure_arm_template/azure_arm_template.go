@@ -88,8 +88,8 @@ func (r *azure_arm_templateResource) Create(ctx context.Context, req resource.Cr
 		ResourceGroupRegionID: flex.NilUint64FromFramework(plan.ResourceGroupRegionId),
 		Template:              flex.StringValueFromFramework(plan.Template),
 		TemplateParameters:    flex.OptStringFromFramework(plan.TemplateParameters),
-		OwnerUserGroupIds:     generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
-		OwnerUserIds:          generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
+		OwnerUserGroupIds:     generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: !plan.OwnerUserGroupIds.IsUnknown()},
+		OwnerUserIds:          generated.OptNilUint64Array{Value: ownerUserIds, Set: !plan.OwnerUserIds.IsUnknown()},
 	}
 
 	out, err := conn.PostARMTemplate(ctx, input)

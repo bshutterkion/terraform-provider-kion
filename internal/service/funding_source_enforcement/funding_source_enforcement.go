@@ -133,8 +133,8 @@ func (r *funding_source_enforcementResource) Create(ctx context.Context, req res
 			SpendOption: flex.OptStringFromFramework(plan.SpendOption),
 			Threshold:   flex.Int64ValueFromFramework(plan.Threshold),
 			Timeframe:   flex.StringValueFromFramework(plan.Timeframe),
-			UgroupIds:   generated.OptNilUint64Array{Value: ugroupIds, Set: true},
-			UserIds:     generated.OptNilUint64Array{Value: userIds, Set: true},
+			UgroupIds:   generated.OptNilUint64Array{Value: ugroupIds, Set: !plan.UserGroupIds.IsUnknown()},
+			UserIds:     generated.OptNilUint64Array{Value: userIds, Set: !plan.UserIds.IsUnknown()},
 		},
 		Set: true,
 	}

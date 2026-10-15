@@ -207,13 +207,13 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 		{{- end}}
 		{{- range .CreateSliceBinds}}
-		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 		{{- end}}
 		{{- range .CreateObjBinds}}
 		{{.SDKField}}: {{if .Guard}}{{.Var}}Opt{{else if .OptType}}{{$.SDKAlias}}.{{.OptType}}{Value: {{.Var}}, Set: true}{{else if .Ptr}}&{{.Var}}{{else}}{{.Var}}{{end}},
 		{{- end}}
 		{{- range .CreateArrBinds}}
-		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 		{{- end}}
 		{{- range .CreateFlatSubs}}
 		{{.SDKField}}: {{.Expr}},
@@ -224,13 +224,13 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 			{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 			{{- end}}
 			{{- range .CreateSliceBinds}}
-			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 			{{- end}}
 			{{- range .CreateObjBinds}}
 			{{.SDKField}}: {{if .Guard}}{{.Var}}Opt{{else if .OptType}}{{$.SDKAlias}}.{{.OptType}}{Value: {{.Var}}, Set: true}{{else if .Ptr}}&{{.Var}}{{else}}{{.Var}}{{end}},
 			{{- end}}
 			{{- range .CreateArrBinds}}
-			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 			{{- end}}
 			{{- range .CreateFlatSubs}}
 			{{.SDKField}}: {{.Expr}},
@@ -463,16 +463,16 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 		{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 		{{- end}}
 		{{- range .UpdateSliceBinds}}
-		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 		{{- end}}
 		{{- range .UpdateObjBinds}}
 		{{.SDKField}}: {{if .Guard}}{{.Var}}Opt{{else if .OptType}}{{$.SDKAlias}}.{{.OptType}}{Value: {{.Var}}, Set: true}{{else if .Ptr}}&{{.Var}}{{else}}{{.Var}}{{end}},
 		{{- end}}
 		{{- range .UpdateArrBinds}}
-		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 		{{- end}}
 		{{- with .UpdateImplode}}
-		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 		{{- end}}
 	}{{else}}{{.SDKAlias}}.{{.UpdateBodyOpt}}{
 		Value: {{.SDKAlias}}.{{.UpdateBody}}{
@@ -480,16 +480,16 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 			{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 			{{- end}}
 			{{- range .UpdateSliceBinds}}
-			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 			{{- end}}
 			{{- range .UpdateObjBinds}}
 			{{.SDKField}}: {{if .Guard}}{{.Var}}Opt{{else if .OptType}}{{$.SDKAlias}}.{{.OptType}}{Value: {{.Var}}, Set: true}{{else if .Ptr}}&{{.Var}}{{else}}{{.Var}}{{end}},
 			{{- end}}
 			{{- range .UpdateArrBinds}}
-			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 			{{- end}}
 			{{- with .UpdateImplode}}
-			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 			{{- end}}
 		},
 		Set: true,

@@ -131,16 +131,16 @@ func (r *project_cloud_access_roleResource) Create(ctx context.Context, req reso
 		ProjectID:                 flex.NilUint64FromFramework(plan.ProjectId),
 		ShortTermAccessKeys:       flex.OptNilBoolFromFramework(plan.ShortTermAccessKeys),
 		WebAccess:                 flex.OptNilBoolFromFramework(plan.WebAccess),
-		AWSIamPolicies:            generated.OptNilUint64Array{Value: aWSIamPolicies, Set: true},
-		AWSTrustedAccountNumbers:  generated.OptNilStringArray{Value: aWSTrustedAccountNumbers, Set: true},
-		AWSTrustedServices:        generated.OptNilStringArray{Value: aWSTrustedServices, Set: true},
-		AccountIds:                generated.OptNilUint64Array{Value: accountIds, Set: true},
-		AzureRoleDefinitions:      generated.OptNilUint64Array{Value: azureRoleDefinitions, Set: true},
-		CloudProviderIds:          generated.OptNilUint64Array{Value: cloudProviderIds, Set: true},
-		GcpIamRoles:               generated.OptNilUint64Array{Value: gcpIamRoles, Set: true},
-		UserGroupIds:              generated.OptNilUint64Array{Value: userGroupIds, Set: true},
-		UserIds:                   generated.OptNilUint64Array{Value: userIds, Set: true},
-		AWSSessionTags:            generated.OptNilAWSSessionTagArray{Value: aWSSessionTags, Set: true},
+		AWSIamPolicies:            generated.OptNilUint64Array{Value: aWSIamPolicies, Set: !plan.AwsIamPolicies.IsUnknown()},
+		AWSTrustedAccountNumbers:  generated.OptNilStringArray{Value: aWSTrustedAccountNumbers, Set: !plan.AwsTrustedAccountNumbers.IsUnknown()},
+		AWSTrustedServices:        generated.OptNilStringArray{Value: aWSTrustedServices, Set: !plan.AwsTrustedServices.IsUnknown()},
+		AccountIds:                generated.OptNilUint64Array{Value: accountIds, Set: !plan.AccountIds.IsUnknown()},
+		AzureRoleDefinitions:      generated.OptNilUint64Array{Value: azureRoleDefinitions, Set: !plan.AzureRoleDefinitions.IsUnknown()},
+		CloudProviderIds:          generated.OptNilUint64Array{Value: cloudProviderIds, Set: !plan.CloudProviderIds.IsUnknown()},
+		GcpIamRoles:               generated.OptNilUint64Array{Value: gcpIamRoles, Set: !plan.GcpIamRoles.IsUnknown()},
+		UserGroupIds:              generated.OptNilUint64Array{Value: userGroupIds, Set: !plan.UserGroupIds.IsUnknown()},
+		UserIds:                   generated.OptNilUint64Array{Value: userIds, Set: !plan.UserIds.IsUnknown()},
+		AWSSessionTags:            generated.OptNilAWSSessionTagArray{Value: aWSSessionTags, Set: !plan.AwsSessionTags.IsUnknown()},
 	}
 
 	out, err := conn.PostProjectCloudAccessRole(ctx, input)
@@ -270,10 +270,10 @@ func (r *project_cloud_access_roleResource) Update(ctx context.Context, req reso
 		Name:                      flex.StringValueFromFramework(plan.Name),
 		ShortTermAccessKeys:       flex.OptNilBoolFromFramework(plan.ShortTermAccessKeys),
 		WebAccess:                 flex.OptNilBoolFromFramework(plan.WebAccess),
-		AWSTrustedAccountNumbers:  generated.OptNilStringArray{Value: aWSTrustedAccountNumbers, Set: true},
-		AWSTrustedServices:        generated.OptNilStringArray{Value: aWSTrustedServices, Set: true},
-		CloudProviderIds:          generated.OptNilUint64Array{Value: cloudProviderIds, Set: true},
-		AWSSessionTags:            generated.OptNilAWSSessionTagArray{Value: aWSSessionTags, Set: true},
+		AWSTrustedAccountNumbers:  generated.OptNilStringArray{Value: aWSTrustedAccountNumbers, Set: !plan.AwsTrustedAccountNumbers.IsUnknown()},
+		AWSTrustedServices:        generated.OptNilStringArray{Value: aWSTrustedServices, Set: !plan.AwsTrustedServices.IsUnknown()},
+		CloudProviderIds:          generated.OptNilUint64Array{Value: cloudProviderIds, Set: !plan.CloudProviderIds.IsUnknown()},
+		AWSSessionTags:            generated.OptNilAWSSessionTagArray{Value: aWSSessionTags, Set: !plan.AwsSessionTags.IsUnknown()},
 	}
 
 	out, err := conn.PatchProjectCloudAccessRole(ctx, input, generated.PatchProjectCloudAccessRoleParams{ID: idInt})

@@ -87,9 +87,9 @@ func (r *compliance_standardResource) Create(ctx context.Context, req resource.C
 		CreatedByUserID:    flex.NilUint64FromFramework(plan.CreatedByUserId),
 		Description:        flex.OptStringFromFramework(plan.Description),
 		Name:               flex.StringValueFromFramework(plan.Name),
-		ComplianceCheckIds: generated.OptNilUint64Array{Value: complianceCheckIds, Set: true},
-		OwnerUserGroupIds:  generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
-		OwnerUserIds:       generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
+		ComplianceCheckIds: generated.OptNilUint64Array{Value: complianceCheckIds, Set: !plan.ComplianceCheckIds.IsUnknown()},
+		OwnerUserGroupIds:  generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: !plan.OwnerUserGroupIds.IsUnknown()},
+		OwnerUserIds:       generated.OptNilUint64Array{Value: ownerUserIds, Set: !plan.OwnerUserIds.IsUnknown()},
 	}
 
 	out, err := conn.PostComplianceStandard(ctx, input)

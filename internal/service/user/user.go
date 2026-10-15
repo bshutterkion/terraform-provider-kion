@@ -71,7 +71,7 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 			Mfa:          flex.OptUint64FromFramework(plan.Mfa),
 			Phone:        flex.OptStringFromFramework(plan.Phone),
 			Username:     flex.StringValueFromFramework(plan.Username),
-			UserGroupIds: generated.OptNilUint64Array{Value: userGroupIds, Set: true},
+			UserGroupIds: generated.OptNilUint64Array{Value: userGroupIds, Set: !plan.UserGroupIds.IsUnknown()},
 		},
 		Set: true,
 	}

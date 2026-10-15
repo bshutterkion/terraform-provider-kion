@@ -129,8 +129,8 @@ func (r *global_permission_mappingResource) buildGlobalPermissionMappingRow(ctx 
 	diags.Append(user_groups_idsDiags...)
 	return generated.UserMapping{
 		AppRoleID:     generated.NewNilUint64(uint64(plan.AppRoleId.ValueInt64())),
-		UserIds:       generated.OptNilUint64Array{Value: user_ids, Set: true},
-		UserGroupsIds: generated.OptNilUint64Array{Value: user_groups_ids, Set: true},
+		UserIds:       generated.OptNilUint64Array{Value: user_ids, Set: !plan.UserIds.IsUnknown()},
+		UserGroupsIds: generated.OptNilUint64Array{Value: user_groups_ids, Set: !plan.UserGroupsIds.IsUnknown()},
 	}
 }
 

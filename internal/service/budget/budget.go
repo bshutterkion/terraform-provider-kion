@@ -69,7 +69,7 @@ func (r *budgetResource) Create(ctx context.Context, req resource.CreateRequest,
 			OuID:             flex.OptNilUint64FromFramework(plan.OuId),
 			ProjectID:        flex.OptNilUint64FromFramework(plan.ProjectId),
 			StartDatecode:    flex.StringValueFromFramework(plan.StartDatecode),
-			FundingSourceIds: generated.OptNilUint64Array{Value: fundingSourceIds, Set: true},
+			FundingSourceIds: generated.OptNilUint64Array{Value: fundingSourceIds, Set: !plan.FundingSourceIds.IsUnknown()},
 		},
 		Set: true,
 	}

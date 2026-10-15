@@ -84,8 +84,8 @@ func (r *service_control_policyResource) Create(ctx context.Context, req resourc
 		Description:       flex.OptStringFromFramework(plan.Description),
 		Name:              flex.StringValueFromFramework(plan.Name),
 		Policy:            flex.StringValueFromFramework(plan.Policy),
-		OwnerUserGroupIds: generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
-		OwnerUserIds:      generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
+		OwnerUserGroupIds: generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: !plan.OwnerUserGroupIds.IsUnknown()},
+		OwnerUserIds:      generated.OptNilUint64Array{Value: ownerUserIds, Set: !plan.OwnerUserIds.IsUnknown()},
 	}
 
 	out, err := conn.PostServiceControlPolicy(ctx, input)

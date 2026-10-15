@@ -87,8 +87,8 @@ func (r *ouResource) Create(ctx context.Context, req resource.CreateRequest, res
 		Name:               flex.StringValueFromFramework(plan.Name),
 		ParentOuID:         flex.NilUint64FromFramework(plan.ParentOuId),
 		PermissionSchemeID: flex.NilUint64FromFramework(plan.PermissionSchemeId),
-		OwnerUserGroupIds:  generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
-		OwnerUserIds:       generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
+		OwnerUserGroupIds:  generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: !plan.OwnerUserGroupIds.IsUnknown()},
+		OwnerUserIds:       generated.OptNilUint64Array{Value: ownerUserIds, Set: !plan.OwnerUserIds.IsUnknown()},
 	}
 
 	out, err := conn.PostOU(ctx, input)

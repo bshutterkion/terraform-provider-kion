@@ -216,7 +216,7 @@ func (r *billing_ruleResource) Update(ctx context.Context, req resource.UpdateRe
 		RuleType:         flex.OptUint64FromFramework(plan.RuleType),
 		RuleValue:        flex.OptFloat64FromFramework(plan.RuleValue),
 		StartMonth:       flex.OptInt64FromFramework(plan.StartMonth),
-		BillingSourceIds: generated.OptNilUint64Array{Value: billingSourceIds, Set: true},
+		BillingSourceIds: generated.OptNilUint64Array{Value: billingSourceIds, Set: !plan.BillingSourceIds.IsUnknown()},
 	}
 
 	out, err := conn.PatchBillingRule2(ctx, input, generated.PatchBillingRule2Params{ID: idInt})

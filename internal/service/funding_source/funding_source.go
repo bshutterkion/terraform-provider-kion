@@ -88,8 +88,8 @@ func (r *funding_sourceResource) Create(ctx context.Context, req resource.Create
 		OuID:               flex.OptNilUint64FromFramework(plan.OuId),
 		PermissionSchemeID: flex.NilUint64FromFramework(plan.PermissionSchemeId),
 		StartDatecode:      flex.StringValueFromFramework(plan.StartDatecode),
-		OwnerUserGroupIds:  generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
-		OwnerUserIds:       generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
+		OwnerUserGroupIds:  generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: !plan.OwnerUserGroupIds.IsUnknown()},
+		OwnerUserIds:       generated.OptNilUint64Array{Value: ownerUserIds, Set: !plan.OwnerUserIds.IsUnknown()},
 	}
 
 	out, err := conn.PostFundingSource(ctx, input)

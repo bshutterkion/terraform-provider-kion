@@ -125,14 +125,14 @@ func (r *ou_cloud_access_roleResource) Create(ctx context.Context, req resource.
 		OuID:                      flex.NilUint64FromFramework(plan.OuId),
 		ShortTermAccessKeys:       flex.OptNilBoolFromFramework(plan.ShortTermAccessKeys),
 		WebAccess:                 flex.OptNilBoolFromFramework(plan.WebAccess),
-		AWSIamPolicies:            generated.OptNilUint64Array{Value: aWSIamPolicies, Set: true},
-		AWSTrustedAccountNumbers:  generated.OptNilStringArray{Value: aWSTrustedAccountNumbers, Set: true},
-		AWSTrustedServices:        generated.OptNilStringArray{Value: aWSTrustedServices, Set: true},
-		AzureRoleDefinitions:      generated.OptNilUint64Array{Value: azureRoleDefinitions, Set: true},
-		GcpIamRoles:               generated.OptNilUint64Array{Value: gcpIamRoles, Set: true},
-		UserGroupIds:              generated.OptNilUint64Array{Value: userGroupIds, Set: true},
-		UserIds:                   generated.OptNilUint64Array{Value: userIds, Set: true},
-		AWSSessionTags:            generated.OptNilAWSSessionTagArray{Value: aWSSessionTags, Set: true},
+		AWSIamPolicies:            generated.OptNilUint64Array{Value: aWSIamPolicies, Set: !plan.AwsIamPolicies.IsUnknown()},
+		AWSTrustedAccountNumbers:  generated.OptNilStringArray{Value: aWSTrustedAccountNumbers, Set: !plan.AwsTrustedAccountNumbers.IsUnknown()},
+		AWSTrustedServices:        generated.OptNilStringArray{Value: aWSTrustedServices, Set: !plan.AwsTrustedServices.IsUnknown()},
+		AzureRoleDefinitions:      generated.OptNilUint64Array{Value: azureRoleDefinitions, Set: !plan.AzureRoleDefinitions.IsUnknown()},
+		GcpIamRoles:               generated.OptNilUint64Array{Value: gcpIamRoles, Set: !plan.GcpIamRoles.IsUnknown()},
+		UserGroupIds:              generated.OptNilUint64Array{Value: userGroupIds, Set: !plan.UserGroupIds.IsUnknown()},
+		UserIds:                   generated.OptNilUint64Array{Value: userIds, Set: !plan.UserIds.IsUnknown()},
+		AWSSessionTags:            generated.OptNilAWSSessionTagArray{Value: aWSSessionTags, Set: !plan.AwsSessionTags.IsUnknown()},
 	}
 
 	out, err := conn.PostOUCloudAccessRole(ctx, input)
@@ -258,9 +258,9 @@ func (r *ou_cloud_access_roleResource) Update(ctx context.Context, req resource.
 		Name:                      flex.OptStringFromFramework(plan.Name),
 		ShortTermAccessKeys:       flex.OptNilBoolFromFramework(plan.ShortTermAccessKeys),
 		WebAccess:                 flex.OptNilBoolFromFramework(plan.WebAccess),
-		AWSTrustedAccountNumbers:  generated.OptNilStringArray{Value: aWSTrustedAccountNumbers, Set: true},
-		AWSTrustedServices:        generated.OptNilStringArray{Value: aWSTrustedServices, Set: true},
-		AWSSessionTags:            generated.OptNilAWSSessionTagArray{Value: aWSSessionTags, Set: true},
+		AWSTrustedAccountNumbers:  generated.OptNilStringArray{Value: aWSTrustedAccountNumbers, Set: !plan.AwsTrustedAccountNumbers.IsUnknown()},
+		AWSTrustedServices:        generated.OptNilStringArray{Value: aWSTrustedServices, Set: !plan.AwsTrustedServices.IsUnknown()},
+		AWSSessionTags:            generated.OptNilAWSSessionTagArray{Value: aWSSessionTags, Set: !plan.AwsSessionTags.IsUnknown()},
 	}
 
 	out, err := conn.PatchOUCloudAccessRole(ctx, input, generated.PatchOUCloudAccessRoleParams{ID: idInt})

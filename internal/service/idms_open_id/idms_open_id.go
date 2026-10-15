@@ -89,8 +89,8 @@ func (r *idms_open_idResource) Create(ctx context.Context, req resource.CreateRe
 			Name:                  flex.OptStringFromFramework(plan.Name),
 			PhoneClaim:            flex.OptStringFromFramework(plan.PhoneClaim),
 			UsernameClaim:         flex.OptStringFromFramework(plan.UsernameClaim),
-			Scopes:                generated.OptNilStringArray{Value: scopes, Set: true},
-			AccessRules:           generated.OptNilOpenIDAccessRuleCreateArray{Value: accessRules, Set: true},
+			Scopes:                generated.OptNilStringArray{Value: scopes, Set: !plan.Scopes.IsUnknown()},
+			AccessRules:           generated.OptNilOpenIDAccessRuleCreateArray{Value: accessRules, Set: !plan.AccessRules.IsUnknown()},
 		},
 		Set: true,
 	}
@@ -196,7 +196,7 @@ func (r *idms_open_idResource) Update(ctx context.Context, req resource.UpdateRe
 			Name:                  flex.OptStringFromFramework(plan.Name),
 			PhoneClaim:            flex.OptStringFromFramework(plan.PhoneClaim),
 			UsernameClaim:         flex.OptStringFromFramework(plan.UsernameClaim),
-			Scopes:                generated.OptNilStringArray{Value: scopes, Set: true},
+			Scopes:                generated.OptNilStringArray{Value: scopes, Set: !plan.Scopes.IsUnknown()},
 		},
 		Set: true,
 	}
