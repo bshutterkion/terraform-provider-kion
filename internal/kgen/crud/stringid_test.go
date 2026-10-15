@@ -146,3 +146,41 @@ func TestIDExpr_stringID(t *testing.T) {
 	_, err = idExpr("string", "uint64")
 	require.Error(t, err)
 }
+
+// An update body that wraps the record in an object carrying its id must send
+// the string id, not leave the sub-field zero.
+func TestEntityStringID_wrappedUpdateID(t *testing.T) {
+	spec := thingSpec()
+	spec.Dir = filepath.Join("testdata", "stringidwrap")
+	spec.TestValues = ""
+	files, err := generateFixture(t, spec)
+	require.NoError(t, err)
+	src := files["thing.go"]
+	require.Contains(t, src, "ID:          generated.OptString{Value: id, Set: true},")
+	require.NotContains(t, src, "idInt")
+}
+
+// A wrapped id sub-field whose type does not match the record id cannot be
+// sourced; generation fails rather than sending a zero id.
+func TestWrappedIDSubFieldMismatchIsAnError(t *testing.T) {
+	idx := sdkIndex{structs: map[string]Struct{
+		"Ref": {Name: "Ref", Fields: []Field{
+			{GoName: "ID", JSONName: "id", Type: "OptInt64"},
+			{GoName: "Name", JSONName: "name", Type: "OptString"},
+		}},
+	}}
+	body := &Struct{Name: "Body", Fields: []Field{{GoName: "Ref", JSONName: "ref", Type: "OptRef"}}}
+	byTF := map[string]ModelField{
+		"id":   {GoName: "Id", TFSDK: "id", Type: "types.String"},
+		"name": {GoName: "Name", TFSDK: "name", Type: "types.String"},
+	}
+	schemaGen := filepath.Join("testdata", "stringid", "thing_schema_gen.go")
+
+	_, err := resolveNested(NewFileSource(), schemaGen, body, byTF, idx, nestedOpts{IDAttr: "id", IDVar: "id", IDType: "string"})
+	require.ErrorContains(t, err, `"ref"`)
+	require.ErrorContains(t, err, "OptInt64")
+
+	idx.structs["Ref"].Fields[0].Type = "OptString"
+	_, err = resolveNested(NewFileSource(), schemaGen, body, byTF, idx, nestedOpts{IDAttr: "id", IDVar: "idInt", IDType: "int64"})
+	require.ErrorContains(t, err, "OptString")
+}

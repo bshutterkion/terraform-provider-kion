@@ -472,7 +472,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		return 0, fmt.Errorf("%s create nested: %w", name, err)
 	}
 	if rm.Update != nil {
-		if rm.UpdateNested, err = resolveNested(g.src, schemaGen, rm.Update.Body, byTF, idx, nestedOpts{IDAttr: rm.IDField.TFSDK, IDVar: "idInt"}); err != nil {
+		if rm.UpdateNested, err = resolveNested(g.src, schemaGen, rm.Update.Body, byTF, idx, updateIDOpts(rm)); err != nil {
 			return 0, fmt.Errorf("%s update nested: %w", name, err)
 		}
 	}
@@ -648,6 +648,19 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		return 0, err
 	}
 	return 1, nil
+}
+
+// updateIDOpts sources a wrapped update object's id sub-field from the local
+// the entity template parses the record id into.
+func updateIDOpts(rm ResourceModel) nestedOpts {
+	o := nestedOpts{IDAttr: rm.IDField.TFSDK, IDVar: "idInt"}
+	if _, t, err := idParamName(rm.Read.Params); err == nil {
+		o.IDType = t
+	}
+	if o.IDType == "string" {
+		o.IDVar = "id"
+	}
+	return o
 }
 
 // stringIDParam names the first op whose params carry a string id, or "". The
