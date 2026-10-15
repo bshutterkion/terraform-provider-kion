@@ -256,6 +256,10 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 	}{{end}}{{end}}
 
 	plan.{{.IDGo}} = types.StringValue({{if eq .IDParamType "string"}}id{{else}}strconv.FormatInt(id, 10){{end}})
+{{- range .CreateOnly}}
+	// Only the create response carries this; the read-back never returns it.
+	configured{{.ModelGo}} := {{.Capture}}
+{{- end}}
 
 {{- if .Labels}}
 
@@ -321,6 +325,9 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 	// The API canonicalizes this and echoes the rewritten form; keeping the
 	// configured value is what stops an unconvergeable diff. See Rewritten.
 	plan.{{.}} = configured{{.}}
+{{- end}}
+{{- range .CreateOnly}}
+	plan.{{.ModelGo}} = configured{{.ModelGo}}
 {{- end}}
 
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
@@ -425,7 +432,7 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-{{- if or .Owners .Assocs .SliceMembers .Moves}}
+{{- if or .Owners .Assocs .SliceMembers .Moves .CreateOnly}}
 
 	var state {{.Model}}
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
@@ -703,6 +710,10 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	// The API canonicalizes this and echoes the rewritten form; keeping the
 	// configured value is what stops an unconvergeable diff. See Rewritten.
 	plan.{{.}} = configured{{.}}
+{{- end}}
+{{- range .CreateOnly}}
+	// Only the create response carries this; keep what state captured.
+	plan.{{.ModelGo}} = state.{{.ModelGo}}
 {{- end}}
 
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)

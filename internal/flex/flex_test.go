@@ -41,6 +41,15 @@ func TestOptStringToFramework(t *testing.T) {
 	assert.Equal(t, types.StringNull(), flex.OptStringToFramework(generated.OptString{}))
 }
 
+// A create_only secret is captured through this: a public OAuth client answers
+// "" for its secret, which must store as null.
+func TestOptStringToFrameworkNullIfEmpty(t *testing.T) {
+	assert.Equal(t, types.StringValue("s3cr3t"), flex.OptStringToFrameworkNullIfEmpty(generated.OptString{Value: "s3cr3t", Set: true}))
+	assert.Equal(t, types.StringNull(), flex.OptStringToFrameworkNullIfEmpty(generated.OptString{Value: "", Set: true}))
+	assert.Equal(t, types.StringNull(), flex.OptStringToFrameworkNullIfEmpty(generated.OptString{}))
+	assert.Equal(t, types.StringNull(), flex.OptStringToFrameworkNullIfEmpty(generated.NewOptString("")))
+}
+
 // --- Int64 ---
 
 func TestInt64ValueFromFramework(t *testing.T) {

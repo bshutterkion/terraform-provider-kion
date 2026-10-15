@@ -332,6 +332,9 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	}
 
 	var entityArch *archetype
+	if arch != nil && arch.Kind != entityKind && len(arch.CreateOnly) > 0 {
+		return 0, fmt.Errorf("%s: create_only is supported only by kind: entity, not %s", name, arch.Kind)
+	}
 	if arch != nil && arch.Kind != entityKind && arch.Kind != rawKind {
 		if where := stringIDParam(ops, idx); where != "" {
 			return 0, fmt.Errorf("%s: the %s archetype does not support a string id (%s); only entity does", name, arch.Kind, where)
@@ -427,6 +430,9 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 				continue
 			}
 			rm.Rewritten = append(rm.Rewritten, goName)
+		}
+		if rm.CreateOnly, err = resolveCreateOnly(name, *entityArch, model); err != nil {
+			return 0, err
 		}
 		rm.DeleteRecordParam = entityArch.DeleteRecordParam
 		rm.DeleteExtraParam = entityArch.DeleteExtraParam

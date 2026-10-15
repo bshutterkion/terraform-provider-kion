@@ -212,6 +212,9 @@ type ResourceModel struct {
 	// Rewritten holds model field names whose configured value Create and Update
 	// restore after the read-back; see the archetype's Rewritten.
 	Rewritten []string
+	// CreateOnly are attributes captured from the create response and never
+	// flattened; see the archetype's CreateOnly.
+	CreateOnly []createOnlyAttr
 	// Owner association synced on Update via paired add/remove endpoints.
 	Owners *ownerMembershipBind
 	// Bulk association syncs (each a struct body of id-lists via one add/remove pair).

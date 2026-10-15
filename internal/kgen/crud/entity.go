@@ -164,7 +164,10 @@ type entityData struct {
 	// Rewritten holds the model field names of attributes the API canonicalizes
 	// and echoes back rewritten; Create and Update restore the configured value
 	// after the read-back. See archetype's Rewritten.
-	Rewritten     []string
+	Rewritten []string
+	// CreateOnly are captured from the create response before the read-back
+	// and restored after it; Update carries state's value. Never flattened.
+	CreateOnly    []createOnlyBind
 	HasNestedFlat bool // obj/arr flattens present (drives the attr import)
 	HasIDProj     bool // id-projection flattens present
 	RespRawValues []rawValueFlat
@@ -366,6 +369,11 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 	if stringID && d.CreateIDMode != "envelope" {
 		return d, fmt.Errorf("%s: a string id must be read from the create response's id field; errs.CreatedID yields an int64", rm.Name)
 	}
+	if len(rm.CreateOnly) > 0 {
+		if d.CreateOnly, err = entityCreateOnly(rm, d); err != nil {
+			return d, err
+		}
+	}
 
 	if rm.Update != nil {
 		if rm.Update.Body == nil {
@@ -422,7 +430,8 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		if rm.Read.RespDataPtr {
 			topPrefix = "v.Data."
 		}
-		if d.RespBinds, d.RespSliceBinds, err = respBinds(rm.Read.RespFields, byTF, rm.IDField.TFSDK, topPrefix, rm.ReadNested.Names, emptyColl, stringID); err != nil {
+		flattenSkip := createOnlySkip(rm.CreateOnly, rm.ReadNested.Names)
+		if d.RespBinds, d.RespSliceBinds, err = respBinds(rm.Read.RespFields, byTF, rm.IDField.TFSDK, topPrefix, flattenSkip, emptyColl, stringID); err != nil {
 			return d, fmt.Errorf("%s flatten: %w", rm.Name, err)
 		}
 		// Record-wrapper: the payload nests the bulk of the record under a
@@ -433,7 +442,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 			if rm.Read.RespWrapperOpt {
 				wrapPrefix += "Value."
 			}
-			wb, wsb, werr := respBinds(rm.Read.RespWrapperFields, byTF, rm.IDField.TFSDK, wrapPrefix, rm.ReadNested.Names, emptyColl, stringID)
+			wb, wsb, werr := respBinds(rm.Read.RespWrapperFields, byTF, rm.IDField.TFSDK, wrapPrefix, flattenSkip, emptyColl, stringID)
 			if werr != nil {
 				return d, fmt.Errorf("%s flatten (wrapper %s): %w", rm.Name, rm.Read.RespWrapperGo, werr)
 			}
@@ -471,6 +480,27 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 	d.RawValueHelpers = mergeRawValues(d.CreateRawValues, d.UpdateRawValues)
 	setIDShape(&d)
 	return d, nil
+}
+
+// entityCreateOnly binds the create_only attributes to the create response's
+// payload, refusing a create that has none to capture from.
+func entityCreateOnly(rm ResourceModel, d entityData) ([]createOnlyBind, error) {
+	var why string
+	switch {
+	case d.NoRead:
+		why = "a resource with no typed read"
+	case rm.RawCreate != nil:
+		why = "raw_create"
+	case d.CreateIDMode != "envelope":
+		why = "a create response that returns no record"
+	default:
+		base := "created.Data"
+		if !d.CreateDataPtr {
+			base += ".Value"
+		}
+		return createOnlyBinds(rm.Name, rm.CreateOnly, rm.Create.RespFields, base, d.SDKAlias)
+	}
+	return nil, fmt.Errorf("%s: create_only attribute %q cannot be captured with %s", rm.Name, rm.CreateOnly[0].TF, why)
 }
 
 // setIDShape derives the id's parse bits, diagnostic verb and local name from

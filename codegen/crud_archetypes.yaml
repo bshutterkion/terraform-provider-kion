@@ -23,6 +23,13 @@
 # cannot supply (so it stays id-only) but a sweeper can, by walking the parents
 # first. Without these the resource gets NO sweeper, which is deliberate: a
 # registered sweeper that swept nothing would report success to `make sweep`.
+#
+#   create_only  string attributes only the create response carries (an OAuth
+#                client's secret). Create captures each from that response,
+#                storing "" or unset as null; flatten never assigns it, so Read
+#                and Update keep state's value. An entry that is not a string
+#                attribute, or not a string field on the create response,
+#                fails generation.
 
 scope_criteria:
   kind: compound_key_parent_read

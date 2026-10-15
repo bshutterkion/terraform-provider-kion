@@ -20,6 +20,8 @@ type fixtureSpec struct {
 	Arch *archetype // nil renders the plain entity archetype
 	// TestValues is a test_values.yaml path; empty emits no acceptance tests.
 	TestValues string
+	// Model overrides the <Dir>/<Name>_schema_gen.go the model is read from.
+	Model string
 }
 
 // generateFixture runs one resource through generateResource and returns each emitted file's source by base name.
@@ -34,7 +36,11 @@ func generateFixture(t *testing.T, spec fixtureSpec) (map[string]string, error) 
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		t.Fatal(err)
 	}
-	model, err := os.ReadFile(filepath.Join(spec.Dir, spec.Name+"_schema_gen.go"))
+	modelPath := spec.Model
+	if modelPath == "" {
+		modelPath = filepath.Join(spec.Dir, spec.Name+"_schema_gen.go")
+	}
+	model, err := os.ReadFile(modelPath)
 	if err != nil {
 		t.Fatal(err)
 	}
