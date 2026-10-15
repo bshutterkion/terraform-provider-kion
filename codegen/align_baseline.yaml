@@ -14,6 +14,8 @@
 # TODO and must be triaged before merging.
 
 custom_variable_override.entity_id:type: "cv_override archetype: entity_id is a string by design, parsed into the path parameter of the entity the override targets; kalign aligned the model to an unrelated struct at low confidence (2/8 fields)"
+dashboard.created_at:flex: "raw_http with no typed body; kalign's best-overlap SDK type is coincidental (ComplianceCheck on v3_16, BillingRuleDeprecated on v3_17)"
+dashboard.updated_at:flex: "raw_http with no typed body; kalign's best-overlap SDK type is coincidental (ComplianceCheck on v3_16, BillingRuleDeprecated on v3_17)"
 funding_source_enforcement.cloud_rule_id:flex: "no scalar converter applies: the read unwraps the id of the nested cloud_rule object inline, and the request sends it through OptNilUint64FromFramework"
 funding_source_enforcement.cloud_rule_id:type: "the response nests the whole cloud_rule object; the read projects its id (rec.CloudRule.Value.ID), which a scalar type comparison cannot see"
 ou_enforcement.cloud_rule_id:flex: "no scalar converter applies: the read unwraps the id of the nested cloud_rule object inline, and the request sends it through OptNilUint64FromFramework"

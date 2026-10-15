@@ -6,7 +6,7 @@ A Terraform provider for the [Kion](https://kion.io) cloud governance platform, 
 
 Generated from the Kion OpenAPI specification, this provider manages 71 service packages covering organizational management, cloud access, compliance, financial governance, and more. Almost everything is generated: resource CRUD, schemas, data sources, acceptance-test scaffolding, `.tf` examples, registry docs, and a Terraform module per resource.
 
-The provider is built against a single Kion API version, the SDK's `generated/v3_16` sub-package. It does not ship a separate release line per Kion version. Compatibility with older self-hosted instances is handled at runtime instead: `codegen/version_support.yaml` records the Kion version range in which each resource's defining API operation exists, and resources whose operation is not present in every supported version carry a generated version gate that fails with a clear diagnostic when pointed at an instance too old to support it.
+The provider is built against a single Kion API version, the SDK's `generated/v3_17` sub-package. It does not ship a separate release line per Kion version. Compatibility with older self-hosted instances is handled at runtime instead: `codegen/version_support.yaml` records the Kion version range in which each resource's defining API operation exists, and resources whose operation is not present in every supported version carry a generated version gate that fails with a clear diagnostic when pointed at an instance too old to support it.
 
 ## Importing an existing install
 
@@ -111,7 +111,7 @@ Resources embed `framework.ResourceWithConfigure` (data sources embed `framework
 
 ### SDK integration
 
-The provider uses [kion-sdk-go](https://github.com/bshutterkion/kion-sdk-go), a typed Go SDK generated from the Kion OpenAPI spec with [ogen](https://ogen.dev/). Resource code imports the `generated/v3_16` sub-package, aliased `generated`.
+The provider uses [kion-sdk-go](https://github.com/bshutterkion/kion-sdk-go), a typed Go SDK generated from the Kion OpenAPI spec with [ogen](https://ogen.dev/). Resource code imports the `generated/v3_17` sub-package, aliased `generated`.
 
 Type conversion between Terraform Framework types (`types.String`, `types.Int64`, …) and SDK types (`generated.OptString`, `generated.OptUint64`, …) lives in `internal/flex`.
 
@@ -119,7 +119,7 @@ The SDK's module path is `github.com/kionsoftware/kion-sdk-go`, and `go.mod` car
 
 **`spec/openapi3.json` is not committed.** It is gitignored. This repo is published for customers and ships the provider, not Kion's interface files. Because the generated code *is* committed, a plain clone still builds, tests, and regenerates modules, docs, and examples with no spec present.
 
-Only the two schema generators read it (`make generate-schemas`, `make config-gen`), and `make refresh-spec` fetches a local copy from the SDK spec source (maintainers only; set `SDK_SPEC`). Override `SDK_SPEC=<path>` if your checkout differs. `SDK_VERSION` in the Makefile (`v3_16`) is the Kion version the provider targets and selects both the spec and the `generated/<v>` sub-package the code imports.
+Only the two schema generators read it (`make generate-schemas`, `make config-gen`), and `make refresh-spec` fetches a local copy from the SDK spec source (maintainers only; set `SDK_SPEC`). Override `SDK_SPEC=<path>` if your checkout differs. `SDK_VERSION` in the Makefile (`v3_17`) is the Kion version the provider targets and selects both the spec and the `generated/<v>` sub-package the code imports.
 
 A few endpoints the public spec does not expose are served over raw HTTP through `internal/conns`; those are declared in `codegen/private_endpoints.yaml`.
 

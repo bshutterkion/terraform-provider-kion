@@ -89,7 +89,7 @@ Hand-written code is the infrastructure: `internal/flex/` (TF ↔ SDK type conve
 
 ### SDK and version compatibility
 
-Resource code imports the SDK's `generated/v3_16` sub-package (aliased `generated`). The provider does not ship per-Kion release lines: compatibility is a **runtime** mechanism. `codegen/version_support.yaml` records the Kion version range in which each resource's defining API operation exists; the provider reads `GET /api/version` at configure time and gated resources fail with a clear diagnostic against too-old instances.
+Resource code imports the SDK's `generated/v3_17` sub-package (aliased `generated`). The provider does not ship per-Kion release lines: compatibility is a **runtime** mechanism. `codegen/version_support.yaml` records the Kion version range in which each resource's defining API operation exists; the provider reads `GET /api/version` at configure time and gated resources fail with a clear diagnostic against too-old instances.
 
 ### Provider Configuration
 
