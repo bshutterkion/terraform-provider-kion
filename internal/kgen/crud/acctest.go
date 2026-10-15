@@ -180,6 +180,9 @@ type acctestData struct {
 	RequireEnv         []envRequirement
 	KnownIssues        []acctestKnownIssue
 	ExpectNonEmptyPlan bool
+	// ImportVerifyIgnore are the create_only attributes: an import has no
+	// create response to capture them from, so they are null after import.
+	ImportVerifyIgnore []string
 }
 
 func buildAcctestData(rm ResourceModel, tv testValues) (acctestData, error) {
@@ -207,6 +210,9 @@ func buildAcctestData(rm ResourceModel, tv testValues) (acctestData, error) {
 	d.HasUpdate = rm.Update != nil && len(tv.Update) > 0
 	d.EnvArgs = envArgsFor(tv.EnvArgs)
 	fillGuards(&d, tv)
+	for _, a := range rm.CreateOnly {
+		d.ImportVerifyIgnore = append(d.ImportVerifyIgnore, a.TF)
+	}
 	d.Fixtures = tv.Fixtures
 	d.ExtraArgs = tv.ExtraArgs
 	setCheckExprs(d.CreateAttrs, d.EnvArgs, d.ExtraArgs)
