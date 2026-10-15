@@ -24,7 +24,7 @@ type Options struct {
 	Config          string // codegen/generator_config.yaml
 	ConfigOverrides string // codegen/config_overrides.yaml (reserved; the merged config is read directly)
 	SDKDir          string // ../kion-sdk-go
-	SDKVersion      string // "v3_16"
+	SDKVersion      string // the generated/<version> sub-package, e.g. "v3_NN"
 	CrudOverrides   string // codegen/crud_overrides.yaml
 	Archetypes      string // codegen/crud_archetypes.yaml (compound-key/parent-read declarations)
 	TestValues      string // codegen/test_values.yaml
@@ -90,6 +90,9 @@ type generator struct {
 	// a resource OTHER than the one being generated: a parent-scoped sweeper
 	// enumerates its parent's collection.
 	dataSources map[string]dsOps
+
+	// idx is this run's SDK index, which companion templates resolve routes in.
+	idx *sdkIndex
 	unswept     []downgrade // resources that got no sweeper this run, with the reason
 	failed      []string    // per-resource generation failures this run
 }
@@ -178,6 +181,7 @@ func (g *generator) generate(opts Options) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	g.idx = &idx
 
 	tvPath := opts.TestValues
 	if tvPath == "" {

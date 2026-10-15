@@ -362,12 +362,37 @@ type bespokeFile struct {
 type companionData struct {
 	SDKImport string
 	EnvArgs   []struct{ Param, Env, Describes string }
+	idx       *sdkIndex
+}
+
+// sdkOpRef is an SDK operation a companion template calls, resolved by route.
+type sdkOpRef struct {
+	Name, Params, Resp string
+	// DataPtr: the response's Data is *T (nil-checked) rather than an OptT (.Set).
+	DataPtr bool
+}
+
+// Op resolves "METHOD /path" in this run's SDK, so a companion template names a
+// route rather than an ogen method name, which a version bump can reassign.
+func (c companionData) Op(route string) (sdkOpRef, error) {
+	if c.idx == nil {
+		return sdkOpRef{}, fmt.Errorf("op %s: no SDK index for this run", route)
+	}
+	m, ok := c.idx.methods[route]
+	if !ok {
+		return sdkOpRef{}, fmt.Errorf("op %s: not in this SDK", route)
+	}
+	resp, _, dataPtr, _, err := resolveEnvelope(m.ResultType, *c.idx)
+	if err != nil {
+		return sdkOpRef{}, fmt.Errorf("op %s: %w", route, err)
+	}
+	return sdkOpRef{Name: m.Name, Params: m.ParamsType, Resp: resp, DataPtr: dataPtr}, nil
 }
 
 // emitBespoke renders each template with data and writes it into dir.
 func (g *generator) emitBespoke(dir, name string, data any, files []bespokeFile, force bool) (int, error) {
 	if data == nil {
-		data = companionData{SDKImport: sdkImport()}
+		data = companionData{SDKImport: sdkImport(), idx: g.idx}
 	}
 	for _, f := range files {
 		out, err := execGoTemplate(name+":"+f.outName, f.tmpl, data, f.outName)
