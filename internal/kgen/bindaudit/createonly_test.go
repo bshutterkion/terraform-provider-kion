@@ -9,9 +9,11 @@ import (
 	"terraform-provider-kion/internal/kgen/bindaudit"
 )
 
-// A create_only attribute takes its value from the create response, so it is
-// response-bound, not dropped; an attribute bound nowhere is still reported.
-func TestCreateOnlyIsResponseBound(t *testing.T) {
+// A create_only value comes from the create response, not the config. When the
+// attribute is settable, Create discards the practitioner's value, so it is
+// reported; a Computed-only one (token) is outside the audit. note is bound
+// nowhere and reported for both ops.
+func TestCreateOnlyAudit(t *testing.T) {
 	t.Parallel()
 	findings, err := bindaudit.Run(filepath.Join("testdata", "createonly"))
 	require.NoError(t, err)
@@ -20,5 +22,5 @@ func TestCreateOnlyIsResponseBound(t *testing.T) {
 	for _, f := range findings {
 		keys = append(keys, f.Key())
 	}
-	require.ElementsMatch(t, []string{"widget.note:create", "widget.note:update"}, keys)
+	require.ElementsMatch(t, []string{"widget.note:create", "widget.note:update", "widget.secret:create"}, keys)
 }

@@ -139,11 +139,6 @@ func auditPackage(dir, pkg string) ([]Finding, error) {
 			return
 		}
 		read := readsIn(fn, model, funcs, map[string]bool{})
-		if op == "create" {
-			for k := range responseBound(fn, model) {
-				read[k] = true
-			}
-		}
 		body := requestTypes(fn)
 		var attrNames []string
 		for name := range attrs {
@@ -557,50 +552,6 @@ func readsIn(fn *ast.FuncDecl, model modelInfo, funcs funcIndex, seen map[string
 		return true
 	})
 
-	return out
-}
-
-// createRespVar is the local the generated Create holds the create response in.
-const createRespVar = "created"
-
-// responseBound returns the model fields a Create assigns from the create
-// response, directly or through a local captured from it: a create_only
-// attribute. Its value comes from the API, so it is bound, not dropped.
-func responseBound(fn *ast.FuncDecl, model modelInfo) map[string]bool {
-	out := map[string]bool{}
-	if fn == nil || fn.Body == nil {
-		return out
-	}
-	vars := modelVars(fn, model.name)
-	captured := map[string]bool{}
-	fromResp := func(e ast.Expr) bool {
-		if id, ok := e.(*ast.Ident); ok && captured[id.Name] {
-			return true
-		}
-		return mentions(e, createRespVar)
-	}
-	ast.Inspect(fn.Body, func(n ast.Node) bool {
-		as, ok := n.(*ast.AssignStmt)
-		if !ok || len(as.Lhs) != len(as.Rhs) {
-			return true
-		}
-		for i, lhs := range as.Lhs {
-			if !fromResp(as.Rhs[i]) {
-				continue
-			}
-			switch l := lhs.(type) {
-			case *ast.Ident:
-				if as.Tok == token.DEFINE {
-					captured[l.Name] = true
-				}
-			case *ast.SelectorExpr:
-				if id, ok := l.X.(*ast.Ident); ok && vars[id.Name] {
-					out[l.Sel.Name] = true
-				}
-			}
-		}
-		return true
-	})
 	return out
 }
 
