@@ -59,6 +59,7 @@ type entityData struct {
 	ResConst, ResName  string
 	TypeName           string // "kion_<name>"
 	IDGo, SDKAlias     string
+	SDKImport          string
 	IDParamType        string // "int64" | "uint64". The read/update/delete param id Go type
 	IDParseBits        int    // strconv bit size for the record id. See idParseBits
 	Gated              bool   // emit RequireKionVersionInRange in Create
@@ -250,6 +251,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		IDGo:             rm.IDField.GoName,
 		ParentRead:       rm.ParentRead,
 		SDKAlias:         "generated",
+		SDKImport:        sdkImport(),
 		CreateMethod:     rm.Create.Method.Name,
 		CreateBodyOpt:    rm.Create.Method.BodyType,
 		ReadMethod:       rm.Read.Method.Name,

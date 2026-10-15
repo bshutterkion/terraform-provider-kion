@@ -141,6 +141,7 @@ func (g *generator) generate(opts Options) (int, error) {
 	}
 	sdkDir = resolveAgainst(root, sdkDir)
 
+	sdkVersion = opts.SDKVersion
 	idx, err := buildIndex(g.src, sdkDir, opts.SDKVersion)
 	if err != nil {
 		return 0, err
@@ -541,6 +542,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 			AtLeastOneOf   []string
 			RequiredWhen   []RequiredWhen
 			SDKAlias       string
+			SDKImport      string
 			ResConst       string
 			Labels         *labelSyncBind
 			LabelsRespType string
@@ -548,6 +550,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 			AtLeastOneOf:   rm.AtLeastOneOf,
 			RequiredWhen:   rm.RequiredWhen,
 			SDKAlias:       "generated",
+			SDKImport:      sdkImport(),
 			ResConst:       "ResName" + pascalCase(name),
 			Labels:         rm.Labels,
 			LabelsRespType: labelsRespType(rm.Labels),
@@ -788,4 +791,13 @@ func sortedKeys[V any](m map[string]V) []string {
 	ks := slices.Collect(maps.Keys(m))
 	slices.Sort(ks)
 	return ks
+}
+
+// sdkVersion is the SDK sub-package templates import, set once per run from
+// Options.SDKVersion (tests set it directly).
+var sdkVersion string
+
+// sdkImport is the import path of the SDK sub-package generated code compiles against.
+func sdkImport() string {
+	return "github.com/kionsoftware/kion-sdk-go/generated/" + sdkVersion
 }

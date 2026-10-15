@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "{{.SDKImport}}"
 
 	"terraform-provider-kion/internal/errs"
 )

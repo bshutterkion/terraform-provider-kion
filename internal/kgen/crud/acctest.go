@@ -145,6 +145,7 @@ type acctestAttr struct {
 type acctestData struct {
 	Pkg, Pascal, ResourceType string
 	SDKAlias                  string
+	SDKImport                 string
 	ReadMethod, ReadParams    string
 	ReadIDParam               string
 	IDParamType               string // "int64" | "uint64"
@@ -190,6 +191,7 @@ func buildAcctestData(rm ResourceModel, tv testValues) (acctestData, error) {
 		Pascal:       rm.Pascal,
 		ResourceType: "kion_" + rm.Name,
 		SDKAlias:     "generated",
+		SDKImport:    sdkImport(),
 		ReadMethod:   rm.Read.Method.Name,
 		ReadParams:   rm.Read.Method.ParamsType,
 		ReadIDParam:  readIDParam,
@@ -252,7 +254,7 @@ func buildBlendedTestData(d entityData, model []ModelField, tv testValues) blend
 		sa[mf.TFSDK] = mf.Type == "types.String"
 	}
 	out := blendedTestData{
-		acctestData: acctestData{Pkg: d.Pkg, Pascal: d.Pascal, SDKAlias: d.SDKAlias},
+		acctestData: acctestData{Pkg: d.Pkg, Pascal: d.Pascal, SDKAlias: d.SDKAlias, SDKImport: d.SDKImport},
 		TypeName:    d.TypeName, RawRead: d.RawRead,
 	}
 	fillConfig(&out.acctestData, tv, sa, d.HasUpdate)
@@ -271,7 +273,7 @@ type assocTestData struct {
 
 func buildAssocTestData(a assocData, tv testValues) assocTestData {
 	out := assocTestData{
-		acctestData: acctestData{Pkg: a.Pkg, Pascal: a.Pascal, SDKAlias: a.SDKAlias},
+		acctestData: acctestData{Pkg: a.Pkg, Pascal: a.Pascal, SDKAlias: a.SDKAlias, SDKImport: a.SDKImport},
 		TypeName:    a.TypeName, ReadMethod: a.ReadMethod, ReadParams: a.ReadParams,
 		HasParent: a.HasParent, ParentArg: a.ParentArg, ParentTF: a.ParentTF, KeyTF: a.KeyTF,
 		RespType: a.RespType, DataGo: a.DataGo, RecordKeyGo: a.RecordKeyGo,
@@ -288,7 +290,7 @@ func buildRawTestData(r rawData, model []ModelField, tv testValues) blendedTestD
 		sa[mf.TFSDK] = mf.Type == "types.String"
 	}
 	out := blendedTestData{
-		acctestData: acctestData{Pkg: r.Pkg, Pascal: r.Pascal, SDKAlias: "generated"},
+		acctestData: acctestData{Pkg: r.Pkg, Pascal: r.Pascal, SDKAlias: "generated", SDKImport: sdkImport()},
 		TypeName:    r.TypeName,
 		RawRead:     &rawReadData{Method: r.ReadMethod, Path: r.ReadPath},
 	}
@@ -309,7 +311,7 @@ func buildNoReadTestData(rm ResourceModel, typeName string, scan noReadScan, tv 
 		sa[mf.TFSDK] = mf.Type == "types.String"
 	}
 	out := noReadTestData{
-		acctestData: acctestData{Pkg: rm.Name, Pascal: rm.Pascal, SDKAlias: "generated"},
+		acctestData: acctestData{Pkg: rm.Name, Pascal: rm.Pascal, SDKAlias: "generated", SDKImport: sdkImport()},
 		TypeName:    typeName, ListPath: scan.ListPath, ParentIDTF: scan.ParentIDTF, RecordsKey: scan.RecordsKey,
 	}
 	fillConfig(&out.acctestData, tv, sa, rm.Update != nil)
@@ -320,7 +322,7 @@ func buildNoReadTestData(rm ResourceModel, typeName string, scan noReadScan, tv 
 // whose read is a list under the parent rather than a get by id.
 func buildParentListTestData(pl parentListData, tv testValues) acctestData {
 	d := acctestData{
-		Pkg: pl.Pkg, Pascal: pl.Pascal, ResourceType: pl.TypeName, SDKAlias: pl.SDKAlias,
+		Pkg: pl.Pkg, Pascal: pl.Pascal, ResourceType: pl.TypeName, SDKAlias: pl.SDKAlias, SDKImport: pl.SDKImport,
 		ReadMethod: pl.ReadMethod, ReadParams: pl.ReadParams,
 		ParentParam: pl.ParentParam, ParentCast: pl.ParentCast, ParentIDTF: pl.ParentIDTF,
 		ResponseType: pl.ResponseType, RecordIDGo: pl.RecordIDGo, RecordIDOpt: pl.RecordIDOpt,

@@ -247,6 +247,7 @@ type cloudAccountData struct {
 	Pkg, Recv, Pascal, ResName string
 	SchemaVersion              int
 	SDKAlias                   string
+	SDKImport                  string
 	ResConst                   string
 	Labels                     *labelSyncBind
 	LabelsRespType             string
@@ -257,12 +258,13 @@ type cloudAccountData struct {
 func (g *generator) generateCloudAccount(dir, name string, force bool) (int, error) {
 	pascal := pascalCase(name)
 	data := cloudAccountData{
-		Pkg:      name,
-		Recv:     lowerCamelCase(name),
-		Pascal:   pascal,
-		ResName:  spaceBeforeCaps(pascal),
-		SDKAlias: "generated",
-		ResConst: "ResName" + pascal,
+		Pkg:       name,
+		Recv:      lowerCamelCase(name),
+		Pascal:    pascal,
+		ResName:   spaceBeforeCaps(pascal),
+		SDKAlias:  "generated",
+		SDKImport: sdkImport(),
+		ResConst:  "ResName" + pascal,
 	}
 	if mc, ok := g.memberships[name]; ok && mc.Labels != nil {
 		lb, err := resolveLabelSync(*mc.Labels, nil)
@@ -357,6 +359,9 @@ type bespokeFile struct {
 
 // emitBespoke renders each template with data and writes it into dir.
 func (g *generator) emitBespoke(dir, name string, data any, files []bespokeFile, force bool) (int, error) {
+	if data == nil {
+		data = struct{ SDKImport string }{sdkImport()}
+	}
 	for _, f := range files {
 		out, err := execGoTemplate(name+":"+f.outName, f.tmpl, data, f.outName)
 		if err != nil {

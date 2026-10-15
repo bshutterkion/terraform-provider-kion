@@ -25,6 +25,7 @@ const parentListKind = "parent_list"
 type parentListData struct {
 	Pkg, Pascal, Model                              string
 	ResConst, ResName, TypeName, SDKAlias           string
+	SDKImport                                       string
 	IDGo                                            string
 	Gated                                           bool
 	AtLeastOneOf                                    []string
@@ -121,7 +122,7 @@ func (g *generator) generateParentList(dir, name string, ops resOps, idx sdkInde
 func (g *generator) resolveParentList(name string, ops resOps, idx sdkIndex, arch archetype, model []ModelField, gated bool, schemaGen string) (parentListData, error) {
 	pascal := pascalCase(name)
 	d := parentListData{
-		Pkg: name, Pascal: pascal, Model: pascal + "Model", SDKAlias: "generated",
+		Pkg: name, Pascal: pascal, Model: pascal + "Model", SDKAlias: "generated", SDKImport: sdkImport(),
 		ResConst: "ResName" + pascal, ResName: pascal + " Resource", TypeName: "kion_" + name,
 		Gated: gated, AtLeastOneOf: g.configValidators.For(name), RecordType: arch.RecordType, ResponseType: arch.ResponseType,
 		ParentParam: arch.ParentParam, ChildParam: arch.ChildParam,

@@ -87,6 +87,7 @@ type realSweepData struct {
 	listAccess
 	Pkg, Pascal, ResourceType  string
 	SDKAlias                   string
+	SDKImport                  string
 	ElemType                   string
 	ListMethod, ListParams     string
 	ListRespType               string
@@ -139,6 +140,7 @@ func buildRealSweepData(rm ResourceModel) (realSweepData, error) {
 		Pascal:        rm.Pascal,
 		ResourceType:  "kion_" + rm.Name,
 		SDKAlias:      "generated",
+		SDKImport:     sdkImport(),
 		ElemType:      lm.ElemType,
 		ListMethod:    lm.Method.Name,
 		ListParams:    lm.Method.ParamsType,

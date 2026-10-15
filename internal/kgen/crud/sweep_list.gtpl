@@ -12,7 +12,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 
-	{{.SDKAlias}} "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	{{.SDKAlias}} "{{.SDKImport}}"
 )
 
 {{if or .Paginated (and .Parent .Parent.Paginated)}}const sweepPageSize = 100

@@ -18,7 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	{{if or .AtLeastOneOf .RequiredTogether}}"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	{{end}}"github.com/hashicorp/terraform-plugin-framework/types"
-	{{.SDKAlias}} "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	{{.SDKAlias}} "{{.SDKImport}}"
 
 	"terraform-provider-kion/internal/conns"
 	"terraform-provider-kion/internal/errs"

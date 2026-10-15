@@ -193,6 +193,7 @@ type dsCompoundAttr struct {
 type compoundData struct {
 	Pkg, Pascal, Model string
 	SDKAlias           string
+	SDKImport          string
 	ResConst, ResName  string
 	DSConst, DSName    string
 	Gated              bool
@@ -261,6 +262,7 @@ func resolveCompound(name string, ops resOps, idx sdkIndex, arch archetype, mode
 		Pascal:        pascal,
 		Model:         pascal + "Model",
 		SDKAlias:      "generated",
+		SDKImport:     sdkImport(),
 		ResConst:      "ResName" + pascal,
 		ResName:       pascal + " Resource",
 		DeleteRetains: arch.DeleteRetains,

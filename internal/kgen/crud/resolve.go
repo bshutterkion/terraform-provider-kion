@@ -128,7 +128,7 @@ type sdkIndex struct {
 // buildIndex parses the SDK's generated Go for one version into an sdkIndex.
 func buildIndex(src Source, sdkDir, version string) (sdkIndex, error) {
 	if version == "" {
-		version = "v3_16"
+		return sdkIndex{}, errors.New("sdk version is required (the caller supplies it; see --sdk-version)")
 	}
 	gen := filepath.Join(sdkDir, "generated", version)
 	cms, err := src.ClientMethods(filepath.Join(gen, "oas_client_gen.go"))

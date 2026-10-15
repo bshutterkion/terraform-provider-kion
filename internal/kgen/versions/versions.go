@@ -93,6 +93,13 @@ var trackedVersions = func() []version {
 	return out
 }()
 
+// providerSDK pins the sub-package the provider imports while it lags the
+// newest tracked version.
+const providerSDK = "v3_16"
+
+// CurrentSDK is the sub-package the provider compiles against.
+func CurrentSDK() string { return providerSDK }
+
 type version struct {
 	dir   string
 	minor int

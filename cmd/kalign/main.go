@@ -3,8 +3,8 @@
 //
 // Usage:
 //
-//	kalign check [-sdk DIR] [-version v3_16] [-service NAME] [-baseline FILE] [-update]
-//	kalign gen   [-sdk DIR] [-version v3_16] [-service NAME]
+//	kalign check [-sdk DIR] [-version <current>] [-service NAME] [-baseline FILE] [-update]
+//	kalign gen   [-sdk DIR] [-version <current>] [-service NAME]
 //
 // check fails on any finding not recorded in the baseline and on any baseline
 // entry that no longer occurs; -update rewrites the baseline instead. -sdk
@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"terraform-provider-kion/internal/kalign"
+	"terraform-provider-kion/internal/kgen/versions"
 )
 
 const (
@@ -74,14 +75,14 @@ var resolveSDKDir = func() (string, error) {
 func run(args []string, stdout, stderr io.Writer) int {
 	d := &diag{w: stderr}
 	if len(args) < 1 || (args[0] != "check" && args[0] != "gen") {
-		d.println("usage: kalign <check|gen> [-sdk DIR] [-version v3_16] [-service NAME] [-baseline FILE] [-update]")
+		d.println(fmt.Sprintf("usage: kalign <check|gen> [-sdk DIR] [-version %s] [-service NAME] [-baseline FILE] [-update]", versions.CurrentSDK()))
 		return 2
 	}
 	mode := args[0]
 	fs := flag.NewFlagSet(mode, flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	sdkDir := fs.String("sdk", "", "path to the kion-sdk-go source (default: the module go.mod resolves)")
-	version := fs.String("version", "v3_16", "SDK sub-package version to align against")
+	version := fs.String("version", versions.CurrentSDK(), "SDK sub-package version to align against")
 	only := fs.String("service", "", "limit to a single service (default: all)")
 	baseline := fs.String("baseline", defaultBaseline, "accepted findings (check only)")
 	update := fs.Bool("update", false, "rewrite the baseline from the current findings (check only)")

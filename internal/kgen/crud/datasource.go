@@ -37,6 +37,7 @@ type dsData struct {
 	Pkg, Pascal, Model       string
 	DSConst, DSName          string
 	SDKAlias                 string
+	SDKImport                string
 	ReadMethod, ReadParams   string
 	ReadIDParam              string
 	IDParamType              string // "int64" | "uint64"
@@ -173,6 +174,7 @@ func buildDSData(rm ResourceModel) (dsData, error) {
 		DSConst:     "DSName" + rm.Pascal,
 		DSName:      rm.Pascal + " Data Source",
 		SDKAlias:    "generated",
+		SDKImport:   sdkImport(),
 		ReadMethod:  rm.Read.Method.Name,
 		ReadParams:  rm.Read.Method.ParamsType,
 		RespType:    rm.Read.RespType,

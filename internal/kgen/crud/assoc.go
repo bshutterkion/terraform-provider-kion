@@ -29,6 +29,7 @@ type assocMember struct {
 // assocData is the association template payload.
 type assocData struct {
 	Pkg, Pascal, Model, SDKAlias string
+	SDKImport                    string
 	ResConst, ResName            string
 	Gated                        bool
 	TypeName                     string
@@ -67,13 +68,14 @@ type assocData struct {
 func resolveAssoc(name string, ops resOps, idx sdkIndex, arch archetype, model []ModelField) (assocData, error) {
 	pascal := pascalCase(name)
 	d := assocData{
-		Pkg:      name,
-		Pascal:   pascal,
-		Model:    pascal + "Model",
-		SDKAlias: "generated",
-		ResConst: "ResName" + pascal,
-		ResName:  pascal + " Resource",
-		TypeName: "kion_" + name,
+		Pkg:       name,
+		Pascal:    pascal,
+		Model:     pascal + "Model",
+		SDKAlias:  "generated",
+		SDKImport: sdkImport(),
+		ResConst:  "ResName" + pascal,
+		ResName:   pascal + " Resource",
+		TypeName:  "kion_" + name,
 	}
 
 	byTF := map[string]ModelField{}
