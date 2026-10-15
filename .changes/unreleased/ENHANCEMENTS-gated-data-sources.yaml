@@ -1,7 +1,0 @@
-kind: ENHANCEMENTS
-body: >-
-  Data sources whose Kion API exists only from a given release
-  (`kion_oauth2_client`, `kion_ou_note`, `kion_scope`, `kion_scope_criteria`)
-  now fail with a clear Kion version diagnostic on older installs instead of
-  an opaque API error.
-time: 2026-10-15T21:00:00Z
