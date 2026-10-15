@@ -119,7 +119,7 @@ The SDK's module path is `github.com/kionsoftware/kion-sdk-go`, and `go.mod` car
 
 **`spec/openapi3.json` is not committed.** It is gitignored. This repo is published for customers and ships the provider, not Kion's interface files. Because the generated code *is* committed, a plain clone still builds, tests, and regenerates modules, docs, and examples with no spec present.
 
-Only the two schema generators read it (`make generate-schemas`, `make config-gen`), and `make refresh-spec` fetches a local copy from the SDK spec source (maintainers only; set `SDK_SPEC`). Override `SDK_SPEC=<path>` if your checkout differs. `SDK_VERSION` in the Makefile (`v3_17`) is the Kion version the provider targets and selects both the spec and the `generated/<v>` sub-package the code imports.
+Only the two schema generators read it (`make generate-schemas`, `make config-gen`), and `make refresh-spec` fetches a local copy from the SDK spec source (maintainers only). Point `SDK_SPEC_ROOT` at that source's `spec/` directory, in the environment or a gitignored `local.mk`, or pass `SDK_SPEC=<path>` for the file itself. `SDK_VERSION` in the Makefile (`v3_17`) is the Kion version the provider targets and selects both the spec and the `generated/<v>` sub-package the code imports.
 
 A few endpoints the public spec does not expose are served over raw HTTP through `internal/conns`; those are declared in `codegen/private_endpoints.yaml`.
 
