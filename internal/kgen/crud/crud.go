@@ -5,6 +5,7 @@
 package crud
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -96,6 +97,19 @@ type generator struct {
 func (g *generator) recordFailure(name string, err error) {
 	fmt.Fprintf(os.Stderr, "kgen crud: FAILED %s: %v\n", name, err)
 	g.failed = append(g.failed, fmt.Sprintf("%s: %v", name, err))
+}
+
+// errExists marks a file left alone because --force was not given.
+var errExists = errors.New("already exists (use --force to overwrite)")
+
+// recordUnlessExists records err as a failure unless it is the deliberate
+// non-force skip, and reports whether it was recorded.
+func (g *generator) recordUnlessExists(name string, err error) bool {
+	if errors.Is(err, errExists) {
+		return false
+	}
+	g.recordFailure(name, err)
+	return true
 }
 
 func (g *generator) failureError() error {
@@ -232,12 +246,12 @@ func (g *generator) generate(opts Options) (int, error) {
 		}
 		n, err := g.generateResource(root, name, resources[name], dataSources[name], idx, tvPath, gated[name], arch, opts.Force)
 		if err != nil {
-			g.recordFailure(name, err)
+			g.recordUnlessExists(name, err)
 			continue
 		}
 		// Emit the state upgrader for any resource that migrates old SDKv2 state.
 		if err := g.emitUpgrade(name, opts.Force); err != nil {
-			g.recordFailure(name+" upgrader", err)
+			g.recordUnlessExists(name+" upgrader", err)
 		}
 		written += n
 	}
@@ -794,7 +808,7 @@ func (g *generator) emitUpgrade(name string, force bool) error {
 func (g *generator) writeFile(path string, data []byte, force bool) error {
 	if !force {
 		if _, err := g.fs.Stat(path); err == nil {
-			return fmt.Errorf("%s already exists (use --force to overwrite)", path)
+			return fmt.Errorf("%s %w", path, errExists)
 		}
 	}
 	if g.written == nil {

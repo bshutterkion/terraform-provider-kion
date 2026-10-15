@@ -39,3 +39,19 @@ func TestFailuresNameEveryResource(t *testing.T) {
 	require.Contains(t, err.Error(), "boom")
 	require.Contains(t, err.Error(), "beta")
 }
+
+// Without --force an existing file is a deliberate skip, not a failure.
+func TestExistingFileWithoutForceIsNotAFailure(t *testing.T) {
+	sdkVersion = "v3_17"
+	dir := t.TempDir()
+	g := &generator{fs: kfs.OS{}}
+	files := []bespokeFile{{tmpl: "package x\n", outName: "x.go"}}
+	_, err := g.emitBespoke(dir, "thing", nil, files, true)
+	require.NoError(t, err)
+	_, err = g.emitBespoke(dir, "thing", nil, files, false)
+	require.ErrorIs(t, err, errExists)
+	require.False(t, g.recordUnlessExists("thing", err))
+	require.NoError(t, g.failureError())
+	require.True(t, g.recordUnlessExists("thing", errors.New("boom")))
+	require.Error(t, g.failureError())
+}
