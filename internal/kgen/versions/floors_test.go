@@ -105,3 +105,51 @@ func TestRaiseMin(t *testing.T) {
 	_, err = RaiseMin("x", "3.14.0", "3.15.0", "3.15.2")
 	require.ErrorContains(t, err, "not below the derived maximum")
 }
+
+func TestLoadFloors(t *testing.T) {
+	read := func(b string, err error) func(string) ([]byte, error) {
+		return func(string) ([]byte, error) { return []byte(b), err }
+	}
+	res, ds := []string{"thing"}, []string{"other"}
+
+	t.Run("missing file is no floors", func(t *testing.T) {
+		f, err := LoadFloors(read("", os.ErrNotExist), "p", res, ds)
+		require.NoError(t, err)
+		assert.Empty(t, f)
+	})
+	t.Run("other read error is returned", func(t *testing.T) {
+		_, err := LoadFloors(read("", os.ErrPermission), "p", res, ds)
+		require.ErrorIs(t, err, os.ErrPermission)
+	})
+	t.Run("unknown top-level key fails", func(t *testing.T) {
+		_, err := LoadFloors(read(`resource_floor: { thing: "3.17.3" }`, nil), "p", res, ds)
+		require.ErrorContains(t, err, "resource_floor")
+	})
+	t.Run("data source name is a valid target", func(t *testing.T) {
+		f, err := LoadFloors(read(`resource_floors: { other: "3.17.3" }`, nil), "p", res, ds)
+		require.NoError(t, err)
+		assert.Equal(t, "3.17.3", f["other"])
+	})
+}
+
+func TestApplyFloor(t *testing.T) {
+	got, emit, err := ApplyFloor("x", "resources", "", FloorNoOp, "", "", "")
+	require.NoError(t, err)
+	assert.False(t, emit)
+	assert.Equal(t, "", got)
+
+	_, _, err = ApplyFloor("x", "resources", "3.17.3", FloorNoOp, "", "", "")
+	require.ErrorContains(t, err, "no create or read operation")
+	_, _, err = ApplyFloor("x", "resources", "3.17.3", FloorUnresolved, "POST /v3/x", "", "")
+	require.ErrorContains(t, err, "no tracked SDK version")
+
+	got, emit, err = ApplyFloor("x", "resources", "3.17.3", FloorResolved, "", "3.17.0", "")
+	require.NoError(t, err)
+	assert.True(t, emit)
+	assert.Equal(t, "3.17.3", got)
+}
+
+func TestGenerate_unknownAttrOverridesKeyFails(t *testing.T) {
+	_, err := generateWithOverrides(t, []string{"v3_17"}, false, `resource_floor: { thing: "3.17.3" }`)
+	require.ErrorContains(t, err, "resource_floor")
+}

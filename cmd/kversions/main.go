@@ -297,8 +297,8 @@ func deriveSection(section string, entries map[string]entry, versionOps []map[op
 		e := entries[name]
 		defOp, ok := definingOp(e)
 		if !ok {
-			if f := floors[name]; f != "" {
-				return nil, fmt.Errorf("resource_floors: %s (%s): %s has no create or read operation to derive a range from", name, f, section)
+			if _, _, err := versions.ApplyFloor(name, section, floors[name], versions.FloorNoOp, "", "", ""); err != nil {
+				return nil, err
 			}
 			logw.printf("unresolved: %s/%s has no create or read operation\n", section, name)
 			continue
@@ -311,20 +311,18 @@ func deriveSection(section string, entries map[string]entry, versionOps []map[op
 		}
 		r := computeRange(present)
 		if !r.resolved {
-			if f := floors[name]; f != "" {
-				return nil, fmt.Errorf("resource_floors: %s (%s): %s defining op %q is in no tracked SDK version", name, f, section, defOp)
+			if _, _, err := versions.ApplyFloor(name, section, floors[name], versions.FloorUnresolved, defOp.String(), "", ""); err != nil {
+				return nil, err
 			}
 			logw.printf("unresolved: %s/%s defining op %q not found in any tracked SDK version\n", section, name, defOp)
 			continue
 		}
-		if f := floors[name]; f != "" {
-			raised, err := versions.RaiseMin(name, r.support.Min, r.support.Max, f)
-			if err != nil {
-				return nil, err
-			}
-			r.support.Min = raised
-			r.emit = true
+		raised, forced, err := versions.ApplyFloor(name, section, floors[name], versions.FloorResolved, "", r.support.Min, r.support.Max)
+		if err != nil {
+			return nil, err
 		}
+		r.support.Min = raised
+		r.emit = r.emit || forced
 		if !r.contiguous {
 			logw.printf("warning: %s/%s defining op %q present in a non-contiguous set of versions; using overall min/max (%s..%s)\n",
 				section, name, defOp, versionString(trackedVersions[r.minIdx]), versionString(trackedVersions[r.maxIdx]))
@@ -463,17 +461,9 @@ func run(args []string, _ io.Writer, stderr io.Writer) int {
 		versionOps[i] = ops
 	}
 
-	floors := map[string]string{}
-	if b, err := os.ReadFile(*attrOverrides); err == nil {
-		if floors, err = versions.ParseResourceFloors(b); err != nil {
-			d.println("kversions:", err)
-			return 1
-		}
-	} else if !os.IsNotExist(err) {
-		d.println("kversions:", fmt.Errorf("reading %s: %w", *attrOverrides, err))
-		return 1
-	}
-	if err := versions.CheckFloorTargets(floors, versions.SortedKeys(merged.Resources), versions.SortedKeys(merged.DataSources)); err != nil {
+	floors, err := versions.LoadFloors(os.ReadFile, *attrOverrides,
+		versions.SortedKeys(merged.Resources), versions.SortedKeys(merged.DataSources))
+	if err != nil {
 		d.println("kversions:", err)
 		return 1
 	}

@@ -354,13 +354,9 @@ func (g *generator) generate(opts Options) (int, error) {
 		versionOps[i] = ops
 	}
 
-	floors := map[string]string{}
-	if b, err := g.fs.ReadFile(orDefault(opts.AttrOverrides, defaultAttrOverrides)); err == nil {
-		if floors, err = ParseResourceFloors(b); err != nil {
-			return 0, err
-		}
-	}
-	if err := CheckFloorTargets(floors, SortedKeys(merged.Resources), SortedKeys(merged.DataSources)); err != nil {
+	floors, err := LoadFloors(g.fs.ReadFile, orDefault(opts.AttrOverrides, defaultAttrOverrides),
+		SortedKeys(merged.Resources), SortedKeys(merged.DataSources))
+	if err != nil {
 		return 0, err
 	}
 
@@ -538,8 +534,8 @@ func deriveSection(section string, entries map[string]entry, versionOps []map[op
 		e := entries[name]
 		defOp, ok := definingOp(e)
 		if !ok {
-			if f := floors[name]; f != "" {
-				return nil, fmt.Errorf("resource_floors: %s (%s): %s has no create or read operation to derive a range from", name, f, section)
+			if _, _, err := ApplyFloor(name, section, floors[name], FloorNoOp, "", "", ""); err != nil {
+				return nil, err
 			}
 			fmt.Fprintf(logw, "skip: %s/%s has no create or read operation\n", section, name)
 			continue
@@ -552,20 +548,18 @@ func deriveSection(section string, entries map[string]entry, versionOps []map[op
 		}
 		r := computeRange(present)
 		if !r.resolved {
-			if f := floors[name]; f != "" {
-				return nil, fmt.Errorf("resource_floors: %s (%s): %s defining op %q is in no tracked SDK version", name, f, section, defOp)
+			if _, _, err := ApplyFloor(name, section, floors[name], FloorUnresolved, defOp.String(), "", ""); err != nil {
+				return nil, err
 			}
 			fmt.Fprintf(logw, "skip: %s/%s defining op %q not found in any tracked SDK version\n", section, name, defOp)
 			continue
 		}
-		if f := floors[name]; f != "" {
-			raised, err := RaiseMin(name, r.support.Min, r.support.Max, f)
-			if err != nil {
-				return nil, err
-			}
-			r.support.Min = raised
-			r.emit = true
+		raised, forced, err := ApplyFloor(name, section, floors[name], FloorResolved, "", r.support.Min, r.support.Max)
+		if err != nil {
+			return nil, err
 		}
+		r.support.Min = raised
+		r.emit = r.emit || forced
 		if !r.contiguous {
 			fmt.Fprintf(logw, "warning: %s/%s defining op %q present in a non-contiguous set of versions; using overall min/max (%s..%s)\n",
 				section, name, defOp, versionString(trackedVersions[r.minIdx]), versionString(trackedVersions[r.maxIdx]))

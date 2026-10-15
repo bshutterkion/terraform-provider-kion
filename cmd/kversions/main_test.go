@@ -470,6 +470,24 @@ func TestRun_resourceFloorErrors(t *testing.T) {
 	}
 }
 
+func TestRun_attrOverridesStrictAndReadErrors(t *testing.T) {
+	t.Run("unknown top-level key", func(t *testing.T) {
+		args, _ := floorFixture(t, []string{"v3_17"}, `resource_floor: { thing: "3.17.3" }`)
+		var errb bytes.Buffer
+		require.Equal(t, 1, run(args, io.Discard, &errb))
+		require.Contains(t, errb.String(), "resource_floor")
+	})
+	t.Run("unreadable file is not treated as absent", func(t *testing.T) {
+		args, _ := floorFixture(t, []string{"v3_17"}, "")
+		for i, a := range args {
+			if a == "-attr-overrides" {
+				args[i+1] = filepath.Dir(args[i+1]) // a directory: read fails, not ErrNotExist
+			}
+		}
+		require.Equal(t, 1, run(args, io.Discard, io.Discard))
+	})
+}
+
 // TestRunMissingOverridesOK confirms a missing overrides file is non-fatal.
 func TestRunMissingOverridesOK(t *testing.T) {
 	root := t.TempDir()
