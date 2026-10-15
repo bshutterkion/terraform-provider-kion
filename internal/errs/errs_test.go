@@ -5,7 +5,7 @@ import (
 
 	"terraform-provider-kion/internal/errs"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -16,7 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 
 	"terraform-provider-kion/internal/conns"
 	"terraform-provider-kion/internal/errs"
@@ -122,7 +122,7 @@ func (r *billing_ruleResource) Create(ctx context.Context, req resource.CreateRe
 		return
 	}
 
-	input := &generated.BillingRuleCreate{
+	input := &generated.BillingRuleCreateDeprecated{
 		Description:      flex.StringValueFromFramework(plan.Description),
 		EndMonth:         flex.OptInt64FromFramework(plan.EndMonth),
 		Name:             flex.StringValueFromFramework(plan.Name),
@@ -132,7 +132,7 @@ func (r *billing_ruleResource) Create(ctx context.Context, req resource.CreateRe
 		BillingSourceIds: billingSourceIds,
 	}
 
-	out, err := conn.PostBillingRule(ctx, input)
+	out, err := conn.PostBillingRule2(ctx, input)
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", ResNameBillingRule), err.Error())
 		return
@@ -209,7 +209,7 @@ func (r *billing_ruleResource) Update(ctx context.Context, req resource.UpdateRe
 		return
 	}
 
-	input := &generated.BillingRuleUpdate{
+	input := &generated.BillingRuleUpdateDeprecated{
 		Description:      flex.OptStringFromFramework(plan.Description),
 		EndMonth:         flex.OptInt64FromFramework(plan.EndMonth),
 		Name:             flex.OptStringFromFramework(plan.Name),
@@ -219,7 +219,7 @@ func (r *billing_ruleResource) Update(ctx context.Context, req resource.UpdateRe
 		BillingSourceIds: generated.OptNilUint64Array{Value: billingSourceIds, Set: true},
 	}
 
-	out, err := conn.PatchBillingRule(ctx, input, generated.PatchBillingRuleParams{ID: idInt})
+	out, err := conn.PatchBillingRule2(ctx, input, generated.PatchBillingRule2Params{ID: idInt})
 	// A 2xx the spec does not declare arrives as a decode error even though the
 	// write landed; the read-back below is the authority on state either way.
 	// See errs.IsUndeclaredSuccess.
@@ -265,7 +265,7 @@ func (r *billing_ruleResource) Delete(ctx context.Context, req resource.DeleteRe
 		return
 	}
 
-	out, err := conn.DeleteBillingRule(ctx, generated.DeleteBillingRuleParams{ID: idInt})
+	out, err := conn.DeleteBillingRule2(ctx, generated.DeleteBillingRule2Params{ID: idInt})
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("deleting %s (ID: %d)", ResNameBillingRule, idInt), err.Error())
 		return

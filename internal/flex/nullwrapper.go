@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 // Converters for the SDK's SQL-style nullable wrappers (OptNullString /

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"github.com/go-faster/jx"
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 	"strings"
 )
 

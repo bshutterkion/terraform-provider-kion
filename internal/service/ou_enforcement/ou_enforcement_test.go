@@ -13,7 +13,7 @@ import (
 
 	"terraform-provider-kion/internal/acctest"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 func TestAccKionOuEnforcement_basic(t *testing.T) {

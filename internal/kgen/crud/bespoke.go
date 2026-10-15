@@ -357,10 +357,17 @@ type bespokeFile struct {
 	outName string
 }
 
+// companionData feeds companion templates that take no per-resource data. The
+// empty EnvArgs keeps `range .EnvArgs` in the data-source tests a no-op.
+type companionData struct {
+	SDKImport string
+	EnvArgs   []struct{ Param, Env, Describes string }
+}
+
 // emitBespoke renders each template with data and writes it into dir.
 func (g *generator) emitBespoke(dir, name string, data any, files []bespokeFile, force bool) (int, error) {
 	if data == nil {
-		data = struct{ SDKImport string }{sdkImport()}
+		data = companionData{SDKImport: sdkImport()}
 	}
 	for _, f := range files {
 		out, err := execGoTemplate(name+":"+f.outName, f.tmpl, data, f.outName)

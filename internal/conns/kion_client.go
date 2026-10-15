@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 // HTTPDoer is the subset of *http.Client used for raw API calls not covered by

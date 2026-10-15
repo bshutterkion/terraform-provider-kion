@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	kion "github.com/kionsoftware/kion-sdk-go"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 var (

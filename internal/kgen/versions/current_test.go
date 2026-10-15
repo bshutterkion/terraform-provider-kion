@@ -8,13 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Task 2 tightens this to "is the newest tracked version".
-func TestCurrentSDKIsTracked(t *testing.T) {
-	var dirs []string
-	for _, v := range TrackedVersions {
-		dirs = append(dirs, v.Dir)
-	}
-	require.Contains(t, dirs, CurrentSDK())
+func TestCurrentSDKIsNewestTracked(t *testing.T) {
+	require.Equal(t, TrackedVersions[len(TrackedVersions)-1].Dir, CurrentSDK())
 }
 
 // The Makefile's SDK_VERSION feeds refresh-spec's path; it must name the same
