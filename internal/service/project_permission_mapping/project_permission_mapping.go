@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
@@ -130,8 +130,8 @@ func (r *project_permission_mappingResource) buildProjectPermissionMappingRow(ct
 	diags.Append(user_groups_idsDiags...)
 	return generated.UserMapping{
 		AppRoleID:     generated.NewNilUint64(uint64(plan.AppRoleId.ValueInt64())),
-		UserIds:       generated.OptNilUint64Array{Value: user_ids, Set: true},
-		UserGroupsIds: generated.OptNilUint64Array{Value: user_groups_ids, Set: true},
+		UserIds:       generated.OptNilUint64Array{Value: user_ids, Set: !plan.UserIds.IsUnknown()},
+		UserGroupsIds: generated.OptNilUint64Array{Value: user_groups_ids, Set: !plan.UserGroupsIds.IsUnknown()},
 	}
 }
 

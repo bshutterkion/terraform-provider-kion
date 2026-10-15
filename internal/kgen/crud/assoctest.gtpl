@@ -14,7 +14,7 @@ import (
 	"terraform-provider-kion/internal/acctest"
 	"terraform-provider-kion/internal/errs"
 
-	{{.SDKAlias}} "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	{{.SDKAlias}} "{{.SDKImport}}"
 )
 {{range .KnownIssues}}
 // Known issue #{{.Issue}}:{{range $i, $l := .Lines}}{{if $i}}
@@ -47,7 +47,7 @@ func TestAccKion{{.Pascal}}_basic(t *testing.T) {
 					testAccCheck{{.Pascal}}Exists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					{{- range .CreateAttrs}}
-					{{if .IsHCL}}resource.TestCheckResourceAttrSet(resourceName, "{{.Name}}"){{else}}resource.TestCheckResourceAttr(resourceName, "{{.Name}}", {{.CheckExpr}}){{end}},
+					{{.Check}},
 					{{- end}}
 				),
 			},
@@ -81,7 +81,7 @@ func TestAccKion{{.Pascal}}_update(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheck{{.Pascal}}Exists(ctx, resourceName),
 					{{- range .CreateAttrs}}
-					{{if .IsHCL}}resource.TestCheckResourceAttrSet(resourceName, "{{.Name}}"){{else}}resource.TestCheckResourceAttr(resourceName, "{{.Name}}", {{.CheckExpr}}){{end}},
+					{{.Check}},
 					{{- end}}
 				),
 			},
@@ -91,7 +91,7 @@ func TestAccKion{{.Pascal}}_update(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheck{{.Pascal}}Exists(ctx, resourceName),
 					{{- range .UpdateAttrs}}
-					{{if .IsHCL}}resource.TestCheckResourceAttrSet(resourceName, "{{.Name}}"){{else}}resource.TestCheckResourceAttr(resourceName, "{{.Name}}", {{.CheckExpr}}){{end}},
+					{{.Check}},
 					{{- end}}
 				),
 			},

@@ -15,7 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
@@ -82,8 +82,8 @@ func (r *custom_variableResource) Create(ctx context.Context, req resource.Creat
 			Type:                   flex.OptStringFromFramework(plan.Type),
 			ValueValidationMessage: flex.OptStringFromFramework(plan.ValueValidationMessage),
 			ValueValidationRegex:   flex.OptStringFromFramework(plan.ValueValidationRegex),
-			OwnerUserGroupIds:      generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
-			OwnerUserIds:           generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
+			OwnerUserGroupIds:      generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: !plan.OwnerUserGroupIds.IsUnknown()},
+			OwnerUserIds:           generated.OptNilUint64Array{Value: ownerUserIds, Set: !plan.OwnerUserIds.IsUnknown()},
 			DefaultValue:           defaultValue,
 		},
 		Set: true,
@@ -193,8 +193,8 @@ func (r *custom_variableResource) Update(ctx context.Context, req resource.Updat
 			KeyValidationRegex:     flex.OptStringFromFramework(plan.KeyValidationRegex),
 			ValueValidationMessage: flex.OptStringFromFramework(plan.ValueValidationMessage),
 			ValueValidationRegex:   flex.OptStringFromFramework(plan.ValueValidationRegex),
-			OwnerUserGroupIds:      generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
-			OwnerUserIds:           generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
+			OwnerUserGroupIds:      generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: !plan.OwnerUserGroupIds.IsUnknown()},
+			OwnerUserIds:           generated.OptNilUint64Array{Value: ownerUserIds, Set: !plan.OwnerUserIds.IsUnknown()},
 			DefaultValue:           defaultValue,
 		},
 		Set: true,

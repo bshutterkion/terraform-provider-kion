@@ -14,7 +14,7 @@ import (
 	"terraform-provider-kion/internal/acctest"
 	"terraform-provider-kion/internal/errs"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 func TestAccKionAzureArmTemplate_basic(t *testing.T) {
@@ -44,7 +44,7 @@ func TestAccKionAzureArmTemplate_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "deployment_mode", "1"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc ARM template"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "resource_group_name", fmt.Sprintf("%[1]s-rg", rName)),
 					resource.TestCheckResourceAttrSet(resourceName, "resource_group_region_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "template"),
@@ -86,7 +86,7 @@ func TestAccKionAzureArmTemplate_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "deployment_mode", "1"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc ARM template"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "resource_group_name", fmt.Sprintf("%[1]s-rg", rName)),
 					resource.TestCheckResourceAttrSet(resourceName, "resource_group_region_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "template"),
@@ -100,7 +100,7 @@ func TestAccKionAzureArmTemplate_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "deployment_mode", "1"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc ARM template updated"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "resource_group_name", fmt.Sprintf("%[1]s-rg", rName)),
 					resource.TestCheckResourceAttrSet(resourceName, "resource_group_region_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "template"),

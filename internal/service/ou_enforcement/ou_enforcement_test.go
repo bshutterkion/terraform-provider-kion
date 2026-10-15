@@ -13,7 +13,7 @@ import (
 
 	"terraform-provider-kion/internal/acctest"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 func TestAccKionOuEnforcement_basic(t *testing.T) {
@@ -38,7 +38,7 @@ func TestAccKionOuEnforcement_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "ou_id"),
 					resource.TestCheckResourceAttr(resourceName, "threshold", "100"),
 					resource.TestCheckResourceAttr(resourceName, "timeframe", "month"),
-					resource.TestCheckResourceAttrSet(resourceName, "user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "user_ids.#", "1"),
 				),
 			},
 		},
@@ -66,7 +66,7 @@ func TestAccKionOuEnforcement_update(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "ou_id"),
 					resource.TestCheckResourceAttr(resourceName, "threshold", "100"),
 					resource.TestCheckResourceAttr(resourceName, "timeframe", "month"),
-					resource.TestCheckResourceAttrSet(resourceName, "user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "user_ids.#", "1"),
 				),
 			},
 			{
@@ -77,7 +77,7 @@ func TestAccKionOuEnforcement_update(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "ou_id"),
 					resource.TestCheckResourceAttr(resourceName, "threshold", "200"),
 					resource.TestCheckResourceAttr(resourceName, "timeframe", "month"),
-					resource.TestCheckResourceAttrSet(resourceName, "user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "user_ids.#", "1"),
 				),
 			},
 		},

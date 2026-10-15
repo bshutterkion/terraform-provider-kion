@@ -359,7 +359,11 @@ func (g *generator) generateRaw(dir, name string, ops rawResourceOps, model []Mo
 		return 0, err
 	}
 	if hasTV {
-		test, err := execGoTemplate("blendedtest", blendedTestTmpl, buildRawTestData(d, model, tv), name+"_test.go")
+		td, err := buildRawTestData(d, model, tv)
+		if err != nil {
+			return 0, err
+		}
+		test, err := execGoTemplate("blendedtest", blendedTestTmpl, td, name+"_test.go")
 		if err != nil {
 			return 0, err
 		}

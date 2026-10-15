@@ -158,6 +158,35 @@ resources:
         plan_modifiers:
           - stringplanmodifier.UseStateForUnknown()
 
+  oauth2_client:
+    description: "Manages a Kion OAuth2 client. Requires Kion 3.17.3 or later. Updating a dynamically registered client through Terraform permanently converts it to a manually managed client and revokes its registration access token."
+    attributes:
+      secret:
+        # Only the create response carries it, so the derived schema has none.
+        type: string
+        sensitive: true
+        computed_optional_required: computed
+        description: "Client secret. Returned only when the client is created, so it is null after import and for public clients."
+        plan_modifiers:
+          - stringplanmodifier.UseStateForUnknown()
+      owner_user_id:
+        computed_optional_required: computed_optional
+        description: "Owner of the client. Omitted from configuration, the current owner is kept; Kion makes a client with no owner a global application."
+        plan_modifiers:
+          - int64planmodifier.UseStateForUnknown()
+      is_public:
+        # The secret is issued only at create; flipping this in place would leave
+        # a confidential client with no captured secret, or a stale one in state.
+        description: "Whether the client is public (no secret). Changing it replaces the client, which issues a new secret."
+        plan_modifiers:
+          - boolplanmodifier.UseStateForUnknown()
+          - boolplanmodifier.RequiresReplace()
+      is_dynamically_registered:
+        # Read-response only, so it is added here like secret.
+        type: bool
+        computed_optional_required: computed
+        description: "Whether the client is managed with an RFC 7592 registration access token."
+
   label:
     description: Manages a Kion Label.
     attributes:
@@ -1530,6 +1559,8 @@ data_sources:
     description: "Use this data source to access information about Kion IDMS Group Associations."
   label:
     description: "Use this data source to access information about a Kion Label."
+  oauth2_client:
+    description: "Use this data source to access information about Kion OAuth2 clients."
   ou:
     description: "Use this data source to access information about Kion OUs."
   ou_cloud_access_role:

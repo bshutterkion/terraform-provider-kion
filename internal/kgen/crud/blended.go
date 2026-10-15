@@ -112,7 +112,11 @@ func (g *generator) generateBlended(dir, name string, ops resOps, idx sdkIndex, 
 		return 0, err
 	}
 	if hasTV {
-		test, err := execGoTemplate("blendedtest", blendedTestTmpl, buildBlendedTestData(d, model, tv), name+"_test.go")
+		td, err := buildBlendedTestData(d, model, tv)
+		if err != nil {
+			return 0, err
+		}
+		test, err := execGoTemplate("blendedtest", blendedTestTmpl, td, name+"_test.go")
 		if err != nil {
 			return 0, err
 		}
@@ -201,6 +205,9 @@ func (g *generator) resolveBlended(name string, ops resOps, idx sdkIndex, pe raw
 		return entityData{}, fmt.Errorf("%s: %w", name, err)
 	}
 	d.Blended = true
+	if d.IDParamType == "string" {
+		return entityData{}, fmt.Errorf("%s: blended archetype does not support a string id", name)
+	}
 
 	// buildEntityData derives IDParamType from the read/delete params; a blended
 	// resource has no typed read, and delete may be raw, so source the typed
@@ -215,6 +222,9 @@ func (g *generator) resolveBlended(name string, ops resOps, idx sdkIndex, pe raw
 				d.IDParamType = t
 				break
 			}
+		}
+		if d.IDParamType == "string" {
+			return entityData{}, fmt.Errorf("%s: blended archetype does not support a string id", name)
 		}
 		d.IDParseBits = idParseBits(d.IDParamType)
 	}

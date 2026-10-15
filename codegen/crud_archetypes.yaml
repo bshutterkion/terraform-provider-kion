@@ -23,6 +23,13 @@
 # cannot supply (so it stays id-only) but a sweeper can, by walking the parents
 # first. Without these the resource gets NO sweeper, which is deliberate: a
 # registered sweeper that swept nothing would report success to `make sweep`.
+#
+#   create_only  string attributes only the create response carries (an OAuth
+#                client's secret). Create captures each from that response,
+#                storing "" or unset as null; flatten never assigns it, so Read
+#                and Update keep state's value. An entry that is not a string
+#                attribute, or not a string field on the create response,
+#                fails generation.
 
 scope_criteria:
   kind: compound_key_parent_read
@@ -401,3 +408,9 @@ funding_source_note:
 # The schema still comes from the schema stage like every other resource.
 automation_policy:
   kind: automation_policy
+
+# Entity with a string id (/v3/oauth2/clients/{id}). The secret comes back only
+# from POST, so it is captured there and kept from state.
+oauth2_client:
+  kind: entity
+  create_only: [secret]

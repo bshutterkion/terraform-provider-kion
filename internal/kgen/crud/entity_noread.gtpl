@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	{{.SDKAlias}} "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	{{.SDKAlias}} "{{.SDKImport}}"
 
 	{{if .ParentRead}}"terraform-provider-kion/internal/conns"
 	{{end}}"terraform-provider-kion/internal/errs"
@@ -72,7 +72,7 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 		{{- end}}
 		{{- range .CreateSliceBinds}}
-		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 		{{- end}}
 	}{{else}}{{.SDKAlias}}.{{.CreateBodyOpt}}{
 		Value: {{.SDKAlias}}.{{.CreateBody}}{
@@ -80,7 +80,7 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 			{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 			{{- end}}
 			{{- range .CreateSliceBinds}}
-			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 			{{- end}}
 		},
 		Set: true,

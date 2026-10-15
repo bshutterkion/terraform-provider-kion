@@ -705,6 +705,18 @@
       }
     },
     {
+      "tf_type": "kion_oauth2_client",
+      "kind": "oauth2_client",
+      "archetype": "entity",
+      "read_shape": "generic",
+      "readable": true,
+      "list_path": "/v3/oauth2/clients",
+      "name_field": "name",
+      "import_id": {
+        "format": "id"
+      }
+    },
+    {
       "tf_type": "kion_ou",
       "kind": "ou",
       "archetype": "entity",

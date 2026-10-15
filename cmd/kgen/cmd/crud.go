@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"terraform-provider-kion/internal/kgen/crud"
+	"terraform-provider-kion/internal/kgen/versions"
 )
 
 var (
@@ -51,7 +52,7 @@ func init() {
 	crudCmd.Flags().StringVar(&crudConfig, "config", "codegen/generator_config.yaml", "path to generator config")
 	crudCmd.Flags().StringVar(&crudConfigOverrides, "config-overrides", "codegen/config_overrides.yaml", "path to config overrides")
 	crudCmd.Flags().StringVar(&crudSDK, "sdk", "../kion-sdk-go", "path to kion-sdk-go")
-	crudCmd.Flags().StringVar(&crudSDKVersion, "sdk-version", "v3_16", "SDK version subpackage")
+	crudCmd.Flags().StringVar(&crudSDKVersion, "sdk-version", versions.CurrentSDK(), "SDK version subpackage")
 	crudCmd.Flags().StringVar(&crudCrudOverrides, "crud-overrides", "codegen/crud_overrides.yaml", "path to CRUD overrides")
 	crudCmd.Flags().StringVar(&crudArchetypes, "archetypes", "codegen/crud_archetypes.yaml", "path to compound-key/parent-read archetype declarations")
 	crudCmd.Flags().StringVar(&crudTestValues, "test-values", "codegen/test_values.yaml", "path to acceptance-test sample values")

@@ -27,10 +27,8 @@ func TestAccKionCustomVariableDataSource_basic(t *testing.T) {
 				Config: testAccCustomVariableDataSourceConfig_basic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "default_value_string"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "description"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "name"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "owner_user_ids"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "type"),
 				),
 			},

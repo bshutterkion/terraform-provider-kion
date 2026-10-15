@@ -10,7 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	{{if .NeedsJx}}"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
-	{{end}}{{.SDKAlias}} "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	{{end}}{{.SDKAlias}} "{{.SDKImport}}"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/framework"
@@ -51,7 +51,13 @@ func (d *{{.Pkg}}DataSource) Schema(_ context.Context, _ datasource.SchemaReques
 }
 
 func (d *{{.Pkg}}DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	conn := d.Meta().Client
+{{- if .DSGated}}
+	resp.Diagnostics.Append(framework.RequireKionVersionInRange(d.Meta(), minKionVersion, maxKionVersion, "{{.TypeName}}")...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+{{end}}	conn := d.Meta().Client
 
 	var data {{.Model}}
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)

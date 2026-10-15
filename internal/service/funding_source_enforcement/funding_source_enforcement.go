@@ -16,7 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
@@ -133,8 +133,8 @@ func (r *funding_source_enforcementResource) Create(ctx context.Context, req res
 			SpendOption: flex.OptStringFromFramework(plan.SpendOption),
 			Threshold:   flex.Int64ValueFromFramework(plan.Threshold),
 			Timeframe:   flex.StringValueFromFramework(plan.Timeframe),
-			UgroupIds:   generated.OptNilUint64Array{Value: ugroupIds, Set: true},
-			UserIds:     generated.OptNilUint64Array{Value: userIds, Set: true},
+			UgroupIds:   generated.OptNilUint64Array{Value: ugroupIds, Set: !plan.UserGroupIds.IsUnknown()},
+			UserIds:     generated.OptNilUint64Array{Value: userIds, Set: !plan.UserIds.IsUnknown()},
 		},
 		Set: true,
 	}

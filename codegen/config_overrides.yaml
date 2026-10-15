@@ -179,6 +179,20 @@ resources:
     delete:
       path: /v3/azure-policy/{id}
       method: DELETE
+  oauth2_client:
+    # Ops are *OAuthClient, which Oauth2Client does not match; update is PUT.
+    create:
+      path: /v3/oauth2/clients
+      method: POST
+    read:
+      path: /v3/oauth2/clients/{id}
+      method: GET
+    update:
+      path: /v3/oauth2/clients/{id}
+      method: PUT
+    delete:
+      path: /v3/oauth2/clients/{id}
+      method: DELETE
   permission_scheme:
     # Read is GetPermissionSchemebyid (off-convention); update is PUT, not PATCH.
     create:
@@ -566,6 +580,10 @@ data_sources:
   account:
     read:
       path: /v3/account
+      method: GET
+  oauth2_client:
+    read:
+      path: /v3/oauth2/clients
       method: GET
   azure_arm_template:
     read:

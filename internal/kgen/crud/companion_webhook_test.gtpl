@@ -18,7 +18,7 @@ import (
 	"terraform-provider-kion/internal/acctest"
 	"terraform-provider-kion/internal/errs"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "{{.SDKImport}}"
 )
 
 func TestAccKionWebhook_basic(t *testing.T) {

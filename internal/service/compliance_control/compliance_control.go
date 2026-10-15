@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
@@ -80,12 +80,12 @@ func (r *compliance_controlResource) Create(ctx context.Context, req resource.Cr
 			Name:                       flex.OptStringFromFramework(plan.Name),
 			Severity:                   flex.OptStringFromFramework(plan.Severity),
 			Title:                      flex.OptStringFromFramework(plan.Title),
-			AWSCloudformationPolicyIds: generated.OptNilUint64Array{Value: aWSCloudformationPolicyIds, Set: true},
-			ArmTemplateDefinitionIds:   generated.OptNilUint64Array{Value: armTemplateDefinitionIds, Set: true},
-			AzurePolicyDefinitionIds:   generated.OptNilUint64Array{Value: azurePolicyDefinitionIds, Set: true},
-			CloudProviderPolicyIds:     generated.OptNilUint64Array{Value: cloudProviderPolicyIds, Set: true},
-			ComplianceCheckIds:         generated.OptNilUint64Array{Value: complianceCheckIds, Set: true},
-			ComplianceLevels:           generated.OptNilUint64Array{Value: complianceLevels, Set: true},
+			AWSCloudformationPolicyIds: generated.OptNilUint64Array{Value: aWSCloudformationPolicyIds, Set: !plan.AwsCloudformationPolicyIds.IsUnknown()},
+			ArmTemplateDefinitionIds:   generated.OptNilUint64Array{Value: armTemplateDefinitionIds, Set: !plan.ArmTemplateDefinitionIds.IsUnknown()},
+			AzurePolicyDefinitionIds:   generated.OptNilUint64Array{Value: azurePolicyDefinitionIds, Set: !plan.AzurePolicyDefinitionIds.IsUnknown()},
+			CloudProviderPolicyIds:     generated.OptNilUint64Array{Value: cloudProviderPolicyIds, Set: !plan.CloudProviderPolicyIds.IsUnknown()},
+			ComplianceCheckIds:         generated.OptNilUint64Array{Value: complianceCheckIds, Set: !plan.ComplianceCheckIds.IsUnknown()},
+			ComplianceLevels:           generated.OptNilUint64Array{Value: complianceLevels, Set: !plan.ComplianceLevels.IsUnknown()},
 		},
 		Set: true,
 	}
@@ -209,12 +209,12 @@ func (r *compliance_controlResource) Update(ctx context.Context, req resource.Up
 		Name:                       flex.OptStringFromFramework(plan.Name),
 		Severity:                   flex.OptStringFromFramework(plan.Severity),
 		Title:                      flex.OptStringFromFramework(plan.Title),
-		AWSCloudformationPolicyIds: generated.OptNilUint64Array{Value: aWSCloudformationPolicyIds, Set: true},
-		ArmTemplateDefinitionIds:   generated.OptNilUint64Array{Value: armTemplateDefinitionIds, Set: true},
-		AzurePolicyDefinitionIds:   generated.OptNilUint64Array{Value: azurePolicyDefinitionIds, Set: true},
-		CloudProviderPolicyIds:     generated.OptNilUint64Array{Value: cloudProviderPolicyIds, Set: true},
-		ComplianceCheckIds:         generated.OptNilUint64Array{Value: complianceCheckIds, Set: true},
-		ComplianceLevels:           generated.OptNilUint64Array{Value: complianceLevels, Set: true},
+		AWSCloudformationPolicyIds: generated.OptNilUint64Array{Value: aWSCloudformationPolicyIds, Set: !plan.AwsCloudformationPolicyIds.IsUnknown()},
+		ArmTemplateDefinitionIds:   generated.OptNilUint64Array{Value: armTemplateDefinitionIds, Set: !plan.ArmTemplateDefinitionIds.IsUnknown()},
+		AzurePolicyDefinitionIds:   generated.OptNilUint64Array{Value: azurePolicyDefinitionIds, Set: !plan.AzurePolicyDefinitionIds.IsUnknown()},
+		CloudProviderPolicyIds:     generated.OptNilUint64Array{Value: cloudProviderPolicyIds, Set: !plan.CloudProviderPolicyIds.IsUnknown()},
+		ComplianceCheckIds:         generated.OptNilUint64Array{Value: complianceCheckIds, Set: !plan.ComplianceCheckIds.IsUnknown()},
+		ComplianceLevels:           generated.OptNilUint64Array{Value: complianceLevels, Set: !plan.ComplianceLevels.IsUnknown()},
 	}
 
 	out, err := conn.UpdateComplianceControl(ctx, input, generated.UpdateComplianceControlParams{ID: idInt})

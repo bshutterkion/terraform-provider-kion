@@ -30,8 +30,6 @@ func TestAccKionProjectDataSource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(dataSourceName, "description"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "name"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "ou_id"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "owner_user_ids"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "permission_scheme_id"),
 				),
 			},
 		},

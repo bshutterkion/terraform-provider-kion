@@ -125,6 +125,10 @@ type archetype struct {
 	// Use it only for an attribute whose rewrite is a canonicalization, never
 	// to paper over one the provider sends wrong.
 	Rewritten []string `yaml:"rewritten"`
+	// CreateOnly (kind: entity) names string attributes only the create
+	// response carries (an OAuth client's secret). Create captures each from
+	// that response; flatten never assigns it, so Read and Update keep state's.
+	CreateOnly []string `yaml:"create_only"`
 	// Sweeper (kind: entity): the data-source collection is parent-scoped, so it
 	// takes a required parent-id param the data source cannot supply. A sweeper
 	// can: it enumerates SweepParent's own collection first. Without these the
@@ -193,9 +197,11 @@ type dsCompoundAttr struct {
 type compoundData struct {
 	Pkg, Pascal, Model string
 	SDKAlias           string
+	SDKImport          string
 	ResConst, ResName  string
 	DSConst, DSName    string
 	Gated              bool
+	DSGated            bool   // data source Read checks the version gate
 	TypeName           string // "kion_scope_criteria"
 
 	IDGo string // composite-id model field ("Id")
@@ -261,6 +267,7 @@ func resolveCompound(name string, ops resOps, idx sdkIndex, arch archetype, mode
 		Pascal:        pascal,
 		Model:         pascal + "Model",
 		SDKAlias:      "generated",
+		SDKImport:     sdkImport(),
 		ResConst:      "ResName" + pascal,
 		ResName:       pascal + " Resource",
 		DeleteRetains: arch.DeleteRetains,

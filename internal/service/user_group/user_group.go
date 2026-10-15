@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
@@ -92,11 +92,11 @@ func (r *user_groupResource) Create(ctx context.Context, req resource.CreateRequ
 			Description:        flex.OptStringFromFramework(plan.Description),
 			IdmsID:             flex.NilUint64FromFramework(plan.IdmsId),
 			Name:               flex.StringValueFromFramework(plan.Name),
-			OwnerUserGroupIds:  generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
-			OwnerUserIds:       generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
-			UserIds:            generated.OptNilUint64Array{Value: userIds, Set: true},
-			ViewerUserGroupIds: generated.OptNilUint64Array{Value: viewerUserGroupIds, Set: true},
-			ViewerUserIds:      generated.OptNilUint64Array{Value: viewerUserIds, Set: true},
+			OwnerUserGroupIds:  generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: !plan.OwnerUserGroupIds.IsUnknown()},
+			OwnerUserIds:       generated.OptNilUint64Array{Value: ownerUserIds, Set: !plan.OwnerUserIds.IsUnknown()},
+			UserIds:            generated.OptNilUint64Array{Value: userIds, Set: !plan.UserIds.IsUnknown()},
+			ViewerUserGroupIds: generated.OptNilUint64Array{Value: viewerUserGroupIds, Set: !plan.ViewerUserGroupIds.IsUnknown()},
+			ViewerUserIds:      generated.OptNilUint64Array{Value: viewerUserIds, Set: !plan.ViewerUserIds.IsUnknown()},
 		},
 		Set: true,
 	}

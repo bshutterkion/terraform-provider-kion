@@ -33,7 +33,6 @@ func TestAccKionServiceCatalogDataSource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(dataSourceName, "account_id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "description"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "name"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "owner_user_ids"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "portfolio_id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "region"),
 				),

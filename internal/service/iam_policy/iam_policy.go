@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
@@ -90,10 +90,10 @@ func (r *iam_policyResource) Create(ctx context.Context, req resource.CreateRequ
 		Description:               flex.OptStringFromFramework(plan.Description),
 		Name:                      flex.StringValueFromFramework(plan.Name),
 		Policy:                    flex.StringValueFromFramework(plan.Policy),
-		CarRestrictedUserGroupIds: generated.OptNilUint64Array{Value: carRestrictedUserGroupIds, Set: true},
-		CarRestrictedUserIds:      generated.OptNilUint64Array{Value: carRestrictedUserIds, Set: true},
-		OwnerUserGroupIds:         generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
-		OwnerUserIds:              generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
+		CarRestrictedUserGroupIds: generated.OptNilUint64Array{Value: carRestrictedUserGroupIds, Set: !plan.CarRestrictedUserGroupIds.IsUnknown()},
+		CarRestrictedUserIds:      generated.OptNilUint64Array{Value: carRestrictedUserIds, Set: !plan.CarRestrictedUserIds.IsUnknown()},
+		OwnerUserGroupIds:         generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: !plan.OwnerUserGroupIds.IsUnknown()},
+		OwnerUserIds:              generated.OptNilUint64Array{Value: ownerUserIds, Set: !plan.OwnerUserIds.IsUnknown()},
 	}
 
 	out, err := conn.PostIAMPolicy(ctx, input)

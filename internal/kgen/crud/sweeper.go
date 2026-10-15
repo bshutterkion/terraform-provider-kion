@@ -87,6 +87,7 @@ type realSweepData struct {
 	listAccess
 	Pkg, Pascal, ResourceType  string
 	SDKAlias                   string
+	SDKImport                  string
 	ElemType                   string
 	ListMethod, ListParams     string
 	ListRespType               string
@@ -96,7 +97,7 @@ type realSweepData struct {
 	// publishes no delete; the SDK has no method for it.
 	RawDeletePath string
 	DeleteIDParam string
-	DeleteIDType  string   // "int64" | "uint64", delete param id Go type
+	DeleteIDType  string   // "int64" | "uint64" | "string", delete param id Go type
 	IDSDKGo       string   // element id access path, e.g. "ID" or "Cft.Value.ID"
 	MatchExprs    []string // string field accessors, e.g. "item.Key"
 	Prefix        string
@@ -129,8 +130,11 @@ func buildRealSweepData(rm ResourceModel) (realSweepData, error) {
 		}
 		return realSweepData{}, fmt.Errorf("%s sweeper: response has no id field", rm.Name)
 	}
-	if !listIDOK(idField.Type) {
+	if !idFieldOK(idField.Type, delIDType) {
 		return realSweepData{}, fmt.Errorf("%s sweeper: id field type %q unsupported", rm.Name, idField.Type)
+	}
+	if delIDType == "string" && (rm.SweepParent != nil || deleteMethodName(rm) == "") {
+		return realSweepData{}, fmt.Errorf("%s sweeper: a string id is supported only for a flat collection with a typed delete", rm.Name)
 	}
 
 	d := realSweepData{
@@ -139,6 +143,7 @@ func buildRealSweepData(rm ResourceModel) (realSweepData, error) {
 		Pascal:        rm.Pascal,
 		ResourceType:  "kion_" + rm.Name,
 		SDKAlias:      "generated",
+		SDKImport:     sdkImport(),
 		ElemType:      lm.ElemType,
 		ListMethod:    lm.Method.Name,
 		ListParams:    lm.Method.ParamsType,

@@ -37,14 +37,17 @@ type dsData struct {
 	Pkg, Pascal, Model       string
 	DSConst, DSName          string
 	SDKAlias                 string
+	SDKImport                string
 	ReadMethod, ReadParams   string
 	ReadIDParam              string
-	IDParamType              string // "int64" | "uint64"
+	IDParamType              string // "int64" | "uint64" | "string"
 	IDGo, IDFlatten, IDSDKGo string
 	HasRespID                bool   // response echoes the id (re-flatten it); else keep config id
 	DataPtr                  bool   // envelope Data is a pointer (*Payload) not an Opt-wrapper
 	PayloadPath              string // "" | ".Webhook.Value", descent from Data to the record
 	RespType                 string
+	Gated                    bool // Read checks the package's version gate first
+	TypeName                 string
 	Attrs                    []dsField
 	// OuterAttrs are attributes read from the payload above the record (see
 	// recordView.Outer): available by id, null under a filter.
@@ -76,17 +79,38 @@ func (d dsData) NeedsPayload() bool {
 // configured but the filter-capable data source could not be built; drops lists
 // the fields the dual-mode build could not project.
 func renderDataSource(rm ResourceModel, policy FieldPolicy) (out []byte, downgrade string, drops []dropped, err error) {
+	out, downgrade, drops, _, err = renderDataSourceAttrs(rm, policy)
+	return out, downgrade, drops, err
+}
+
+// renderDataSourceAttrs is renderDataSource that also returns the top-level
+// attributes the rendered schema has, besides id.
+func renderDataSourceAttrs(rm ResourceModel, policy FieldPolicy) (out []byte, downgrade string, drops []dropped, attrs []string, err error) {
 	if rm.List != nil {
-		b, d, berr := renderListDataSource(rm, policy)
+		data, d, berr := buildListDSData(rm, policy)
 		if berr == nil {
-			return b, "", d, nil
+			b, err := execGoTemplate("datasource_list", dataSourceListTmpl, data, rm.Name+"_data_source.go")
+			return b, "", d, data.attrNames(), err
 		}
 		downgrade = berr.Error()
 	} else {
 		downgrade = rm.ListDowngrade
 	}
-	b, err := renderIDOnlyDataSource(rm)
-	return b, downgrade, nil, err
+	data, err := buildDSData(rm)
+	if err != nil {
+		return nil, downgrade, nil, nil, err
+	}
+	b, err := execGoTemplate("datasource", dataSourceTmpl, data, rm.Name+"_data_source.go")
+	return b, downgrade, nil, data.attrNames(), err
+}
+
+// attrNames are the schema's top-level attributes besides id.
+func (d dsData) attrNames() []string {
+	var out []string
+	for _, f := range append(slices.Clone(d.Attrs), d.OuterAttrs...) {
+		out = append(out, f.TFName)
+	}
+	return out
 }
 
 // renderIDOnlyDataSource renders an id-only <name>_data_source.go (single read
@@ -173,12 +197,15 @@ func buildDSData(rm ResourceModel) (dsData, error) {
 		DSConst:     "DSName" + rm.Pascal,
 		DSName:      rm.Pascal + " Data Source",
 		SDKAlias:    "generated",
+		SDKImport:   sdkImport(),
 		ReadMethod:  rm.Read.Method.Name,
 		ReadParams:  rm.Read.Method.ParamsType,
 		RespType:    rm.Read.RespType,
 		DataPtr:     rm.Read.RespDataPtr,
 		PayloadPath: view.PayloadPath,
 		IDGo:        rm.IDField.GoName,
+		Gated:       rm.DSGated,
+		TypeName:    "kion_" + rm.Name,
 	}
 
 	readIDParam, readIDType, err := idParamName(rm.Read.Params)
@@ -328,15 +355,6 @@ type dropped struct {
 	Reason string
 }
 
-func renderListDataSource(rm ResourceModel, policy FieldPolicy) ([]byte, []dropped, error) {
-	data, drops, err := buildListDSData(rm, policy)
-	if err != nil {
-		return nil, nil, err
-	}
-	out, err := execGoTemplate("datasource_list", dataSourceListTmpl, data, rm.Name+"_data_source.go")
-	return out, drops, err
-}
-
 func buildListDSData(rm ResourceModel, policy FieldPolicy) (listDSData, []dropped, error) {
 	var drops []dropped
 	base, err := buildDSData(rm)
@@ -355,9 +373,10 @@ func buildListDSData(rm ResourceModel, policy FieldPolicy) (listDSData, []droppe
 		return listDSData{}, nil, fmt.Errorf("%s dual-mode data source: response has no id field", rm.Name)
 	}
 	lm := rm.List
-	// The id is special-cased: it is always exposed as an Int64 and the list
-	// objects key off it, so an id the templates cannot unwrap is fatal here.
-	if !listIDOK(view.Fields["id"].Type) {
+	// The id is special-cased: it is exposed as an Int64 (a String for a string
+	// id) and the list objects key off it, so an id the templates cannot unwrap
+	// is fatal here.
+	if !idFieldOK(view.Fields["id"].Type, base.IDParamType) {
 		return listDSData{}, nil, fmt.Errorf("%s dual-mode data source: id field type %q unsupported for list", rm.Name, view.Fields["id"].Type)
 	}
 	d := listDSData{
@@ -371,13 +390,17 @@ func buildListDSData(rm ResourceModel, policy FieldPolicy) (listDSData, []droppe
 		CountParam:   lm.CountParam,
 	}
 
+	idSchema, idAttr, idNull := "Int64Attribute", "types.Int64Type", "types.Int64Null()"
+	if base.IDParamType == "string" {
+		idSchema, idAttr, idNull = "StringAttribute", "types.StringType", "types.StringNull()"
+	}
 	d.ObjFields = append(d.ObjFields, listObjField{
-		TFName: "id", SchemaType: "Int64Attribute", AttrType: "types.Int64Type",
+		TFName: "id", SchemaType: idSchema, AttrType: idAttr,
 		IsID: true, SDKGo: base.IDSDKGo,
 	})
 	d.Assigns = append(d.Assigns, listScalarAssign{
 		ModelGo: base.IDGo, Flatten: base.IDFlatten, SDKGo: base.IDSDKGo,
-		NullExpr: "types.Int64Null()", IsID: true,
+		NullExpr: idNull, IsID: true,
 	})
 
 	// A field the `list` objects cannot render is dropped from the data source
@@ -456,6 +479,15 @@ func buildListDSData(rm ResourceModel, policy FieldPolicy) (listDSData, []droppe
 		})
 	}
 	return d, drops, nil
+}
+
+// idFieldOK is listIDOK for a record whose id param is idParamType: a string id
+// is unwrapped from an OptString.
+func idFieldOK(sdkType, idParamType string) bool {
+	if idParamType == "string" {
+		return sdkType == "OptString"
+	}
+	return listIDOK(sdkType)
 }
 
 // listIDOK reports whether an SDK id field is an Opt-wrapped integer, the shape

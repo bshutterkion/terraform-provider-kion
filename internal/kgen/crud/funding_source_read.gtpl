@@ -9,7 +9,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "{{.SDKImport}}"
 
 	"terraform-provider-kion/internal/conns"
 	"terraform-provider-kion/internal/errs"

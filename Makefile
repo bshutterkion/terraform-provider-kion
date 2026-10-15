@@ -53,11 +53,11 @@ SCHEMA_OVERRIDES := codegen/schema_overrides.yaml
 # The Kion API version this provider is built against: the SDK sub-package the
 # Go code imports (generated/$(SDK_VERSION)) and the spec schemas are generated
 # from. Bumping the provider to a new Kion release is this line plus the imports.
-SDK_VERSION ?= v3_16
+SDK_VERSION ?= v3_17
 # refresh-spec reads the kion-sdk MONOREPO, not the published mirror: mirrors are
 # customer-facing and ship only the client, never spec/. Needed to regenerate
 # schemas; building and testing work from the committed generated code alone.
-SDK_SPEC ?= ../kion-sdk/spec/$(SDK_VERSION)/openapi3.json
+SDK_SPEC ?= ../../kion-sdk/kion-sdk-monorepo/spec/$(SDK_VERSION)/openapi3.json
 # Root of the SDK module go.mod pins (holds generated/<v>/oas_client_gen.go per
 # support version), so codegen reads the same SDK the build compiles against.
 SDK_DIR ?= $(shell go mod download github.com/kionsoftware/kion-sdk-go && go list -m -f '{{.Dir}}' github.com/kionsoftware/kion-sdk-go)

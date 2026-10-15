@@ -14,7 +14,7 @@ import (
 	"terraform-provider-kion/internal/acctest"
 	"terraform-provider-kion/internal/errs"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 func TestAccKionComplianceControl_basic(t *testing.T) {
@@ -87,7 +87,7 @@ func TestAccKionComplianceControl_update(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckComplianceControlExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
-					resource.TestCheckResourceAttrSet(resourceName, "arm_template_definition_ids"),
+					resource.TestCheckResourceAttr(resourceName, "arm_template_definition_ids.#", "0"),
 					resource.TestCheckResourceAttrSet(resourceName, "compliance_family_id"),
 					resource.TestCheckResourceAttr(resourceName, "control_number", "1"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc control"),

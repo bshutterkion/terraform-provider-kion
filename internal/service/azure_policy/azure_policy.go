@@ -14,7 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
@@ -89,8 +89,8 @@ func (r *azure_policyResource) Create(ctx context.Context, req resource.CreateRe
 
 	input := generated.OptAzurePolicyCreate{
 		Value: generated.AzurePolicyCreate{
-			OwnerUserGroups: generated.OptNilUint64Array{Value: ownerUserGroups, Set: true},
-			OwnerUsers:      generated.OptNilUint64Array{Value: ownerUsers, Set: true},
+			OwnerUserGroups: generated.OptNilUint64Array{Value: ownerUserGroups, Set: !plan.OwnerUserGroups.IsUnknown()},
+			OwnerUsers:      generated.OptNilUint64Array{Value: ownerUsers, Set: !plan.OwnerUsers.IsUnknown()},
 			AzurePolicy:     generated.OptAzurePolicyDefinitionCreate{Value: azurePolicy, Set: true},
 		},
 		Set: true,

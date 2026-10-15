@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
@@ -92,11 +92,11 @@ func (r *gcp_iam_roleResource) Create(ctx context.Context, req resource.CreateRe
 		Description:               flex.OptStringFromFramework(plan.Description),
 		GcpRoleLaunchStage:        flex.OptGCPRoleLaunchStageFromFramework(plan.GcpRoleLaunchStage),
 		Name:                      flex.StringValueFromFramework(plan.Name),
-		CarRestrictedUserGroupIds: generated.OptNilUint64Array{Value: carRestrictedUserGroupIds, Set: true},
-		CarRestrictedUserIds:      generated.OptNilUint64Array{Value: carRestrictedUserIds, Set: true},
-		OwnerUserGroupIds:         generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
-		OwnerUserIds:              generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
-		RoleDenials:               generated.OptNilStringArray{Value: roleDenials, Set: true},
+		CarRestrictedUserGroupIds: generated.OptNilUint64Array{Value: carRestrictedUserGroupIds, Set: !plan.CarRestrictedUserGroupIds.IsUnknown()},
+		CarRestrictedUserIds:      generated.OptNilUint64Array{Value: carRestrictedUserIds, Set: !plan.CarRestrictedUserIds.IsUnknown()},
+		OwnerUserGroupIds:         generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: !plan.OwnerUserGroupIds.IsUnknown()},
+		OwnerUserIds:              generated.OptNilUint64Array{Value: ownerUserIds, Set: !plan.OwnerUserIds.IsUnknown()},
+		RoleDenials:               generated.OptNilStringArray{Value: roleDenials, Set: !plan.RoleDenials.IsUnknown()},
 		RolePermissions:           rolePermissions,
 	}
 
@@ -205,10 +205,10 @@ func (r *gcp_iam_roleResource) Update(ctx context.Context, req resource.UpdateRe
 		Description:        flex.OptStringFromFramework(plan.Description),
 		GcpRoleLaunchStage: flex.OptGCPRoleLaunchStageFromFramework(plan.GcpRoleLaunchStage),
 		Name:               flex.OptStringFromFramework(plan.Name),
-		OwnerUserGroupIds:  generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
-		OwnerUserIds:       generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
-		RoleDenials:        generated.OptNilStringArray{Value: roleDenials, Set: true},
-		RolePermissions:    generated.OptNilStringArray{Value: rolePermissions, Set: true},
+		OwnerUserGroupIds:  generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: !plan.OwnerUserGroupIds.IsUnknown()},
+		OwnerUserIds:       generated.OptNilUint64Array{Value: ownerUserIds, Set: !plan.OwnerUserIds.IsUnknown()},
+		RoleDenials:        generated.OptNilStringArray{Value: roleDenials, Set: !plan.RoleDenials.IsUnknown()},
+		RolePermissions:    generated.OptNilStringArray{Value: rolePermissions, Set: !plan.RolePermissions.IsUnknown()},
 	}
 
 	out, err := conn.PatchGCPRole(ctx, input, generated.PatchGCPRoleParams{ID: idInt})

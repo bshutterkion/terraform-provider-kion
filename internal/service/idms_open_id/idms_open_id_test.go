@@ -14,7 +14,7 @@ import (
 	"terraform-provider-kion/internal/acctest"
 	"terraform-provider-kion/internal/errs"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 func TestAccKionIdmsOpenId_basic(t *testing.T) {
@@ -45,7 +45,7 @@ func TestAccKionIdmsOpenId_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "last_name_claim", "family_name"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
 					resource.TestCheckResourceAttr(resourceName, "phone_claim", "phone_number"),
-					resource.TestCheckResourceAttrSet(resourceName, "scopes"),
+					resource.TestCheckResourceAttr(resourceName, "scopes.#", "2"),
 					resource.TestCheckResourceAttr(resourceName, "username_claim", "sub"),
 				),
 			},
@@ -86,7 +86,7 @@ func TestAccKionIdmsOpenId_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "last_name_claim", "family_name"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
 					resource.TestCheckResourceAttr(resourceName, "phone_claim", "phone_number"),
-					resource.TestCheckResourceAttrSet(resourceName, "scopes"),
+					resource.TestCheckResourceAttr(resourceName, "scopes.#", "2"),
 					resource.TestCheckResourceAttr(resourceName, "username_claim", "sub"),
 				),
 			},
@@ -104,7 +104,7 @@ func TestAccKionIdmsOpenId_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "last_name_claim", "family_name"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s-upd", rName)),
 					resource.TestCheckResourceAttr(resourceName, "phone_claim", "phone_number"),
-					resource.TestCheckResourceAttrSet(resourceName, "scopes"),
+					resource.TestCheckResourceAttr(resourceName, "scopes.#", "2"),
 					resource.TestCheckResourceAttr(resourceName, "username_claim", "sub"),
 				),
 			},

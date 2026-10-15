@@ -5,11 +5,14 @@
 package crud
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"terraform-provider-kion/internal/kgen/kfs"
 	"terraform-provider-kion/internal/kgen/migrate"
@@ -21,7 +24,7 @@ type Options struct {
 	Config          string // codegen/generator_config.yaml
 	ConfigOverrides string // codegen/config_overrides.yaml (reserved; the merged config is read directly)
 	SDKDir          string // ../kion-sdk-go
-	SDKVersion      string // "v3_16"
+	SDKVersion      string // the generated/<version> sub-package, e.g. "v3_NN"
 	CrudOverrides   string // codegen/crud_overrides.yaml
 	Archetypes      string // codegen/crud_archetypes.yaml (compound-key/parent-read declarations)
 	TestValues      string // codegen/test_values.yaml
@@ -56,6 +59,7 @@ type droppedField struct {
 
 type generator struct {
 	fs          kfs.FS
+	dsGated     map[string]bool // data sources gated in version_support.yaml
 	src         Source
 	privEnds    map[string]rawResourceOps    // codegen/private_endpoints.yaml (raw_http archetype)
 	memberships map[string]membershipConfig  // codegen/memberships.yaml (owner sync on update)
@@ -86,7 +90,38 @@ type generator struct {
 	// a resource OTHER than the one being generated: a parent-scoped sweeper
 	// enumerates its parent's collection.
 	dataSources map[string]dsOps
-	unswept     []downgrade // resources that got no sweeper this run, with the reason
+
+	// idx is this run's SDK index, which companion templates resolve routes in.
+	idx     *sdkIndex
+	unswept []downgrade // resources that got no sweeper this run, with the reason
+	failed  []string    // per-resource generation failures this run
+}
+
+// recordFailure notes a resource whose generation failed; failureError turns
+// the set into the run's error so a failed resource cannot exit 0.
+func (g *generator) recordFailure(name string, err error) {
+	fmt.Fprintf(os.Stderr, "kgen crud: FAILED %s: %v\n", name, err)
+	g.failed = append(g.failed, fmt.Sprintf("%s: %v", name, err))
+}
+
+// errExists marks a file left alone because --force was not given.
+var errExists = errors.New("already exists (use --force to overwrite)")
+
+// recordUnlessExists records err as a failure unless it is the deliberate
+// non-force skip, and reports whether it was recorded.
+func (g *generator) recordUnlessExists(name string, err error) bool {
+	if errors.Is(err, errExists) {
+		return false
+	}
+	g.recordFailure(name, err)
+	return true
+}
+
+func (g *generator) failureError() error {
+	if len(g.failed) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%d resource(s) failed to generate:\n  %s", len(g.failed), strings.Join(g.failed, "\n  "))
 }
 
 // Generate is the stage entry point.
@@ -141,10 +176,12 @@ func (g *generator) generate(opts Options) (int, error) {
 	}
 	sdkDir = resolveAgainst(root, sdkDir)
 
+	sdkVersion = opts.SDKVersion
 	idx, err := buildIndex(g.src, sdkDir, opts.SDKVersion)
 	if err != nil {
 		return 0, err
 	}
+	g.idx = &idx
 
 	tvPath := opts.TestValues
 	if tvPath == "" {
@@ -156,7 +193,7 @@ func (g *generator) generate(opts Options) (int, error) {
 	if vsPath == "" {
 		vsPath = filepath.Join("codegen", "version_support.yaml")
 	}
-	gated, err := loadVersionSupport(resolveAgainst(root, vsPath))
+	vs, err := loadVersionSupport(resolveAgainst(root, vsPath))
 	if err != nil {
 		return 0, err
 	}
@@ -190,6 +227,7 @@ func (g *generator) generate(opts Options) (int, error) {
 	// is declared only in crud_archetypes.yaml (bespoke resources carry their
 	// schema inline in a template, so they are intentionally absent from the
 	// generator_config `resources` list that drives the schema stage).
+	g.dsGated = map[string]bool{}
 	names := map[string]bool{}
 	for name := range resources {
 		names[name] = true
@@ -213,20 +251,34 @@ func (g *generator) generate(opts Options) (int, error) {
 		if a, ok := archetypes[name]; ok {
 			arch = &a
 		}
-		n, err := g.generateResource(root, name, resources[name], dataSources[name], idx, tvPath, gated[name], arch, opts.Force)
+		dsGated, err := vs.dataSourceGated(name)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "kgen crud: skip %s: %v\n", name, err)
+			g.recordUnlessExists(name, err)
+			continue
+		}
+		g.dsGated[name] = dsGated
+		n, err := g.generateResource(root, name, resources[name], dataSources[name], idx, tvPath, vs.resourceGated(name), arch, opts.Force)
+		if err != nil {
+			g.recordUnlessExists(name, err)
+			continue
+		}
+		if err := g.checkDataSourceGate(root, name); err != nil {
+			g.recordUnlessExists(name, err)
 			continue
 		}
 		// Emit the state upgrader for any resource that migrates old SDKv2 state.
 		if err := g.emitUpgrade(name, opts.Force); err != nil {
-			fmt.Fprintf(os.Stderr, "kgen crud: %s upgrader: %v\n", name, err)
+			g.recordUnlessExists(name+" upgrader", err)
 		}
 		written += n
 	}
 	g.reportUnswept()
 	g.reportDropped()
-	return written, g.reportDowngrades(opts.Strict)
+	dErr := g.reportDowngrades(opts.Strict)
+	if fErr := g.failureError(); fErr != nil {
+		return written, fErr
+	}
+	return written, dErr
 }
 
 // reportUnswept prints the aggregated no-sweeper report. Each entry is a
@@ -311,6 +363,14 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	}
 
 	var entityArch *archetype
+	if arch != nil && arch.Kind != entityKind && len(arch.CreateOnly) > 0 {
+		return 0, fmt.Errorf("%s: create_only is supported only by kind: entity, not %s", name, arch.Kind)
+	}
+	if arch != nil && arch.Kind != entityKind && arch.Kind != rawKind {
+		if where := stringIDParam(ops, idx); where != "" {
+			return 0, fmt.Errorf("%s: the %s archetype does not support a string id (%s); only entity does", name, arch.Kind, where)
+		}
+	}
 	if arch != nil {
 		switch arch.Kind {
 		case noReadKind:
@@ -344,6 +404,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		return 0, err
 	}
 	rm.Gated = gated
+	rm.DSGated = g.dsGated[name]
 	if _, ok := g.upgrades["kion_"+name]; ok {
 		rm.SchemaVersion = 1
 	}
@@ -402,6 +463,9 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 			}
 			rm.Rewritten = append(rm.Rewritten, goName)
 		}
+		if rm.CreateOnly, err = resolveCreateOnly(name, *entityArch, model); err != nil {
+			return 0, err
+		}
 		rm.DeleteRecordParam = entityArch.DeleteRecordParam
 		rm.DeleteExtraParam = entityArch.DeleteExtraParam
 		rm.DeleteExtraField = entityArch.DeleteExtraField
@@ -446,7 +510,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		return 0, fmt.Errorf("%s create nested: %w", name, err)
 	}
 	if rm.Update != nil {
-		if rm.UpdateNested, err = resolveNested(g.src, schemaGen, rm.Update.Body, byTF, idx, nestedOpts{IDAttr: rm.IDField.TFSDK, IDVar: "idInt"}); err != nil {
+		if rm.UpdateNested, err = resolveNested(g.src, schemaGen, rm.Update.Body, byTF, idx, updateIDOpts(rm)); err != nil {
 			return 0, fmt.Errorf("%s update nested: %w", name, err)
 		}
 	}
@@ -541,6 +605,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 			AtLeastOneOf   []string
 			RequiredWhen   []RequiredWhen
 			SDKAlias       string
+			SDKImport      string
 			ResConst       string
 			Labels         *labelSyncBind
 			LabelsRespType string
@@ -548,6 +613,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 			AtLeastOneOf:   rm.AtLeastOneOf,
 			RequiredWhen:   rm.RequiredWhen,
 			SDKAlias:       "generated",
+			SDKImport:      sdkImport(),
 			ResConst:       "ResName" + pascalCase(name),
 			Labels:         rm.Labels,
 			LabelsRespType: labelsRespType(rm.Labels),
@@ -556,7 +622,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 			return 0, err
 		}
 	}
-	dataSourceGo, dsDowngrade, dsDrops, err := renderDataSource(rm, g.fieldPolicy)
+	dataSourceGo, dsDowngrade, dsDrops, dsAttrs, err := renderDataSourceAttrs(rm, g.fieldPolicy)
 	if err != nil {
 		return 0, err
 	}
@@ -597,7 +663,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		if err != nil {
 			return 0, err
 		}
-		dsTest, err := renderDataSourceTest(rm, tv)
+		dsTest, err := renderDataSourceTest(rm, tv, dsAttrs)
 		if err != nil {
 			return 0, err
 		}
@@ -622,6 +688,39 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	return 1, nil
 }
 
+// updateIDOpts sources a wrapped update object's id sub-field from the local
+// the entity template parses the record id into.
+func updateIDOpts(rm ResourceModel) nestedOpts {
+	o := nestedOpts{IDAttr: rm.IDField.TFSDK, IDVar: "idInt"}
+	if _, t, err := idParamName(rm.Read.Params); err == nil {
+		o.IDType = t
+	}
+	if o.IDType == "string" {
+		o.IDVar = "id"
+	}
+	return o
+}
+
+// stringIDParam names the first op whose params carry a string id, or "". The
+// archetypes other than entity parse ids as integers, so they must refuse one.
+func stringIDParam(ops resOps, idx sdkIndex) string {
+	for _, ref := range []*opRef{ops.Create, ops.Read, ops.Update, ops.Delete} {
+		if ref == nil {
+			continue
+		}
+		m, ok := idx.methods[ref.Method+" "+ref.Path]
+		if !ok {
+			continue
+		}
+		for _, f := range idx.structs[m.ParamsType].Fields {
+			if f.Type == "string" && strings.HasSuffix(f.GoName, "ID") {
+				return fmt.Sprintf("%s %s param %s", ref.Method, ref.Path, f.GoName)
+			}
+		}
+	}
+	return ""
+}
+
 // generateCompound writes the files for a compound-key/parent-read resource.
 // Acceptance tests are deferred (they need a parent FK fixture), so only the
 // resource, data source, and sweeper stub are emitted.
@@ -633,6 +732,7 @@ func (g *generator) generateCompound(dir, name string, ops resOps, idx sdkIndex,
 	if err != nil {
 		return 0, err
 	}
+	d.DSGated = g.dsGated[name]
 	resourceGo, err := renderCompoundEntity(d)
 	if err != nil {
 		return 0, err
@@ -727,7 +827,7 @@ func (g *generator) emitUpgrade(name string, force bool) error {
 func (g *generator) writeFile(path string, data []byte, force bool) error {
 	if !force {
 		if _, err := g.fs.Stat(path); err == nil {
-			return fmt.Errorf("%s already exists (use --force to overwrite)", path)
+			return fmt.Errorf("%s %w", path, errExists)
 		}
 	}
 	if g.written == nil {
@@ -788,4 +888,31 @@ func sortedKeys[V any](m map[string]V) []string {
 	ks := slices.Collect(maps.Keys(m))
 	slices.Sort(ks)
 	return ks
+}
+
+// sdkVersion is the SDK sub-package templates import, set once per run from
+// Options.SDKVersion (tests set it directly).
+var sdkVersion string
+
+// sdkImport is the import path of the SDK sub-package generated code compiles against.
+func sdkImport() string {
+	return "github.com/kionsoftware/kion-sdk-go/generated/" + sdkVersion
+}
+
+// checkDataSourceGate fails when version_support.yaml gates a data source but
+// the generated Read never checks the gate: the template for that archetype
+// does not support it, and the floor would go unenforced.
+func (g *generator) checkDataSourceGate(root, name string) error {
+	if !g.dsGated[name] {
+		return nil
+	}
+	path := filepath.Join(root, "internal", "service", name, name+"_data_source.go")
+	b, err := g.fs.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("data source is version-gated but %s is unreadable: %w", path, err)
+	}
+	if !bytes.Contains(b, []byte("RequireKionVersionInRange(d.Meta()")) {
+		return fmt.Errorf("data source is version-gated but %s never checks the gate; its template does not support one", path)
+	}
+	return nil
 }

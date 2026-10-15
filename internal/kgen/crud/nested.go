@@ -1,6 +1,7 @@
 package crud
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 )
@@ -203,6 +204,9 @@ type nestedOpts struct {
 	// object. Empty on create, where the record has no id yet.
 	IDAttr string
 	IDVar  string
+	// IDType is the record id's Go type ("int64", "uint64" or "string"); ""
+	// is int64.
+	IDType string
 	// Implode inverts a declared read_shape explode; nil where none applies.
 	Implode *readShapeExplode
 }
@@ -249,7 +253,11 @@ func resolveNested(src Source, schemaGen string, body *Struct, byTF map[string]M
 			// top-level attributes: a nested body over a flat model, the mirror
 			// of FlatSubs. PermissionSchemeUpdateRequest.app_policy wraps id,
 			// name and type this way, and matching nothing left the body empty.
-			if ob, isWrap := wrapObject(src, schemaGen, f, byTF, idx, opts); isWrap {
+			ob, isWrap, err := wrapObject(src, schemaGen, f, byTF, idx, opts)
+			if err != nil {
+				return res, fmt.Errorf("object field %q: %w", f.JSONName, err)
+			}
+			if isWrap {
 				res.Objs = append(res.Objs, ob)
 				res.Names[f.JSONName] = true
 			}
@@ -323,23 +331,26 @@ func resolveNested(src Source, schemaGen string, body *Struct, byTF map[string]M
 // an attribute of the same name (resolveNested's ordinary object path owns
 // that) and a struct none of whose sub-fields the model names -- a server-owned
 // object the resource has no business filling in.
-func wrapObject(src Source, schemaGen string, f Field, byTF map[string]ModelField, idx sdkIndex, opts nestedOpts) (objBind, bool) {
+func wrapObject(src Source, schemaGen string, f Field, byTF map[string]ModelField, idx sdkIndex, opts nestedOpts) (objBind, bool, error) {
 	base := trimOptWrappers(f.Type)
 	bs, isStruct := idx.structs[base]
 	if !isStruct || len(bs.Fields) == 0 {
-		return objBind{}, false
+		return objBind{}, false, nil
 	}
 	if valueTypeExists(src, schemaGen, pascalCase(f.JSONName)+"Value") {
-		return objBind{}, false // a tfplugingen nested attribute whose model attr is merely missing
+		return objBind{}, false, nil // a tfplugingen nested attribute whose model attr is merely missing
 	}
 
 	var subs []objSub
+	var idErr error
 	modelSourced := 0
 	for _, sf := range bs.Fields {
 		if opts.IDAttr != "" && sf.JSONName == opts.IDAttr {
-			if expr, ok := idSubExpr(sf.Type, opts.IDVar); ok {
+			expr, ok, err := idSubExpr(sf.Type, opts.IDVar, opts.IDType)
+			if ok {
 				subs = append(subs, objSub{SDKField: sf.GoName, Expr: expr})
 			}
+			idErr = err
 			continue
 		}
 		mf, ok := byTF[sf.JSONName]
@@ -354,7 +365,11 @@ func wrapObject(src Source, schemaGen string, f Field, byTF map[string]ModelFiel
 		modelSourced++
 	}
 	if modelSourced == 0 {
-		return objBind{}, false
+		return objBind{}, false, nil
+	}
+	// The object is sent, so an id sub-field it cannot source would go out zero.
+	if idErr != nil {
+		return objBind{}, false, idErr
 	}
 
 	optType := ""
@@ -364,25 +379,35 @@ func wrapObject(src Source, schemaGen string, f Field, byTF map[string]ModelFiel
 	return objBind{
 		SDKField: f.GoName, Var: lowerFirst(f.GoName), SDKType: base,
 		OptType: optType, Ptr: f.Ptr, Subs: subs,
-	}, true
+	}, true, nil
 }
 
 // idSubExpr sources a wrapped object's id sub-field from the already-parsed
 // record id. The conversion is written out unconditionally because the local's
 // own type follows the op's params (int64 or uint64) and either converts.
-func idSubExpr(sdkType, idVar string) (string, bool) {
+// It is not ok, with no error, on create (empty idVar), where there is no id yet.
+func idSubExpr(sdkType, idVar, idType string) (string, bool, error) {
 	if idVar == "" {
-		return "", false
+		return "", false, nil
 	}
-	switch sdkType {
-	case "uint64", "int64":
-		return sdkType + "(" + idVar + ")", true
-	case "OptUint64":
-		return "generated.OptUint64{Value: uint64(" + idVar + "), Set: true}", true
-	case "OptInt64":
-		return "generated.OptInt64{Value: int64(" + idVar + "), Set: true}", true
+	if idType == "string" {
+		switch sdkType {
+		case "string":
+			return idVar, true, nil
+		case "OptString":
+			return "generated.OptString{Value: " + idVar + ", Set: true}", true, nil
+		}
+	} else {
+		switch sdkType {
+		case "uint64", "int64":
+			return sdkType + "(" + idVar + ")", true, nil
+		case "OptUint64":
+			return "generated.OptUint64{Value: uint64(" + idVar + "), Set: true}", true, nil
+		case "OptInt64":
+			return "generated.OptInt64{Value: int64(" + idVar + "), Set: true}", true, nil
+		}
 	}
-	return "", false
+	return "", false, fmt.Errorf("id sub-field type %s cannot be sourced from a %s record id", sdkType, cmp.Or(idType, "int64"))
 }
 
 // trimOptWrappers strips the ogen optional/nullable prefixes from a type name.

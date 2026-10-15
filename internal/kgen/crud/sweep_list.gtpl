@@ -12,7 +12,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 
-	{{.SDKAlias}} "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	{{.SDKAlias}} "{{.SDKImport}}"
 )
 
 {{if or .Paginated (and .Parent .Parent.Paginated)}}const sweepPageSize = 100
@@ -43,7 +43,7 @@ func sweep{{.Pascal}}(_ string) error {
 	}
 	ctx := context.Background()
 
-	var ids []int64
+	var ids []{{if eq .DeleteIDType "string"}}string{{else}}int64{{end}}
 {{- if .Parent}}
 	parents, err := sweep{{.Pascal}}ParentIDs(ctx, conn)
 	if err != nil {
@@ -71,14 +71,14 @@ func sweep{{.Pascal}}(_ string) error {
 		if {{.ItemsGuard}} {
 			for _, item := range {{.ItemsSlice}} {
 				if item.{{.IDSDKGo}}.Set && sweep{{.Pascal}}Match(item) {
-					ids = append(ids, int64(item.{{.IDSDKGo}}.Value))
+					ids = append(ids, {{if eq $.DeleteIDType "string"}}item.{{.IDSDKGo}}.Value{{else}}int64(item.{{.IDSDKGo}}.Value){{end}})
 				}
 			}
 		}
 		{{- else}}
 		for _, item := range {{.ItemsSlice}} {
 			if item.{{.IDSDKGo}}.Set && sweep{{.Pascal}}Match(item) {
-				ids = append(ids, int64(item.{{.IDSDKGo}}.Value))
+				ids = append(ids, {{if eq $.DeleteIDType "string"}}item.{{.IDSDKGo}}.Value{{else}}int64(item.{{.IDSDKGo}}.Value){{end}})
 			}
 		}
 		{{- end}}
@@ -108,14 +108,14 @@ func sweep{{.Pascal}}(_ string) error {
 		if {{.ItemsGuard}} {
 			for _, item := range {{.ItemsSlice}} {
 				if item.{{.IDSDKGo}}.Set && sweep{{.Pascal}}Match(item) {
-					ids = append(ids, int64(item.{{.IDSDKGo}}.Value))
+					ids = append(ids, {{if eq $.DeleteIDType "string"}}item.{{.IDSDKGo}}.Value{{else}}int64(item.{{.IDSDKGo}}.Value){{end}})
 				}
 			}
 		}
 		{{- else}}
 		for _, item := range {{.ItemsSlice}} {
 			if item.{{.IDSDKGo}}.Set && sweep{{.Pascal}}Match(item) {
-				ids = append(ids, int64(item.{{.IDSDKGo}}.Value))
+				ids = append(ids, {{if eq $.DeleteIDType "string"}}item.{{.IDSDKGo}}.Value{{else}}int64(item.{{.IDSDKGo}}.Value){{end}})
 			}
 		}
 		{{- end}}
@@ -131,7 +131,7 @@ func sweep{{.Pascal}}(_ string) error {
 {{- else}}
 		if _, err := conn.Client.{{.DeleteMethod}}(ctx, {{.SDKAlias}}.{{.DeleteParams}}{ {{.DeleteIDParam}}: {{if eq .DeleteIDType "uint64"}}uint64(id){{else}}id{{end}}}); err != nil {
 {{- end}}
-			return fmt.Errorf("deleting {{.ResourceType}} (%d): %w", id, err)
+			return fmt.Errorf("deleting {{.ResourceType}} ({{if eq .DeleteIDType "string"}}%s{{else}}%d{{end}}): %w", id, err)
 		}
 	}
 	return nil

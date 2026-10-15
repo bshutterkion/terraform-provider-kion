@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
@@ -98,10 +98,10 @@ func (r *compliance_checkResource) Create(ctx context.Context, req resource.Crea
 		IsAutoArchived:        flex.OptNilBoolFromFramework(plan.IsAutoArchived),
 		Name:                  flex.StringValueFromFramework(plan.Name),
 		SeverityTypeID:        flex.OptNilUint64FromFramework(plan.SeverityTypeId),
-		ComplianceControlIds:  generated.OptNilUint64Array{Value: complianceControlIds, Set: true},
-		OwnerUserGroupIds:     generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
-		OwnerUserIds:          generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
-		Regions:               generated.OptNilStringArray{Value: regions, Set: true},
+		ComplianceControlIds:  generated.OptNilUint64Array{Value: complianceControlIds, Set: !plan.ComplianceControlIds.IsUnknown()},
+		OwnerUserGroupIds:     generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: !plan.OwnerUserGroupIds.IsUnknown()},
+		OwnerUserIds:          generated.OptNilUint64Array{Value: ownerUserIds, Set: !plan.OwnerUserIds.IsUnknown()},
+		Regions:               generated.OptNilStringArray{Value: regions, Set: !plan.Regions.IsUnknown()},
 	}
 
 	out, err := conn.PostComplianceCheck(ctx, input)

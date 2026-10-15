@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
@@ -61,6 +61,11 @@ func (d *ou_noteDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 }
 
 func (d *ou_noteDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	resp.Diagnostics.Append(framework.RequireKionVersionInRange(d.Meta(), minKionVersion, maxKionVersion, "kion_ou_note")...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	conn := d.Meta().Client
 
 	var data ou_noteDataSourceModel

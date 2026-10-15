@@ -14,7 +14,7 @@ import (
 	"terraform-provider-kion/internal/acctest"
 	"terraform-provider-kion/internal/errs"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 func TestAccKionProject_basic(t *testing.T) {
@@ -39,7 +39,7 @@ func TestAccKionProject_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc project"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
 					resource.TestCheckResourceAttrSet(resourceName, "ou_id"),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttrSet(resourceName, "permission_scheme_id"),
 				),
 			},
@@ -74,7 +74,7 @@ func TestAccKionProject_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc project"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
 					resource.TestCheckResourceAttrSet(resourceName, "ou_id"),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttrSet(resourceName, "permission_scheme_id"),
 				),
 			},
@@ -86,7 +86,7 @@ func TestAccKionProject_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc project updated"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
 					resource.TestCheckResourceAttrSet(resourceName, "ou_id"),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttrSet(resourceName, "permission_scheme_id"),
 				),
 			},

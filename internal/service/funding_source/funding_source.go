@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
@@ -88,8 +88,8 @@ func (r *funding_sourceResource) Create(ctx context.Context, req resource.Create
 		OuID:               flex.OptNilUint64FromFramework(plan.OuId),
 		PermissionSchemeID: flex.NilUint64FromFramework(plan.PermissionSchemeId),
 		StartDatecode:      flex.StringValueFromFramework(plan.StartDatecode),
-		OwnerUserGroupIds:  generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
-		OwnerUserIds:       generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
+		OwnerUserGroupIds:  generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: !plan.OwnerUserGroupIds.IsUnknown()},
+		OwnerUserIds:       generated.OptNilUint64Array{Value: ownerUserIds, Set: !plan.OwnerUserIds.IsUnknown()},
 	}
 
 	out, err := conn.PostFundingSource(ctx, input)

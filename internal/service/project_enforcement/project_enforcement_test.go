@@ -13,7 +13,7 @@ import (
 
 	"terraform-provider-kion/internal/acctest"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 func TestAccKionProjectEnforcement_basic(t *testing.T) {
@@ -43,7 +43,7 @@ func TestAccKionProjectEnforcement_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "threshold", "1000"),
 					resource.TestCheckResourceAttr(resourceName, "threshold_type", "dollar"),
 					resource.TestCheckResourceAttr(resourceName, "timeframe", "month"),
-					resource.TestCheckResourceAttrSet(resourceName, "user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "user_ids.#", "1"),
 				),
 			},
 		},
@@ -76,7 +76,7 @@ func TestAccKionProjectEnforcement_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "threshold", "1000"),
 					resource.TestCheckResourceAttr(resourceName, "threshold_type", "dollar"),
 					resource.TestCheckResourceAttr(resourceName, "timeframe", "month"),
-					resource.TestCheckResourceAttrSet(resourceName, "user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "user_ids.#", "1"),
 				),
 			},
 			{
@@ -91,7 +91,7 @@ func TestAccKionProjectEnforcement_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "threshold", "2000"),
 					resource.TestCheckResourceAttr(resourceName, "threshold_type", "dollar"),
 					resource.TestCheckResourceAttr(resourceName, "timeframe", "month"),
-					resource.TestCheckResourceAttrSet(resourceName, "user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "user_ids.#", "1"),
 				),
 			},
 		},

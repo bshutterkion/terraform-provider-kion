@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	{{.SDKAlias}} "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	{{.SDKAlias}} "{{.SDKImport}}"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
@@ -129,7 +129,7 @@ func (r *{{.Pkg}}Resource) build{{.Pascal}}Row(ctx context.Context, plan *{{.Mod
 	return {{.SDKAlias}}.{{.RecordType}}{
 		{{.RecordKeyGo}}: {{.SDKAlias}}.NewNilUint64(uint64(plan.{{.KeyGo}}.ValueInt64())),
 		{{- range .Members}}
-		{{.RecordGo}}: {{$.SDKAlias}}.OptNilUint64Array{Value: {{.TF}}, Set: true},
+		{{.RecordGo}}: {{$.SDKAlias}}.OptNilUint64Array{Value: {{.TF}}, Set: !plan.{{.ModelGo}}.IsUnknown()},
 		{{- end}}
 	}
 }

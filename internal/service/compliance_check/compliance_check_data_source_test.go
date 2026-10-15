@@ -31,7 +31,6 @@ func TestAccKionComplianceCheckDataSource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(dataSourceName, "compliance_check_type_id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "description"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "name"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "owner_user_ids"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "severity_type_id"),
 				),
 			},

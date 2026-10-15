@@ -28,6 +28,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"terraform-provider-kion/internal/kgen/versions"
 )
 
 // SDKModulePath is the import path the provider resolves the SDK under. The
@@ -36,7 +38,7 @@ import (
 const SDKModulePath = "github.com/kionsoftware/kion-sdk-go"
 
 // SchemaFile is the SDK's generated model file, relative to the module root.
-const SchemaFile = "generated/v3_16/oas_schemas_gen.go"
+func SchemaFile() string { return "generated/" + versions.CurrentSDK() + "/oas_schemas_gen.go" }
 
 // Finding is one scalar response field that the provider never exposes.
 type Finding struct {
@@ -72,7 +74,7 @@ func SDKDir() (string, error) {
 // Run audits every generated data source under repoRoot/internal/service.
 // Findings come back sorted, so a caller can diff them against a baseline.
 func Run(repoRoot, sdkDir string) ([]Finding, error) {
-	structs, err := parseSDKStructs(filepath.Join(sdkDir, SchemaFile))
+	structs, err := parseSDKStructs(filepath.Join(sdkDir, SchemaFile()))
 	if err != nil {
 		return nil, err
 	}

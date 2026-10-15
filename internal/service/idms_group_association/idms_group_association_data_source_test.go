@@ -31,7 +31,6 @@ func TestAccKionIdmsGroupAssociationDataSource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(dataSourceName, "assertion_name"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "assertion_regex"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "idms_id"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "update_on_login"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "user_group_id"),
 				),
 			},

@@ -712,6 +712,21 @@ resources:
       method: DELETE
     schema:
       ignores: [status, record_id, data]
+  oauth2_client:
+    create:
+      path: /v3/oauth2/clients
+      method: POST
+    read:
+      path: /v3/oauth2/clients/{id}
+      method: GET
+    update:
+      path: /v3/oauth2/clients/{id}
+      method: PUT
+    delete:
+      path: /v3/oauth2/clients/{id}
+      method: DELETE
+    schema:
+      ignores: [status, record_id, data]
   ou:
     create:
       path: /v3/ou
@@ -1289,6 +1304,12 @@ data_sources:
       method: GET
     schema:
       ignores: [status, record_id]
+  oauth2_client:
+    read:
+      path: /v3/oauth2/clients
+      method: GET
+    schema:
+      ignores: [status, record_id]
   ou:
     read:
       path: /v3/ou
@@ -1418,4 +1439,4 @@ data_sources:
     schema:
       ignores: [status, record_id]
 
-# summary: 71 generatable (26 implemented, 45 stub), 0 incomplete; 64 data sources
+# summary: 72 generatable (26 implemented, 46 stub), 0 incomplete; 65 data sources

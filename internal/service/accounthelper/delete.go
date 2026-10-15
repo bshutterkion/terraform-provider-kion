@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 
 	"terraform-provider-kion/internal/errs"
 )

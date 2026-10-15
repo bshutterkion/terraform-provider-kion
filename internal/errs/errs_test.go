@@ -5,7 +5,7 @@ import (
 
 	"terraform-provider-kion/internal/errs"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -67,6 +67,30 @@ func TestRawCreatedID_Negative(t *testing.T) {
 
 	_, diags := errs.RawCreatedID(-1)
 	require.True(t, diags.HasError())
+}
+
+func TestRawCreatedStringID(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name, in string
+		wantErr  bool
+	}{
+		{name: "empty", in: "", wantErr: true},
+		{name: "ok", in: "abc"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			id, diags := errs.RawCreatedStringID(tc.in)
+			require.Equal(t, tc.wantErr, diags.HasError())
+			if tc.wantErr {
+				assert.Empty(t, id)
+				assert.Contains(t, diags.Errors()[0].Detail(), "did not include an id")
+				return
+			}
+			assert.Equal(t, tc.in, id)
+		})
+	}
 }
 
 func TestCreatedID_ErrorResponseType(t *testing.T) {

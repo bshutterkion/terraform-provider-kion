@@ -53,6 +53,8 @@ references:
   car_restricted_user_ids: kion_user
   create_user_id: kion_user
   created_by_user_id: kion_user
+  owner_user_id: kion_user
+  service_account_user_id: kion_user
   user_group_id: kion_user_group
   user_group_ids: kion_user_group
   owner_user_group_ids: kion_user_group

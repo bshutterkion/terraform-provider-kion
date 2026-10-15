@@ -16,7 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	{{if .AtLeastOneOf}}"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	{{end}}	"github.com/hashicorp/terraform-plugin-framework/types"
-	{{.SDKAlias}} "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	{{.SDKAlias}} "{{.SDKImport}}"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
@@ -92,7 +92,7 @@ func flatten{{.Pascal}}(ctx context.Context, rec {{.SDKAlias}}.{{.RecordType}}, 
 	{{- range .RespBinds}}
 	{{- if .IsID}}
 	if {{.IDSDKPath}}.Set {
-		model.{{.ModelGo}} = types.StringValue(strconv.{{.IDFormat}}({{.IDSDKPath}}.Value, 10))
+		model.{{.ModelGo}} = types.StringValue(strconv.{{.IDFormatFunc}}({{.IDSDKPath}}.Value, 10))
 	}
 	{{- else}}
 	model.{{.ModelGo}} = {{.Converter}}({{.SDKPath}})
@@ -142,7 +142,7 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 		{{- end}}
 		{{- range .CreateSliceBinds}}
-		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 		{{- end}}
 	}{{else}}{{.SDKAlias}}.{{.CreateBodyOpt}}{
 		Value: {{.SDKAlias}}.{{.CreateBody}}{
@@ -150,7 +150,7 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 			{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 			{{- end}}
 			{{- range .CreateSliceBinds}}
-			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 			{{- end}}
 		},
 		Set: true,
@@ -352,7 +352,7 @@ func expand{{.Pascal}}Update(ctx context.Context, plan {{.Model}}) ({{if .Update
 		{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 		{{- end}}
 		{{- range .UpdateSliceBinds}}
-		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 		{{- end}}
 	}{{else}}{{.SDKAlias}}.{{.UpdateBodyOpt}}{
 		Value: {{.SDKAlias}}.{{.UpdateBody}}{
@@ -360,7 +360,7 @@ func expand{{.Pascal}}Update(ctx context.Context, plan {{.Model}}) ({{if .Update
 			{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 			{{- end}}
 			{{- range .UpdateSliceBinds}}
-			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 			{{- end}}
 		},
 		Set: true,

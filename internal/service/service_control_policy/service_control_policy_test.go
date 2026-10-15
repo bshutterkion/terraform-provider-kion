@@ -14,7 +14,7 @@ import (
 	"terraform-provider-kion/internal/acctest"
 	"terraform-provider-kion/internal/errs"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 func TestAccKionServiceControlPolicy_basic(t *testing.T) {
@@ -37,7 +37,7 @@ func TestAccKionServiceControlPolicy_basic(t *testing.T) {
 					testAccCheckServiceControlPolicyExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttrSet(resourceName, "policy"),
 				),
 			},
@@ -70,7 +70,7 @@ func TestAccKionServiceControlPolicy_update(t *testing.T) {
 					testAccCheckServiceControlPolicyExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttrSet(resourceName, "policy"),
 				),
 			},
@@ -81,7 +81,7 @@ func TestAccKionServiceControlPolicy_update(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc-updated"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttrSet(resourceName, "policy"),
 				),
 			},

@@ -14,7 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
@@ -105,10 +105,10 @@ func (r *cftResource) Create(ctx context.Context, req resource.CreateRequest, re
 		SnsArns:               flex.OptStringFromFramework(plan.SnsArns),
 		TemplateParameters:    flex.OptStringFromFramework(plan.TemplateParameters),
 		TerminationProtection: flex.OptNilBoolFromFramework(plan.TerminationProtection),
-		OwnerUserGroupIds:     generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
-		OwnerUserIds:          generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
+		OwnerUserGroupIds:     generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: !plan.OwnerUserGroupIds.IsUnknown()},
+		OwnerUserIds:          generated.OptNilUint64Array{Value: ownerUserIds, Set: !plan.OwnerUserIds.IsUnknown()},
 		Regions:               regions,
-		Tags:                  generated.OptNilAWSStackTagArray{Value: tags, Set: true},
+		Tags:                  generated.OptNilAWSStackTagArray{Value: tags, Set: !plan.Tags.IsUnknown()},
 	}
 
 	out, err := conn.PostCFT(ctx, input)
@@ -229,7 +229,7 @@ func (r *cftResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		TemplateParameters:    flex.OptStringFromFramework(plan.TemplateParameters),
 		TerminationProtection: flex.OptNilBoolFromFramework(plan.TerminationProtection),
 		Regions:               regions,
-		Tags:                  generated.OptNilAWSStackTagArray{Value: tags, Set: true},
+		Tags:                  generated.OptNilAWSStackTagArray{Value: tags, Set: !plan.Tags.IsUnknown()},
 	}
 
 	out, err := conn.PatchCFT(ctx, input, generated.PatchCFTParams{ID: idInt})

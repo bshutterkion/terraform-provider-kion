@@ -14,7 +14,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
@@ -92,8 +92,8 @@ func (r *webhookResource) Create(ctx context.Context, req resource.CreateRequest
 		SkipSsl:              flex.OptNilBoolFromFramework(plan.SkipSsl),
 		TimeoutInSeconds:     flex.Int64ValueFromFramework(plan.TimeoutInSeconds),
 		UseRequestHeaders:    flex.OptNilBoolFromFramework(plan.UseRequestHeaders),
-		OwnerUserGroupIds:    generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: true},
-		OwnerUserIds:         generated.OptNilUint64Array{Value: ownerUserIds, Set: true},
+		OwnerUserGroupIds:    generated.OptNilUint64Array{Value: ownerUserGroupIds, Set: !plan.OwnerUserGroupIds.IsUnknown()},
+		OwnerUserIds:         generated.OptNilUint64Array{Value: ownerUserIds, Set: !plan.OwnerUserIds.IsUnknown()},
 	}
 
 	out, err := conn.PostWebhook(ctx, input)

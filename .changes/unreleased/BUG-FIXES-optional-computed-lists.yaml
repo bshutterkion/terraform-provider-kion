@@ -1,0 +1,7 @@
+kind: BUG FIXES
+body: >-
+  List attributes that are optional and computed are no longer sent as an
+  empty list when left unconfigured on create, so Kion applies its own default
+  instead of clearing the value (for example, an OAuth client's
+  allowed_scopes). A list removed from configuration is still cleared.
+time: 2026-10-15T21:00:01Z

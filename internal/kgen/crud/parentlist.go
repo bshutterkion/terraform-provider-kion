@@ -25,6 +25,7 @@ const parentListKind = "parent_list"
 type parentListData struct {
 	Pkg, Pascal, Model                              string
 	ResConst, ResName, TypeName, SDKAlias           string
+	SDKImport                                       string
 	IDGo                                            string
 	Gated                                           bool
 	AtLeastOneOf                                    []string
@@ -64,9 +65,8 @@ type parentListData struct {
 	// configured, Create applies it with an update straight after the create.
 	CreateViaUpdate []string
 
-	// StringAttrs marks the string-typed attributes, so a generated test
-	// quotes only what HCL needs quoted.
-	StringAttrs map[string]bool
+	// AttrTypes is each attribute's model type, for a generated test.
+	AttrTypes map[string]string
 }
 
 // generateParentList resolves and writes a parent_list resource (resource +
@@ -98,7 +98,11 @@ func (g *generator) generateParentList(dir, name string, ops resOps, idx sdkInde
 		return 0, err
 	}
 	if hasTV {
-		test, err := execGoTemplate("parentlisttest", parentListTestTmpl, buildParentListTestData(d, tv), name+"_test.go")
+		td, err := buildParentListTestData(d, tv)
+		if err != nil {
+			return 0, err
+		}
+		test, err := execGoTemplate("parentlisttest", parentListTestTmpl, td, name+"_test.go")
 		if err != nil {
 			return 0, err
 		}
@@ -121,7 +125,7 @@ func (g *generator) generateParentList(dir, name string, ops resOps, idx sdkInde
 func (g *generator) resolveParentList(name string, ops resOps, idx sdkIndex, arch archetype, model []ModelField, gated bool, schemaGen string) (parentListData, error) {
 	pascal := pascalCase(name)
 	d := parentListData{
-		Pkg: name, Pascal: pascal, Model: pascal + "Model", SDKAlias: "generated",
+		Pkg: name, Pascal: pascal, Model: pascal + "Model", SDKAlias: "generated", SDKImport: sdkImport(),
 		ResConst: "ResName" + pascal, ResName: pascal + " Resource", TypeName: "kion_" + name,
 		Gated: gated, AtLeastOneOf: g.configValidators.For(name), RecordType: arch.RecordType, ResponseType: arch.ResponseType,
 		ParentParam: arch.ParentParam, ChildParam: arch.ChildParam,
@@ -131,10 +135,10 @@ func (g *generator) resolveParentList(name string, ops resOps, idx sdkIndex, arc
 	}
 
 	byTF := map[string]ModelField{}
-	d.StringAttrs = map[string]bool{}
+	d.AttrTypes = map[string]string{}
 	for _, mf := range model {
 		byTF[mf.TFSDK] = mf
-		d.StringAttrs[mf.TFSDK] = mf.Type == "types.String"
+		d.AttrTypes[mf.TFSDK] = mf.Type
 		if mf.TFSDK == "id" {
 			d.IDGo = mf.GoName
 		}
@@ -186,7 +190,7 @@ func (g *generator) resolveParentList(name string, ops resOps, idx sdkIndex, arc
 		return d, fmt.Errorf("%s record nested: %w", name, err)
 	}
 	d.RespObjIDProjs = nested.ObjIDProjs
-	if d.RespBinds, d.RespSliceBinds, err = respBinds(recStruct.Fields, byTF, "id", "rec.", nested.Names, nil); err != nil {
+	if d.RespBinds, d.RespSliceBinds, err = respBinds(recStruct.Fields, byTF, "id", "rec.", nested.Names, nil, false); err != nil {
 		return d, fmt.Errorf("%s record flatten: %w", name, err)
 	}
 	d.HasRespSlices = len(d.RespSliceBinds) > 0

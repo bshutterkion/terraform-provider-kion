@@ -14,7 +14,7 @@ import (
 	"terraform-provider-kion/internal/acctest"
 	"terraform-provider-kion/internal/errs"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 func TestAccKionProjectCloudAccessRole_basic(t *testing.T) {
@@ -40,7 +40,7 @@ func TestAccKionProjectCloudAccessRole_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
 					resource.TestCheckResourceAttrSet(resourceName, "project_id"),
 					resource.TestCheckResourceAttr(resourceName, "short_term_access_keys", "true"),
-					resource.TestCheckResourceAttrSet(resourceName, "user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "user_ids.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "web_access", "true"),
 				),
 			},
@@ -76,7 +76,7 @@ func TestAccKionProjectCloudAccessRole_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
 					resource.TestCheckResourceAttrSet(resourceName, "project_id"),
 					resource.TestCheckResourceAttr(resourceName, "short_term_access_keys", "true"),
-					resource.TestCheckResourceAttrSet(resourceName, "user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "user_ids.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "web_access", "true"),
 				),
 			},
@@ -89,7 +89,7 @@ func TestAccKionProjectCloudAccessRole_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
 					resource.TestCheckResourceAttrSet(resourceName, "project_id"),
 					resource.TestCheckResourceAttr(resourceName, "short_term_access_keys", "false"),
-					resource.TestCheckResourceAttrSet(resourceName, "user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "user_ids.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "web_access", "true"),
 				),
 			},

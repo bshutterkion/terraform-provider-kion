@@ -14,7 +14,7 @@ import (
 	"terraform-provider-kion/internal/acctest"
 	"terraform-provider-kion/internal/errs"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 func TestAccKionComplianceStandard_basic(t *testing.T) {
@@ -39,7 +39,7 @@ func TestAccKionComplianceStandard_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "created_by_user_id", "1"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc compliance standard"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 				),
 			},
 			{
@@ -73,7 +73,7 @@ func TestAccKionComplianceStandard_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "created_by_user_id", "1"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc compliance standard"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 				),
 			},
 			{
@@ -84,7 +84,7 @@ func TestAccKionComplianceStandard_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "created_by_user_id", "1"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc compliance standard updated"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 				),
 			},
 			{

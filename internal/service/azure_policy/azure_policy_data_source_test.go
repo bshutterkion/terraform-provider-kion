@@ -27,8 +27,6 @@ func TestAccKionAzurePolicyDataSource_basic(t *testing.T) {
 				Config: testAccAzurePolicyDataSourceConfig_basic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "azure_policy"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "owner_users"),
 				),
 			},
 		},

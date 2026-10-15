@@ -14,7 +14,7 @@ import (
 	"terraform-provider-kion/internal/acctest"
 	"terraform-provider-kion/internal/errs"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 func TestAccKionAmi_basic(t *testing.T) {
@@ -41,7 +41,7 @@ func TestAccKionAmi_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "account_id"),
 					resource.TestCheckResourceAttr(resourceName, "aws_ami_id", fmt.Sprintf("%[3]s", rName, accountID, awsAmiID)),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "region", "us-east-1"),
 				),
 			},
@@ -78,7 +78,7 @@ func TestAccKionAmi_update(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "account_id"),
 					resource.TestCheckResourceAttr(resourceName, "aws_ami_id", fmt.Sprintf("%[3]s", rName, accountID, awsAmiID)),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "region", "us-east-1"),
 				),
 			},
@@ -91,7 +91,7 @@ func TestAccKionAmi_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "aws_ami_id", fmt.Sprintf("%[3]s", rName, accountID, awsAmiID)),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc-updated"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "region", "us-east-1"),
 				),
 			},

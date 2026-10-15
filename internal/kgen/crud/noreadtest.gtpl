@@ -47,7 +47,7 @@ func TestAccKion{{.Pascal}}_basic(t *testing.T) {
 					testAccCheck{{.Pascal}}Exists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					{{- range .CreateAttrs}}
-					{{if .IsHCL}}resource.TestCheckResourceAttrSet(resourceName, "{{.Name}}"){{else}}resource.TestCheckResourceAttr(resourceName, "{{.Name}}", {{.CheckExpr}}){{end}},
+					{{.Check}},
 					{{- end}}
 				),
 			},
@@ -86,7 +86,7 @@ func TestAccKion{{.Pascal}}_update(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheck{{.Pascal}}Exists(ctx, resourceName),
 					{{- range .UpdateAttrs}}
-					{{if .IsHCL}}resource.TestCheckResourceAttrSet(resourceName, "{{.Name}}"){{else}}resource.TestCheckResourceAttr(resourceName, "{{.Name}}", {{.CheckExpr}}){{end}},
+					{{.Check}},
 					{{- end}}
 				),
 			},

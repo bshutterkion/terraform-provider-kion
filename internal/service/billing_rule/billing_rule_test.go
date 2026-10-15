@@ -36,7 +36,7 @@ func TestAccKionBillingRule_basic(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckBillingRuleExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
-					resource.TestCheckResourceAttrSet(resourceName, "billing_source_ids"),
+					resource.TestCheckResourceAttrSet(resourceName, "billing_source_ids.#"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc billing rule"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
 					resource.TestCheckResourceAttr(resourceName, "rule_type", "2"),
@@ -73,7 +73,7 @@ func TestAccKionBillingRule_update(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckBillingRuleExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
-					resource.TestCheckResourceAttrSet(resourceName, "billing_source_ids"),
+					resource.TestCheckResourceAttrSet(resourceName, "billing_source_ids.#"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc billing rule"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
 					resource.TestCheckResourceAttr(resourceName, "rule_type", "2"),
@@ -86,7 +86,7 @@ func TestAccKionBillingRule_update(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckBillingRuleExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
-					resource.TestCheckResourceAttrSet(resourceName, "billing_source_ids"),
+					resource.TestCheckResourceAttrSet(resourceName, "billing_source_ids.#"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc billing rule updated"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
 					resource.TestCheckResourceAttr(resourceName, "rule_type", "2"),

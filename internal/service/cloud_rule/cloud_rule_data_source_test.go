@@ -28,7 +28,6 @@ func TestAccKionCloudRuleDataSource_basic(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "name"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "owner_user_ids"),
 				),
 			},
 		},

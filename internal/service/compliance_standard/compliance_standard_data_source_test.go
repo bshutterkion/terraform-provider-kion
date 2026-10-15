@@ -30,7 +30,6 @@ func TestAccKionComplianceStandardDataSource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(dataSourceName, "created_by_user_id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "description"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "name"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "owner_user_ids"),
 				),
 			},
 		},

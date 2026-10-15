@@ -155,8 +155,15 @@ func Name(typeName string) string {
 	return "terraform-kion-" + strings.ReplaceAll(strings.TrimPrefix(typeName, "kion_"), "_", "-")
 }
 
+// output is a computed attribute exposed by the module. Terraform rejects a
+// root-module output holding sensitive data unless it is marked sensitive.
+type output struct {
+	Name      string
+	Sensitive bool
+}
+
 // collect flattens a schema into settable input fields and computed outputs.
-func collect(typeName string, s rsschema.Schema) (fields []field, outputs []string, unknown []string) {
+func collect(typeName string, s rsschema.Schema) (fields []field, outputs []output, unknown []string) {
 	for _, name := range sortedKeys(s.Attributes) {
 		a := s.Attributes[name]
 		req, opt, comp := classify(a)
@@ -164,7 +171,7 @@ func collect(typeName string, s rsschema.Schema) (fields []field, outputs []stri
 		// Computed-only attributes are outputs, never inputs. `id` is always
 		// computed and always worth exposing.
 		if comp && !req && !opt {
-			outputs = append(outputs, name)
+			outputs = append(outputs, output{Name: name, Sensitive: a.IsSensitive()})
 			continue
 		}
 		// last_updated is provider bookkeeping, not user input.
@@ -207,14 +214,14 @@ func collect(typeName string, s rsschema.Schema) (fields []field, outputs []stri
 		})
 	}
 
-	if !slices.Contains(outputs, "id") {
-		outputs = append(outputs, "id")
+	if !slices.ContainsFunc(outputs, func(o output) bool { return o.Name == "id" }) {
+		outputs = append(outputs, output{Name: "id"})
 	}
-	sort.Strings(outputs)
+	sort.Slice(outputs, func(i, j int) bool { return outputs[i].Name < outputs[j].Name })
 	return fields, outputs, unknown
 }
 
-func write(dir, typeName, providerVersion string, fields []field, outputs []string) error {
+func write(dir, typeName, providerVersion string, fields []field, outputs []output) error {
 	for _, sub := range []string{dir, filepath.Join(dir, "examples", "complete"), filepath.Join(dir, "tests")} {
 		if err := fsw.MkdirAll(sub, 0750); err != nil {
 			return fmt.Errorf("creating %s: %w", sub, err)
@@ -300,16 +307,19 @@ func variablesTF(fields []field) string {
 	return b.String()
 }
 
-func outputsTF(typeName string, outputs []string) string {
+func outputsTF(typeName string, outputs []output) string {
 	var b strings.Builder
 	b.WriteString(header())
 	for i, o := range outputs {
 		if i > 0 {
 			b.WriteString("\n")
 		}
-		fmt.Fprintf(&b, "output %q {\n", o)
-		fmt.Fprintf(&b, "  description = %q\n", fmt.Sprintf("%s of the %s.", o, typeName))
-		fmt.Fprintf(&b, "  value       = %s.this.%s\n", typeName, o)
+		fmt.Fprintf(&b, "output %q {\n", o.Name)
+		fmt.Fprintf(&b, "  description = %q\n", fmt.Sprintf("%s of the %s.", o.Name, typeName))
+		fmt.Fprintf(&b, "  value       = %s.this.%s\n", typeName, o.Name)
+		if o.Sensitive {
+			b.WriteString("  sensitive   = true\n")
+		}
 		b.WriteString("}\n")
 	}
 	return b.String()

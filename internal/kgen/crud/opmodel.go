@@ -182,6 +182,7 @@ type ResourceModel struct {
 	SweepList     *listModel
 	SweepParent   *parentSweep
 	Gated         bool // resource is version-gated (emit RequireKionVersionInRange)
+	DSGated       bool // data source is version-gated (same vars, checked in Read)
 	SchemaVersion int  // >0 when the resource migrates old SDKv2 state (bumps schema.Version)
 	// Asymmetric 2-param delete (e.g. compliance_control's
 	// DELETE /v4/compliance/program/{id}/control/{controlID}): the record-id
@@ -212,6 +213,9 @@ type ResourceModel struct {
 	// Rewritten holds model field names whose configured value Create and Update
 	// restore after the read-back; see the archetype's Rewritten.
 	Rewritten []string
+	// CreateOnly are attributes captured from the create response and never
+	// flattened; see the archetype's CreateOnly.
+	CreateOnly []createOnlyAttr
 	// Owner association synced on Update via paired add/remove endpoints.
 	Owners *ownerMembershipBind
 	// Bulk association syncs (each a struct body of id-lists via one add/remove pair).

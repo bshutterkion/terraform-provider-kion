@@ -14,7 +14,7 @@ import (
 	"terraform-provider-kion/internal/acctest"
 	"terraform-provider-kion/internal/errs"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 func TestAccKionOuPermissionMapping_basic(t *testing.T) {
@@ -39,7 +39,7 @@ func TestAccKionOuPermissionMapping_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttrSet(resourceName, "app_role_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "ou_id"),
-					resource.TestCheckResourceAttrSet(resourceName, "user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "user_ids.#", "1"),
 				),
 			},
 		},
@@ -67,7 +67,7 @@ func TestAccKionOuPermissionMapping_update(t *testing.T) {
 					testAccCheckOuPermissionMappingExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "app_role_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "ou_id"),
-					resource.TestCheckResourceAttrSet(resourceName, "user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "user_ids.#", "1"),
 				),
 			},
 			{
@@ -76,8 +76,8 @@ func TestAccKionOuPermissionMapping_update(t *testing.T) {
 					testAccCheckOuPermissionMappingExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "app_role_id"),
 					resource.TestCheckResourceAttrSet(resourceName, "ou_id"),
-					resource.TestCheckResourceAttrSet(resourceName, "user_groups_ids"),
-					resource.TestCheckResourceAttrSet(resourceName, "user_ids"),
+					resource.TestCheckResourceAttrSet(resourceName, "user_groups_ids.#"),
+					resource.TestCheckResourceAttr(resourceName, "user_ids.#", "1"),
 				),
 			},
 		},

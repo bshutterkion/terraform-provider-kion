@@ -9,8 +9,8 @@ import (
 	{{if or .RawValueHelpers .RespRawValues .RawCreate .HasRawMove}}"encoding/json"
 	{{end}}"fmt"
 	{{if .RespSums}}"math"
-	{{end}}"strconv"
-	{{if or .RawDeletePath .ImportParentTF .HasRawMove}}"strings"
+	{{end}}{{if ne .IDParamType "string"}}"strconv"
+	{{end}}{{if or .RawDeletePath .ImportParentTF .HasRawMove}}"strings"
 	{{end}}
 	{{if or .RawValueHelpers .RespRawValues}}"github.com/go-faster/jx"
 	{{end}}{{if .HasNestedFlat}}"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -19,7 +19,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	{{if or .AtLeastOneOf .RequiredTogether}}"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	{{end}}	"github.com/hashicorp/terraform-plugin-framework/types"
-	{{.SDKAlias}} "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	{{.SDKAlias}} "{{.SDKImport}}"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
@@ -187,13 +187,13 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 		{{- end}}
 		{{- range .CreateSliceBinds}}
-		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 		{{- end}}
 		{{- range .CreateObjBinds}}
 		{{.SDKField}}: {{if .Guard}}{{.Var}}Opt{{else if .OptType}}{{$.SDKAlias}}.{{.OptType}}{Value: {{.Var}}, Set: true}{{else if .Ptr}}&{{.Var}}{{else}}{{.Var}}{{end}},
 		{{- end}}
 		{{- range .CreateArrBinds}}
-		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 		{{- end}}
 		{{- range .CreateFlatSubs}}
 		{{.SDKField}}: {{.Expr}},
@@ -207,13 +207,13 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 			{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 			{{- end}}
 			{{- range .CreateSliceBinds}}
-			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 			{{- end}}
 			{{- range .CreateObjBinds}}
 			{{.SDKField}}: {{if .Guard}}{{.Var}}Opt{{else if .OptType}}{{$.SDKAlias}}.{{.OptType}}{Value: {{.Var}}, Set: true}{{else if .Ptr}}&{{.Var}}{{else}}{{.Var}}{{end}},
 			{{- end}}
 			{{- range .CreateArrBinds}}
-			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 			{{- end}}
 			{{- range .CreateFlatSubs}}
 			{{.SDKField}}: {{.Expr}},
@@ -236,7 +236,8 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		resp.Diagnostics.Append(errs.UnexpectedResponse("creating "+{{.ResConst}}, out)...)
 		return
 	}
-	{{if .CreateIDOpt}}if !created.Data{{if not .CreateDataPtr}}.Value{{end}}.{{.CreateIDSDKName}}.Set {
+	{{if eq .IDParamType "string"}}// An unset id reads as "", which the guard refuses like an empty one.
+	id, idDiags := errs.RawCreatedStringID(created.Data{{if not .CreateDataPtr}}.Value{{end}}.{{.CreateIDSDKName}}{{if .CreateIDOpt}}.Value{{end}}){{else}}{{if .CreateIDOpt}}if !created.Data{{if not .CreateDataPtr}}.Value{{end}}.{{.CreateIDSDKName}}.Set {
 		resp.Diagnostics.AddError(fmt.Sprintf("creating %s", {{.ResConst}}), "the create response did not include an id")
 		return
 	}
@@ -244,7 +245,7 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 	// Routed through the same guard as the raw path: .Set is true when the
 	// API returns an explicit 0, which is never a real Kion id. Recording it
 	// leaves a record that exists and that Terraform can never address.
-	id, idDiags := errs.RawCreatedID(id)
+	id, idDiags := errs.RawCreatedID(id){{end}}
 	resp.Diagnostics.Append(idDiags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -254,7 +255,11 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 		return
 	}{{end}}{{end}}
 
-	plan.{{.IDGo}} = types.StringValue(strconv.FormatInt(id, 10))
+	plan.{{.IDGo}} = types.StringValue({{if eq .IDParamType "string"}}id{{else}}strconv.FormatInt(id, 10){{end}})
+{{- range .CreateOnly}}
+	// Only the create response carries this; the read-back never returns it.
+	configured{{.ModelGo}} := {{.Capture}}
+{{- end}}
 
 {{- if .Labels}}
 
@@ -292,7 +297,7 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 	// Read back the resource to populate computed fields.
 	readOut, readErr := conn.{{.ReadMethod}}(ctx, {{.SDKAlias}}.{{.ReadParams}}{ {{.ReadIDParam}}: {{if eq .IDParamType "uint64"}}uint64(id){{else}}id{{end}}})
 	if readErr != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s after creation (ID: %d)", {{.ResConst}}, id), readErr.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("reading %s after creation (ID: {{.IDFormat}})", {{.ResConst}}, id), readErr.Error())
 		return
 	}
 
@@ -321,6 +326,9 @@ func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateReques
 	// configured value is what stops an unconvergeable diff. See Rewritten.
 	plan.{{.}} = configured{{.}}
 {{- end}}
+{{- range .CreateOnly}}
+	plan.{{.ModelGo}} = configured{{.ModelGo}}
+{{- end}}
 
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
 	if resp.Diagnostics.HasError() {
@@ -345,15 +353,15 @@ func (r *{{.Pkg}}Resource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 
-	idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(state.{{.IDGo}}.ValueString(), 10, {{.IDParseBits}})
+	{{if eq .IDParamType "string"}}id := state.{{.IDGo}}.ValueString(){{else}}idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(state.{{.IDGo}}.ValueString(), 10, {{.IDParseBits}})
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
-	}
+	}{{end}}
 
-	out, err := conn.{{.ReadMethod}}(ctx, {{.SDKAlias}}.{{.ReadParams}}{ {{.ReadIDParam}}: idInt})
+	out, err := conn.{{.ReadMethod}}(ctx, {{.SDKAlias}}.{{.ReadParams}}{ {{.ReadIDParam}}: {{.IDVar}}})
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s (ID: %d)", {{.ResConst}}, idInt), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("reading %s (ID: {{.IDFormat}})", {{.ResConst}}, {{.IDVar}}), err.Error())
 		return
 	}
 
@@ -424,7 +432,7 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
-{{- if or .Owners .Assocs .SliceMembers .Moves}}
+{{- if or .Owners .Assocs .SliceMembers .Moves .CreateOnly}}
 
 	var state {{.Model}}
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
@@ -433,11 +441,11 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	}
 {{- end}}
 
-	idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(plan.{{.IDGo}}.ValueString(), 10, {{.IDParseBits}})
+	{{if eq .IDParamType "string"}}id := plan.{{.IDGo}}.ValueString(){{else}}idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(plan.{{.IDGo}}.ValueString(), 10, {{.IDParseBits}})
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
-	}
+	}{{end}}
 {{- range .Moves}}
 
 	// The update body cannot carry {{.ModelGo}}; it changes through its own
@@ -540,13 +548,13 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 		{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 		{{- end}}
 		{{- range .UpdateSliceBinds}}
-		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 		{{- end}}
 		{{- range .UpdateObjBinds}}
 		{{.SDKField}}: {{if .Guard}}{{.Var}}Opt{{else if .OptType}}{{$.SDKAlias}}.{{.OptType}}{Value: {{.Var}}, Set: true}{{else if .Ptr}}&{{.Var}}{{else}}{{.Var}}{{end}},
 		{{- end}}
 		{{- range .UpdateArrBinds}}
-		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+		{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 		{{- end}}
 		{{- range .UpdateFlatSubs}}
 		{{.SDKField}}: {{.Expr}},
@@ -560,13 +568,13 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 			{{.SDKField}}: {{.Converter}}(plan.{{.ModelGo}}),
 			{{- end}}
 			{{- range .UpdateSliceBinds}}
-			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 			{{- end}}
 			{{- range .UpdateObjBinds}}
 			{{.SDKField}}: {{if .Guard}}{{.Var}}Opt{{else if .OptType}}{{$.SDKAlias}}.{{.OptType}}{Value: {{.Var}}, Set: true}{{else if .Ptr}}&{{.Var}}{{else}}{{.Var}}{{end}},
 			{{- end}}
 			{{- range .UpdateArrBinds}}
-			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: true}{{else}}{{.Var}}{{end}},
+			{{.SDKField}}: {{if .Wrap}}{{$.SDKAlias}}.{{.Wrap}}{Value: {{.Var}}, Set: !plan.{{.ModelGo}}.IsUnknown()}{{else}}{{.Var}}{{end}},
 			{{- end}}
 			{{- range .UpdateFlatSubs}}
 			{{.SDKField}}: {{.Expr}},
@@ -583,7 +591,7 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	// write landed; the read-back below is the authority on state either way.
 	// See errs.IsUndeclaredSuccess.
 	if err != nil && !errs.IsUndeclaredSuccess(err) {
-		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: %d)", {{.ResConst}}, idInt), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("updating %s (ID: {{.IDFormat}})", {{.ResConst}}, {{.IDVar}}), err.Error())
 		return
 	}
 
@@ -672,9 +680,9 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 {{- end}}
 
 	// Read back the resource to get the latest state.
-	readOut, readErr := conn.{{.ReadMethod}}(ctx, {{.SDKAlias}}.{{.ReadParams}}{ {{.ReadIDParam}}: idInt})
+	readOut, readErr := conn.{{.ReadMethod}}(ctx, {{.SDKAlias}}.{{.ReadParams}}{ {{.ReadIDParam}}: {{.IDVar}}})
 	if readErr != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("reading %s after update (ID: %d)", {{.ResConst}}, idInt), readErr.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("reading %s after update (ID: {{.IDFormat}})", {{.ResConst}}, {{.IDVar}}), readErr.Error())
 		return
 	}
 
@@ -702,6 +710,10 @@ func (r *{{.Pkg}}Resource) Update(ctx context.Context, req resource.UpdateReques
 	// The API canonicalizes this and echoes the rewritten form; keeping the
 	// configured value is what stops an unconvergeable diff. See Rewritten.
 	plan.{{.}} = configured{{.}}
+{{- end}}
+{{- range .CreateOnly}}
+	// Only the create response carries this; keep what state captured.
+	plan.{{.ModelGo}} = state.{{.ModelGo}}
 {{- end}}
 
 	resp.Diagnostics.Append(flex.ResolveUnknowns(ctx, &plan)...)
@@ -732,11 +744,11 @@ func (r *{{.Pkg}}Resource) Delete(ctx context.Context, req resource.DeleteReques
 		return
 	}
 
-	idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(state.{{.IDGo}}.ValueString(), 10, {{.IDParseBits}})
+	{{if eq .IDParamType "string"}}id := state.{{.IDGo}}.ValueString(){{else}}idInt, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(state.{{.IDGo}}.ValueString(), 10, {{.IDParseBits}})
 	if err != nil {
 		resp.Diagnostics.AddError("Invalid ID", err.Error())
 		return
-	}
+	}{{end}}
 
 {{- range .Assocs}}{{if .DetachBeforeDelete}}
 	// Detach before deleting. Kion refuses to delete a record something else
@@ -773,7 +785,7 @@ func (r *{{.Pkg}}Resource) Delete(ctx context.Context, req resource.DeleteReques
 
 	out, err := conn.{{.DeleteMethod}}(ctx, {{.SDKAlias}}.{{.DeleteParams}}{ {{if .DeleteExtraParam}}{{.DeleteExtraParam}}: state.{{.DeleteExtraFieldGo}}.ValueInt64(), {{end}}{{.DeleteIDParam}}: {{.DeleteIDExpr}}})
 	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("deleting %s (ID: %d)", {{.ResConst}}, idInt), err.Error())
+		resp.Diagnostics.AddError(fmt.Sprintf("deleting %s (ID: {{.IDFormat}})", {{.ResConst}}, {{.IDVar}}), err.Error())
 		return
 	}
 
@@ -872,7 +884,7 @@ type {{$.Pkg}}{{.ModelGo}}Wire struct {
 			{{- range .RespBinds}}
 			{{- if .IsID}}
 			if {{.IDSDKPath}}.Set {
-				model.{{.ModelGo}} = types.StringValue(strconv.{{.IDFormat}}({{.IDSDKPath}}.Value, 10))
+				model.{{.ModelGo}} = types.StringValue({{if .IDFormatFunc}}strconv.{{.IDFormatFunc}}({{.IDSDKPath}}.Value, 10){{else}}{{.IDSDKPath}}.Value{{end}})
 			}
 			{{- else}}
 			model.{{.ModelGo}} = {{.Converter}}({{.SDKPath}})

@@ -283,7 +283,9 @@ type resolvedEntry struct {
 // deriveSection derives support ranges for all entries in one config section
 // (resources or data_sources). It returns the entries that should be emitted
 // (sorted by name) and logs unresolved / non-contiguous entries to stderr.
-func deriveSection(section string, entries map[string]entry, versionOps []map[op]struct{}, logw *diag) []resolvedEntry {
+// Floors come from versions.ParseResourceFloors and raise the derived minimum;
+// an entry with no bounded range but a floor still gets a gate.
+func deriveSection(section string, entries map[string]entry, versionOps []map[op]struct{}, floors map[string]string, logw *diag) ([]resolvedEntry, error) {
 	names := make([]string, 0, len(entries))
 	for k := range entries {
 		names = append(names, k)
@@ -295,6 +297,9 @@ func deriveSection(section string, entries map[string]entry, versionOps []map[op
 		e := entries[name]
 		defOp, ok := definingOp(e)
 		if !ok {
+			if _, _, err := versions.ApplyFloor(name, section, floors[name], versions.FloorNoOp, "", "", ""); err != nil {
+				return nil, err
+			}
 			logw.printf("unresolved: %s/%s has no create or read operation\n", section, name)
 			continue
 		}
@@ -306,9 +311,18 @@ func deriveSection(section string, entries map[string]entry, versionOps []map[op
 		}
 		r := computeRange(present)
 		if !r.resolved {
+			if _, _, err := versions.ApplyFloor(name, section, floors[name], versions.FloorUnresolved, defOp.String(), "", ""); err != nil {
+				return nil, err
+			}
 			logw.printf("unresolved: %s/%s defining op %q not found in any tracked SDK version\n", section, name, defOp)
 			continue
 		}
+		raised, forced, err := versions.ApplyFloor(name, section, floors[name], versions.FloorResolved, "", r.support.Min, r.support.Max)
+		if err != nil {
+			return nil, err
+		}
+		r.support.Min = raised
+		r.emit = r.emit || forced
 		if !r.contiguous {
 			logw.printf("warning: %s/%s defining op %q present in a non-contiguous set of versions; using overall min/max (%s..%s)\n",
 				section, name, defOp, versionString(trackedVersions[r.minIdx]), versionString(trackedVersions[r.maxIdx]))
@@ -319,7 +333,7 @@ func deriveSection(section string, entries map[string]entry, versionOps []map[op
 		}
 		out = append(out, resolvedEntry{name: name, support: r.support})
 	}
-	return out
+	return out, nil
 }
 
 // versionSupportHeader is the header comment for the generated file.
@@ -412,6 +426,7 @@ func run(args []string, _ io.Writer, stderr io.Writer) int {
 	sdkDir := fs.String("sdk", "../kion-sdk-go", "path to the kion-sdk-go module (with generated/<v>/oas_client_gen.go)")
 	genConfig := fs.String("config", "codegen/generator_config.yaml", "path to generator_config.yaml")
 	overrides := fs.String("overrides", "codegen/config_overrides.yaml", "path to config_overrides.yaml (merged over the config)")
+	attrOverrides := fs.String("attr-overrides", "codegen/attr_version_overrides.yaml", "path to attr_version_overrides.yaml (its resource_floors raise the derived minimums)")
 	outPath := fs.String("out", "codegen/version_support.yaml", "output path for the derived version-support yaml")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -446,8 +461,23 @@ func run(args []string, _ io.Writer, stderr io.Writer) int {
 		versionOps[i] = ops
 	}
 
-	resources := deriveSection("resources", merged.Resources, versionOps, d)
-	dataSources := deriveSection("data_sources", merged.DataSources, versionOps, d)
+	floors, err := versions.LoadFloors(os.ReadFile, *attrOverrides,
+		versions.SortedKeys(merged.Resources), versions.SortedKeys(merged.DataSources))
+	if err != nil {
+		d.println("kversions:", err)
+		return 1
+	}
+
+	resources, err := deriveSection("resources", merged.Resources, versionOps, floors, d)
+	if err != nil {
+		d.println("kversions:", err)
+		return 1
+	}
+	dataSources, err := deriveSection("data_sources", merged.DataSources, versionOps, floors, d)
+	if err != nil {
+		d.println("kversions:", err)
+		return 1
+	}
 
 	out, err := marshalOutput(resources, dataSources)
 	if err != nil {

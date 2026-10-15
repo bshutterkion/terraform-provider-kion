@@ -14,7 +14,7 @@ import (
 	"terraform-provider-kion/internal/acctest"
 	"terraform-provider-kion/internal/errs"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 func TestAccKionComplianceCheck_basic(t *testing.T) {
@@ -40,7 +40,7 @@ func TestAccKionComplianceCheck_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "compliance_check_type_id", "1"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc compliance check"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "severity_type_id", "3"),
 				),
 			},
@@ -76,7 +76,7 @@ func TestAccKionComplianceCheck_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "compliance_check_type_id", "1"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc compliance check"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "severity_type_id", "3"),
 				),
 			},
@@ -89,7 +89,7 @@ func TestAccKionComplianceCheck_update(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "compliance_check_type_id", "1"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc compliance check updated"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttr(resourceName, "severity_type_id", "4"),
 				),
 			},

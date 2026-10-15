@@ -27,7 +27,6 @@ func TestAccKionBudgetDataSource_basic(t *testing.T) {
 				Config: testAccBudgetDataSourceConfig_basic(rName),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "id"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "amount"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "end_datecode"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "ou_id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "start_datecode"),

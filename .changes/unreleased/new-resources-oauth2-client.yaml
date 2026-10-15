@@ -1,0 +1,6 @@
+kind: NEW RESOURCES
+body: >-
+  `kion_oauth2_client` resource and data source: manage Kion OAuth2 clients
+  (Kion 3.17.3+). The client secret is captured at creation and is not
+  recoverable after import. Changing `is_public` replaces the client.
+time: 2026-10-15T20:30:00Z

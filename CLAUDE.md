@@ -26,7 +26,7 @@ make lint                     # golangci-lint run (config: .golangci.yml)
 
 # CI
 make ci-quick                 # Fast inner loop: fmt, vet, lint, test (same four checks as the pre-push hook)
-make ci                       # Every ci.yml job that can run locally: the docs drift gate, and modules drift + terraform init/validate/test over all 72 (slow)
+make ci                       # Every ci.yml job that can run locally: the docs drift gate, and modules drift + terraform init/validate/test over all 74 (slow)
 
 # Code generation (see codegen/README.md first)
 make generate                 # Regenerate the full generatable surface: version gates + schemas + CRUD + import manifest
@@ -37,7 +37,8 @@ make codegen-check            # Verify generator_config.yaml is in sync (needs t
 
 # New resource: scaffold, then wire into codegen/, then generate
 go run ./cmd/kgen service --name CloudRule --snakename cloud_rule
-# ...add entries to codegen/ (archetype, paths, read shape if private), then make generate
+# ...add entries to codegen/ (archetype, paths, read shape if private), then follow
+# codegen/README.md "Adding a resource": `make generate` cannot bootstrap a new package
 
 # Enumerate a live install into Terraform import blocks
 ./bin/kion-import --url https://kion.example.com --out imports.tf
@@ -89,7 +90,7 @@ Hand-written code is the infrastructure: `internal/flex/` (TF ↔ SDK type conve
 
 ### SDK and version compatibility
 
-Resource code imports the SDK's `generated/v3_16` sub-package (aliased `generated`). The provider does not ship per-Kion release lines: compatibility is a **runtime** mechanism. `codegen/version_support.yaml` records the Kion version range in which each resource's defining API operation exists; the provider reads `GET /api/version` at configure time and gated resources fail with a clear diagnostic against too-old instances.
+Resource code imports the SDK's `generated/v3_17` sub-package (aliased `generated`). The provider does not ship per-Kion release lines: compatibility is a **runtime** mechanism. `codegen/version_support.yaml` records the Kion version range in which each resource's defining API operation exists; the provider reads `GET /api/version` at configure time and gated resources fail with a clear diagnostic against too-old instances.
 
 ### Provider Configuration
 
@@ -154,7 +155,7 @@ wrappers, and `no_read` resources that import as empty shells).
 ## Key Conventions
 
 - Resource names use `kion_` prefix (e.g., `kion_cloud_rule`, `kion_project`)
-- 71 service packages in `internal/service/` (plus the `accounthelper` helper package)
+- 73 service packages in `internal/service/` (plus the `accounthelper` helper package)
 - Linting via golangci-lint v2 (`.golangci.yml`)
 - Generated `*_gen.go` files excluded from all linters
 - `kion-import` enumerates a live install into import blocks; see [docs/IMPORTING.md](docs/IMPORTING.md) and [docs/import-tooling-validation.md](docs/import-tooling-validation.md)
@@ -170,7 +171,7 @@ GitHub Actions only; there is no `.gitlab-ci.yml`. `.github/workflows/ci.yml` ru
 
 Acceptance tests are generated from `codegen/test_values.yaml` (see its header
 for `env_args`/`require_env`/`known_issues`/`prereqs`/`fixtures`/`extra_args`/`hcl:`). Every resource that
-can have one has one — 71 of 72, `gcp_regions` being data-source-only. The
+can have one has one — 72 of 73, `gcp_regions` being data-source-only. The
 entity, parent_list, blended, association, raw_http and no_read archetypes
 derive them, each probing the API the way that archetype reads (get by id,
 list the parent and match, scan the collection, call the private route); what
@@ -187,4 +188,4 @@ and discards it fails. A test needing an install-specific value reads it with
 `acctest.RequireEnv` and skips when unset (`env_args` when the config uses
 the value, `require_env` for a PreCheck-only guard); `docs/TESTING.md` lists them.
 
-Acceptance tests: 4 parallel workers, 120-minute timeout. Sweepers (`make sweep`) clean up orphaned `test-acc`-prefixed resources for the 36 resource types that have one; 14 more cannot be enumerated or deleted through the API and deliberately register nothing, each `sweep.go` saying why (`make crud-force` prints the set). `docs/TESTING.md` lists them. A sweeper only runs if `internal/sweep/sweep_test.go` blank-imports its package; `TestSweeperRegistration` guards both that list and against a sweeper body that never reaches the API.
+Acceptance tests: 4 parallel workers, 120-minute timeout. Sweepers (`make sweep`) clean up orphaned `test-acc`-prefixed resources for the 37 resource types that have one; 14 more cannot be enumerated or deleted through the API and deliberately register nothing, each `sweep.go` saying why (`make crud-force` prints the set). `docs/TESTING.md` lists them. A sweeper only runs if `internal/sweep/sweep_test.go` blank-imports its package; `TestSweeperRegistration` guards both that list and against a sweeper body that never reaches the API.

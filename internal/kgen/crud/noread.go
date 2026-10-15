@@ -135,8 +135,11 @@ func (g *generator) generateNoRead(dir, name string, ops resOps, idx sdkIndex, m
 		if strings.Contains(scan.ListPath, "{id}") && scan.ParentIDTF == "" {
 			return 0, fmt.Errorf("%s: collection path %q is parent-scoped but no *_id attribute matches", name, scan.ListPath)
 		}
-		test, err := execGoTemplate("noreadtest", noReadTestTmpl,
-			buildNoReadTestData(rm, "kion_"+name, scan, tv), name+"_test.go")
+		td, err := buildNoReadTestData(rm, "kion_"+name, scan, tv)
+		if err != nil {
+			return 0, err
+		}
+		test, err := execGoTemplate("noreadtest", noReadTestTmpl, td, name+"_test.go")
 		if err != nil {
 			return 0, err
 		}

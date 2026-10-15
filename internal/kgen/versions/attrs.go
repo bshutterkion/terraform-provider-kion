@@ -10,8 +10,6 @@ import (
 
 	"terraform-provider-kion/internal/kgen/crud"
 	"terraform-provider-kion/internal/kgen/kfs"
-
-	"gopkg.in/yaml.v3"
 )
 
 // Resource gating asks "does this operation exist here". That misses the other
@@ -280,6 +278,7 @@ type attrOverridesFile struct {
 		Min    string `yaml:"min"`
 		Before string `yaml:"before"`
 	} `yaml:"resources"`
+	ResourceFloors map[string]string `yaml:"resource_floors"`
 }
 
 // applyAttrOverrides replaces derived ranges with authored ones, in place. The
@@ -292,8 +291,8 @@ func applyAttrOverrides(windows map[string]map[string][]attrWindow, path string,
 	if err != nil {
 		return
 	}
-	var f attrOverridesFile
-	if err := yaml.Unmarshal(b, &f); err != nil {
+	f, err := decodeAttrOverrides(b)
+	if err != nil {
 		fmt.Fprintf(logw, "attr-versions: %s: %v; ignoring\n", path, err)
 		return
 	}

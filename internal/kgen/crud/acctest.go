@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"go/format"
 	"os"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -40,9 +41,12 @@ type testValues struct {
 	// config does not use; each is checked in PreCheck and skips when unset.
 	RequireEnv []envRequirement `yaml:"require_env"`
 	// KnownIssues are open defects the test is expected to surface.
-	KnownIssues []knownIssue      `yaml:"known_issues"`
-	Create      map[string]string `yaml:"create"`
-	Update      map[string]string `yaml:"update"`
+	KnownIssues []knownIssue `yaml:"known_issues"`
+	// CreateOnlyUnset are create_only attributes this config does not produce,
+	// so the test does not assert them set after create.
+	CreateOnlyUnset []string          `yaml:"create_only_unset"`
+	Create          map[string]string `yaml:"create"`
+	Update          map[string]string `yaml:"update"`
 }
 
 // envRequirement is a skip guard: Reason completes "<Name> must be set to ...".
@@ -140,14 +144,105 @@ type acctestAttr struct {
 	CheckExpr string
 	// IsHCL marks a value that is an expression to emit verbatim.
 	IsHCL bool
+	// Collection marks a list or set attribute, which state holds as name.# plus
+	// one key per element; Set is a set, whose duplicate elements collapse.
+	Collection, Set bool
+}
+
+// Check is the assertion a generated test makes for the attribute after apply.
+// terraform-plugin-testing refuses AttrSet on a list or set itself, so a
+// collection is checked by its element count, exactly when the value says it.
+func (a acctestAttr) Check() string {
+	switch {
+	case a.Collection:
+		if n, ok := a.literalLen(); ok {
+			return fmt.Sprintf("resource.TestCheckResourceAttr(resourceName, %q, %q)", a.Name+".#", strconv.Itoa(n))
+		}
+		return fmt.Sprintf("resource.TestCheckResourceAttrSet(resourceName, %q)", a.Name+".#")
+	case a.IsHCL:
+		return fmt.Sprintf("resource.TestCheckResourceAttrSet(resourceName, %q)", a.Name)
+	default:
+		return fmt.Sprintf("resource.TestCheckResourceAttr(resourceName, %q, %s)", a.Name, a.CheckExpr)
+	}
+}
+
+// literalLen is the element count a collection's value fixes. A set counts only
+// distinct constants: two expressions may evaluate to one element.
+func (a acctestAttr) literalLen() (int, bool) {
+	n, ok := hclListLen(a.Value)
+	if !ok || !a.Set {
+		return n, ok
+	}
+	elems, _ := hclListElems(a.Value)
+	seen := map[string]bool{}
+	for _, e := range elems {
+		if !hclConstant.MatchString(e) {
+			return 0, false
+		}
+		seen[e] = true
+	}
+	return len(seen), true
+}
+
+var hclConstant = regexp.MustCompile(`^("([^"\\]|\\.)*"|-?[0-9.]+|true|false)$`)
+
+// hclListLen counts the elements of a plain HCL tuple literal ([a, b]). A for
+// expression, function call, reference or expansion has no count until apply.
+func hclListLen(v string) (int, bool) {
+	elems, ok := hclListElems(v)
+	return len(elems), ok
+}
+
+func hclListElems(v string) ([]string, bool) {
+	v = strings.TrimSpace(v)
+	if len(v) < 2 || v[0] != '[' || v[len(v)-1] != ']' {
+		return nil, false
+	}
+	inner := v[1 : len(v)-1]
+	var elems []string
+	depth, start, inStr := 0, 0, false
+	for i := 0; i < len(inner); i++ {
+		c := inner[i]
+		switch {
+		case inStr && c == '\\':
+			i++
+		case c == '"':
+			inStr = !inStr
+		case inStr:
+		case c == '[' || c == '{' || c == '(':
+			depth++
+		case c == ']' || c == '}' || c == ')':
+			depth--
+			if depth < 0 {
+				return nil, false // the outer brackets do not enclose one tuple
+			}
+		case c == ',' && depth == 0:
+			elems = append(elems, strings.TrimSpace(inner[start:i]))
+			start = i + 1
+		}
+	}
+	if inStr || depth != 0 {
+		return nil, false
+	}
+	if last := strings.TrimSpace(inner[start:]); last != "" {
+		elems = append(elems, last)
+	}
+	for _, e := range elems {
+		if e == "" || strings.HasPrefix(e, "for ") || strings.HasSuffix(e, "...") {
+			return nil, false
+		}
+	}
+	return elems, true
 }
 
 type acctestData struct {
 	Pkg, Pascal, ResourceType string
 	SDKAlias                  string
+	SDKImport                 string
 	ReadMethod, ReadParams    string
 	ReadIDParam               string
-	IDParamType               string // "int64" | "uint64"
+	IDParamType               string // "int64" | "uint64" | "string"
+	IDFormat                  string // "%d" | "%s"
 	AttrNames                 []string
 	CreateAttrs               []acctestAttr
 	UpdateAttrs               []acctestAttr
@@ -178,6 +273,12 @@ type acctestData struct {
 	RequireEnv         []envRequirement
 	KnownIssues        []acctestKnownIssue
 	ExpectNonEmptyPlan bool
+	// ImportVerifyIgnore are the create_only attributes: an import has no
+	// create response to capture them from, so they are null after import.
+	ImportVerifyIgnore []string
+	// CreateOnlySet are the create_only attributes asserted set after create:
+	// all of them, less those test_values says this config does not produce.
+	CreateOnlySet []string
 }
 
 func buildAcctestData(rm ResourceModel, tv testValues) (acctestData, error) {
@@ -190,10 +291,12 @@ func buildAcctestData(rm ResourceModel, tv testValues) (acctestData, error) {
 		Pascal:       rm.Pascal,
 		ResourceType: "kion_" + rm.Name,
 		SDKAlias:     "generated",
+		SDKImport:    sdkImport(),
 		ReadMethod:   rm.Read.Method.Name,
 		ReadParams:   rm.Read.Method.ParamsType,
 		ReadIDParam:  readIDParam,
 		IDParamType:  readIDType,
+		IDFormat:     idFormat(readIDType),
 	}
 	d.CreateAttrs = sortAttrs(tv.Create, rm)
 	d.UpdateAttrs = sortAttrs(tv.Update, rm)
@@ -203,6 +306,20 @@ func buildAcctestData(rm ResourceModel, tv testValues) (acctestData, error) {
 	d.HasUpdate = rm.Update != nil && len(tv.Update) > 0
 	d.EnvArgs = envArgsFor(tv.EnvArgs)
 	fillGuards(&d, tv)
+	unset := map[string]bool{}
+	for _, n := range tv.CreateOnlyUnset {
+		unset[n] = true
+	}
+	for _, a := range rm.CreateOnly {
+		d.ImportVerifyIgnore = append(d.ImportVerifyIgnore, a.TF)
+		if !unset[a.TF] {
+			d.CreateOnlySet = append(d.CreateOnlySet, a.TF)
+		}
+		delete(unset, a.TF)
+	}
+	if len(unset) > 0 {
+		return acctestData{}, fmt.Errorf("%s test_values: create_only_unset names %v, which are not create_only attributes", rm.Name, sortedKeys(unset))
+	}
 	d.Fixtures = tv.Fixtures
 	d.ExtraArgs = tv.ExtraArgs
 	setCheckExprs(d.CreateAttrs, d.EnvArgs, d.ExtraArgs)
@@ -217,10 +334,14 @@ func buildAcctestData(rm ResourceModel, tv testValues) (acctestData, error) {
 }
 
 // fillConfig populates the configuration half of the payload, shared by every
-// archetype's test builder; the probe half differs per archetype.
-func fillConfig(d *acctestData, tv testValues, stringAttrs map[string]bool, hasUpdate bool) {
-	d.CreateAttrs = sortAttrsByType(tv.Create, stringAttrs)
-	d.UpdateAttrs = sortAttrsByType(tv.Update, stringAttrs)
+// archetype's test builder; the probe half differs per archetype. attrTypes
+// maps each attribute to its model type.
+func fillConfig(d *acctestData, tv testValues, attrTypes map[string]string, hasUpdate bool) error {
+	if len(tv.CreateOnlyUnset) > 0 {
+		return fmt.Errorf("%s test_values: create_only_unset, but this archetype has no create_only attributes", d.Pkg)
+	}
+	d.CreateAttrs = sortAttrsByType(tv.Create, attrTypes)
+	d.UpdateAttrs = sortAttrsByType(tv.Update, attrTypes)
 	for _, a := range d.CreateAttrs {
 		d.AttrNames = append(d.AttrNames, a.Name)
 	}
@@ -236,6 +357,16 @@ func fillConfig(d *acctestData, tv testValues, stringAttrs map[string]bool, hasU
 	d.UpdateUsesRName = usesFormatVerb(d.UpdateAttrs) || verb
 	d.BasicNeedsRName = d.BasicUsesRName || len(d.Fixtures) > 0
 	d.UpdateNeedsRName = d.UpdateUsesRName || len(d.Fixtures) > 0
+	return nil
+}
+
+// modelTypes maps each model attribute to its type.
+func modelTypes(model []ModelField) map[string]string {
+	out := make(map[string]string, len(model))
+	for _, mf := range model {
+		out[mf.TFSDK] = mf.Type
+	}
+	return out
 }
 
 // blendedTestData is the blended payload: the shared configuration fields plus
@@ -246,17 +377,12 @@ type blendedTestData struct {
 	RawRead  *rawReadData
 }
 
-func buildBlendedTestData(d entityData, model []ModelField, tv testValues) blendedTestData {
-	sa := map[string]bool{}
-	for _, mf := range model {
-		sa[mf.TFSDK] = mf.Type == "types.String"
-	}
+func buildBlendedTestData(d entityData, model []ModelField, tv testValues) (blendedTestData, error) {
 	out := blendedTestData{
-		acctestData: acctestData{Pkg: d.Pkg, Pascal: d.Pascal, SDKAlias: d.SDKAlias},
+		acctestData: acctestData{Pkg: d.Pkg, Pascal: d.Pascal, SDKAlias: d.SDKAlias, SDKImport: d.SDKImport},
 		TypeName:    d.TypeName, RawRead: d.RawRead,
 	}
-	fillConfig(&out.acctestData, tv, sa, d.HasUpdate)
-	return out
+	return out, fillConfig(&out.acctestData, tv, modelTypes(model), d.HasUpdate)
 }
 
 // assocTestData is the association payload: shared configuration fields plus
@@ -269,31 +395,25 @@ type assocTestData struct {
 	RespType, DataGo, RecordKeyGo    string
 }
 
-func buildAssocTestData(a assocData, tv testValues) assocTestData {
+func buildAssocTestData(a assocData, tv testValues) (assocTestData, error) {
 	out := assocTestData{
-		acctestData: acctestData{Pkg: a.Pkg, Pascal: a.Pascal, SDKAlias: a.SDKAlias},
+		acctestData: acctestData{Pkg: a.Pkg, Pascal: a.Pascal, SDKAlias: a.SDKAlias, SDKImport: a.SDKImport},
 		TypeName:    a.TypeName, ReadMethod: a.ReadMethod, ReadParams: a.ReadParams,
 		HasParent: a.HasParent, ParentArg: a.ParentArg, ParentTF: a.ParentTF, KeyTF: a.KeyTF,
 		RespType: a.RespType, DataGo: a.DataGo, RecordKeyGo: a.RecordKeyGo,
 	}
-	fillConfig(&out.acctestData, tv, a.StringAttrs, a.HasUpdate)
-	return out
+	return out, fillConfig(&out.acctestData, tv, a.AttrTypes, a.HasUpdate)
 }
 
 // buildRawTestData reuses the blended payload: a raw_http resource reads
 // through the same kind of private route.
-func buildRawTestData(r rawData, model []ModelField, tv testValues) blendedTestData {
-	sa := map[string]bool{}
-	for _, mf := range model {
-		sa[mf.TFSDK] = mf.Type == "types.String"
-	}
+func buildRawTestData(r rawData, model []ModelField, tv testValues) (blendedTestData, error) {
 	out := blendedTestData{
-		acctestData: acctestData{Pkg: r.Pkg, Pascal: r.Pascal, SDKAlias: "generated"},
+		acctestData: acctestData{Pkg: r.Pkg, Pascal: r.Pascal, SDKAlias: "generated", SDKImport: sdkImport()},
 		TypeName:    r.TypeName,
 		RawRead:     &rawReadData{Method: r.ReadMethod, Path: r.ReadPath},
 	}
-	fillConfig(&out.acctestData, tv, sa, r.HasUpdate)
-	return out
+	return out, fillConfig(&out.acctestData, tv, modelTypes(model), r.HasUpdate)
 }
 
 // noReadTestData is the no_read payload: the shared configuration fields plus
@@ -303,58 +423,55 @@ type noReadTestData struct {
 	TypeName, ListPath, ParentIDTF, RecordsKey string
 }
 
-func buildNoReadTestData(rm ResourceModel, typeName string, scan noReadScan, tv testValues) noReadTestData {
-	sa := map[string]bool{}
-	for _, mf := range rm.Fields {
-		sa[mf.TFSDK] = mf.Type == "types.String"
-	}
+func buildNoReadTestData(rm ResourceModel, typeName string, scan noReadScan, tv testValues) (noReadTestData, error) {
 	out := noReadTestData{
-		acctestData: acctestData{Pkg: rm.Name, Pascal: rm.Pascal, SDKAlias: "generated"},
+		acctestData: acctestData{Pkg: rm.Name, Pascal: rm.Pascal, SDKAlias: "generated", SDKImport: sdkImport()},
 		TypeName:    typeName, ListPath: scan.ListPath, ParentIDTF: scan.ParentIDTF, RecordsKey: scan.RecordsKey,
 	}
-	fillConfig(&out.acctestData, tv, sa, rm.Update != nil)
-	return out
+	return out, fillConfig(&out.acctestData, tv, modelTypes(rm.Fields), rm.Update != nil)
 }
 
 // buildParentListTestData fills the same payload from a parent_list resolution,
 // whose read is a list under the parent rather than a get by id.
-func buildParentListTestData(pl parentListData, tv testValues) acctestData {
+func buildParentListTestData(pl parentListData, tv testValues) (acctestData, error) {
 	d := acctestData{
-		Pkg: pl.Pkg, Pascal: pl.Pascal, ResourceType: pl.TypeName, SDKAlias: pl.SDKAlias,
+		Pkg: pl.Pkg, Pascal: pl.Pascal, ResourceType: pl.TypeName, SDKAlias: pl.SDKAlias, SDKImport: pl.SDKImport,
 		ReadMethod: pl.ReadMethod, ReadParams: pl.ReadParams,
 		ParentParam: pl.ParentParam, ParentCast: pl.ParentCast, ParentIDTF: pl.ParentIDTF,
 		ResponseType: pl.ResponseType, RecordIDGo: pl.RecordIDGo, RecordIDOpt: pl.RecordIDOpt,
 	}
-	fillConfig(&d, tv, pl.StringAttrs, pl.HasUpdate)
-	return d
+	return d, fillConfig(&d, tv, pl.AttrTypes, pl.HasUpdate)
 }
 
-// sortAttrsByType is sortAttrs against a set of string-typed attribute names,
-// for archetypes that carry no ResourceModel.
-func sortAttrsByType(m map[string]string, stringAttrs map[string]bool) []acctestAttr {
+// sortAttrsByType is sortAttrs against a map of model types, for archetypes
+// that carry no ResourceModel. An attribute it does not know is unquoted.
+func sortAttrsByType(m map[string]string, attrTypes map[string]string) []acctestAttr {
 	out := make([]acctestAttr, 0, len(m))
 	for k, v := range m {
-		if expr, ok := strings.CutPrefix(v, hclPrefix); ok {
-			out = append(out, acctestAttr{Name: k, Value: expr, IsHCL: true})
-			continue
-		}
-		out = append(out, acctestAttr{Name: k, Value: v, Quoted: stringAttrs[k]})
+		out = append(out, newAcctestAttr(k, v, attrTypes[k], attrTypes[k] == "types.String"))
 	}
 	slices.SortFunc(out, func(a, b acctestAttr) int { return cmp.Compare(a.Name, b.Name) })
 	return out
 }
 
 func sortAttrs(m map[string]string, rm ResourceModel) []acctestAttr {
+	types := modelTypes(rm.Fields)
 	out := make([]acctestAttr, 0, len(m))
 	for k, v := range m {
-		if expr, ok := strings.CutPrefix(v, hclPrefix); ok {
-			out = append(out, acctestAttr{Name: k, Value: expr, IsHCL: true})
-			continue
-		}
-		out = append(out, acctestAttr{Name: k, Value: v, Quoted: attrIsString(rm, k)})
+		out = append(out, newAcctestAttr(k, v, types[k], attrIsString(rm, k)))
 	}
 	slices.SortFunc(out, func(a, b acctestAttr) int { return cmp.Compare(a.Name, b.Name) })
 	return out
+}
+
+func newAcctestAttr(name, value, modelType string, quoted bool) acctestAttr {
+	a := acctestAttr{Name: name, Value: value, Quoted: quoted}
+	if expr, ok := strings.CutPrefix(value, hclPrefix); ok {
+		a = acctestAttr{Name: name, Value: expr, IsHCL: true}
+	}
+	a.Collection = modelType == "types.List" || modelType == "types.Set"
+	a.Set = modelType == "types.Set"
+	return a
 }
 
 // setCheckExprs fills in each attribute's CheckExpr. A value with no verb is
@@ -421,14 +538,21 @@ func renderResourceTest(rm ResourceModel, tv testValues) ([]byte, error) {
 	return renderTest("resourcetest", resourceTestTmpl, rm, tv)
 }
 
-func renderDataSourceTest(rm ResourceModel, tv testValues) ([]byte, error) {
-	return renderTest("datasourcetest", dataSourceTestTmpl, rm, tv)
+// renderDataSourceTest renders the data source test; dsAttrs are the
+// attributes the data source's schema has, the only ones it may assert.
+func renderDataSourceTest(rm ResourceModel, tv testValues, dsAttrs []string) ([]byte, error) {
+	return renderTest("datasourcetest", dataSourceTestTmpl, rm, tv, func(d *acctestData) {
+		d.AttrNames = slices.DeleteFunc(d.AttrNames, func(n string) bool { return !slices.Contains(dsAttrs, n) })
+	})
 }
 
-func renderTest(name, tmpl string, rm ResourceModel, tv testValues) ([]byte, error) {
+func renderTest(name, tmpl string, rm ResourceModel, tv testValues, adjust ...func(*acctestData)) ([]byte, error) {
 	data, err := buildAcctestData(rm, tv)
 	if err != nil {
 		return nil, err
+	}
+	for _, f := range adjust {
+		f(&data)
 	}
 	t, err := template.New(name).Parse(tmpl)
 	if err != nil {

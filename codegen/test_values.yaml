@@ -29,11 +29,15 @@
 #              expect_non_empty_plan: true sets ExpectNonEmptyPlan on every
 #              apply step, for a defect that leaves the plan dirty. Remove the
 #              entry when the issue closes.
+#   create_only_unset  create_only attributes (crud_archetypes.yaml) this config
+#              does not produce. Every other one is asserted set after create.
 #
 # A value prefixed "hcl:" is an expression, not a literal: emitted unquoted and
 # asserted only for presence, since a reference like kion_project.test.id has no
 # value until apply. Use it for references, jsonencode bodies, and nested
-# objects. Everything else is compared against the value the config used, so a
+# objects. A list or set is asserted by element count (name.#): the count when
+# the value is a plain [a, b] literal, presence of the count otherwise.
+# Everything else is compared against the value the config used, so a
 # resource that accepts an attribute and discards it fails the test.
 resources:
   # payer_id is optional in the schema and the spec, and REQUIRED by
@@ -46,6 +50,21 @@ resources:
     update:
       name: "test-acc-%[1]s-upd"
       payer_id: "%[2]s"
+  oauth2_client:
+    create:
+      name: "test-acc-%[1]s"
+      description: "terraform acceptance test"
+      grant_types: "hcl:[\"authorization_code\"]"
+      redirect_uris: "hcl:[\"https://example.com/callback\"]"
+      allowed_scopes: "hcl:[\"api\"]"
+      is_public: "false"
+    update:
+      name: "test-acc-%[1]s"
+      description: "terraform acceptance test (updated)"
+      grant_types: "hcl:[\"authorization_code\"]"
+      redirect_uris: "hcl:[\"https://example.com/callback\", \"https://example.com/cb2\"]"
+      allowed_scopes: "hcl:[\"api\"]"
+      is_public: "false"
   label:
     create:
       color: "#0088ff"

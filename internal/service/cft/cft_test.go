@@ -14,7 +14,7 @@ import (
 	"terraform-provider-kion/internal/acctest"
 	"terraform-provider-kion/internal/errs"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 func TestAccKionCft_basic(t *testing.T) {
@@ -38,9 +38,9 @@ func TestAccKionCft_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc CFT"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttrSet(resourceName, "policy"),
-					resource.TestCheckResourceAttrSet(resourceName, "regions"),
+					resource.TestCheckResourceAttr(resourceName, "regions.#", "1"),
 				),
 			},
 			{
@@ -73,9 +73,9 @@ func TestAccKionCft_update(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc CFT"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttrSet(resourceName, "policy"),
-					resource.TestCheckResourceAttrSet(resourceName, "regions"),
+					resource.TestCheckResourceAttr(resourceName, "regions.#", "1"),
 				),
 			},
 			{
@@ -85,9 +85,9 @@ func TestAccKionCft_update(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttr(resourceName, "description", "test-acc CFT updated"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttrSet(resourceName, "policy"),
-					resource.TestCheckResourceAttrSet(resourceName, "regions"),
+					resource.TestCheckResourceAttr(resourceName, "regions.#", "1"),
 				),
 			},
 			{

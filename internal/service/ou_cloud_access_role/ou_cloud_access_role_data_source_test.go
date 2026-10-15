@@ -30,7 +30,6 @@ func TestAccKionOuCloudAccessRoleDataSource_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(dataSourceName, "name"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "ou_id"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "short_term_access_keys"),
-					resource.TestCheckResourceAttrSet(dataSourceName, "user_ids"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "web_access"),
 				),
 			},

@@ -14,7 +14,7 @@ import (
 	"terraform-provider-kion/internal/acctest"
 	"terraform-provider-kion/internal/errs"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 func TestAccKionGlobalPermissionMapping_basic(t *testing.T) {
@@ -38,7 +38,7 @@ func TestAccKionGlobalPermissionMapping_basic(t *testing.T) {
 					testAccCheckGlobalPermissionMappingExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttrSet(resourceName, "app_role_id"),
-					resource.TestCheckResourceAttrSet(resourceName, "user_groups_ids"),
+					resource.TestCheckResourceAttrSet(resourceName, "user_groups_ids.#"),
 				),
 			},
 		},

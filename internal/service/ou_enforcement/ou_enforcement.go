@@ -16,7 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/flex"
@@ -139,8 +139,8 @@ func (r *ou_enforcementResource) Create(ctx context.Context, req resource.Create
 		ThresholdType:            flex.OptStringFromFramework(plan.ThresholdType),
 		Timeframe:                flex.StringValueFromFramework(plan.Timeframe),
 		TriggerPlannedAmountType: flex.OptStringFromFramework(plan.TriggerPlannedAmountType),
-		UgroupIds:                generated.OptNilUint64Array{Value: ugroupIds, Set: true},
-		UserIds:                  generated.OptNilUint64Array{Value: userIds, Set: true},
+		UgroupIds:                generated.OptNilUint64Array{Value: ugroupIds, Set: !plan.UserGroupIds.IsUnknown()},
+		UserIds:                  generated.OptNilUint64Array{Value: userIds, Set: !plan.UserIds.IsUnknown()},
 	}
 
 	out, err := conn.CreateOUEnforcement(ctx, input, generated.CreateOUEnforcementParams{ID: uint64(parentID)})
@@ -266,8 +266,8 @@ func expandOuEnforcementUpdate(ctx context.Context, plan OuEnforcementModel) (*g
 		ThresholdType:            flex.OptStringFromFramework(plan.ThresholdType),
 		Timeframe:                flex.OptStringFromFramework(plan.Timeframe),
 		TriggerPlannedAmountType: flex.OptStringFromFramework(plan.TriggerPlannedAmountType),
-		UgroupIds:                generated.OptNilUint64Array{Value: ugroupIds, Set: true},
-		UserIds:                  generated.OptNilUint64Array{Value: userIds, Set: true},
+		UgroupIds:                generated.OptNilUint64Array{Value: ugroupIds, Set: !plan.UserGroupIds.IsUnknown()},
+		UserIds:                  generated.OptNilUint64Array{Value: userIds, Set: !plan.UserIds.IsUnknown()},
 	}, diags
 }
 

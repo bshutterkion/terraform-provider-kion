@@ -1,0 +1,6 @@
+kind: NOTES
+body: >-
+  The provider now compiles against Kion API v3_17 (kion-sdk-go 0.14.0). Kion
+  3.14 through 3.17 remain supported through the runtime version gates; no
+  configuration or state changes.
+time: 2026-10-15T18:30:00Z

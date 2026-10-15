@@ -14,7 +14,7 @@ import (
 	"terraform-provider-kion/internal/acctest"
 	"terraform-provider-kion/internal/errs"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 func TestAccKionGcpIamRole_basic(t *testing.T) {
@@ -38,8 +38,8 @@ func TestAccKionGcpIamRole_basic(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttr(resourceName, "gcp_role_launch_stage", "2"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
-					resource.TestCheckResourceAttrSet(resourceName, "role_permissions"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "role_permissions.#", "1"),
 				),
 			},
 			{
@@ -72,8 +72,8 @@ func TestAccKionGcpIamRole_update(t *testing.T) {
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttr(resourceName, "gcp_role_launch_stage", "2"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
-					resource.TestCheckResourceAttrSet(resourceName, "role_permissions"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "role_permissions.#", "1"),
 				),
 			},
 			{
@@ -81,11 +81,11 @@ func TestAccKionGcpIamRole_update(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckGcpIamRoleExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
-					resource.TestCheckResourceAttrSet(resourceName, "car_restricted_user_group_ids"),
+					resource.TestCheckResourceAttr(resourceName, "car_restricted_user_group_ids.#", "0"),
 					resource.TestCheckResourceAttr(resourceName, "gcp_role_launch_stage", "2"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
-					resource.TestCheckResourceAttrSet(resourceName, "role_permissions"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "role_permissions.#", "1"),
 				),
 			},
 			{

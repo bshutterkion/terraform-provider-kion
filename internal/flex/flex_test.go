@@ -9,7 +9,7 @@ import (
 	"github.com/go-faster/jx"
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,6 +39,15 @@ func TestStringToFramework(t *testing.T) {
 func TestOptStringToFramework(t *testing.T) {
 	assert.Equal(t, types.StringValue("hello"), flex.OptStringToFramework(generated.OptString{Value: "hello", Set: true}))
 	assert.Equal(t, types.StringNull(), flex.OptStringToFramework(generated.OptString{}))
+}
+
+// A create_only secret is captured through this: a public OAuth client answers
+// "" for its secret, which must store as null.
+func TestOptStringToFrameworkNullIfEmpty(t *testing.T) {
+	assert.Equal(t, types.StringValue("s3cr3t"), flex.OptStringToFrameworkNullIfEmpty(generated.OptString{Value: "s3cr3t", Set: true}))
+	assert.Equal(t, types.StringNull(), flex.OptStringToFrameworkNullIfEmpty(generated.OptString{Value: "", Set: true}))
+	assert.Equal(t, types.StringNull(), flex.OptStringToFrameworkNullIfEmpty(generated.OptString{}))
+	assert.Equal(t, types.StringNull(), flex.OptStringToFrameworkNullIfEmpty(generated.NewOptString("")))
 }
 
 // --- Int64 ---

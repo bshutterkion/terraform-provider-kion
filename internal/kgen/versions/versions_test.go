@@ -261,7 +261,8 @@ func TestDeriveSection(t *testing.T) {
 	})
 
 	var log bytes.Buffer
-	out := deriveSection("resources", entries, versionOps, &log)
+	out, err := deriveSection("resources", entries, versionOps, nil, &log)
+	require.NoError(t, err)
 
 	// Sorted by name; only "dropped" and "new" emit.
 	require.Len(t, out, 2)

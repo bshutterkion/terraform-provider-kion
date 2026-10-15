@@ -14,7 +14,7 @@ import (
 	"terraform-provider-kion/internal/acctest"
 	"terraform-provider-kion/internal/errs"
 
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_17"
 )
 
 func TestAccKionAzureRole_basic(t *testing.T) {
@@ -40,7 +40,7 @@ func TestAccKionAzureRole_basic(t *testing.T) {
 					testAccCheckAzureRoleExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttrSet(resourceName, "role_permissions"),
 				),
 			},
@@ -76,7 +76,7 @@ func TestAccKionAzureRole_update(t *testing.T) {
 					testAccCheckAzureRoleExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttrSet(resourceName, "role_permissions"),
 				),
 			},
@@ -85,9 +85,9 @@ func TestAccKionAzureRole_update(t *testing.T) {
 				Check: resource.ComposeAggregateTestCheckFunc(
 					testAccCheckAzureRoleExists(ctx, resourceName),
 					resource.TestCheckResourceAttrSet(resourceName, "id"),
-					resource.TestCheckResourceAttrSet(resourceName, "car_restricted_user_group_ids"),
+					resource.TestCheckResourceAttr(resourceName, "car_restricted_user_group_ids.#", "0"),
 					resource.TestCheckResourceAttr(resourceName, "name", fmt.Sprintf("%[1]s", rName)),
-					resource.TestCheckResourceAttrSet(resourceName, "owner_user_ids"),
+					resource.TestCheckResourceAttr(resourceName, "owner_user_ids.#", "1"),
 					resource.TestCheckResourceAttrSet(resourceName, "role_permissions"),
 				),
 			},

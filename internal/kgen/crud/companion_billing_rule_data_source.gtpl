@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	generated "github.com/kionsoftware/kion-sdk-go/generated/v3_16"
+	generated "{{.SDKImport}}"
 
 	"terraform-provider-kion/internal/errs"
 	"terraform-provider-kion/internal/framework"
@@ -56,7 +56,8 @@ func (d *billing_ruleDataSource) Read(ctx context.Context, req datasource.ReadRe
 		return
 	}
 
-	out, err := conn.GetBillingRule(ctx, generated.GetBillingRuleParams{ID: data.Id.ValueInt64()})
+{{with .Op "GET /v3/billing-rule/{id}"}}
+	out, err := conn.{{.Name}}(ctx, generated.{{.Params}}{ID: data.Id.ValueInt64()})
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", DSNameBillingRule), err.Error())
 		return
@@ -67,11 +68,12 @@ func (d *billing_ruleDataSource) Read(ctx context.Context, req datasource.ReadRe
 		return
 	}
 
-	api, ok := out.(*generated.BillingRuleResponse)
-	if !ok || api.Data == nil {
+	api, ok := out.(*generated.{{.Resp}})
+	if !ok || {{if .DataPtr}}api.Data == nil{{else}}!api.Data.Set{{end}} {
 		resp.Diagnostics.Append(errs.ResponseDiagnostics("reading "+DSNameBillingRule, out)...)
 		return
 	}
+{{- end}}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
