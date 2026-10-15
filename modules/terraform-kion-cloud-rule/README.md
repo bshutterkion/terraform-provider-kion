@@ -19,13 +19,13 @@ module "cloud_rule" {
 | Name | Version |
 | ---- | ------- |
 | terraform | >= 1.0 |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Modules
 
@@ -35,7 +35,7 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
-| [kion_cloud_rule.this](https://registry.terraform.io/providers/kionsoftware/kion/1.0.0/docs/resources/cloud_rule) | resource |
+| [kion_cloud_rule.this](https://registry.terraform.io/providers/kionsoftware/kion/latest/docs/resources/cloud_rule) | resource |
 
 ## Inputs
 

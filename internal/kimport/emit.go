@@ -105,6 +105,23 @@ func RenderImports(results []Result, providerVersion string) string {
 	return b.String()
 }
 
+// AllReadsFailed reports whether every resource that was read failed, as a
+// rejected API key or an unreachable install does. Unsupported types were never
+// read, so they neither fail nor rescue a run.
+func AllReadsFailed(results []Result) bool {
+	read := 0
+	for _, r := range results {
+		switch r.Status {
+		case "unsupported":
+		case "error":
+			read++
+		default:
+			return false
+		}
+	}
+	return read > 0
+}
+
 // partition splits results into gaps -- unsupported/error results, reported
 // under "Not imported" -- and caveats: a successful read (status "ok" or
 // "empty") that still carries a real gap in Reason, such as records skipped

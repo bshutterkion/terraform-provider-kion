@@ -20,13 +20,13 @@ module "oauth2_client" {
 | Name | Version |
 | ---- | ------- |
 | terraform | >= 1.0 |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Modules
 
@@ -36,7 +36,7 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
-| [kion_oauth2_client.this](https://registry.terraform.io/providers/kionsoftware/kion/1.0.0/docs/resources/oauth2_client) | resource |
+| [kion_oauth2_client.this](https://registry.terraform.io/providers/kionsoftware/kion/latest/docs/resources/oauth2_client) | resource |
 
 ## Inputs
 

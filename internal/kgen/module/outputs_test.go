@@ -26,3 +26,12 @@ func TestOutputsTF_sensitiveComputedAttribute(t *testing.T) {
 		t.Errorf("id output is marked sensitive:\n%s", got)
 	}
 }
+
+// An exact pin makes a module usable with one provider release only, and
+// conflicts with the lower bound kion-import writes into the same root.
+func TestVersionsTF_lowerBound(t *testing.T) {
+	t.Parallel()
+	if got := versionsTF(DefaultProviderConstraint); !strings.Contains(got, `version = ">= 1.0.0"`) {
+		t.Errorf("versions.tf does not carry a lower bound:\n%s", got)
+	}
+}

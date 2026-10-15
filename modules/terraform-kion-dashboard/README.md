@@ -18,13 +18,13 @@ module "dashboard" {
 | Name | Version |
 | ---- | ------- |
 | terraform | >= 1.0 |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Modules
 
@@ -34,7 +34,7 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
-| [kion_dashboard.this](https://registry.terraform.io/providers/kionsoftware/kion/1.0.0/docs/resources/dashboard) | resource |
+| [kion_dashboard.this](https://registry.terraform.io/providers/kionsoftware/kion/latest/docs/resources/dashboard) | resource |
 
 ## Inputs
 

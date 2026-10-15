@@ -19,13 +19,13 @@ module "global_permission_mapping" {
 | Name | Version |
 | ---- | ------- |
 | terraform | >= 1.0 |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Modules
 
@@ -35,7 +35,7 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
-| [kion_global_permission_mapping.this](https://registry.terraform.io/providers/kionsoftware/kion/1.0.0/docs/resources/global_permission_mapping) | resource |
+| [kion_global_permission_mapping.this](https://registry.terraform.io/providers/kionsoftware/kion/latest/docs/resources/global_permission_mapping) | resource |
 
 ## Inputs
 

@@ -18,13 +18,13 @@ module "project_line_item" {
 | Name | Version |
 | ---- | ------- |
 | terraform | >= 1.0 |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Modules
 
@@ -34,7 +34,7 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
-| [kion_project_line_item.this](https://registry.terraform.io/providers/kionsoftware/kion/1.0.0/docs/resources/project_line_item) | resource |
+| [kion_project_line_item.this](https://registry.terraform.io/providers/kionsoftware/kion/latest/docs/resources/project_line_item) | resource |
 
 ## Inputs
 

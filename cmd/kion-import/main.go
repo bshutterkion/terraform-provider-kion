@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -21,6 +22,9 @@ import (
 	"terraform-provider-kion/internal/kgen/importmanifest"
 	"terraform-provider-kion/internal/kimport"
 )
+
+// version is the release, set by goreleaser's ldflags; a source build is "dev".
+var version = "dev"
 
 var (
 	flagURL             string
@@ -38,6 +42,13 @@ var (
 )
 
 func main() {
+	if err := newRootCmd().Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+}
+
+func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "kion-import",
 		Short: "Enumerate a Kion install into Terraform import blocks",
@@ -50,17 +61,20 @@ writes a Terraform configuration of import blocks.
   terraform apply
 
 The API key is read from --api-key or the KION_APIKEY environment variable.`,
-		RunE: run,
+		RunE:    run,
+		Version: version,
+		// A runtime failure is not a usage mistake; main prints the error once.
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
 	root.Flags().StringVar(&flagURL, "url", os.Getenv("KION_URL"), "Kion install URL")
-	root.Flags().StringVar(&flagAPIKey, "api-key", os.Getenv("KION_APIKEY"), "Kion app API key")
+	// Not defaulted from KION_APIKEY: a flag default is printed by -h.
+	root.Flags().StringVar(&flagAPIKey, "api-key", "", "Kion app API key (default $KION_APIKEY)")
 	root.Flags().StringVar(&flagOut, "out", "imports.tf", "output file")
-	// 1.0.0 is deliberate, and matches MODULE_PROVIDER_VERSION in the Makefile
-	// and the pin in every modules/*/versions.tf. The registry has no 1.0.0 yet;
-	// the point is that a generated config and a generated module agree, and
-	// that a locally-installed build resolves without reaching the registry.
-	root.Flags().StringVar(&flagProviderVersion, "provider-version", "1.0.0",
+	// A lower bound at this build's own release: the manifest names types older
+	// providers lack. modules/*/versions.tf carry ">= 1.0.0", which overlaps it.
+	root.Flags().StringVar(&flagProviderVersion, "provider-version", defaultProviderConstraint(version),
 		"provider version constraint written to the generated config")
 	root.Flags().BoolVar(&flagSkipSSL, "skip-ssl-validation", false, "skip TLS verification")
 	root.Flags().StringVar(&flagManifest, "manifest", "",
@@ -81,11 +95,7 @@ The API key is read from --api-key or the KION_APIKEY environment variable.`,
 			"directly (e.g. on localhost), where the API is served at the root")
 
 	root.AddCommand(newRewriteRefsCmd())
-
-	if err := root.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		os.Exit(1)
-	}
+	return root
 }
 
 func run(_ *cobra.Command, _ []string) error {
@@ -113,6 +123,9 @@ func run(_ *cobra.Command, _ []string) error {
 
 	if flagURL == "" {
 		return fmt.Errorf("--url is required (or set KION_URL)")
+	}
+	if flagAPIKey == "" {
+		flagAPIKey = os.Getenv("KION_APIKEY")
 	}
 	if flagAPIKey == "" {
 		return fmt.Errorf("--api-key is required (or set KION_APIKEY)")
@@ -145,7 +158,11 @@ func run(_ *cobra.Command, _ []string) error {
 			fmt.Printf("%-45s %-12s %5d  %s\n", r.TFType, r.Status, len(r.Records), r.Reason)
 		}
 		fmt.Print(kimport.FormatReport(results))
-		return nil
+		return errIfAllFailed(results)
+	}
+	if err := errIfAllFailed(results); err != nil {
+		fmt.Print(kimport.FormatReport(results))
+		return err
 	}
 
 	out := kimport.RenderImports(results, flagProviderVersion)
@@ -156,6 +173,25 @@ func run(_ *cobra.Command, _ []string) error {
 	fmt.Print(kimport.FormatReport(results))
 	fmt.Printf("\nNext:\n  terraform init\n  terraform plan -generate-config-out=generated.tf\n")
 	return nil
+}
+
+// errIfAllFailed turns a run that read nothing -- a rejected key, an unreachable
+// install, a wrong --api-prefix -- into a failure instead of an empty imports.tf.
+func errIfAllFailed(results []kimport.Result) error {
+	if kimport.AllReadsFailed(results) {
+		return fmt.Errorf("every read failed; nothing written (check --url, --api-prefix and the API key)")
+	}
+	return nil
+}
+
+// defaultProviderConstraint is ">= <release>" for a released binary and
+// ">= 1.0.0" for a source build, which has no release to name.
+func defaultProviderConstraint(v string) string {
+	v = strings.TrimPrefix(v, "v")
+	if v == "" || v == "dev" {
+		return ">= 1.0.0"
+	}
+	return ">= " + v
 }
 
 // listTypes prints what this build can import, so --include and --exclude can be

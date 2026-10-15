@@ -19,13 +19,13 @@ module "category" {
 | Name | Version |
 | ---- | ------- |
 | terraform | >= 1.0 |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Modules
 
@@ -35,7 +35,7 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
-| [kion_category.this](https://registry.terraform.io/providers/kionsoftware/kion/1.0.0/docs/resources/category) | resource |
+| [kion_category.this](https://registry.terraform.io/providers/kionsoftware/kion/latest/docs/resources/category) | resource |
 
 ## Inputs
 

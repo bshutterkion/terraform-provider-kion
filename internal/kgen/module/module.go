@@ -325,6 +325,11 @@ func outputsTF(typeName string, outputs []output) string {
 	return b.String()
 }
 
+// DefaultProviderConstraint is a lower bound, not a pin: an exact version makes
+// a module usable with one provider release only, and cannot be satisfied beside
+// the ">= <release>" kion-import writes into the same root.
+const DefaultProviderConstraint = ">= 1.0.0"
+
 func versionsTF(providerVersion string) string {
 	return fmt.Sprintf(`%sterraform {
   required_version = ">= 1.0"

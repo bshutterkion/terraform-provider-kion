@@ -20,13 +20,13 @@ module "ou_cloud_access_role" {
 | Name | Version |
 | ---- | ------- |
 | terraform | >= 1.0 |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Modules
 
@@ -36,7 +36,7 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
-| [kion_ou_cloud_access_role.this](https://registry.terraform.io/providers/kionsoftware/kion/1.0.0/docs/resources/ou_cloud_access_role) | resource |
+| [kion_ou_cloud_access_role.this](https://registry.terraform.io/providers/kionsoftware/kion/latest/docs/resources/ou_cloud_access_role) | resource |
 
 ## Inputs
 

@@ -25,9 +25,9 @@ TEST ?= $$(go list ./... | grep -v 'vendor')
 # ci-fmt and pre-push hook. vet/lint/test use `go list ./...`, which stops at
 # those worktrees' own module boundaries and never had the problem.
 GOFILES := $(shell git ls-files --cached --others --exclude-standard '*.go' 2>/dev/null)
-# The provider version modules/*/versions.tf pins. The terraform-driven targets
-# serve the working-tree provider under this version so `terraform init` in a
-# module resolves without reaching the registry, which has no 1.0.0 yet.
+# The version the terraform-driven targets serve the working-tree provider
+# under, from a local mirror. It must satisfy modules/*/versions.tf (">= 1.0.0")
+# so `terraform init` in a module resolves without reaching the registry.
 MODULE_PROVIDER_VERSION := 1.0.0
 # Defaults for the import rewrite; override on the command line.
 IMPORT_IN ?= generated.tf

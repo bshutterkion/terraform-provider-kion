@@ -20,13 +20,13 @@ module "billing_source_gcp" {
 | Name | Version |
 | ---- | ------- |
 | terraform | >= 1.0 |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| kion | 1.0.0 |
+| kion | >= 1.0.0 |
 
 ## Modules
 
@@ -36,7 +36,7 @@ No modules.
 
 | Name | Type |
 | ---- | ---- |
-| [kion_billing_source_gcp.this](https://registry.terraform.io/providers/kionsoftware/kion/1.0.0/docs/resources/billing_source_gcp) | resource |
+| [kion_billing_source_gcp.this](https://registry.terraform.io/providers/kionsoftware/kion/latest/docs/resources/billing_source_gcp) | resource |
 
 ## Inputs
 
