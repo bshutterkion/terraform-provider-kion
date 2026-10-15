@@ -18,7 +18,7 @@ variable "grant_types" {
 }
 
 variable "is_public" {
-  description = "Whether the client is public (no secret)."
+  description = "Whether the client is public (no secret). Changing it replaces the client, which issues a new secret."
   type        = bool
   default     = null
 }

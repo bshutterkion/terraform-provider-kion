@@ -46,7 +46,7 @@ No modules.
 | name | Name of the OAuth client. | `string` | n/a | yes |
 | allowed\_scopes | Kion product scopes this client may request. Supported values are "mcp" and "api". An empty list grants no Kion product access. | `list(string)` | `null` | no |
 | description | Description of the OAuth client. | `string` | `null` | no |
-| is\_public | Whether the client is public (no secret). | `bool` | `null` | no |
+| is\_public | Whether the client is public (no secret). Changing it replaces the client, which issues a new secret. | `bool` | `null` | no |
 | owner\_user\_id | Owner of the client. Omitted from configuration, the current owner is kept; Kion makes a client with no owner a global application. | `number` | `null` | no |
 | redirect\_uris | Allowed redirect URIs. | `list(string)` | `null` | no |
 | service\_account\_user\_id | Service account user ID for client\_credentials grant. | `number` | `null` | no |

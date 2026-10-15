@@ -61,10 +61,11 @@ func Oauth2ClientResourceSchema(ctx context.Context) schema.Schema {
 			"is_public": schema.BoolAttribute{
 				Optional:            true,
 				Computed:            true,
-				Description:         "Whether the client is public (no secret).",
-				MarkdownDescription: "Whether the client is public (no secret).",
+				Description:         "Whether the client is public (no secret). Changing it replaces the client, which issues a new secret.",
+				MarkdownDescription: "Whether the client is public (no secret). Changing it replaces the client, which issues a new secret.",
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.UseStateForUnknown(),
+					boolplanmodifier.RequiresReplace(),
 				},
 			},
 			"name": schema.StringAttribute{

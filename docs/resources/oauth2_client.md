@@ -41,7 +41,7 @@ resource "kion_oauth2_client" "example" {
 - `allowed_scopes` (List of String) Kion product scopes this client may request. Supported values are "mcp" and "api".
 An empty list grants no Kion product access.
 - `description` (String) Description of the OAuth client.
-- `is_public` (Boolean) Whether the client is public (no secret).
+- `is_public` (Boolean) Whether the client is public (no secret). Changing it replaces the client, which issues a new secret.
 - `owner_user_id` (Number) Owner of the client. Omitted from configuration, the current owner is kept; Kion makes a client with no owner a global application.
 - `redirect_uris` (List of String) Allowed redirect URIs.
 - `service_account_user_id` (Number) Service account user ID for client_credentials grant.
