@@ -133,7 +133,7 @@ TF_ACC=1 go test -v -timeout 120m ./internal/provider/
 ## Sweepers
 
 Sweepers clean up orphaned test resources left behind by failed tests — **for the
-36 resource types that have one.** 14 more cannot be swept and register nothing;
+37 resource types that have one.** 14 more cannot be swept and register nothing;
 see [Resources without a sweeper](#resources-without-a-sweeper). Read that list
 before assuming a clean run means a clean install.
 

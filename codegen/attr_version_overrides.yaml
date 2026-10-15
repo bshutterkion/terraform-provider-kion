@@ -18,7 +18,9 @@
 # neither a resource nor a data source, fails generation. It also gates an entry
 # present in every tracked version. Verify against the release notes; a floor
 # that is too low is worse than none.
-resource_floors: {}
+resource_floors:
+  # /v3/oauth2/clients: absent from the tracked 3.17.1 spec, present in 3.17.3.
+  oauth2_client: "3.17.3"
 
 resources:
   # Cloud access role types (3.15.13, 3.16.5 and 3.17.1). The public API

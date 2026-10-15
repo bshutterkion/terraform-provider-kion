@@ -52,6 +52,7 @@ import (
 	"terraform-provider-kion/internal/service/idms_open_id_access_rule"
 	"terraform-provider-kion/internal/service/idms_open_id_group_association"
 	"terraform-provider-kion/internal/service/label"
+	"terraform-provider-kion/internal/service/oauth2_client"
 	"terraform-provider-kion/internal/service/ou"
 	"terraform-provider-kion/internal/service/ou_cloud_access_role"
 	"terraform-provider-kion/internal/service/ou_cloud_access_role_exemption"
@@ -130,6 +131,7 @@ func ServicePackages() []conns.ServicePackage {
 		idms_open_id_access_rule.NewServicePackage(),
 		idms_open_id_group_association.NewServicePackage(),
 		label.NewServicePackage(),
+		oauth2_client.NewServicePackage(),
 		ou.NewServicePackage(),
 		ou_cloud_access_role.NewServicePackage(),
 		ou_cloud_access_role_exemption.NewServicePackage(),

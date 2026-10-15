@@ -2443,6 +2443,52 @@
       ]
     },
     {
+      "tf_type": "kion_oauth2_client",
+      "path": "terraform-kion-oauth2-client",
+      "variables": [
+        {
+          "attr": "allowed_scopes",
+          "var": "allowed_scopes",
+          "block": false
+        },
+        {
+          "attr": "description",
+          "var": "description",
+          "block": false
+        },
+        {
+          "attr": "grant_types",
+          "var": "grant_types",
+          "block": false
+        },
+        {
+          "attr": "is_public",
+          "var": "is_public",
+          "block": false
+        },
+        {
+          "attr": "name",
+          "var": "name",
+          "block": false
+        },
+        {
+          "attr": "owner_user_id",
+          "var": "owner_user_id",
+          "block": false
+        },
+        {
+          "attr": "redirect_uris",
+          "var": "redirect_uris",
+          "block": false
+        },
+        {
+          "attr": "service_account_user_id",
+          "var": "service_account_user_id",
+          "block": false
+        }
+      ]
+    },
+    {
       "tf_type": "kion_ou",
       "path": "terraform-kion-ou",
       "variables": [

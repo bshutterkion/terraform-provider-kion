@@ -39,6 +39,7 @@ import (
 	_ "terraform-provider-kion/internal/service/idms"
 	_ "terraform-provider-kion/internal/service/idms_group_association"
 	_ "terraform-provider-kion/internal/service/label"
+	_ "terraform-provider-kion/internal/service/oauth2_client"
 	_ "terraform-provider-kion/internal/service/ou"
 	_ "terraform-provider-kion/internal/service/ou_cloud_access_role"
 	_ "terraform-provider-kion/internal/service/ou_note"

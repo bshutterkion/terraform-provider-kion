@@ -46,6 +46,21 @@ resources:
     update:
       name: "test-acc-%[1]s-upd"
       payer_id: "%[2]s"
+  oauth2_client:
+    create:
+      name: "test-acc-%[1]s"
+      description: "terraform acceptance test"
+      grant_types: "hcl:[\"authorization_code\"]"
+      redirect_uris: "hcl:[\"https://example.com/callback\"]"
+      allowed_scopes: "hcl:[\"api\"]"
+      is_public: "false"
+    update:
+      name: "test-acc-%[1]s"
+      description: "terraform acceptance test (updated)"
+      grant_types: "hcl:[\"authorization_code\"]"
+      redirect_uris: "hcl:[\"https://example.com/callback\", \"https://example.com/cb2\"]"
+      allowed_scopes: "hcl:[\"api\"]"
+      is_public: "false"
   label:
     create:
       color: "#0088ff"

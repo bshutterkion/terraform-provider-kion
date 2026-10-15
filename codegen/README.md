@@ -266,9 +266,28 @@ parameters into their schemas.
 go run ./cmd/kgen service --name CloudRule --snakename cloud_rule
 # add entries to crud_archetypes.yaml, and to config_overrides.yaml if the paths
 # do not derive, then:
-make generate          # version gates, schemas, CRUD
+go run ./cmd/kconfig gen --write   # the resource must be in generator_config.yaml
+go build -o /tmp/kgen ./cmd/kgen   # BEFORE generating: see below
+SDK_DIR=$(go list -m -f '{{.Dir}}' github.com/kionsoftware/kion-sdk-go)
+make version-support
+for pass in 1 2; do
+  /tmp/kgen versions --sdk "$SDK_DIR"
+  /tmp/kgen schemas
+  [ $pass = 1 ] && /tmp/kgen crud --sdk "$SDK_DIR" --force
+done
+/tmp/kgen import-manifest
 make modules examples docs
 ```
+
+`make generate` cannot bootstrap a new package. It runs `go run ./cmd/kgen`,
+which compiles the scaffold, and the version gate it writes first names a type
+the scaffold does not have. A prebuilt kgen avoids that, as in
+`scripts/regen-from-scratch.sh`. `crud --force` is needed because plain `crud`
+skips the scaffold's existing files. After the first run, `make generate` works.
+
+Then refresh `codegen/schema_snapshots/new.json` (its README). The import
+manifest and the references/bind completeness gates read the snapshot, so they
+skip a resource it does not have.
 
 Adding or removing a resource changes four generated trees: `internal/service/`,
 `examples/`, `docs/` and `modules/`. `make ci` gates the last three, so a missed
