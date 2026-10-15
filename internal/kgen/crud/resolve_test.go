@@ -3,6 +3,7 @@ package crud
 import (
 	"errors"
 	"maps"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -11,8 +12,14 @@ import (
 // fileSource, exercising the parsers end-to-end, not a mock.
 func fixtureIndex(t *testing.T) sdkIndex {
 	t.Helper()
+	return fixtureIndexFrom(t, "testdata")
+}
+
+// fixtureIndexFrom builds an sdkIndex from the oas_*_gen.go fixtures in dir.
+func fixtureIndexFrom(t *testing.T, dir string) sdkIndex {
+	t.Helper()
 	src := NewFileSource()
-	cms, err := src.ClientMethods("testdata/oas_client_gen.go")
+	cms, err := src.ClientMethods(filepath.Join(dir, "oas_client_gen.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -20,17 +27,17 @@ func fixtureIndex(t *testing.T) sdkIndex {
 	for _, m := range cms {
 		methods[m.HTTPMethod+" "+m.Path] = m
 	}
-	schemas, err := src.Structs("testdata/oas_schemas_gen.go")
+	schemas, err := src.Structs(filepath.Join(dir, "oas_schemas_gen.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	params, err := src.Structs("testdata/oas_parameters_gen.go")
+	params, err := src.Structs(filepath.Join(dir, "oas_parameters_gen.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	structs := maps.Clone(schemas)
 	maps.Copy(structs, params)
-	markers, err := src.MarkerImpls("testdata/oas_schemas_gen.go")
+	markers, err := src.MarkerImpls(filepath.Join(dir, "oas_schemas_gen.go"))
 	if err != nil {
 		t.Fatal(err)
 	}

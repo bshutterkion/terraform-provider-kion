@@ -54,6 +54,15 @@ func RawCreatedID(recordID int64) (int64, diag.Diagnostics) {
 	return recordID, diags
 }
 
+// RawCreatedStringID rejects an empty id, which Kion never issues and
+// Terraform could never address.
+func RawCreatedStringID(id string) (string, diag.Diagnostics) {
+	if id == "" {
+		return "", diag.Diagnostics{diag.NewErrorDiagnostic("creating resource", "the create response did not include an id")}
+	}
+	return id, nil
+}
+
 // IsNotFound returns true if the response is a *NotFoundResponse.
 func IsNotFound(res any) bool {
 	_, ok := res.(*generated.NotFoundResponse)

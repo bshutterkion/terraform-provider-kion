@@ -40,7 +40,7 @@ type dsData struct {
 	SDKImport                string
 	ReadMethod, ReadParams   string
 	ReadIDParam              string
-	IDParamType              string // "int64" | "uint64"
+	IDParamType              string // "int64" | "uint64" | "string"
 	IDGo, IDFlatten, IDSDKGo string
 	HasRespID                bool   // response echoes the id (re-flatten it); else keep config id
 	DataPtr                  bool   // envelope Data is a pointer (*Payload) not an Opt-wrapper
@@ -357,9 +357,10 @@ func buildListDSData(rm ResourceModel, policy FieldPolicy) (listDSData, []droppe
 		return listDSData{}, nil, fmt.Errorf("%s dual-mode data source: response has no id field", rm.Name)
 	}
 	lm := rm.List
-	// The id is special-cased: it is always exposed as an Int64 and the list
-	// objects key off it, so an id the templates cannot unwrap is fatal here.
-	if !listIDOK(view.Fields["id"].Type) {
+	// The id is special-cased: it is exposed as an Int64 (a String for a string
+	// id) and the list objects key off it, so an id the templates cannot unwrap
+	// is fatal here.
+	if !idFieldOK(view.Fields["id"].Type, base.IDParamType) {
 		return listDSData{}, nil, fmt.Errorf("%s dual-mode data source: id field type %q unsupported for list", rm.Name, view.Fields["id"].Type)
 	}
 	d := listDSData{
@@ -373,13 +374,17 @@ func buildListDSData(rm ResourceModel, policy FieldPolicy) (listDSData, []droppe
 		CountParam:   lm.CountParam,
 	}
 
+	idSchema, idAttr, idNull := "Int64Attribute", "types.Int64Type", "types.Int64Null()"
+	if base.IDParamType == "string" {
+		idSchema, idAttr, idNull = "StringAttribute", "types.StringType", "types.StringNull()"
+	}
 	d.ObjFields = append(d.ObjFields, listObjField{
-		TFName: "id", SchemaType: "Int64Attribute", AttrType: "types.Int64Type",
+		TFName: "id", SchemaType: idSchema, AttrType: idAttr,
 		IsID: true, SDKGo: base.IDSDKGo,
 	})
 	d.Assigns = append(d.Assigns, listScalarAssign{
 		ModelGo: base.IDGo, Flatten: base.IDFlatten, SDKGo: base.IDSDKGo,
-		NullExpr: "types.Int64Null()", IsID: true,
+		NullExpr: idNull, IsID: true,
 	})
 
 	// A field the `list` objects cannot render is dropped from the data source
@@ -458,6 +463,15 @@ func buildListDSData(rm ResourceModel, policy FieldPolicy) (listDSData, []droppe
 		})
 	}
 	return d, drops, nil
+}
+
+// idFieldOK is listIDOK for a record whose id param is idParamType: a string id
+// is unwrapped from an OptString.
+func idFieldOK(sdkType, idParamType string) bool {
+	if idParamType == "string" {
+		return sdkType == "OptString"
+	}
+	return listIDOK(sdkType)
 }
 
 // listIDOK reports whether an SDK id field is an Opt-wrapped integer, the shape

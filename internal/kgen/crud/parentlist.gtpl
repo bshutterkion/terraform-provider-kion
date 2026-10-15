@@ -92,7 +92,7 @@ func flatten{{.Pascal}}(ctx context.Context, rec {{.SDKAlias}}.{{.RecordType}}, 
 	{{- range .RespBinds}}
 	{{- if .IsID}}
 	if {{.IDSDKPath}}.Set {
-		model.{{.ModelGo}} = types.StringValue(strconv.{{.IDFormat}}({{.IDSDKPath}}.Value, 10))
+		model.{{.ModelGo}} = types.StringValue(strconv.{{.IDFormatFunc}}({{.IDSDKPath}}.Value, 10))
 	}
 	{{- else}}
 	model.{{.ModelGo}} = {{.Converter}}({{.SDKPath}})

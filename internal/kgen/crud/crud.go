@@ -332,6 +332,11 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	}
 
 	var entityArch *archetype
+	if arch != nil && arch.Kind != entityKind && arch.Kind != rawKind {
+		if where := stringIDParam(ops, idx); where != "" {
+			return 0, fmt.Errorf("%s: the %s archetype does not support a string id (%s); only entity does", name, arch.Kind, where)
+		}
+	}
 	if arch != nil {
 		switch arch.Kind {
 		case noReadKind:
@@ -643,6 +648,26 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		return 0, err
 	}
 	return 1, nil
+}
+
+// stringIDParam names the first op whose params carry a string id, or "". The
+// archetypes other than entity parse ids as integers, so they must refuse one.
+func stringIDParam(ops resOps, idx sdkIndex) string {
+	for _, ref := range []*opRef{ops.Create, ops.Read, ops.Update, ops.Delete} {
+		if ref == nil {
+			continue
+		}
+		m, ok := idx.methods[ref.Method+" "+ref.Path]
+		if !ok {
+			continue
+		}
+		for _, f := range idx.structs[m.ParamsType].Fields {
+			if f.Type == "string" && strings.HasSuffix(f.GoName, "ID") {
+				return fmt.Sprintf("%s %s param %s", ref.Method, ref.Path, f.GoName)
+			}
+		}
+	}
+	return ""
 }
 
 // generateCompound writes the files for a compound-key/parent-read resource.

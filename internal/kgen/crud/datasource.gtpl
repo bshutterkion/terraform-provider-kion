@@ -40,7 +40,7 @@ func (d *{{.Pkg}}DataSource) Schema(_ context.Context, _ datasource.SchemaReques
 	resp.Schema = schema.Schema{
 		Description: "Use this data source to look up a Kion {{.Pascal}} by id.",
 		Attributes: map[string]schema.Attribute{
-			"id": schema.Int64Attribute{
+			"id": schema.{{if eq .IDParamType "string"}}StringAttribute{{else}}Int64Attribute{{end}}{
 				Description: "The ID of the {{.Pascal}} to fetch.",
 				Required:    true,
 			},
@@ -67,7 +67,7 @@ func (d *{{.Pkg}}DataSource) Read(ctx context.Context, req datasource.ReadReques
 		return
 	}
 
-	out, err := conn.{{.ReadMethod}}(ctx, {{.SDKAlias}}.{{.ReadParams}}{ {{.ReadIDParam}}: {{if eq .IDParamType "uint64"}}uint64(data.{{.IDGo}}.ValueInt64()){{else}}data.{{.IDGo}}.ValueInt64(){{end}}})
+	out, err := conn.{{.ReadMethod}}(ctx, {{.SDKAlias}}.{{.ReadParams}}{ {{.ReadIDParam}}: {{if eq .IDParamType "uint64"}}uint64(data.{{.IDGo}}.ValueInt64()){{else if eq .IDParamType "string"}}data.{{.IDGo}}.ValueString(){{else}}data.{{.IDGo}}.ValueInt64(){{end}}})
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("reading %s", {{.DSConst}}), err.Error())
 		return
@@ -93,7 +93,7 @@ func (d *{{.Pkg}}DataSource) Read(ctx context.Context, req datasource.ReadReques
 }
 
 type {{.Model}} struct {
-	{{.IDGo}} types.Int64 `tfsdk:"id"`
+	{{.IDGo}} {{if eq .IDParamType "string"}}types.String{{else}}types.Int64{{end}} `tfsdk:"id"`
 	{{- range .Attrs}}
 	{{.ModelGo}} {{.ModelType}} `tfsdk:"{{.TFName}}"`
 	{{- end}}

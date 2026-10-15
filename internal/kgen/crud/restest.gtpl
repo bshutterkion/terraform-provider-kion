@@ -5,8 +5,8 @@ package {{.Pkg}}_test
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"testing"
+	{{if ne .IDParamType "string"}}"strconv"
+	{{end}}"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
@@ -126,18 +126,18 @@ func testAccCheck{{.Pascal}}Exists(_ context.Context, name string) resource.Test
 			return fmt.Errorf("getting shared client: %w", err)
 		}
 
-		id, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(rs.Primary.ID, 10, 64)
+		{{if eq .IDParamType "string"}}id := rs.Primary.ID{{else}}id, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(rs.Primary.ID, 10, 64)
 		if err != nil {
 			return fmt.Errorf("parsing ID: %w", err)
-		}
+		}{{end}}
 
 		ctx := context.Background()
 		out, err := conn.Client.{{.ReadMethod}}(ctx, {{.SDKAlias}}.{{.ReadParams}}{ {{.ReadIDParam}}: id})
 		if err != nil {
-			return fmt.Errorf("reading {{.ResourceType}} (%d): %w", id, err)
+			return fmt.Errorf("reading {{.ResourceType}} ({{.IDFormat}}): %w", id, err)
 		}
 		if errs.IsNotFound(out) {
-			return fmt.Errorf("{{.ResourceType}} (%d) not found", id)
+			return fmt.Errorf("{{.ResourceType}} ({{.IDFormat}}) not found", id)
 		}
 
 		return nil
@@ -156,10 +156,10 @@ func testAccCheck{{.Pascal}}Destroy(_ context.Context) resource.TestCheckFunc {
 				continue
 			}
 
-			id, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(rs.Primary.ID, 10, 64)
+			{{if eq .IDParamType "string"}}id := rs.Primary.ID{{else}}id, err := strconv.{{if eq .IDParamType "uint64"}}ParseUint{{else}}ParseInt{{end}}(rs.Primary.ID, 10, 64)
 			if err != nil {
 				return fmt.Errorf("parsing ID: %w", err)
-			}
+			}{{end}}
 
 			ctx := context.Background()
 			out, err := conn.Client.{{.ReadMethod}}(ctx, {{.SDKAlias}}.{{.ReadParams}}{ {{.ReadIDParam}}: id})
@@ -167,10 +167,10 @@ func testAccCheck{{.Pascal}}Destroy(_ context.Context) resource.TestCheckFunc {
 				continue
 			}
 			if err != nil {
-				return fmt.Errorf("reading {{.ResourceType}} (%d): %w", id, err)
+				return fmt.Errorf("reading {{.ResourceType}} ({{.IDFormat}}): %w", id, err)
 			}
 
-			return fmt.Errorf("{{.ResourceType}} (%d) still exists", id)
+			return fmt.Errorf("{{.ResourceType}} ({{.IDFormat}}) still exists", id)
 		}
 
 		return nil

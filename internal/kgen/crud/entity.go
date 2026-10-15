@@ -45,12 +45,12 @@ type sliceRespBind struct {
 // respBind binds one response-payload field to a model field. The id field is
 // special-cased (formatted uint64/int64 -> string) rather than flex-converted.
 type respBind struct {
-	ModelGo   string
-	SDKPath   string // e.g. "v.Data.Value.Key"
-	Converter string // e.g. "flex.StringToFramework" (empty when IsID)
-	IsID      bool
-	IDFormat  string // "FormatUint" | "FormatInt" (only when IsID)
-	IDSDKPath string // e.g. "v.Data.Value.ID" (only when IsID)
+	ModelGo      string
+	SDKPath      string // e.g. "v.Data.Value.Key"
+	Converter    string // e.g. "flex.StringToFramework" (empty when IsID)
+	IsID         bool
+	IDFormatFunc string // "FormatUint" | "FormatInt"; "" for a string id (only when IsID)
+	IDSDKPath    string // e.g. "v.Data.Value.ID" (only when IsID)
 }
 
 // entityData is the template payload for the entity archetype.
@@ -60,8 +60,10 @@ type entityData struct {
 	TypeName           string // "kion_<name>"
 	IDGo, SDKAlias     string
 	SDKImport          string
-	IDParamType        string // "int64" | "uint64". The read/update/delete param id Go type
+	IDParamType        string // "int64" | "uint64" | "string". The read/update/delete param id Go type
 	IDParseBits        int    // strconv bit size for the record id. See idParseBits
+	IDFormat           string // "%d" | "%s": the id's verb in diagnostics
+	IDVar              string // "idInt" | "id": the local holding the parsed id
 	Gated              bool   // emit RequireKionVersionInRange in Create
 	// AtLeastOneOf are attributes the API requires at least one of. Emitted as
 	// a resource-level ConfigValidator so the failure lands at plan time.
@@ -312,27 +314,6 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		d.CreateParamLiteral = segs[len(segs)-1]
 	}
 
-	// Prefer reading the id from the create response envelope when create returns
-	// the record (not a bare *CreatedResponse). Falls back to errs.CreatedID.
-	d.CreateIDMode = "created"
-	if rm.Create.RespType != "" {
-		for _, f := range rm.Create.RespFields {
-			if f.JSONName != "id" {
-				continue
-			}
-			opt, ok := idOptKind(f.Type)
-			if !ok {
-				break
-			}
-			d.CreateIDMode = "envelope"
-			d.CreateRespType = rm.Create.RespType
-			d.CreateDataPtr = rm.Create.RespDataPtr
-			d.CreateIDOpt = opt
-			d.CreateIDSDKName = f.GoName
-			break
-		}
-	}
-
 	d.NoRead = rm.Read.Method.Name == ""
 
 	var err error
@@ -350,6 +331,40 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		if _, d.IDParamType, err = idParamName(rm.Delete.Params); err != nil {
 			return d, fmt.Errorf("%s delete: %w", rm.Name, err)
 		}
+	}
+	stringID := d.IDParamType == "string"
+	if stringID {
+		if err := refuseStringIDFeatures(rm, d.NoRead); err != nil {
+			return d, err
+		}
+		d.UpdateIDExpr, d.DeleteIDExpr = "id", "id"
+	}
+
+	// Prefer reading the id from the create response envelope when create returns
+	// the record (not a bare *CreatedResponse). Falls back to errs.CreatedID.
+	d.CreateIDMode = "created"
+	if rm.Create.RespType != "" {
+		for _, f := range rm.Create.RespFields {
+			if f.JSONName != "id" {
+				continue
+			}
+			opt, ok := idOptKind(f.Type)
+			if stringID {
+				opt, ok = stringIDOptKind(f.Type)
+			}
+			if !ok {
+				break
+			}
+			d.CreateIDMode = "envelope"
+			d.CreateRespType = rm.Create.RespType
+			d.CreateDataPtr = rm.Create.RespDataPtr
+			d.CreateIDOpt = opt
+			d.CreateIDSDKName = f.GoName
+			break
+		}
+	}
+	if stringID && d.CreateIDMode != "envelope" {
+		return d, fmt.Errorf("%s: a string id must be read from the create response's id field; errs.CreatedID yields an int64", rm.Name)
 	}
 
 	if rm.Update != nil {
@@ -372,7 +387,9 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		if d.UpdateIDParam, upType, err = idParamName(rm.Update.Params); err != nil {
 			return d, fmt.Errorf("%s update: %w", rm.Name, err)
 		}
-		d.UpdateIDExpr = idExpr(upType, d.IDParamType)
+		if d.UpdateIDExpr, err = idExpr(upType, d.IDParamType); err != nil {
+			return d, fmt.Errorf("%s update: %w", rm.Name, err)
+		}
 	}
 
 	if rm.Delete != nil {
@@ -394,7 +411,9 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 			if d.DeleteIDParam, delType, err = idParamName(rm.Delete.Params); err != nil {
 				return d, fmt.Errorf("%s delete: %w", rm.Name, err)
 			}
-			d.DeleteIDExpr = idExpr(delType, d.IDParamType)
+			if d.DeleteIDExpr, err = idExpr(delType, d.IDParamType); err != nil {
+				return d, fmt.Errorf("%s delete: %w", rm.Name, err)
+			}
 		}
 	}
 
@@ -403,7 +422,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		if rm.Read.RespDataPtr {
 			topPrefix = "v.Data."
 		}
-		if d.RespBinds, d.RespSliceBinds, err = respBinds(rm.Read.RespFields, byTF, rm.IDField.TFSDK, topPrefix, rm.ReadNested.Names, emptyColl); err != nil {
+		if d.RespBinds, d.RespSliceBinds, err = respBinds(rm.Read.RespFields, byTF, rm.IDField.TFSDK, topPrefix, rm.ReadNested.Names, emptyColl, stringID); err != nil {
 			return d, fmt.Errorf("%s flatten: %w", rm.Name, err)
 		}
 		// Record-wrapper: the payload nests the bulk of the record under a
@@ -414,7 +433,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 			if rm.Read.RespWrapperOpt {
 				wrapPrefix += "Value."
 			}
-			wb, wsb, werr := respBinds(rm.Read.RespWrapperFields, byTF, rm.IDField.TFSDK, wrapPrefix, rm.ReadNested.Names, emptyColl)
+			wb, wsb, werr := respBinds(rm.Read.RespWrapperFields, byTF, rm.IDField.TFSDK, wrapPrefix, rm.ReadNested.Names, emptyColl, stringID)
 			if werr != nil {
 				return d, fmt.Errorf("%s flatten (wrapper %s): %w", rm.Name, rm.Read.RespWrapperGo, werr)
 			}
@@ -450,8 +469,59 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		d.RespRawValues = resolveRawValueFlats(rm.Read.RespFields, byTF, topPrefix, mergeRawValues(rm.CreateNested.RawValues, rm.UpdateNested.RawValues))
 	}
 	d.RawValueHelpers = mergeRawValues(d.CreateRawValues, d.UpdateRawValues)
-	d.IDParseBits = idParseBits(d.IDParamType)
+	setIDShape(&d)
 	return d, nil
+}
+
+// setIDShape derives the id's parse bits, diagnostic verb and local name from
+// IDParamType.
+func setIDShape(d *entityData) {
+	d.IDParseBits = idParseBits(d.IDParamType)
+	d.IDFormat = idFormat(d.IDParamType)
+	d.IDVar = "idInt"
+	if d.IDParamType == "string" {
+		d.IDVar = "id"
+	}
+}
+
+// idFormat is the fmt verb for a record id of the given param Go type.
+func idFormat(idParamType string) string {
+	if idParamType == "string" {
+		return "%s"
+	}
+	return "%d"
+}
+
+// refuseStringIDFeatures rejects the entity features that address the record
+// through an integer id; a string id would otherwise render code that cannot
+// compile.
+func refuseStringIDFeatures(rm ResourceModel, noRead bool) error {
+	var why string
+	switch {
+	case noRead:
+		why = "no typed read"
+	case rm.RawCreate != nil:
+		why = "raw_create"
+	case rm.RawDeletePath != "":
+		why = "a private raw delete"
+	case rm.ReadCompanion != "":
+		why = "read_companion"
+	case rm.Labels != nil:
+		why = "label sync"
+	case rm.Owners != nil:
+		why = "owner sync"
+	case len(rm.Assocs) > 0:
+		why = "association sync"
+	case len(rm.SliceMembers) > 0:
+		why = "slice member sync"
+	case len(rm.Moves) > 0:
+		why = "moves"
+	case rm.DeleteRecordParam != "" || rm.ImportParentTF != "":
+		why = "a parent-qualified delete"
+	default:
+		return nil
+	}
+	return fmt.Errorf("%s: string id is not supported with %s (those paths address the record by an integer id)", rm.Name, why)
 }
 
 // idParseBits is the strconv bit size the record id is parsed at.
@@ -512,20 +582,22 @@ func bodyBinds(body *Struct, byTF map[string]ModelField, idTF string, skip map[s
 	return scalars, sliceOut, nil
 }
 
-// idParamName returns the single id param field's name and Go type (int64 or
-// uint64). Other shapes are refused (the caller degrades/skips).
+// idParamName returns the single id param field's name and Go type (int64,
+// uint64, or string). Other shapes are refused (the caller degrades/skips).
 func idParamName(p *Struct) (name, goType string, err error) {
 	if p == nil {
 		return "", "", fmt.Errorf("op has no params struct")
 	}
-	// The record id is the single required int64/uint64 field. Extra optional
-	// (Opt*) params, e.g. a query filter like PolicyType/Inherited, are omitted
-	// (left zero). A second REQUIRED param means a genuine parent+child op the
-	// entity path can't source, so refuse.
+	// The record id is the single required int64/uint64 field, or a required
+	// string named like an id. Extra optional (Opt*) params, e.g. a query filter
+	// like PolicyType/Inherited, are omitted (left zero). A second REQUIRED param
+	// means a genuine parent+child op the entity path can't source, so refuse.
 	var ids []Field
 	for _, f := range p.Fields {
 		switch {
 		case f.Type == "int64" || f.Type == "uint64":
+			ids = append(ids, f)
+		case f.Type == "string" && strings.HasSuffix(f.GoName, "ID"):
 			ids = append(ids, f)
 		case strings.HasPrefix(f.Type, "Opt"):
 			// optional query param, omitted in the call
@@ -534,21 +606,27 @@ func idParamName(p *Struct) (name, goType string, err error) {
 		}
 	}
 	if len(ids) != 1 {
-		return "", "", fmt.Errorf("expected exactly one int64/uint64 id param, got %d", len(ids))
+		return "", "", fmt.Errorf("expected exactly one int64/uint64/string id param, got %d", len(ids))
 	}
 	return ids[0].GoName, ids[0].Type, nil
 }
 
-// idExpr returns the id expression for an op's params: bare "idInt" when the
-// op's param id Go type matches the method's parse type (IDParamType), else a
-// cast like "uint64(idInt)". Keeps single-id-type resources byte-identical while
-// supporting resources with mixed int64/uint64 op params (e.g. ou: read/update
-// int64, delete uint64).
-func idExpr(opType, parseType string) string {
-	if opType == "" || opType == parseType {
-		return "idInt"
+// idExpr returns the id expression for an op's params: the bare id local when
+// the op's param id Go type matches the method's parse type (IDParamType), else
+// a cast like "uint64(idInt)". Keeps single-id-type resources byte-identical
+// while supporting mixed int64/uint64 op params (e.g. ou: read/update int64,
+// delete uint64). A string id cannot be cast to or from an integer one.
+func idExpr(opType, parseType string) (string, error) {
+	if parseType == "string" && (opType == "" || opType == "string") {
+		return "id", nil
 	}
-	return opType + "(idInt)"
+	if opType == "string" || parseType == "string" {
+		return "", fmt.Errorf("string id mixed with a %s id across ops", cmp.Or(opType, parseType))
+	}
+	if opType == "" || opType == parseType {
+		return "idInt", nil
+	}
+	return opType + "(idInt)", nil
 }
 
 // idOptKind reports whether an id field type is an Opt-wrapper (needs .Set/.Value
@@ -563,6 +641,17 @@ func idOptKind(t string) (opt, ok bool) {
 	return false, false
 }
 
+// stringIDOptKind is idOptKind for a string id.
+func stringIDOptKind(t string) (opt, ok bool) {
+	switch t {
+	case "OptString":
+		return true, true
+	case "string":
+		return false, true
+	}
+	return false, false
+}
+
 // respBinds maps response-payload fields to model fields, special-casing id.
 // prefix is the Go access path to the fields (v.Data.Value. for an Opt envelope,
 // v.Data. for a pointer envelope, or v.Data.Value.<Wrapper>.Value. for a record
@@ -570,8 +659,8 @@ func idOptKind(t string) (opt, ok bool) {
 // merges top-level + wrapper binds and sorts once.
 // emptyColl names attributes whose empty value the API returns as null; their
 // flatten uses the OrEmpty converter so a configured empty collection does not
-// come back null and diff for ever.
-func respBinds(fields []Field, byTF map[string]ModelField, idTF, prefix string, skip map[string]bool, emptyColl map[string]bool) ([]respBind, []sliceRespBind, error) {
+// come back null and diff for ever. stringID expects the id as an OptString.
+func respBinds(fields []Field, byTF map[string]ModelField, idTF, prefix string, skip map[string]bool, emptyColl map[string]bool, stringID bool) ([]respBind, []sliceRespBind, error) {
 	var out []respBind
 	var sliceOut []sliceRespBind
 	for _, f := range fields {
@@ -581,15 +670,18 @@ func respBinds(fields []Field, byTF map[string]ModelField, idTF, prefix string, 
 		}
 		if mf.TFSDK == idTF {
 			var format string
-			switch f.Type {
-			case "OptUint64", "uint64":
+			switch {
+			case stringID && f.Type == "OptString":
+			case stringID:
+				return nil, nil, fmt.Errorf("id response field %q has type %q; expected OptString for a string id", f.JSONName, f.Type)
+			case f.Type == "OptUint64" || f.Type == "uint64":
 				format = "FormatUint"
-			case "OptInt64", "int64":
+			case f.Type == "OptInt64" || f.Type == "int64":
 				format = "FormatInt"
 			default:
 				return nil, nil, fmt.Errorf("id response field %q has type %q; expected Opt(U)Int64", f.JSONName, f.Type)
 			}
-			out = append(out, respBind{ModelGo: mf.GoName, IsID: true, IDFormat: format, IDSDKPath: prefix + f.GoName})
+			out = append(out, respBind{ModelGo: mf.GoName, IsID: true, IDFormatFunc: format, IDSDKPath: prefix + f.GoName})
 			continue
 		}
 		if conv, ok := normalizedConverter(f.Type, mf.Type, false); ok {

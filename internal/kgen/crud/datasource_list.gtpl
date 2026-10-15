@@ -60,7 +60,7 @@ func (d *{{.Pkg}}DataSource) Schema(_ context.Context, _ datasource.SchemaReques
 	resp.Schema = schema.Schema{
 		Description: "Use this data source to access information about Kion {{.Pascal}}s. Supports lookup by id (recommended) or by filter blocks (legacy).",
 		Attributes: map[string]schema.Attribute{
-			"id": schema.Int64Attribute{
+			"id": schema.{{if eq .IDParamType "string"}}StringAttribute{{else}}Int64Attribute{{end}}{
 				Description: "The ID of a single {{.Pkg}} to fetch. Mutually exclusive with `filter` blocks.",
 				Optional:    true,
 				Computed:    true,
@@ -130,7 +130,7 @@ func (d *{{.Pkg}}DataSource) Read(ctx context.Context, req datasource.ReadReques
 }
 
 func (d *{{.Pkg}}DataSource) readByID(ctx context.Context, conn *{{.SDKAlias}}.Client, data *{{.Pkg}}DataSourceModel, diags *diag.Diagnostics) {
-	out, err := conn.{{.ReadMethod}}(ctx, {{.SDKAlias}}.{{.ReadParams}}{ {{.ReadIDParam}}: {{if eq .IDParamType "uint64"}}uint64(data.{{.IDGo}}.ValueInt64()){{else}}data.{{.IDGo}}.ValueInt64(){{end}}})
+	out, err := conn.{{.ReadMethod}}(ctx, {{.SDKAlias}}.{{.ReadParams}}{ {{.ReadIDParam}}: {{if eq .IDParamType "uint64"}}uint64(data.{{.IDGo}}.ValueInt64()){{else if eq .IDParamType "string"}}data.{{.IDGo}}.ValueString(){{else}}data.{{.IDGo}}.ValueInt64(){{end}}})
 	if err != nil {
 		diags.AddError(fmt.Sprintf("reading %s", {{.DSConst}}), err.Error())
 		return
@@ -290,7 +290,7 @@ func {{.Pkg}}ToRow(lbl {{.SDKAlias}}.{{.ElemType}}) map[string]any {
 	{{- range .ObjFields}}
 	{{- if .IsID}}
 	if lbl.{{.SDKGo}}.Set {
-		row["{{.TFName}}"] = int64(lbl.{{.SDKGo}}.Value)
+		row["{{.TFName}}"] = {{if eq $.IDParamType "string"}}lbl.{{.SDKGo}}.Value{{else}}int64(lbl.{{.SDKGo}}.Value){{end}}
 	}
 	{{- end}}
 	{{- end}}
@@ -303,10 +303,13 @@ func build{{.Pascal}}List(ctx context.Context, items []{{.SDKAlias}}.{{.ElemType
 	for _, lbl := range items {
 		{{- range .ObjFields}}
 		{{- if .IsID}}
-		idVal := types.Int64Null()
+		{{if eq $.IDParamType "string"}}idVal := types.StringNull()
+		if lbl.{{.SDKGo}}.Set {
+			idVal = types.StringValue(lbl.{{.SDKGo}}.Value)
+		}{{else}}idVal := types.Int64Null()
 		if lbl.{{.SDKGo}}.Set {
 			idVal = types.Int64Value(int64(lbl.{{.SDKGo}}.Value))
-		}
+		}{{end}}
 		{{- end}}
 		{{- end}}
 		obj, objDiags := types.ObjectValue(listObjectAttrTypes, map[string]attr.Value{
@@ -327,7 +330,7 @@ func build{{.Pascal}}List(ctx context.Context, items []{{.SDKAlias}}.{{.ElemType
 }
 
 type {{.Pkg}}DataSourceModel struct {
-	{{.IDGo}} types.Int64 `tfsdk:"id"`
+	{{.IDGo}} {{if eq .IDParamType "string"}}types.String{{else}}types.Int64{{end}} `tfsdk:"id"`
 	{{- range .Attrs}}
 	{{.ModelGo}} {{.ModelType}} `tfsdk:"{{.TFName}}"`
 	{{- end}}

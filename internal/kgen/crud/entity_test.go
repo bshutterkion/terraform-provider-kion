@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"go/parser"
 	"go/token"
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -55,8 +53,15 @@ func TestIDParamName_types(t *testing.T) {
 	if err != nil || n != "ID" || ty != "int64" {
 		t.Fatalf("int64: got %q,%q,%v", n, ty, err)
 	}
-	if _, _, err := idParamName(&Struct{Name: "P", Fields: []Field{{GoName: "ID", Type: "string"}}}); err == nil {
-		t.Fatal("want error for non-int id param")
+	n, ty, err = idParamName(&Struct{Name: "P", Fields: []Field{{GoName: "ID", Type: "string"}}})
+	if err != nil || n != "ID" || ty != "string" {
+		t.Fatalf("string: got %q,%q,%v", n, ty, err)
+	}
+	if _, _, err := idParamName(&Struct{Name: "P", Fields: []Field{{GoName: "Name", Type: "string"}}}); err == nil {
+		t.Fatal("want error for a required string param not named like an id")
+	}
+	if _, _, err := idParamName(&Struct{Name: "P", Fields: []Field{{GoName: "ID", Type: "bool"}}}); err == nil {
+		t.Fatal("want error for a non-int, non-string id param")
 	}
 }
 
@@ -147,28 +152,11 @@ func TestRenderEntity_moves(t *testing.T) {
 // TestRenderEntity_deterministic guards byte-stable output. Refresh the golden
 // with: UPDATE_GOLDEN=1 go test ./internal/kgen/crud/ -run TestRenderEntity_deterministic
 func TestRenderEntity_deterministic(t *testing.T) {
-	rm := labelResourceModel(t)
-	got, err := renderEntity(rm)
+	files, err := generateFixture(t, fixtureSpec{Name: "label", Dir: "testdata", Ops: labelOps(), DS: labelDS()})
 	if err != nil {
-		t.Fatalf("renderEntity: %v", err)
+		t.Fatalf("generateFixture: %v", err)
 	}
-	golden := filepath.Join("testdata", "golden", "label.go.golden")
-	if os.Getenv("UPDATE_GOLDEN") != "" {
-		if err := os.MkdirAll(filepath.Dir(golden), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(golden, got, 0o600); err != nil {
-			t.Fatal(err)
-		}
-		return
-	}
-	want, err := os.ReadFile(golden)
-	if err != nil {
-		t.Fatalf("read golden (run with UPDATE_GOLDEN=1 to create): %v", err)
-	}
-	if !bytes.Equal(got, want) {
-		t.Errorf("render drifted from golden; re-run with UPDATE_GOLDEN=1 if intentional")
-	}
+	assertGolden(t, "label.go.golden", files["label.go"])
 }
 
 func TestIDOptKind(t *testing.T) {

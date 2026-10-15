@@ -148,7 +148,8 @@ type acctestData struct {
 	SDKImport                 string
 	ReadMethod, ReadParams    string
 	ReadIDParam               string
-	IDParamType               string // "int64" | "uint64"
+	IDParamType               string // "int64" | "uint64" | "string"
+	IDFormat                  string // "%d" | "%s"
 	AttrNames                 []string
 	CreateAttrs               []acctestAttr
 	UpdateAttrs               []acctestAttr
@@ -196,6 +197,7 @@ func buildAcctestData(rm ResourceModel, tv testValues) (acctestData, error) {
 		ReadParams:   rm.Read.Method.ParamsType,
 		ReadIDParam:  readIDParam,
 		IDParamType:  readIDType,
+		IDFormat:     idFormat(readIDType),
 	}
 	d.CreateAttrs = sortAttrs(tv.Create, rm)
 	d.UpdateAttrs = sortAttrs(tv.Update, rm)
