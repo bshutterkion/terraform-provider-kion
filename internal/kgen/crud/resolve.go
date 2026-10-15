@@ -91,30 +91,53 @@ func loadConfig(path string) (resources map[string]resOps, dataSources map[strin
 	return resources, dataSources, flagged, nil
 }
 
-// loadVersionSupport reads codegen/version_support.yaml and returns the set of
-// version-gated resource names. A missing file yields an empty set.
-func loadVersionSupport(path string) (map[string]bool, error) {
+// versionRange is one version_support.yaml entry.
+type versionRange struct {
+	Min string `yaml:"min"`
+	Max string `yaml:"max"`
+}
+
+// versionSupport is codegen/version_support.yaml: the gated resources and data
+// sources, each with its derived range.
+type versionSupport struct {
+	Resources   map[string]versionRange `yaml:"resources"`
+	DataSources map[string]versionRange `yaml:"data_sources"`
+}
+
+func (vs versionSupport) resourceGated(name string) bool {
+	_, ok := vs.Resources[name]
+	return ok
+}
+
+// dataSourceGated reports whether the data source is gated. The package's one
+// minKionVersion/maxKionVersion pair serves both, so a data source whose range
+// differs from its resource's cannot be gated correctly and is an error.
+func (vs versionSupport) dataSourceGated(name string) (bool, error) {
+	ds, ok := vs.DataSources[name]
+	if !ok {
+		return false, nil
+	}
+	if res, ok := vs.Resources[name]; ok && res != ds {
+		return false, fmt.Errorf("%s: data source range %+v differs from the resource's %+v; one version gate cannot enforce both", name, ds, res)
+	}
+	return true, nil
+}
+
+// loadVersionSupport reads codegen/version_support.yaml. A missing file means
+// nothing is gated.
+func loadVersionSupport(path string) (versionSupport, error) {
+	var vs versionSupport
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return map[string]bool{}, nil
+			return vs, nil
 		}
-		return nil, fmt.Errorf("reading version support %s: %w", path, err)
-	}
-	var vs struct {
-		Resources map[string]struct {
-			Min string `yaml:"min"`
-			Max string `yaml:"max"`
-		} `yaml:"resources"`
+		return vs, fmt.Errorf("reading version support %s: %w", path, err)
 	}
 	if err := yaml.Unmarshal(raw, &vs); err != nil {
-		return nil, fmt.Errorf("parsing version support %s: %w", path, err)
+		return vs, fmt.Errorf("parsing version support %s: %w", path, err)
 	}
-	gated := make(map[string]bool, len(vs.Resources))
-	for name := range vs.Resources {
-		gated[name] = true
-	}
-	return gated, nil
+	return vs, nil
 }
 
 // --- SDK index ---

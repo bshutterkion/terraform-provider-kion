@@ -5,6 +5,7 @@
 package crud
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"maps"
@@ -58,6 +59,7 @@ type droppedField struct {
 
 type generator struct {
 	fs          kfs.FS
+	dsGated     map[string]bool // data sources gated in version_support.yaml
 	src         Source
 	privEnds    map[string]rawResourceOps    // codegen/private_endpoints.yaml (raw_http archetype)
 	memberships map[string]membershipConfig  // codegen/memberships.yaml (owner sync on update)
@@ -187,7 +189,7 @@ func (g *generator) generate(opts Options) (int, error) {
 	if vsPath == "" {
 		vsPath = filepath.Join("codegen", "version_support.yaml")
 	}
-	gated, err := loadVersionSupport(resolveAgainst(root, vsPath))
+	vs, err := loadVersionSupport(resolveAgainst(root, vsPath))
 	if err != nil {
 		return 0, err
 	}
@@ -221,6 +223,7 @@ func (g *generator) generate(opts Options) (int, error) {
 	// is declared only in crud_archetypes.yaml (bespoke resources carry their
 	// schema inline in a template, so they are intentionally absent from the
 	// generator_config `resources` list that drives the schema stage).
+	g.dsGated = map[string]bool{}
 	names := map[string]bool{}
 	for name := range resources {
 		names[name] = true
@@ -244,8 +247,18 @@ func (g *generator) generate(opts Options) (int, error) {
 		if a, ok := archetypes[name]; ok {
 			arch = &a
 		}
-		n, err := g.generateResource(root, name, resources[name], dataSources[name], idx, tvPath, gated[name], arch, opts.Force)
+		dsGated, err := vs.dataSourceGated(name)
 		if err != nil {
+			g.recordUnlessExists(name, err)
+			continue
+		}
+		g.dsGated[name] = dsGated
+		n, err := g.generateResource(root, name, resources[name], dataSources[name], idx, tvPath, vs.resourceGated(name), arch, opts.Force)
+		if err != nil {
+			g.recordUnlessExists(name, err)
+			continue
+		}
+		if err := g.checkDataSourceGate(root, name); err != nil {
 			g.recordUnlessExists(name, err)
 			continue
 		}
@@ -387,6 +400,7 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		return 0, err
 	}
 	rm.Gated = gated
+	rm.DSGated = g.dsGated[name]
 	if _, ok := g.upgrades["kion_"+name]; ok {
 		rm.SchemaVersion = 1
 	}
@@ -714,6 +728,7 @@ func (g *generator) generateCompound(dir, name string, ops resOps, idx sdkIndex,
 	if err != nil {
 		return 0, err
 	}
+	d.DSGated = g.dsGated[name]
 	resourceGo, err := renderCompoundEntity(d)
 	if err != nil {
 		return 0, err
@@ -878,4 +893,22 @@ var sdkVersion string
 // sdkImport is the import path of the SDK sub-package generated code compiles against.
 func sdkImport() string {
 	return "github.com/kionsoftware/kion-sdk-go/generated/" + sdkVersion
+}
+
+// checkDataSourceGate fails when version_support.yaml gates a data source but
+// the generated Read never checks the gate: the template for that archetype
+// does not support it, and the floor would go unenforced.
+func (g *generator) checkDataSourceGate(root, name string) error {
+	if !g.dsGated[name] {
+		return nil
+	}
+	path := filepath.Join(root, "internal", "service", name, name+"_data_source.go")
+	b, err := g.fs.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("data source is version-gated but %s is unreadable: %w", path, err)
+	}
+	if !bytes.Contains(b, []byte("RequireKionVersionInRange(d.Meta()")) {
+		return fmt.Errorf("data source is version-gated but %s never checks the gate; its template does not support one", path)
+	}
+	return nil
 }

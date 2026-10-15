@@ -97,7 +97,13 @@ func (d *{{.Pkg}}DataSource) Schema(_ context.Context, _ datasource.SchemaReques
 }
 
 func (d *{{.Pkg}}DataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
-	conn := d.Meta().Client
+{{- if .Gated}}
+	resp.Diagnostics.Append(framework.RequireKionVersionInRange(d.Meta(), minKionVersion, maxKionVersion, "{{.TypeName}}")...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+{{end}}	conn := d.Meta().Client
 
 	var data {{.Pkg}}DataSourceModel
 	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)

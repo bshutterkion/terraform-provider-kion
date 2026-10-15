@@ -130,6 +130,11 @@ func (d *scopeDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, 
 }
 
 func (d *scopeDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	resp.Diagnostics.Append(framework.RequireKionVersionInRange(d.Meta(), minKionVersion, maxKionVersion, "kion_scope")...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	conn := d.Meta().Client
 
 	var data scopeDataSourceModel

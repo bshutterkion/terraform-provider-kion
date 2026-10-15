@@ -46,6 +46,8 @@ type dsData struct {
 	DataPtr                  bool   // envelope Data is a pointer (*Payload) not an Opt-wrapper
 	PayloadPath              string // "" | ".Webhook.Value", descent from Data to the record
 	RespType                 string
+	Gated                    bool // Read checks the package's version gate first
+	TypeName                 string
 	Attrs                    []dsField
 	// OuterAttrs are attributes read from the payload above the record (see
 	// recordView.Outer): available by id, null under a filter.
@@ -181,6 +183,8 @@ func buildDSData(rm ResourceModel) (dsData, error) {
 		DataPtr:     rm.Read.RespDataPtr,
 		PayloadPath: view.PayloadPath,
 		IDGo:        rm.IDField.GoName,
+		Gated:       rm.DSGated,
+		TypeName:    "kion_" + rm.Name,
 	}
 
 	readIDParam, readIDType, err := idParamName(rm.Read.Params)

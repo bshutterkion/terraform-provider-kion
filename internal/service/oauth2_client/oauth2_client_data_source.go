@@ -131,6 +131,11 @@ func (d *oauth2_clientDataSource) Schema(_ context.Context, _ datasource.SchemaR
 }
 
 func (d *oauth2_clientDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	resp.Diagnostics.Append(framework.RequireKionVersionInRange(d.Meta(), minKionVersion, maxKionVersion, "kion_oauth2_client")...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	conn := d.Meta().Client
 
 	var data oauth2_clientDataSourceModel

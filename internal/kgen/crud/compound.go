@@ -201,6 +201,7 @@ type compoundData struct {
 	ResConst, ResName  string
 	DSConst, DSName    string
 	Gated              bool
+	DSGated            bool   // data source Read checks the version gate
 	TypeName           string // "kion_scope_criteria"
 
 	IDGo string // composite-id model field ("Id")

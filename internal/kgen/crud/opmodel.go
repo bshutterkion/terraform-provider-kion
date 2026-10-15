@@ -182,6 +182,7 @@ type ResourceModel struct {
 	SweepList     *listModel
 	SweepParent   *parentSweep
 	Gated         bool // resource is version-gated (emit RequireKionVersionInRange)
+	DSGated       bool // data source is version-gated (same vars, checked in Read)
 	SchemaVersion int  // >0 when the resource migrates old SDKv2 state (bumps schema.Version)
 	// Asymmetric 2-param delete (e.g. compliance_control's
 	// DELETE /v4/compliance/program/{id}/control/{controlID}): the record-id
