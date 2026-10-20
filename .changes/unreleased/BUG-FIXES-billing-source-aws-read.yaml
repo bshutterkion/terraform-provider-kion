@@ -1,6 +1,0 @@
-kind: BUG FIXES
-body: >-
-  kion_billing_source_aws reads linked_role and account_type_id, so an
-  imported AWS billing source plans cleanly and a change to either made
-  outside Terraform shows as drift.
-time: 2026-10-20T19:16:45Z

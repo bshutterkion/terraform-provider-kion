@@ -1,6 +1,0 @@
-kind: BUG FIXES
-body: >-
-  kion-import no longer imports every billing source as an AWS, a GCP and an
-  OCI billing source at once. Each typed billing source now keeps only the
-  payers of its own kind from the shared /v4/billing-source collection.
-time: 2026-10-20T19:16:01Z

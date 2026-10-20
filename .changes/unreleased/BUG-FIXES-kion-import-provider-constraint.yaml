@@ -1,9 +1,0 @@
-kind: BUG FIXES
-body: >-
-  kion-import's generated configuration now requires the provider release
-  that built it, as a lower bound, instead of pinning exactly 1.0.0, which
-  lacks resource types the importer emits. The modules under modules/ now
-  require ">= 1.0.0" instead of exactly 1.0.0, so they work with any release
-  and alongside an imported configuration. `kion-import --version` reports
-  the release.
-time: 2026-10-15T22:06:55Z

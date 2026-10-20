@@ -1,5 +1,0 @@
-kind: BUG FIXES
-body: >-
-  `kion-import -h` no longer prints the value of KION_APIKEY as the
-  --api-key default. The variable is still read when --api-key is not given.
-time: 2026-10-15T22:06:55Z

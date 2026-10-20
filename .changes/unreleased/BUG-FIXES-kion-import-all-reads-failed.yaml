@@ -1,6 +1,0 @@
-kind: BUG FIXES
-body: >-
-  kion-import exits non-zero and writes nothing when every read fails, as a
-  rejected API key or an unreachable install causes. It used to exit 0 and
-  write an imports.tf holding only "Not imported" comments.
-time: 2026-10-15T22:06:55Z

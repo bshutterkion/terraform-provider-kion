@@ -1,7 +1,0 @@
-kind: BUG FIXES
-body: >-
-  kion-import rewrite-refs turns payer_id into a reference to an AWS, GCP or
-  OCI billing source, not only a custom one. Those references stayed as the
-  source install's literal ids, which is what moving a configuration between
-  installs has to avoid.
-time: 2026-10-20T19:46:40Z
