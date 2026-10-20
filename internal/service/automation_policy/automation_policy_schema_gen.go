@@ -103,13 +103,13 @@ func AutomationPolicyResourceSchema(ctx context.Context) schema.Schema {
 			"engine": schema.Int64Attribute{
 				Optional:            true,
 				Computed:            true,
-				Description:         "Engine that runs the policy. 0 (Kion) is the only accepted value; the API defines 1 for Cloud Custodian but rejects it.",
-				MarkdownDescription: "Engine that runs the policy. 0 (Kion) is the only accepted value; the API defines 1 for Cloud Custodian but rejects it.",
+				Description:         "Engine that runs the policy: 0 (Kion) or 1 (Cloud Custodian). Kion rejects creating a policy with 1, but existing ones can be imported.",
+				MarkdownDescription: "Engine that runs the policy: 0 (Kion) or 1 (Cloud Custodian). Kion rejects creating a policy with 1, but existing ones can be imported.",
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.UseStateForUnknown(),
 				},
 				Validators: []validator.Int64{
-					int64validator.OneOf(0),
+					int64validator.OneOf(0, 1),
 				},
 			},
 			"id": schema.StringAttribute{
