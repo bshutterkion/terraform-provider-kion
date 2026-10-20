@@ -80,6 +80,8 @@ with demo data.
 | import blocks | 7,817 | 7,808 |
 | plan errors, generating config | 11, then 731 once the walk got further | 0 |
 | plan of the generated config | -- | 7,808 to import, 0 to change |
+| `terraform apply` | -- | 7,808 imported, 0 added/changed/destroyed, 37 s |
+| plan after apply, from state | -- | No changes, 0 errors |
 
 Six classes of defect only showed past the probe, because each was in the
 provider's handling of an existing record rather than in enumeration: owner
@@ -87,6 +89,11 @@ validators that rejected ownerless built-ins (#129), Reads that left required
 or settable attributes unset (#128, #130, #132, #133), a create-time validator
 on `engine` (#131), and typed billing sources claiming every payer kind
 (#134). **A clean probe does not mean an install imports.** Run the plan.
+
+The apply only reads, so it writes nothing to Kion. Its one warning is
+`kion_dashboard`'s version gate, "Kion version could not be determined",
+because a local dev build reports an empty version; a released install does
+not.
 
 ### Read that table by column, not by row
 
