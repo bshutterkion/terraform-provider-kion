@@ -405,9 +405,10 @@ read shape for `scope_criteria`. All three now read clean:
 ### Empty (5)
 
 Five collections are genuinely empty on this install, including
-`kion_aws_resource_tag` -- which is why its new read has **no live coverage**.
-Its field names come from the spec's `AWSResourceTag` component and are exercised
-only by unit tests. Verify it against an install that has records.
+`kion_aws_resource_tag`. No install had a tag, so its read was first exercised
+on 2026-10-20 (#30) by creating one locally: the payload is exactly the spec's
+`AWSResourceTag` (`id`, `resource_key`, `resource_value`), and create, refresh,
+`kion-import` plus import, and detecting an out-of-band delete all work.
 
 
 ## What this run validated
