@@ -47,7 +47,7 @@ No modules.
 | cloud\_rule\_ids | IDs of the cloud rules the policy is attached to. | `set(number)` | `null` | no |
 | description | Description of the automation policy. | `string` | `null` | no |
 | enabled | Whether the policy is enabled. | `bool` | `null` | no |
-| engine | Engine that runs the policy. 0 (Kion) is the only accepted value; the API defines 1 for Cloud Custodian but rejects it. | `number` | `null` | no |
+| engine | Engine that runs the policy: 0 (Kion) or 1 (Cloud Custodian). Kion rejects creating a policy with 1, but existing ones can be imported. | `number` | `null` | no |
 | owner\_user\_group\_ids | IDs of the user groups that own the policy. | `set(number)` | `null` | no |
 | owner\_user\_ids | IDs of the users who own the policy. | `set(number)` | `null` | no |
 | scheduled\_frequency | When the policy runs. Omit for a policy that only runs on demand. | `object({ days_of_month = optional(list(number)), days_of_week = optional(list(number)), end_date = optional(string), hour = optional(number), interval_hours = optional(number), minute = optional(number), quarterly_recurrence = optional(number), start_date = optional(string), time_zone_identifier = optional(string), type = optional(number), weekly_recurrence = optional(number) })` | `null` | no |

@@ -65,8 +65,9 @@ type entityData struct {
 	IDFormat           string // "%d" | "%s": the id's verb in diagnostics
 	IDVar              string // "idInt" | "id": the local holding the parsed id
 	Gated              bool   // emit RequireKionVersionInRange in Create
-	// AtLeastOneOf are attributes the API requires at least one of. Emitted as
-	// a resource-level ConfigValidator so the failure lands at plan time.
+	// AtLeastOneOf are attributes the API requires at least one of on create.
+	// Emitted as framework.AtLeastOneOfOnCreate so the failure lands at plan
+	// time without rejecting an existing record that has none.
 	AtLeastOneOf []string
 	// RequiredWhen are attributes required only for a given value of another.
 	RequiredWhen []RequiredWhen

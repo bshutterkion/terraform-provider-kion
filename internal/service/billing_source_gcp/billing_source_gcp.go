@@ -55,6 +55,7 @@ func (r *billing_source_gcpResource) Schema(ctx context.Context, _ resource.Sche
 type billing_source_gcpWire struct {
 	Data struct {
 		Id                uint64 `json:"id"`
+		AccountTypeId     int64  `json:"account_type_id"`
 		GcpBillingAccount struct {
 			BillingAccount struct {
 				Name             string `json:"name"`
@@ -62,6 +63,13 @@ type billing_source_gcpWire struct {
 				BillingStartDate int64  `json:"billing_start_date"`
 				IsReseller       bool   `json:"is_reseller"`
 				ServiceAccountId int64  `json:"service_account_id"`
+				BigQueryExport   struct {
+					GcpProjectId  string `json:"gcp_project_id"`
+					DatasetName   string `json:"dataset_name"`
+					TableName     string `json:"table_name"`
+					TableFormat   string `json:"table_format"`
+					FocusViewName string `json:"focus_view_name"`
+				} `json:"big_query_export"`
 			} `json:"billing_account"`
 		} `json:"gcp_billing_account"`
 	} `json:"data"`
@@ -86,16 +94,23 @@ func (r *billing_source_gcpResource) read(ctx context.Context, id int64) (billin
 func (r *billing_source_gcpResource) flatten(ctx context.Context, w billing_source_gcpWire, m *BillingSourceGcpModel) diag.Diagnostics {
 	var diags diag.Diagnostics
 	m.Id = types.StringValue(strconv.FormatUint(w.Data.Id, 10))
+	m.AccountTypeId = types.Int64Value(w.Data.AccountTypeId)
 	GcpBillingAccountCreateVal, GcpBillingAccountCreateValDiags := NewGcpBillingAccountCreateValue(GcpBillingAccountCreateValue{}.AttributeTypes(ctx), map[string]attr.Value{
-		"name":                                   types.StringValue(w.Data.GcpBillingAccount.BillingAccount.Name),
-		"gcp_id":                                 types.StringValue(w.Data.GcpBillingAccount.BillingAccount.GcpId),
-		"billing_start_date":                     flex.DatecodeToFramework(w.Data.GcpBillingAccount.BillingAccount.BillingStartDate),
-		"is_reseller":                            types.BoolValue(w.Data.GcpBillingAccount.BillingAccount.IsReseller),
-		"service_account_id":                     types.Int64Value(w.Data.GcpBillingAccount.BillingAccount.ServiceAccountId),
-		"big_query_export":                       m.GcpBillingAccountCreate.BigQueryExport,
-		"billing_account_attribution_account_id": m.GcpBillingAccountCreate.BillingAccountAttributionAccountId,
-		"use_focus":                              m.GcpBillingAccountCreate.UseFocus,
-		"use_proprietary":                        m.GcpBillingAccountCreate.UseProprietary,
+		"name":               types.StringValue(w.Data.GcpBillingAccount.BillingAccount.Name),
+		"gcp_id":             types.StringValue(w.Data.GcpBillingAccount.BillingAccount.GcpId),
+		"billing_start_date": flex.DatecodeToFramework(w.Data.GcpBillingAccount.BillingAccount.BillingStartDate),
+		"is_reseller":        types.BoolValue(w.Data.GcpBillingAccount.BillingAccount.IsReseller),
+		"service_account_id": types.Int64Value(w.Data.GcpBillingAccount.BillingAccount.ServiceAccountId),
+		"big_query_export": flex.ObjectFromAttrs(ctx, &diags, GcpBillingAccountCreateValue{}.AttributeTypes(ctx)["big_query_export"], map[string]attr.Value{
+			"gcp_project_id":  types.StringValue(w.Data.GcpBillingAccount.BillingAccount.BigQueryExport.GcpProjectId),
+			"dataset_name":    types.StringValue(w.Data.GcpBillingAccount.BillingAccount.BigQueryExport.DatasetName),
+			"table_name":      types.StringValue(w.Data.GcpBillingAccount.BillingAccount.BigQueryExport.TableName),
+			"table_format":    types.StringValue(w.Data.GcpBillingAccount.BillingAccount.BigQueryExport.TableFormat),
+			"focus_view_name": types.StringValue(w.Data.GcpBillingAccount.BillingAccount.BigQueryExport.FocusViewName),
+		}),
+		"billing_account_attribution_account_id": flex.CarryOrNull(ctx, m.GcpBillingAccountCreate.BillingAccountAttributionAccountId, GcpBillingAccountCreateValue{}.AttributeTypes(ctx)["billing_account_attribution_account_id"]),
+		"use_focus":                              flex.CarryOrNull(ctx, m.GcpBillingAccountCreate.UseFocus, GcpBillingAccountCreateValue{}.AttributeTypes(ctx)["use_focus"]),
+		"use_proprietary":                        flex.CarryOrNull(ctx, m.GcpBillingAccountCreate.UseProprietary, GcpBillingAccountCreateValue{}.AttributeTypes(ctx)["use_proprietary"]),
 	})
 	diags.Append(GcpBillingAccountCreateValDiags...)
 	m.GcpBillingAccountCreate = GcpBillingAccountCreateVal

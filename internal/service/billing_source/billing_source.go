@@ -116,7 +116,7 @@ func (r *billing_sourceResource) flatten(ctx context.Context, w billing_sourceWi
 		"tenant_app_id":                  types.StringValue(w.Data.CustomBillingSource.AzureConnection.TenantAppId),
 		"tenant_cloud_partition_id":      types.Int64Value(w.Data.CustomBillingSource.AzureConnection.TenantCloudPartitionId),
 		"tenant_domain":                  types.StringValue(w.Data.CustomBillingSource.AzureConnection.TenantDomain),
-		"tenant_client_secret":           m.AzureConnection.TenantClientSecret,
+		"tenant_client_secret":           flex.CarryOrNull(ctx, m.AzureConnection.TenantClientSecret, AzureConnectionValue{}.AttributeTypes(ctx)["tenant_client_secret"]),
 	})
 	diags.Append(AzureConnectionValDiags...)
 	m.AzureConnection = AzureConnectionVal

@@ -28,7 +28,7 @@ resource "kion_automation_policy" "example" {
   # cloud_rule_ids       = []
   # description          = "example"
   # enabled              = false
-  # engine               = 0
+  # engine               = 1
   # owner_user_group_ids = []
   # owner_user_ids       = []
   # scheduled_frequency = {
@@ -60,7 +60,7 @@ resource "kion_automation_policy" "example" {
 - `cloud_rule_ids` (Set of Number) IDs of the cloud rules the policy is attached to.
 - `description` (String) Description of the automation policy.
 - `enabled` (Boolean) Whether the policy is enabled.
-- `engine` (Number) Engine that runs the policy. 0 (Kion) is the only accepted value; the API defines 1 for Cloud Custodian but rejects it.
+- `engine` (Number) Engine that runs the policy: 0 (Kion) or 1 (Cloud Custodian). Kion rejects creating a policy with 1, but existing ones can be imported.
 - `owner_user_group_ids` (Set of Number) IDs of the user groups that own the policy.
 - `owner_user_ids` (Set of Number) IDs of the users who own the policy.
 - `scheduled_frequency` (Attributes) When the policy runs. Omit for a policy that only runs on demand. (see [below for nested schema](#nestedatt--scheduled_frequency))

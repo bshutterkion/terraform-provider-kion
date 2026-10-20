@@ -81,7 +81,9 @@ type billing_source_awsWire struct {
 			BillingReportName          string `json:"billing_report_name"`
 			BillingReportPrefix        string `json:"billing_report_prefix"`
 			BillingBucketAccountNumber string `json:"billing_bucket_account_number"`
+			LinkedRole                 string `json:"linked_role"`
 		} `json:"aws_payer"`
+		AccountTypeId int64 `json:"account_type_id"`
 	} `json:"data"`
 }
 
@@ -114,6 +116,8 @@ func (r *billing_source_awsResource) flatten(ctx context.Context, w billing_sour
 	m.CurName = types.StringValue(w.Data.AwsPayer.BillingReportName)
 	m.CurPrefix = types.StringValue(w.Data.AwsPayer.BillingReportPrefix)
 	m.BillingBucketAccountNumber = types.StringValue(w.Data.AwsPayer.BillingBucketAccountNumber)
+	m.LinkedRole = types.StringValue(w.Data.AwsPayer.LinkedRole)
+	m.AccountTypeId = types.Int64Value(w.Data.AccountTypeId)
 
 	return diags
 }

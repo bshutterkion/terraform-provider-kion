@@ -41,9 +41,9 @@ resources:
       engine:
         type: int64
         computed_optional_required: computed_optional
-        description: "Engine that runs the policy. 0 (Kion) is the only accepted value; the API defines 1 for Cloud Custodian but rejects it."
+        description: "Engine that runs the policy: 0 (Kion) or 1 (Cloud Custodian). Kion rejects creating a policy with 1, but existing ones can be imported."
         validators:
-          - int64validator.OneOf(0)
+          - int64validator.OneOf(0, 1)
 
   # --- JSON-valued attributes -------------------------------------------
   # These carry JSON as a string. The API's rendering never matches what a

@@ -24,7 +24,7 @@ variable "enabled" {
 }
 
 variable "engine" {
-  description = "Engine that runs the policy. 0 (Kion) is the only accepted value; the API defines 1 for Cloud Custodian but rejects it."
+  description = "Engine that runs the policy: 0 (Kion) or 1 (Cloud Custodian). Kion rejects creating a policy with 1, but existing ones can be imported."
   type        = number
   default     = null
 }

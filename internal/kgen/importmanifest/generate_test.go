@@ -2,6 +2,7 @@ package importmanifest
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -801,4 +802,50 @@ func TestBuildParentFallbackKeepsPlainID(t *testing.T) {
 	r2 := byType(m2, "kion_ou_enforcement")
 	assert.Equal(t, FormatParentSlashKey, r2.ImportID.Format)
 	assert.Equal(t, "id", r2.ImportID.KeyField)
+}
+
+// TestBuildOverridesGovcloudParent: the derived parent list for GovCloud,
+// /v3/billing-source, only accepts POST (405 on GET). /v4/billing-source lists.
+func TestBuildOverridesGovcloudParent(t *testing.T) {
+	t.Parallel()
+	m := Build(
+		map[string]string{"billing_source_govcloud": "/v3/billing-source/{id}/govcloud"},
+		map[string]string{},
+		map[string]string{},
+		map[string]string{},
+		map[string]archetypeInfo{},
+		[]string{"kion_billing_source_govcloud"},
+		map[string]bool{},
+	)
+
+	r := byType(m, "kion_billing_source_govcloud")
+	require.NotNil(t, r.Parent)
+	assert.Equal(t, "/v4/billing-source", r.Parent.ListPath)
+	assert.Equal(t, "/v3/billing-source/{parent_id}/govcloud", r.Parent.ChildPath)
+	assert.Equal(t, "billing_source_id", r.Parent.ParentIDField)
+	assert.Equal(t, ShapeParentList, r.ReadShape)
+}
+
+// TestBuildDiscriminatesBillingSourceKinds: /v4/billing-source lists every
+// payer type, so each typed billing source must keep only its own kind, or one
+// AWS payer imports as an AWS, a GCP and an OCI billing source at once.
+func TestBuildDiscriminatesBillingSourceKinds(t *testing.T) {
+	t.Parallel()
+	want := map[string]string{
+		"kion_billing_source":     "custom_billing_source",
+		"kion_billing_source_aws": "aws_payer",
+		"kion_billing_source_gcp": "gcp_payer",
+		"kion_billing_source_oci": "oci_payer",
+	}
+	read := map[string]string{}
+	var types []string
+	for tf := range want {
+		read[strings.TrimPrefix(tf, "kion_")] = "/v4/billing-source/{id}"
+		types = append(types, tf)
+	}
+	m := Build(read, map[string]string{}, map[string]string{}, map[string]string{},
+		map[string]archetypeInfo{}, types, map[string]bool{})
+	for tf, field := range want {
+		assert.Equal(t, field, byType(m, tf).RequireValidField, tf)
+	}
 }

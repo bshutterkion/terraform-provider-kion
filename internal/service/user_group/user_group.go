@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -23,10 +22,9 @@ import (
 const ResNameUserGroup = "UserGroup"
 
 var (
-	_ resource.Resource                     = &user_groupResource{}
-	_ resource.ResourceWithConfigure        = &user_groupResource{}
-	_ resource.ResourceWithImportState      = &user_groupResource{}
-	_ resource.ResourceWithConfigValidators = &user_groupResource{}
+	_ resource.Resource                = &user_groupResource{}
+	_ resource.ResourceWithConfigure   = &user_groupResource{}
+	_ resource.ResourceWithImportState = &user_groupResource{}
 )
 
 // NewUserGroupResource returns a new instance of the resource.
@@ -42,25 +40,14 @@ func (r *user_groupResource) Metadata(_ context.Context, req resource.MetadataRe
 	resp.TypeName = req.ProviderTypeName + "_user_group"
 }
 
-// ConfigValidators expresses constraints the API enforces across attributes,
-// which the schema cannot: an attribute required only for some value of another
-// is not Required on its own, so without this the configuration reaches the API
-// and comes back as a validation error naming the Go struct field rather than
-// the Terraform attribute.
-func (r *user_groupResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
-	return []resource.ConfigValidator{
-		resourcevalidator.AtLeastOneOf(
-			path.MatchRoot("owner_user_group_ids"),
-			path.MatchRoot("owner_user_ids"),
-		),
-	}
-}
-
 func (r *user_groupResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	// Schema is generated from the OpenAPI spec (user_group_schema_gen.go); the
 	// bits the spec can't express come from codegen/schema_overrides.yaml.
 	resp.Schema = UserGroupResourceSchema(ctx)
 	resp.Schema.Version = 1
+	// The API requires at least one of these on create only; an existing record
+	// may have none (see framework.AtLeastOneOfOnCreate).
+	framework.AtLeastOneOfOnCreate(&resp.Schema, "owner_user_group_ids", "owner_user_ids")
 }
 
 func (r *user_groupResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

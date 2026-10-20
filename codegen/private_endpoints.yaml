@@ -297,6 +297,8 @@ resources:
         - { tf: cur_name,           from: "aws_payer.billing_report_name",          kind: string }
         - { tf: cur_prefix,         from: "aws_payer.billing_report_prefix",        kind: string }
         - { tf: billing_bucket_account_number, from: "aws_payer.billing_bucket_account_number", kind: string }
+        - { tf: linked_role,        from: "aws_payer.linked_role",                  kind: string }
+        - { tf: account_type_id,    from: "account_type_id",                        kind: int }
         - { tf: key_id,             from: "aws_payer.key_id",     kind: string, write_only: true }
         - { tf: key_secret,         from: "aws_payer.key_secret", kind: string, write_only: true }
     write_shape:
@@ -354,6 +356,7 @@ resources:
         # record carries a different one (payer 2 -> aws_payer.id 1). Reporting
         # the inner id would point destroy at another billing source.
         - { tf: id, from: "id", kind: id }
+        - { tf: account_type_id, from: "account_type_id", kind: int }
       # Everything else lives inside the nested create object in the model, so it
       # is flattened as one object rather than as top-level scalars.
       objects:
@@ -368,10 +371,16 @@ resources:
             - { tf: billing_start_date, from: billing_start_date, kind: datecode }
             - { tf: is_reseller,        from: is_reseller,        kind: bool }
             - { tf: service_account_id, from: service_account_id, kind: int }
-            # Not returned by the payer read in a form the generator can convert
-            # (a struct nested inside an already-nested object), so it carries
-            # the prior state value through rather than being dropped.
-            - { tf: big_query_export,                       from: big_query_export,                       kind: string, write_only: true }
+            # Required, so import needs it read rather than carried from state.
+            - tf: big_query_export
+              from: big_query_export
+              kind: object
+              subs:
+                - { tf: gcp_project_id,  from: gcp_project_id,  kind: string }
+                - { tf: dataset_name,    from: dataset_name,    kind: string }
+                - { tf: table_name,      from: table_name,      kind: string }
+                - { tf: table_format,    from: table_format,    kind: string }
+                - { tf: focus_view_name, from: focus_view_name, kind: string }
             - { tf: billing_account_attribution_account_id, from: billing_account_attribution_account_id, kind: string, write_only: true }
             - { tf: use_focus,                              from: use_focus,                              kind: bool,   write_only: true }
             - { tf: use_proprietary,                        from: use_proprietary,                        kind: bool,   write_only: true }
@@ -476,6 +485,10 @@ resources:
     read:   { method: GET,    path: "/v3/webhook/{id}", spec: public }
     update: { method: PATCH,  path: "/v3/webhook/{id}", spec: public }
     delete: { method: DELETE, path: "/v1/webhook/{id}", spec: private }
+
+  # kion_project is public throughout, but no public read returns its
+  # permission_scheme_id. Its Read (internal/kgen/crud/project.gtpl) also calls
+  # GET /v1/project/{id}/edit (private), taking project_app_policy[0].id.
 
   user:
     reason: public spec has no delete; the private v1 route deletes for real

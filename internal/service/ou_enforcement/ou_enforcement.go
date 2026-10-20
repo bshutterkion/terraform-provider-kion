@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -26,10 +25,9 @@ import (
 const ResNameOuEnforcement = "OuEnforcement Resource"
 
 var (
-	_ resource.Resource                     = &ou_enforcementResource{}
-	_ resource.ResourceWithConfigure        = &ou_enforcementResource{}
-	_ resource.ResourceWithImportState      = &ou_enforcementResource{}
-	_ resource.ResourceWithConfigValidators = &ou_enforcementResource{}
+	_ resource.Resource                = &ou_enforcementResource{}
+	_ resource.ResourceWithConfigure   = &ou_enforcementResource{}
+	_ resource.ResourceWithImportState = &ou_enforcementResource{}
 )
 
 // NewOuEnforcementResource returns a new instance of the resource.
@@ -45,21 +43,11 @@ func (r *ou_enforcementResource) Metadata(_ context.Context, req resource.Metada
 	resp.TypeName = req.ProviderTypeName + "_ou_enforcement"
 }
 
-// ConfigValidators expresses a constraint the API enforces across attributes,
-// which the schema cannot: neither attribute is Required on its own, so without
-// this the configuration reaches the API and comes back as a validation error
-// naming the Go struct field rather than the Terraform attribute.
-func (r *ou_enforcementResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
-	return []resource.ConfigValidator{
-		resourcevalidator.AtLeastOneOf(
-			path.MatchRoot("user_group_ids"),
-			path.MatchRoot("user_ids"),
-		),
-	}
-}
-
 func (r *ou_enforcementResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = OuEnforcementResourceSchema(ctx)
+	// The API requires at least one of these on create only; an existing record
+	// may have none (see framework.AtLeastOneOfOnCreate).
+	framework.AtLeastOneOfOnCreate(&resp.Schema, "user_group_ids", "user_ids")
 }
 
 // findOuEnforcementRecord returns the record with the given id from the parent list.

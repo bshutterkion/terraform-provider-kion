@@ -5,6 +5,7 @@ package project
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -12,8 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	{{if .AtLeastOneOf}}"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
-	{{end}}	"github.com/hashicorp/terraform-plugin-framework/types"
+		"github.com/hashicorp/terraform-plugin-framework/types"
 	generated "{{.SDKImport}}"
 
 	"terraform-provider-kion/internal/conns"
@@ -28,9 +28,6 @@ var (
 	_ resource.Resource                = &projectResource{}
 	_ resource.ResourceWithConfigure   = &projectResource{}
 	_ resource.ResourceWithImportState = &projectResource{}
-{{- if .AtLeastOneOf}}
-	_ resource.ResourceWithConfigValidators = &projectResource{}
-{{- end}}
 )
 
 // NewProjectResource returns a new instance of the resource.
@@ -46,25 +43,14 @@ func (r *projectResource) Metadata(_ context.Context, req resource.MetadataReque
 	resp.TypeName = req.ProviderTypeName + "_project"
 }
 
-{{if .AtLeastOneOf}}// ConfigValidators expresses a constraint the API enforces across attributes,
-// which the schema cannot: neither attribute is Required on its own, so without
-// this the configuration reaches the API and comes back as a validation error
-// naming the request field rather than the Terraform attribute.
-func (r *projectResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
-	return []resource.ConfigValidator{
-		resourcevalidator.AtLeastOneOf(
-{{- range .AtLeastOneOf}}
-			path.MatchRoot("{{.}}"),
-{{- end}}
-		),
-	}
-}
-{{end}}
 func (r *projectResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	// Schema is generated from the OpenAPI spec (project_schema_gen.go); the
 	// bits the spec can't express come from codegen/schema_overrides.yaml.
 	resp.Schema = ProjectResourceSchema(ctx)
-	resp.Schema.Version = 1
+	resp.Schema.Version = 1{{if .AtLeastOneOf}}
+	// The API requires at least one of these on create only; an existing record
+	// may have none (see framework.AtLeastOneOfOnCreate).
+	framework.AtLeastOneOfOnCreate(&resp.Schema{{range .AtLeastOneOf}}, "{{.}}"{{end}}){{end}}
 }
 
 // configured reports whether the practitioner wrote a value for an attribute.
@@ -353,6 +339,37 @@ func (r *projectResource) Read(ctx context.Context, req resource.ReadRequest, re
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// The read payload carries no owners; they are the project's app role 1
+	// permission mapping. Without this, import loses them and owner drift is
+	// never seen.
+	mappingOut, mappingErr := conn.GetProjectUserMappingIndex(ctx, generated.GetProjectUserMappingIndexParams{ID: idInt})
+	if mappingErr != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("reading owners of %s (ID: %d)", ResNameProject, idInt), mappingErr.Error())
+		return
+	}
+	if ml, ok := mappingOut.(*generated.ProjectUserMappingListResponse); ok {
+		resp.Diagnostics.Append(flattenProjectOwners(ctx, ml.Data, &state)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
+
+	// No public read returns the permission scheme; the private edit payload
+	// carries it as project_app_policy.
+	editBody, editErr := r.Meta().RawGet(ctx, "/v1/project/"+strconv.FormatInt(idInt, 10)+"/edit")
+	if editErr != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("reading permission scheme of %s (ID: %d)", ResNameProject, idInt), editErr.Error())
+		return
+	}
+	schemeID, schemeErr := projectPermissionSchemeID(editBody)
+	if schemeErr != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("reading permission scheme of %s (ID: %d)", ResNameProject, idInt), schemeErr.Error())
+		return
+	}
+	if schemeID != nil {
+		state.PermissionSchemeId = types.Int64Value(*schemeID)
+	}
 {{- if .Labels}}
 
 	// Labels come from the sub-resource, not the read payload: a refresh that
@@ -535,6 +552,50 @@ func (r *projectResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 func (r *projectResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+}
+
+// projectPermissionSchemeID decodes GET /v1/project/{id}/edit, whose
+// project_app_policy holds the one scheme applied to the project. nil when the
+// payload names none.
+func projectPermissionSchemeID(body []byte) (*int64, error) {
+	var edit struct {
+		Data struct {
+			ProjectAppPolicy []struct {
+				ID int64 `json:"id"`
+			} `json:"project_app_policy"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &edit); err != nil {
+		return nil, err
+	}
+	if len(edit.Data.ProjectAppPolicy) == 0 {
+		return nil, nil
+	}
+	return &edit.Data.ProjectAppPolicy[0].ID, nil
+}
+
+// projectOwnerAppRoleID is the app role Kion stores project owners under.
+const projectOwnerAppRoleID = 1
+
+// flattenProjectOwners sets both owner sets from the owner role's mapping. A
+// role with no members comes back as JSON null and reads as an empty set.
+func flattenProjectOwners(ctx context.Context, mappings []generated.UserMapping, model *ProjectModel) diag.Diagnostics {
+	var diags diag.Diagnostics
+	var users, groups []uint64
+	for _, m := range mappings {
+		if !m.AppRoleID.Null && m.AppRoleID.Value == projectOwnerAppRoleID {
+			users, _ = m.UserIds.Get()
+			groups, _ = m.UserGroupsIds.Get()
+			break
+		}
+	}
+	userSet, d := flex.Uint64SliceToFrameworkSetOrEmpty(ctx, users)
+	diags.Append(d...)
+	groupSet, d := flex.Uint64SliceToFrameworkSetOrEmpty(ctx, groups)
+	diags.Append(d...)
+	model.OwnerUserIds = userSet
+	model.OwnerUserGroupIds = groupSet
+	return diags
 }
 
 func flattenProject(apiObject any, model *ProjectModel) diag.Diagnostics {

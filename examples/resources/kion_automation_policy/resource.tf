@@ -13,7 +13,7 @@ resource "kion_automation_policy" "example" {
   # cloud_rule_ids       = []
   # description          = "example"
   # enabled              = false
-  # engine               = 0
+  # engine               = 1
   # owner_user_group_ids = []
   # owner_user_ids       = []
   # scheduled_frequency = {

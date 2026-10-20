@@ -1,0 +1,6 @@
+kind: BUG FIXES
+body: >-
+  kion-import reads kion_billing_source_govcloud again. It listed billing
+  sources through GET /v3/billing-source, which only accepts POST, so the
+  type always reported an error; it now lists through /v4/billing-source.
+time: 2026-10-20T18:59:45Z

@@ -97,6 +97,11 @@ var parentOverrides = map[string]Parent{
 		ChildPath: "/v1/project/{parent_id}/ou-cloud-access-role", ParentIDField: "project_id",
 		ChildRecordsKey: "project_exemptions",
 	},
+	// GET /v3/billing-source 405s (POST only); the collection is /v4.
+	"kion_billing_source_govcloud": {
+		Kind: "billing_source", ListPath: "/v4/billing-source",
+		ChildPath: "/v3/billing-source/{parent_id}/govcloud", ParentIDField: "billing_source_id",
+	},
 }
 
 // importStateSplits reports whether an archetype's generated ImportState parses
@@ -140,10 +145,15 @@ func importStateSplits(archetype string) bool {
 // flattens everything to zero, and the resource refreshes as id="0". Every
 // payer_id pointing at one of those resolves to 0, which on one install planned
 // 6,611 accounts to be unlinked from their billing source. Measured across five
-// installs, the count reading a real id equals the custom count exactly.
+// installs, the count reading a real id equals the custom count exactly. The
+// AWS, GCP and OCI billing sources list the same collection and need the same
+// filter on their own key.
 var requireValidOverrides = map[string]string{
 	"kion_custom_variable_override": "override",
 	"kion_billing_source":           "custom_billing_source",
+	"kion_billing_source_aws":       "aws_payer",
+	"kion_billing_source_gcp":       "gcp_payer",
+	"kion_billing_source_oci":       "oci_payer",
 }
 
 // multiParentOverrides corrects resources enumerable under more than one

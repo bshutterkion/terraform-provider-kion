@@ -40,9 +40,9 @@ func TestConfigValidatorsMatchDeclaration(t *testing.T) {
 	entries, err := os.ReadDir(root)
 	require.NoError(t, err)
 
-	// path.MatchRoot("x") inside the AtLeastOneOf call of a ConfigValidators body.
-	matchRoot := regexp.MustCompile(`path\.MatchRoot\("([a-z0-9_]+)"\)`)
-	atLeastOneOfCall := regexp.MustCompile(`(?s)resourcevalidator\.AtLeastOneOf\((.*?)\n\s*\),`)
+	// framework.AtLeastOneOfOnCreate(&resp.Schema, "a", "b") in Schema().
+	atLeastOneOfCall := regexp.MustCompile(`framework\.AtLeastOneOfOnCreate\(&resp\.Schema((?:, "[a-z0-9_]+")+)\)`)
+	quoted := regexp.MustCompile(`"([a-z0-9_]+)"`)
 
 	for _, e := range entries {
 		if !e.IsDir() {
@@ -57,15 +57,13 @@ func TestConfigValidatorsMatchDeclaration(t *testing.T) {
 			src, err := os.ReadFile(f)
 			require.NoError(t, err)
 			body := string(src)
-			i := strings.Index(body, ") ConfigValidators(")
-			if i < 0 {
+			g := atLeastOneOfCall.FindStringSubmatch(body)
+			if g == nil {
 				continue
 			}
 			var attrs []string
-			if g := atLeastOneOfCall.FindStringSubmatch(body[i:]); g != nil {
-				for _, m := range matchRoot.FindAllStringSubmatch(g[1], -1) {
-					attrs = append(attrs, m[1])
-				}
+			for _, m := range quoted.FindAllStringSubmatch(g[1], -1) {
+				attrs = append(attrs, m[1])
 			}
 			sort.Strings(attrs)
 			emitted[e.Name()] = attrs
@@ -73,11 +71,14 @@ func TestConfigValidatorsMatchDeclaration(t *testing.T) {
 	}
 
 	for pkg, d := range declared {
+		if len(d.AtLeastOneOf) == 0 {
+			continue // required_when / required_together only; guarded below
+		}
 		want := append([]string(nil), d.AtLeastOneOf...)
 		sort.Strings(want)
 		got, ok := emitted[pkg]
 		assert.Truef(t, ok,
-			"%s declares at_least_one_of %v but its resource emits no ConfigValidators; "+
+			"%s declares at_least_one_of %v but its resource emits no AtLeastOneOfOnCreate; "+
 				"run `make crud-force`", pkg, want)
 		if ok {
 			assert.Equalf(t, want, got, "%s: declared and emitted constraints differ", pkg)
@@ -87,7 +88,7 @@ func TestConfigValidatorsMatchDeclaration(t *testing.T) {
 	for pkg := range emitted {
 		_, ok := declared[pkg]
 		assert.Truef(t, ok,
-			"%s emits ConfigValidators with no entry in codegen/config_validators.yaml", pkg)
+			"%s emits AtLeastOneOfOnCreate with no entry in codegen/config_validators.yaml", pkg)
 	}
 }
 
@@ -133,7 +134,7 @@ func TestConfigValidatorAttributesExist(t *testing.T) {
 }
 
 // TestRequiredWhenMatchDeclaration is the other half of
-// TestConfigValidatorsMatchDeclaration: that one reads path.MatchRoot, which
+// TestConfigValidatorsMatchDeclaration: that one reads AtLeastOneOfOnCreate, which
 // required_when does not emit, so without this a dropped rule passes both.
 func TestRequiredWhenMatchDeclaration(t *testing.T) {
 	t.Parallel()
