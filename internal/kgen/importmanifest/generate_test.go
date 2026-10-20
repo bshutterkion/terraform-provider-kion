@@ -802,3 +802,25 @@ func TestBuildParentFallbackKeepsPlainID(t *testing.T) {
 	assert.Equal(t, FormatParentSlashKey, r2.ImportID.Format)
 	assert.Equal(t, "id", r2.ImportID.KeyField)
 }
+
+// TestBuildOverridesGovcloudParent: the derived parent list for GovCloud,
+// /v3/billing-source, only accepts POST (405 on GET). /v4/billing-source lists.
+func TestBuildOverridesGovcloudParent(t *testing.T) {
+	t.Parallel()
+	m := Build(
+		map[string]string{"billing_source_govcloud": "/v3/billing-source/{id}/govcloud"},
+		map[string]string{},
+		map[string]string{},
+		map[string]string{},
+		map[string]archetypeInfo{},
+		[]string{"kion_billing_source_govcloud"},
+		map[string]bool{},
+	)
+
+	r := byType(m, "kion_billing_source_govcloud")
+	require.NotNil(t, r.Parent)
+	assert.Equal(t, "/v4/billing-source", r.Parent.ListPath)
+	assert.Equal(t, "/v3/billing-source/{parent_id}/govcloud", r.Parent.ChildPath)
+	assert.Equal(t, "billing_source_id", r.Parent.ParentIDField)
+	assert.Equal(t, ShapeParentList, r.ReadShape)
+}

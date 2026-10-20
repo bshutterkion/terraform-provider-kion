@@ -97,6 +97,11 @@ var parentOverrides = map[string]Parent{
 		ChildPath: "/v1/project/{parent_id}/ou-cloud-access-role", ParentIDField: "project_id",
 		ChildRecordsKey: "project_exemptions",
 	},
+	// GET /v3/billing-source 405s (POST only); the collection is /v4.
+	"kion_billing_source_govcloud": {
+		Kind: "billing_source", ListPath: "/v4/billing-source",
+		ChildPath: "/v3/billing-source/{parent_id}/govcloud", ParentIDField: "billing_source_id",
+	},
 }
 
 // importStateSplits reports whether an archetype's generated ImportState parses
