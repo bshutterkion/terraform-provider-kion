@@ -453,8 +453,8 @@ resources:
   # The third resource that had a no-op read, and the easy one: the spec has the
   # collection GET, POST and DELETE, but no by-id GET, so it too imported as an
   # empty shell. The collection is flat and public, so the read needs no parent
-  # and the import id stays the plain id. Fields match the spec's AWSResourceTag.
-  # NOT verified against live data: the verification install has no records.
+  # and the import id stays the plain id. Fields match the spec's AWSResourceTag,
+  # verified live 2026-10-20 (#30): create, refresh, import, out-of-band delete.
   aws_resource_tag:
     reason: public spec has the collection GET but no by-id read
     parent_read:
