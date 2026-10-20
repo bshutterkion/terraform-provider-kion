@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -24,10 +23,9 @@ import (
 const ResNameServiceCatalog = "ServiceCatalog"
 
 var (
-	_ resource.Resource                     = &service_catalogResource{}
-	_ resource.ResourceWithConfigure        = &service_catalogResource{}
-	_ resource.ResourceWithImportState      = &service_catalogResource{}
-	_ resource.ResourceWithConfigValidators = &service_catalogResource{}
+	_ resource.Resource                = &service_catalogResource{}
+	_ resource.ResourceWithConfigure   = &service_catalogResource{}
+	_ resource.ResourceWithImportState = &service_catalogResource{}
 )
 
 // NewServiceCatalogResource returns a new instance of the resource.
@@ -43,24 +41,13 @@ func (r *service_catalogResource) Metadata(_ context.Context, req resource.Metad
 	resp.TypeName = req.ProviderTypeName + "_service_catalog"
 }
 
-// ConfigValidators expresses constraints the API enforces across attributes,
-// which the schema cannot: an attribute required only for some value of another
-// is not Required on its own, so without this the configuration reaches the API
-// and comes back as a validation error naming the Go struct field rather than
-// the Terraform attribute.
-func (r *service_catalogResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
-	return []resource.ConfigValidator{
-		resourcevalidator.AtLeastOneOf(
-			path.MatchRoot("owner_user_group_ids"),
-			path.MatchRoot("owner_user_ids"),
-		),
-	}
-}
-
 func (r *service_catalogResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	// Schema is generated from the OpenAPI spec (service_catalog_schema_gen.go); the
 	// bits the spec can't express come from codegen/schema_overrides.yaml.
 	resp.Schema = ServiceCatalogResourceSchema(ctx)
+	// The API requires at least one of these on create only; an existing record
+	// may have none (see framework.AtLeastOneOfOnCreate).
+	framework.AtLeastOneOfOnCreate(&resp.Schema, "owner_user_group_ids", "owner_user_ids")
 }
 
 func (r *service_catalogResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -25,10 +24,9 @@ import (
 const ResNameProject = "Project"
 
 var (
-	_ resource.Resource                     = &projectResource{}
-	_ resource.ResourceWithConfigure        = &projectResource{}
-	_ resource.ResourceWithImportState      = &projectResource{}
-	_ resource.ResourceWithConfigValidators = &projectResource{}
+	_ resource.Resource                = &projectResource{}
+	_ resource.ResourceWithConfigure   = &projectResource{}
+	_ resource.ResourceWithImportState = &projectResource{}
 )
 
 // NewProjectResource returns a new instance of the resource.
@@ -44,24 +42,14 @@ func (r *projectResource) Metadata(_ context.Context, req resource.MetadataReque
 	resp.TypeName = req.ProviderTypeName + "_project"
 }
 
-// ConfigValidators expresses a constraint the API enforces across attributes,
-// which the schema cannot: neither attribute is Required on its own, so without
-// this the configuration reaches the API and comes back as a validation error
-// naming the request field rather than the Terraform attribute.
-func (r *projectResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
-	return []resource.ConfigValidator{
-		resourcevalidator.AtLeastOneOf(
-			path.MatchRoot("owner_user_group_ids"),
-			path.MatchRoot("owner_user_ids"),
-		),
-	}
-}
-
 func (r *projectResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	// Schema is generated from the OpenAPI spec (project_schema_gen.go); the
 	// bits the spec can't express come from codegen/schema_overrides.yaml.
 	resp.Schema = ProjectResourceSchema(ctx)
 	resp.Schema.Version = 1
+	// The API requires at least one of these on create only; an existing record
+	// may have none (see framework.AtLeastOneOfOnCreate).
+	framework.AtLeastOneOfOnCreate(&resp.Schema, "owner_user_group_ids", "owner_user_ids")
 }
 
 // configured reports whether the practitioner wrote a value for an attribute.

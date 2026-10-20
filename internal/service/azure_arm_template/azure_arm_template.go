@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -23,10 +22,9 @@ import (
 const ResNameAzureArmTemplate = "AzureArmTemplate"
 
 var (
-	_ resource.Resource                     = &azure_arm_templateResource{}
-	_ resource.ResourceWithConfigure        = &azure_arm_templateResource{}
-	_ resource.ResourceWithImportState      = &azure_arm_templateResource{}
-	_ resource.ResourceWithConfigValidators = &azure_arm_templateResource{}
+	_ resource.Resource                = &azure_arm_templateResource{}
+	_ resource.ResourceWithConfigure   = &azure_arm_templateResource{}
+	_ resource.ResourceWithImportState = &azure_arm_templateResource{}
 )
 
 // NewAzureArmTemplateResource returns a new instance of the resource.
@@ -42,25 +40,14 @@ func (r *azure_arm_templateResource) Metadata(_ context.Context, req resource.Me
 	resp.TypeName = req.ProviderTypeName + "_azure_arm_template"
 }
 
-// ConfigValidators expresses constraints the API enforces across attributes,
-// which the schema cannot: an attribute required only for some value of another
-// is not Required on its own, so without this the configuration reaches the API
-// and comes back as a validation error naming the Go struct field rather than
-// the Terraform attribute.
-func (r *azure_arm_templateResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
-	return []resource.ConfigValidator{
-		resourcevalidator.AtLeastOneOf(
-			path.MatchRoot("owner_user_group_ids"),
-			path.MatchRoot("owner_user_ids"),
-		),
-	}
-}
-
 func (r *azure_arm_templateResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	// Schema is generated from the OpenAPI spec (azure_arm_template_schema_gen.go); the
 	// bits the spec can't express come from codegen/schema_overrides.yaml.
 	resp.Schema = AzureArmTemplateResourceSchema(ctx)
 	resp.Schema.Version = 1
+	// The API requires at least one of these on create only; an existing record
+	// may have none (see framework.AtLeastOneOfOnCreate).
+	framework.AtLeastOneOfOnCreate(&resp.Schema, "owner_user_group_ids", "owner_user_ids")
 }
 
 func (r *azure_arm_templateResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

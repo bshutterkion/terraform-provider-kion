@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -24,10 +23,9 @@ import (
 const ResNameWebhook = "Webhook"
 
 var (
-	_ resource.Resource                     = &webhookResource{}
-	_ resource.ResourceWithConfigure        = &webhookResource{}
-	_ resource.ResourceWithImportState      = &webhookResource{}
-	_ resource.ResourceWithConfigValidators = &webhookResource{}
+	_ resource.Resource                = &webhookResource{}
+	_ resource.ResourceWithConfigure   = &webhookResource{}
+	_ resource.ResourceWithImportState = &webhookResource{}
 )
 
 // NewWebhookResource returns a new instance of the resource.
@@ -43,25 +41,14 @@ func (r *webhookResource) Metadata(_ context.Context, req resource.MetadataReque
 	resp.TypeName = req.ProviderTypeName + "_webhook"
 }
 
-// ConfigValidators expresses constraints the API enforces across attributes,
-// which the schema cannot: an attribute required only for some value of another
-// is not Required on its own, so without this the configuration reaches the API
-// and comes back as a validation error naming the Go struct field rather than
-// the Terraform attribute.
-func (r *webhookResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
-	return []resource.ConfigValidator{
-		resourcevalidator.AtLeastOneOf(
-			path.MatchRoot("owner_user_group_ids"),
-			path.MatchRoot("owner_user_ids"),
-		),
-	}
-}
-
 func (r *webhookResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	// Schema is generated from the OpenAPI spec (webhook_schema_gen.go); the
 	// bits the spec can't express come from codegen/schema_overrides.yaml.
 	resp.Schema = WebhookResourceSchema(ctx)
 	resp.Schema.Version = 1
+	// The API requires at least one of these on create only; an existing record
+	// may have none (see framework.AtLeastOneOfOnCreate).
+	framework.AtLeastOneOfOnCreate(&resp.Schema, "owner_user_group_ids", "owner_user_ids")
 }
 
 func (r *webhookResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

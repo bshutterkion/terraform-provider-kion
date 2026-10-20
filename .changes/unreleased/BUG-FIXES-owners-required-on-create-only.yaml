@@ -1,0 +1,8 @@
+kind: BUG FIXES
+body: >-
+  Records Kion holds without owners -- built-in compliance checks and
+  standards, Kion-managed Azure and IAM policies, built-in cloud rules -- can
+  now be imported. The "at least one owner" rule on the 20 resources that
+  have one now applies when creating a resource, which is when Kion enforces
+  it, instead of on every plan.
+time: 2026-10-20T19:06:55Z

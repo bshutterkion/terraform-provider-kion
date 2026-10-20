@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -24,10 +23,9 @@ import (
 const ResNameCft = "Cft"
 
 var (
-	_ resource.Resource                     = &cftResource{}
-	_ resource.ResourceWithConfigure        = &cftResource{}
-	_ resource.ResourceWithImportState      = &cftResource{}
-	_ resource.ResourceWithConfigValidators = &cftResource{}
+	_ resource.Resource                = &cftResource{}
+	_ resource.ResourceWithConfigure   = &cftResource{}
+	_ resource.ResourceWithImportState = &cftResource{}
 )
 
 // NewCftResource returns a new instance of the resource.
@@ -43,25 +41,14 @@ func (r *cftResource) Metadata(_ context.Context, req resource.MetadataRequest, 
 	resp.TypeName = req.ProviderTypeName + "_cft"
 }
 
-// ConfigValidators expresses constraints the API enforces across attributes,
-// which the schema cannot: an attribute required only for some value of another
-// is not Required on its own, so without this the configuration reaches the API
-// and comes back as a validation error naming the Go struct field rather than
-// the Terraform attribute.
-func (r *cftResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
-	return []resource.ConfigValidator{
-		resourcevalidator.AtLeastOneOf(
-			path.MatchRoot("owner_user_group_ids"),
-			path.MatchRoot("owner_user_ids"),
-		),
-	}
-}
-
 func (r *cftResource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	// Schema is generated from the OpenAPI spec (cft_schema_gen.go); the
 	// bits the spec can't express come from codegen/schema_overrides.yaml.
 	resp.Schema = CftResourceSchema(ctx)
 	resp.Schema.Version = 1
+	// The API requires at least one of these on create only; an existing record
+	// may have none (see framework.AtLeastOneOfOnCreate).
+	framework.AtLeastOneOfOnCreate(&resp.Schema, "owner_user_group_ids", "owner_user_ids")
 }
 
 func (r *cftResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

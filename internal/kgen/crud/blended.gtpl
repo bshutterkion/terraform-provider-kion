@@ -16,7 +16,7 @@ import (
 	{{end}}{{if .RawRead.Nested}}"github.com/hashicorp/terraform-plugin-framework/diag"
 	{{end}}"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	{{if or .AtLeastOneOf .RequiredTogether}}"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
+	{{if .RequiredTogether}}"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	{{end}}"github.com/hashicorp/terraform-plugin-framework/types"
 	{{.SDKAlias}} "{{.SDKImport}}"
 
@@ -32,7 +32,7 @@ var (
 	_ resource.Resource                = &{{.Pkg}}Resource{}
 	_ resource.ResourceWithConfigure   = &{{.Pkg}}Resource{}
 	_ resource.ResourceWithImportState = &{{.Pkg}}Resource{}
-{{- if or .AtLeastOneOf .RequiredWhen .RequiredTogether}}
+{{- if or .RequiredWhen .RequiredTogether}}
 	_ resource.ResourceWithConfigValidators = &{{.Pkg}}Resource{}
 {{- end}}
 )
@@ -50,20 +50,13 @@ func (r *{{.Pkg}}Resource) Metadata(_ context.Context, req resource.MetadataRequ
 	resp.TypeName = req.ProviderTypeName + "_{{.Pkg}}"
 }
 
-{{if or .AtLeastOneOf .RequiredWhen .RequiredTogether}}// ConfigValidators expresses constraints the API enforces across attributes,
+{{if or .RequiredWhen .RequiredTogether}}// ConfigValidators expresses constraints the API enforces across attributes,
 // which the schema cannot: an attribute required only for some value of another
 // is not Required on its own, so without this the configuration reaches the API
 // and comes back as a validation error naming the Go struct field rather than
 // the Terraform attribute.
 func (r *{{.Pkg}}Resource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
 	return []resource.ConfigValidator{
-		{{- if .AtLeastOneOf}}
-		resourcevalidator.AtLeastOneOf(
-			{{- range .AtLeastOneOf}}
-			path.MatchRoot("{{.}}"),
-			{{- end}}
-		),
-		{{- end}}
 		{{- range .RequiredTogether}}
 		resourcevalidator.RequiredTogether(
 			{{- range .}}
@@ -82,7 +75,10 @@ func (r *{{.Pkg}}Resource) ConfigValidators(_ context.Context) []resource.Config
 }
 {{end}}
 func (r *{{.Pkg}}Resource) Schema(ctx context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
-	resp.Schema = {{.Pascal}}ResourceSchema(ctx)
+	resp.Schema = {{.Pascal}}ResourceSchema(ctx){{if .AtLeastOneOf}}
+	// The API requires at least one of these on create only; an existing record
+	// may have none (see framework.AtLeastOneOfOnCreate).
+	framework.AtLeastOneOfOnCreate(&resp.Schema{{range .AtLeastOneOf}}, "{{.}}"{{end}}){{end}}
 }
 
 {{if .RawRead.Nested}}
