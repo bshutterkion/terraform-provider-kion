@@ -97,6 +97,13 @@ enum; `car_external_id` is an external identifier. Rewriting one would aim a
 Terraform reference at a foreign id space. The full classification, with a
 reason for every entry, is [`codegen/references.yaml`](../codegen/references.yaml).
 
+**`payer_id` resolves across billing source types.** Every billing source type
+is keyed on the payer id, so `payer_id = 5` becomes a reference to whichever of
+`kion_billing_source`, `_aws`, `_gcp` or `_oci` was imported with id 5 (the
+`families:` table in `codegen/references.yaml`). A payer of a type the provider
+has no resource for, such as an Azure CSP payer, stays a literal and is
+reported.
+
 **`parent_ou_id = 0`.** That means "top-level OU", not "the OU whose id is 0". A
 reference there would invent a parent.
 

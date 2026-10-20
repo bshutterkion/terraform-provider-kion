@@ -44,12 +44,15 @@ type Map struct {
 	// overrides is tf_type -> attribute -> target, for a resource whose
 	// attribute disagrees with the global table.
 	overrides map[string]map[string]string
+	// families is target -> the tf_types sharing its id space.
+	families map[string][]string
 }
 
 type file struct {
 	References    map[string]string            `yaml:"references"`
 	NotReferences map[string]string            `yaml:"not_references"`
 	Overrides     map[string]map[string]string `yaml:"overrides"`
+	Families      map[string][]string          `yaml:"families"`
 }
 
 // Parse loads the reference table from codegen/references.yaml content.
@@ -62,6 +65,7 @@ func Parse(raw []byte) (*Map, error) {
 		refs:      f.References,
 		notRefs:   f.NotReferences,
 		overrides: f.Overrides,
+		families:  f.Families,
 	}
 	if m.refs == nil {
 		m.refs = map[string]string{}
@@ -89,7 +93,23 @@ func Parse(raw []byte) (*Map, error) {
 			return nil, fmt.Errorf("reference target %q is not a tf_type (want a kion_ prefix)", target)
 		}
 	}
+	for family, members := range m.families {
+		for _, member := range members {
+			if !strings.HasPrefix(member, "kion_") {
+				return nil, fmt.Errorf("family %s member %q is not a tf_type (want a kion_ prefix)", family, member)
+			}
+		}
+	}
 	return m, nil
+}
+
+// Members returns the tf_types a reference to target may resolve to: its
+// family when it has one, else target alone.
+func (m *Map) Members(target string) []string {
+	if members, ok := m.families[target]; ok {
+		return members
+	}
+	return []string{target}
 }
 
 // Target returns the tf_type an attribute points at, for the given resource.

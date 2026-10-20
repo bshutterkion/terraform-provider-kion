@@ -414,3 +414,40 @@ func TestRewriteRejectsGarbage(t *testing.T) {
 	_, _, err := rewriteref.Rewrite([]byte("resource {"), "generated.tf", index(t), refs(t))
 	require.Error(t, err)
 }
+
+// payer_id names a billing source of any kind: the typed resources share the
+// payer id space, so an AWS payer resolves to kion_billing_source_aws.
+func TestPayerIDResolvesAcrossBillingSourceTypes(t *testing.T) {
+	imports := `
+import {
+  to = kion_billing_source_aws.kion_billing_source_aws_5
+  id = "5"
+}
+import {
+  to = kion_billing_source_gcp.kion_billing_source_gcp_7
+  id = "7"
+}
+`
+	idx, err := rewriteref.BuildIndex([]byte(imports), "imports.tf")
+	require.NoError(t, err)
+	in := `
+resource "kion_account" "a" {
+  payer_id = 5
+}
+resource "kion_account" "b" {
+  payer_id = 7
+}
+resource "kion_account" "c" {
+  payer_id = 3
+}
+`
+	out, res, err := rewriteref.Rewrite([]byte(in), "generated.tf", idx, refs(t))
+	require.NoError(t, err)
+	got := string(out)
+	assert.Contains(t, got, "payer_id = kion_billing_source_aws.kion_billing_source_aws_5.id")
+	assert.Contains(t, got, "payer_id = kion_billing_source_gcp.kion_billing_source_gcp_7.id")
+	assert.Contains(t, got, "payer_id = 3", "a payer no imported type holds stays literal")
+	assert.Equal(t, 2, res.Rewritten)
+	require.Len(t, res.Unresolved, 1)
+	assert.Equal(t, "kion_billing_source", res.Unresolved[0].Target)
+}
