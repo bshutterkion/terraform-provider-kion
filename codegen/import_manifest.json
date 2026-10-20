@@ -220,6 +220,7 @@
       "readable": true,
       "list_path": "/v4/billing-source",
       "name_field": "name",
+      "require_valid_field": "aws_payer",
       "import_id": {
         "format": "id"
       }
@@ -231,6 +232,7 @@
       "read_shape": "generic",
       "readable": true,
       "list_path": "/v4/billing-source",
+      "require_valid_field": "gcp_payer",
       "import_id": {
         "format": "id"
       }
@@ -260,6 +262,7 @@
       "readable": true,
       "list_path": "/v4/billing-source",
       "name_field": "name",
+      "require_valid_field": "oci_payer",
       "import_id": {
         "format": "id"
       }
