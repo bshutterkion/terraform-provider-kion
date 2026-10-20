@@ -146,6 +146,10 @@ func testAccCheckAppRoleDestroy(_ context.Context) resource.TestCheckFunc {
 			if conns.IsRawNotFound(err) {
 				continue
 			}
+			// The by-id read answers a deleted record with a 500; see the resource.
+			if listed, lerr := conn.RawIDListed(ctx, "/v3/app-role", id); err != nil && lerr == nil && !listed {
+				continue
+			}
 			if err != nil {
 				return fmt.Errorf("reading kion_app_role (%d): %w", id, err)
 			}

@@ -83,6 +83,11 @@ func (r *app_roleResource) read(ctx context.Context, id int64) (app_roleWire, bo
 		if conns.IsRawNotFound(err) {
 			return app_roleWire{}, false, nil
 		}
+		// This read answers a missing record with a 500, not a 404; the list
+		// omits deleted records, so absence there means deleted.
+		if listed, lerr := r.Meta().RawIDListed(ctx, "/v3/app-role", id); lerr == nil && !listed {
+			return app_roleWire{}, false, nil
+		}
 		return app_roleWire{}, false, err
 	}
 	var env app_roleReadEnvelope

@@ -53,6 +53,10 @@ resources:
     read:   { method: GET,    path: "/v1/app-role/{id}", spec: private }
     update: { method: PATCH,  path: "/v3/app-role/{id}", spec: public }
     delete: { method: DELETE, path: "/v1/app-role/{id}", spec: private }
+    # GET /v1/app-role/{id} answers a deleted or unknown id with a 500, not a
+    # 404, so a role deleted outside Terraform failed every refresh. The public
+    # list omits deleted roles.
+    missing_via_list: /v3/app-role
 
   # Blended. Public spec (v3) has create + list + delete; the by-id read AND the
   # update are internal /v2.

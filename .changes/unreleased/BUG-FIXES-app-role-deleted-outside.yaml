@@ -1,0 +1,7 @@
+kind: BUG FIXES
+body: >-
+  A kion_app_role deleted outside Terraform is detected and planned for
+  recreation. Kion answers a read of a deleted app role with a 500 rather
+  than a 404, which made every refresh fail; the provider now checks the
+  public app role list before reporting an error.
+time: 2026-10-20T22:25:16Z

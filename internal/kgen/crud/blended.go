@@ -37,6 +37,8 @@ type rawReadData struct {
 	// therefore needs the framework attr package. A read_shape of only scalars
 	// assigns plain types.* values and must not import it.
 	UsesAttr bool
+	// MissingViaList: see rawResourceOps.MissingViaList.
+	MissingViaList string
 }
 
 // rawWriteData is a blended resource's raw update or delete op.
@@ -259,13 +261,13 @@ func (g *generator) resolveBlended(name string, ops resOps, idx sdkIndex, pe raw
 			return entityData{}, fmt.Errorf("%s: %w", name, err)
 		}
 		d.RawRead = &rawReadData{Method: readMethod, Path: pe.Read.Path, IDGo: rm.IDField.GoName, Nested: true, WireStructGo: wireGo, FlattenGo: flattenGo,
-			UsesAttr: len(pe.ReadShape.Objects) > 0 || pe.ReadShape.Explode != nil}
+			UsesAttr: len(pe.ReadShape.Objects) > 0 || pe.ReadShape.Explode != nil, MissingViaList: pe.MissingViaList}
 	} else {
 		fields, idGo, ferr := rawModelFields(model, pe.ReadKinds)
 		if ferr != nil {
 			return entityData{}, fmt.Errorf("%s raw read: %w", name, ferr)
 		}
-		d.RawRead = &rawReadData{Method: readMethod, Path: pe.Read.Path, IDGo: idGo, Fields: fields}
+		d.RawRead = &rawReadData{Method: readMethod, Path: pe.Read.Path, IDGo: idGo, Fields: fields, MissingViaList: pe.MissingViaList}
 	}
 
 	if isRawOp(pe.Update) {
