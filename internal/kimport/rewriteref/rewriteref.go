@@ -182,12 +182,13 @@ type refBlock struct {
 // candidate is one integer literal that resolves to a block managed here, and
 // so could become a reference -- unless doing so would close a cycle.
 type candidate struct {
-	block int    // index into []refBlock
-	attr  int    // index into that block's attrs
-	token int    // index into that attribute's tokens
-	id    string // the literal
-	label string // the referent's block label
-	node  string // "<target>.<label>"
+	block  int    // index into []refBlock
+	attr   int    // index into that block's attrs
+	token  int    // index into that attribute's tokens
+	id     string // the literal
+	tfType string // the family member holding the id
+	label  string // the referent's block label
+	node   string // "<tfType>.<label>"
 }
 
 // Rewrite replaces resolvable literal foreign keys in generatedHCL with
@@ -252,7 +253,7 @@ func Rewrite(generatedHCL []byte, filename string, idx Index, refs *references.M
 				if id == "0" {
 					continue
 				}
-				label, ok := idx[ra.target][id]
+				tfType, label, ok := resolve(idx, refs.Members(ra.target), id)
 				if !ok {
 					res.Unresolved = append(res.Unresolved, Unresolved{
 						Resource: rb.node, Attr: ra.name, Target: ra.target, Value: id,
@@ -261,7 +262,7 @@ func Rewrite(generatedHCL []byte, filename string, idx Index, refs *references.M
 				}
 				cands = append(cands, candidate{
 					block: bi, attr: ai, token: ti,
-					id: id, label: label, node: ra.target + "." + label,
+					id: id, tfType: tfType, label: label, node: tfType + "." + label,
 				})
 			}
 		}
@@ -285,7 +286,7 @@ func Rewrite(generatedHCL []byte, filename string, idx Index, refs *references.M
 		if accepted[c.block][c.attr] == nil {
 			accepted[c.block][c.attr] = map[int]hclwrite.Tokens{}
 		}
-		accepted[c.block][c.attr][c.token] = traversalTokens(ra.target, c.label)
+		accepted[c.block][c.attr][c.token] = traversalTokens(c.tfType, c.label)
 		res.Rewritten++
 	}
 
@@ -330,6 +331,16 @@ func Rewrite(generatedHCL []byte, filename string, idx Index, refs *references.M
 // as written. It works on the token stream rather than re-encoding a parsed
 // value because an expression may already hold references, or a value this
 // package should not touch.
+// resolve finds id under the first of types that the index holds it for.
+func resolve(idx Index, types []string, id string) (tfType, label string, ok bool) {
+	for _, t := range types {
+		if label, ok := idx[t][id]; ok {
+			return t, label, true
+		}
+	}
+	return "", "", false
+}
+
 func spliceTokens(tokens hclwrite.Tokens, replace map[int]hclwrite.Tokens) hclwrite.Tokens {
 	out := make(hclwrite.Tokens, 0, len(tokens)+2*len(replace))
 	for i, tok := range tokens {

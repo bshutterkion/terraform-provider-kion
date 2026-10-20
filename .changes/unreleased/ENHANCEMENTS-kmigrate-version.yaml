@@ -1,0 +1,6 @@
+kind: ENHANCEMENTS
+body: >-
+  kmigrate --version reports the release it was built from. kmigrate
+  rewrites configuration for one provider release's schema, so it should
+  match the provider version you are migrating to.
+time: 2026-10-20T19:47:18Z

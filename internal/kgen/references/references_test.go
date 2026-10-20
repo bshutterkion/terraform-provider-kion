@@ -182,3 +182,35 @@ func TestIsForeignKeyShaped(t *testing.T) {
 	assert.False(t, references.IsForeignKeyShaped("name"))
 	assert.False(t, references.IsForeignKeyShaped("valid"))
 }
+
+// A family lists the tf_types sharing one id space, so a reference resolves
+// against whichever of them holds the id. payer_id is the case: every billing
+// source type is keyed on the payer id.
+func TestFamilyMembers(t *testing.T) {
+	m, err := references.Parse([]byte(
+		"references:\n  payer_id: kion_billing_source\nfamilies:\n  kion_billing_source: [kion_billing_source, kion_billing_source_aws]\n"))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"kion_billing_source", "kion_billing_source_aws"}, m.Members("kion_billing_source"))
+	assert.Equal(t, []string{"kion_ou"}, m.Members("kion_ou"), "a type with no family is its own only member")
+
+	_, err = references.Parse([]byte("families:\n  kion_billing_source: [billing_source_aws]\n"))
+	assert.Error(t, err, "family members must be tf_types")
+}
+
+// Every family member must be a resource this provider serves, like targets.
+func TestEveryFamilyMemberIsARealResource(t *testing.T) {
+	m := load(t)
+	doc := snapshot(t)
+	known := map[string]bool{}
+	for _, provider := range doc.ProviderSchemas {
+		for tfType := range provider.ResourceSchemas {
+			known[tfType] = true
+		}
+	}
+	for _, attr := range m.Attrs() {
+		target, _ := m.Target("", attr)
+		for _, member := range m.Members(target) {
+			assert.True(t, known[member], "%s family member %q is not a resource this provider serves", target, member)
+		}
+	}
+}

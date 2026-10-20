@@ -9,9 +9,11 @@
 // Usage:
 //
 //	kmigrate [--check] [--upgrades <path>] <dir-or-file> [<dir-or-file>...]
+//	kmigrate --version
 //
 //	--check      print the changes without writing (dry run)
 //	--upgrades   path to state_upgrades.yaml (default: built into the binary)
+//	--version    print the release this binary was built from
 package main
 
 import (
@@ -25,10 +27,19 @@ import (
 	"terraform-provider-kion/internal/kgen/migrate"
 )
 
+// version is the release, set by goreleaser's ldflags; a source build is "dev".
+// kmigrate rewrites for one provider release's schema, so which one matters.
+var version = "dev"
+
 func main() {
 	check := flag.Bool("check", false, "print changes without writing (dry run)")
 	upPath := flag.String("upgrades", "", "path to state_upgrades.yaml (default: the copy built into this binary)")
+	showVersion := flag.Bool("version", false, "print the release this binary was built from")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println("kmigrate version " + version)
+		return
+	}
 	if flag.NArg() == 0 {
 		fmt.Fprintln(os.Stderr, "usage: kmigrate [--check] [--upgrades <path>] <dir-or-file>...")
 		os.Exit(2)
