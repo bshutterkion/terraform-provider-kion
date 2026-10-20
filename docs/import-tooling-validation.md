@@ -25,6 +25,7 @@ probed against four more, read-only:
 | local dev | dev | 9,077 | 42 | 21 | 2 | 3 |
 | production | 3.16.4 | 37,286 | 47 | 11 | 7 | 3 |
 | billing-connected local | dev | 7,803 | 39 | 25 | 2 | 2 |
+| local 3.18-dev, end to end | dev | 7,808 | 41 | 31 | **0** | 2 |
 
 | | |
 |---|---|
@@ -65,6 +66,27 @@ a difference between installs:
 - `kion_funding_source` recovers `permission_scheme_id` again. The route it used
   returns rows only for a scheme that already carries role permissions, so the
   attribute came back null for any scheme created alongside its funding source.
+
+### End to end on a local 3.18-dev install (2026-10-20)
+
+The first run here to go past `--probe`: a full `kion-import`, then
+`terraform plan -generate-config-out` against a provider built from the same
+commit, then a second plan of the generated configuration. Portal `master`
+with demo data.
+
+| stage | before | after |
+|---|---|---|
+| probe errors | 1 (GovCloud, #127) | 0 |
+| import blocks | 7,817 | 7,808 |
+| plan errors, generating config | 11, then 731 once the walk got further | 0 |
+| plan of the generated config | -- | 7,808 to import, 0 to change |
+
+Six classes of defect only showed past the probe, because each was in the
+provider's handling of an existing record rather than in enumeration: owner
+validators that rejected ownerless built-ins (#129), Reads that left required
+or settable attributes unset (#128, #130, #132, #133), a create-time validator
+on `engine` (#131), and typed billing sources claiming every payer kind
+(#134). **A clean probe does not mean an install imports.** Run the plan.
 
 ### Read that table by column, not by row
 
