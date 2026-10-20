@@ -33,7 +33,11 @@ type readShapeIDList struct {
 type readShapeSub struct {
 	TF   string `yaml:"tf"`   // model tfsdk name (scalar) or Value sub-attr name
 	From string `yaml:"from"` // dotted json path (scalars) or leaf key (subs)
-	Kind string `yaml:"kind"` // id | string | int_string | int | bool
+	Kind string `yaml:"kind"` // id | string | int_string | int | bool | object
+
+	// Subs are an object sub's own leaves, read one level deeper; only a
+	// kind: object sub of a readShapeObject has them.
+	Subs []readShapeSub `yaml:"subs"`
 
 	// WriteOnly marks a secret the API accepts on write but never returns
 	// truthfully. Kion's private payer read runs domain.Payer.Sanitize(), which
@@ -177,6 +181,16 @@ func buildWireTree(s readShape) (*wireNode, error) {
 			if sub.WriteOnly {
 				continue
 			}
+			if sub.Kind == "object" {
+				for _, leaf := range sub.Subs {
+					w, err := kindWire(leaf.Kind)
+					if err != nil {
+						return nil, err
+					}
+					data.insert(o.From+"."+sub.From+"."+leaf.From, w)
+				}
+				continue
+			}
 			w, err := kindWire(sub.Kind)
 			if err != nil {
 				return nil, err
@@ -273,7 +287,22 @@ func buildNestedFlatten(s readShape, byTF map[string]ModelField) (string, error)
 			// requires the full attribute set. So a write-only sub carries the
 			// prior model value through rather than being skipped.
 			if sub.WriteOnly {
-				fmt.Fprintf(&b, "%q: m.%s.%s,\n", sub.TF, mf.GoName, pascalCase(sub.TF))
+				// No prior state on import: CarryOrNull types the null.
+				fmt.Fprintf(&b, "%q: flex.CarryOrNull(ctx, m.%s.%s, %s{}.AttributeTypes(ctx)[%q]),\n",
+					sub.TF, mf.GoName, pascalCase(sub.TF), o.ValueType, sub.TF)
+				continue
+			}
+			if sub.Kind == "object" {
+				fmt.Fprintf(&b, "%q: flex.ObjectFromAttrs(ctx, &diags, %s{}.AttributeTypes(ctx)[%q], map[string]attr.Value{\n",
+					sub.TF, o.ValueType, sub.TF)
+				for _, leaf := range sub.Subs {
+					conv, err := kindConv(leaf.Kind, base+"."+pascalCase(sub.From)+"."+pascalCase(leaf.From))
+					if err != nil {
+						return "", err
+					}
+					fmt.Fprintf(&b, "%q: %s,\n", leaf.TF, conv)
+				}
+				b.WriteString("}),\n")
 				continue
 			}
 			conv, err := kindConv(sub.Kind, base+"."+pascalCase(sub.From))

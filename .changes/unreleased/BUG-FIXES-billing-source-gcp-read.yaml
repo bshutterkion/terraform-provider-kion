@@ -1,0 +1,7 @@
+kind: BUG FIXES
+body: >-
+  kion_billing_source_gcp can be imported. Read now loads big_query_export
+  and account_type_id instead of carrying them from prior state, which on
+  import left big_query_export without a type and failed with "Invalid
+  GcpBillingAccountCreateValue Attribute Type".
+time: 2026-10-20T19:21:53Z

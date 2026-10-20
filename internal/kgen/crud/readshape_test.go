@@ -84,7 +84,7 @@ func TestBuildNestedFlatten_writeOnlyCarriesPriorState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildNestedFlatten: %v", err)
 	}
-	if !strings.Contains(got, `"tenant_client_secret": m.AzureConnection.TenantClientSecret,`) {
+	if !strings.Contains(got, `"tenant_client_secret": flex.CarryOrNull(ctx, m.AzureConnection.TenantClientSecret, AzureConnectionValue{}.AttributeTypes(ctx)["tenant_client_secret"]),`) {
 		t.Errorf("write-only sub should carry the prior model value\n%s", got)
 	}
 	if strings.Contains(got, "w.Data.CustomBillingSource.AzureConnection.TenantClientSecret") {
@@ -142,5 +142,41 @@ func TestBuildNestedFlatten_unknownObjectErrors(t *testing.T) {
 	}}}
 	if _, err := buildNestedFlatten(s, billingLikeModel()); err == nil {
 		t.Fatal("expected an error for an object not present in the model")
+	}
+}
+
+// A sub declared kind: object reads its own leaves one level deeper, as GCP's
+// big_query_export does inside gcp_billing_account.billing_account. Carrying it
+// from prior state left a required attribute empty on import.
+func TestReadShape_nestedObjectSub(t *testing.T) {
+	s := readShape{Objects: []readShapeObject{{
+		TF: "gcp_billing_account_create", ValueType: "GcpBillingAccountCreateValue",
+		From: "gcp_billing_account.billing_account",
+		Subs: []readShapeSub{
+			{TF: "name", From: "name", Kind: "string"},
+			{TF: "big_query_export", From: "big_query_export", Kind: "object", Subs: []readShapeSub{
+				{TF: "dataset_name", From: "dataset_name", Kind: "string"},
+			}},
+		},
+	}}}
+	model := map[string]ModelField{"gcp_billing_account_create": {GoName: "GcpBillingAccountCreate"}}
+
+	got, err := buildNestedFlatten(s, model)
+	if err != nil {
+		t.Fatalf("buildNestedFlatten: %v", err)
+	}
+	want := `"big_query_export": flex.ObjectFromAttrs(ctx, &diags, GcpBillingAccountCreateValue{}.AttributeTypes(ctx)["big_query_export"], map[string]attr.Value{
+"dataset_name": types.StringValue(w.Data.GcpBillingAccount.BillingAccount.BigQueryExport.DatasetName),
+}),`
+	if !strings.Contains(got, want) {
+		t.Errorf("nested object sub not flattened from the wire\n%s", got)
+	}
+
+	tree, err := buildWireTree(s)
+	if err != nil {
+		t.Fatalf("buildWireTree: %v", err)
+	}
+	if !strings.Contains(emitStruct(tree), "DatasetName string `json:\"dataset_name\"`") {
+		t.Errorf("nested leaf missing from the wire struct\n%s", emitStruct(tree))
 	}
 }
