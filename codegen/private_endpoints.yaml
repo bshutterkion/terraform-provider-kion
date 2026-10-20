@@ -477,6 +477,10 @@ resources:
     update: { method: PATCH,  path: "/v3/webhook/{id}", spec: public }
     delete: { method: DELETE, path: "/v1/webhook/{id}", spec: private }
 
+  # kion_project is public throughout, but no public read returns its
+  # permission_scheme_id. Its Read (internal/kgen/crud/project.gtpl) also calls
+  # GET /v1/project/{id}/edit (private), taking project_app_policy[0].id.
+
   user:
     reason: public spec has no delete; the private v1 route deletes for real
     create: { method: POST,   path: "/v3/user",      spec: public }

@@ -5,6 +5,7 @@ package project
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -353,6 +354,22 @@ func (r *projectResource) Read(ctx context.Context, req resource.ReadRequest, re
 			return
 		}
 	}
+
+	// No public read returns the permission scheme; the private edit payload
+	// carries it as project_app_policy.
+	editBody, editErr := r.Meta().RawGet(ctx, "/v1/project/"+strconv.FormatInt(idInt, 10)+"/edit")
+	if editErr != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("reading permission scheme of %s (ID: %d)", ResNameProject, idInt), editErr.Error())
+		return
+	}
+	schemeID, schemeErr := projectPermissionSchemeID(editBody)
+	if schemeErr != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("reading permission scheme of %s (ID: %d)", ResNameProject, idInt), schemeErr.Error())
+		return
+	}
+	if schemeID != nil {
+		state.PermissionSchemeId = types.Int64Value(*schemeID)
+	}
 {{- if .Labels}}
 
 	// Labels come from the sub-resource, not the read payload: a refresh that
@@ -535,6 +552,26 @@ func (r *projectResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 func (r *projectResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+}
+
+// projectPermissionSchemeID decodes GET /v1/project/{id}/edit, whose
+// project_app_policy holds the one scheme applied to the project. nil when the
+// payload names none.
+func projectPermissionSchemeID(body []byte) (*int64, error) {
+	var edit struct {
+		Data struct {
+			ProjectAppPolicy []struct {
+				ID int64 `json:"id"`
+			} `json:"project_app_policy"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &edit); err != nil {
+		return nil, err
+	}
+	if len(edit.Data.ProjectAppPolicy) == 0 {
+		return nil, nil
+	}
+	return &edit.Data.ProjectAppPolicy[0].ID, nil
 }
 
 // projectOwnerAppRoleID is the app role Kion stores project owners under.
