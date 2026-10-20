@@ -71,6 +71,10 @@ type rawResourceOps struct {
 	// ParentRead gives a no_read resource a real read over a private
 	// collection; see parentread.go.
 	ParentRead *parentRead `yaml:"parent_read"`
+	// MissingViaList is a list path consulted when the by-id read fails with
+	// anything but a 404: an id the list omits is treated as deleted. For
+	// private reads that answer a missing record with a 500.
+	MissingViaList string `yaml:"missing_via_list"`
 	// CreateID declares where to recover the id of a record whose create
 	// response does not carry one; see createID.
 	CreateID *createID `yaml:"create_id"`

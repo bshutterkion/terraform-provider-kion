@@ -171,6 +171,12 @@ func testAccCheck{{.Pascal}}Destroy(_ context.Context) resource.TestCheckFunc {
 			if conns.IsRawNotFound(err) {
 				continue
 			}
+			{{- if .RawRead.MissingViaList}}
+			// The by-id read answers a deleted record with a 500; see the resource.
+			if listed, lerr := conn.RawIDListed(ctx, "{{.RawRead.MissingViaList}}", id); err != nil && lerr == nil && !listed {
+				continue
+			}
+			{{- end}}
 			if err != nil {
 				return fmt.Errorf("reading {{.TypeName}} (%d): %w", id, err)
 			}

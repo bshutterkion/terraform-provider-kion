@@ -93,6 +93,13 @@ func (r *{{.Pkg}}Resource) read(ctx context.Context, id int64) ({{.Pkg}}Wire, bo
 		if conns.IsRawNotFound(err) {
 			return {{.Pkg}}Wire{}, false, nil
 		}
+		{{- if .RawRead.MissingViaList}}
+		// This read answers a missing record with a 500, not a 404; the list
+		// omits deleted records, so absence there means deleted.
+		if listed, lerr := r.Meta().RawIDListed(ctx, "{{.RawRead.MissingViaList}}", id); lerr == nil && !listed {
+			return {{.Pkg}}Wire{}, false, nil
+		}
+		{{- end}}
 		return {{.Pkg}}Wire{}, false, err
 	}
 	var w {{.Pkg}}Wire
@@ -143,6 +150,13 @@ func (r *{{$.Pkg}}Resource) read(ctx context.Context, id int64) ({{$.Pkg}}Wire, 
 		if conns.IsRawNotFound(err) {
 			return {{$.Pkg}}Wire{}, false, nil
 		}
+		{{- if .MissingViaList}}
+		// This read answers a missing record with a 500, not a 404; the list
+		// omits deleted records, so absence there means deleted.
+		if listed, lerr := r.Meta().RawIDListed(ctx, "{{.MissingViaList}}", id); lerr == nil && !listed {
+			return {{$.Pkg}}Wire{}, false, nil
+		}
+		{{- end}}
 		return {{$.Pkg}}Wire{}, false, err
 	}
 	var env {{$.Pkg}}ReadEnvelope
