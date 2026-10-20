@@ -1,0 +1,6 @@
+kind: BUG FIXES
+body: >-
+  kion_project reads its owners. An imported project kept no owners, and an
+  owner change made outside Terraform never showed as drift; owners now come
+  from the project's owner permission mapping on every read.
+time: 2026-10-20T19:11:23Z

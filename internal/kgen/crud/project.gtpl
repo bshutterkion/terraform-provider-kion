@@ -338,6 +338,21 @@ func (r *projectResource) Read(ctx context.Context, req resource.ReadRequest, re
 	if resp.Diagnostics.HasError() {
 		return
 	}
+
+	// The read payload carries no owners; they are the project's app role 1
+	// permission mapping. Without this, import loses them and owner drift is
+	// never seen.
+	mappingOut, mappingErr := conn.GetProjectUserMappingIndex(ctx, generated.GetProjectUserMappingIndexParams{ID: idInt})
+	if mappingErr != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("reading owners of %s (ID: %d)", ResNameProject, idInt), mappingErr.Error())
+		return
+	}
+	if ml, ok := mappingOut.(*generated.ProjectUserMappingListResponse); ok {
+		resp.Diagnostics.Append(flattenProjectOwners(ctx, ml.Data, &state)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+	}
 {{- if .Labels}}
 
 	// Labels come from the sub-resource, not the read payload: a refresh that
@@ -520,6 +535,30 @@ func (r *projectResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 func (r *projectResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+}
+
+// projectOwnerAppRoleID is the app role Kion stores project owners under.
+const projectOwnerAppRoleID = 1
+
+// flattenProjectOwners sets both owner sets from the owner role's mapping. A
+// role with no members comes back as JSON null and reads as an empty set.
+func flattenProjectOwners(ctx context.Context, mappings []generated.UserMapping, model *ProjectModel) diag.Diagnostics {
+	var diags diag.Diagnostics
+	var users, groups []uint64
+	for _, m := range mappings {
+		if !m.AppRoleID.Null && m.AppRoleID.Value == projectOwnerAppRoleID {
+			users, _ = m.UserIds.Get()
+			groups, _ = m.UserGroupsIds.Get()
+			break
+		}
+	}
+	userSet, d := flex.Uint64SliceToFrameworkSetOrEmpty(ctx, users)
+	diags.Append(d...)
+	groupSet, d := flex.Uint64SliceToFrameworkSetOrEmpty(ctx, groups)
+	diags.Append(d...)
+	model.OwnerUserIds = userSet
+	model.OwnerUserGroupIds = groupSet
+	return diags
 }
 
 func flattenProject(apiObject any, model *ProjectModel) diag.Diagnostics {
