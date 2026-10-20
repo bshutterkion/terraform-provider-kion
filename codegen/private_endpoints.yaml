@@ -297,6 +297,8 @@ resources:
         - { tf: cur_name,           from: "aws_payer.billing_report_name",          kind: string }
         - { tf: cur_prefix,         from: "aws_payer.billing_report_prefix",        kind: string }
         - { tf: billing_bucket_account_number, from: "aws_payer.billing_bucket_account_number", kind: string }
+        - { tf: linked_role,        from: "aws_payer.linked_role",                  kind: string }
+        - { tf: account_type_id,    from: "account_type_id",                        kind: int }
         - { tf: key_id,             from: "aws_payer.key_id",     kind: string, write_only: true }
         - { tf: key_secret,         from: "aws_payer.key_secret", kind: string, write_only: true }
     write_shape:
