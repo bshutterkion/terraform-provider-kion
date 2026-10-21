@@ -1,7 +1,0 @@
-kind: BUG FIXES
-body: >-
-  An OpenID IDMS group association deleted outside Terraform is now detected
-  and planned for recreation. Kion's by-id read keeps returning deleted
-  associations, so the provider confirms the record against its IDMS's
-  association list, which leaves them out.
-time: 2026-10-21T14:55:10Z

@@ -1,6 +1,0 @@
-kind: NOTES
-body: >-
-  kion_aws_resource_tag has now been verified against a live install: create,
-  refresh, import and detecting a tag deleted outside Terraform all work. It
-  had only unit-test coverage, because no install checked had a tag.
-time: 2026-10-20T21:05:11Z
