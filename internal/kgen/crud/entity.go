@@ -473,7 +473,11 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		}
 		slices.SortFunc(d.RespBinds, func(a, b respBind) int { return cmp.Compare(a.ModelGo, b.ModelGo) })
 		slices.SortFunc(d.RespSliceBinds, func(a, b sliceRespBind) int { return cmp.Compare(a.ModelGo, b.ModelGo) })
-		d.RespObjFlats, d.RespArrFlats, d.RespIDProjs = rm.ReadNested.Objs, rm.ReadNested.Arrs, rm.ReadNested.IDProjs
+		d.RespObjFlats, d.RespArrFlats = rm.ReadNested.Objs, rm.ReadNested.Arrs
+		for _, p := range rm.ReadNested.IDProjs {
+			p.OrEmpty = emptyColl[p.TFSDK]
+			d.RespIDProjs = append(d.RespIDProjs, p)
+		}
 		d.RespObjIDProjs = rm.ReadNested.ObjIDProjs
 		d.RespSums = rm.ReadSums
 		d.HasNestedFlat = len(d.RespObjFlats) > 0 || len(d.RespArrFlats) > 0

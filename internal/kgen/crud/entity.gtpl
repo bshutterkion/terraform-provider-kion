@@ -952,7 +952,11 @@ type {{$.Pkg}}{{.ModelGo}}Wire struct {
 			model.{{.ModelGo}} = {{.Var}}List
 			{{- end}}
 			{{- range .RespIDProjs}}
+			{{- if .OrEmpty}}
+			{{.Var}} := []int64{} // empty_collections: Kion returns none as null
+			{{- else}}
 			var {{.Var}} []int64
+			{{- end}}
 			for _, elem := range {{.SrcPath}} {
 				{{- if .IDOpt}}
 				if elem.{{.IDGo}}.Set {

@@ -338,7 +338,7 @@ func flattenUserGroup(ctx context.Context, apiObject any, model *UserGroupModel)
 			}
 			model.IdmsId = flex.OptNilUint64ToFramework(v.Data.Value.UserGroup.Value.IdmsID)
 			model.Name = flex.OptStringToFramework(v.Data.Value.UserGroup.Value.Name)
-			var ownerUsersIDs []int64
+			ownerUsersIDs := []int64{} // empty_collections: Kion returns none as null
 			for _, elem := range v.Data.Value.OwnerUsers.Value {
 				if elem.ID.Set {
 					ownerUsersIDs = append(ownerUsersIDs, int64(elem.ID.Value))
@@ -350,7 +350,7 @@ func flattenUserGroup(ctx context.Context, apiObject any, model *UserGroupModel)
 			ownerUsersIDsColl, ownerUsersIDsCD := types.SetValueFrom(ctx, types.Int64Type, ownerUsersIDs)
 			diags.Append(ownerUsersIDsCD...)
 			model.OwnerUserIds = ownerUsersIDsColl
-			var usersIDs []int64
+			usersIDs := []int64{} // empty_collections: Kion returns none as null
 			for _, elem := range v.Data.Value.Users.Value {
 				if elem.ID.Set {
 					usersIDs = append(usersIDs, int64(elem.ID.Value))
@@ -362,7 +362,7 @@ func flattenUserGroup(ctx context.Context, apiObject any, model *UserGroupModel)
 			usersIDsColl, usersIDsCD := types.SetValueFrom(ctx, types.Int64Type, usersIDs)
 			diags.Append(usersIDsCD...)
 			model.UserIds = usersIDsColl
-			var viewerUsersIDs []int64
+			viewerUsersIDs := []int64{} // empty_collections: Kion returns none as null
 			for _, elem := range v.Data.Value.ViewerUsers.Value {
 				if elem.ID.Set {
 					viewerUsersIDs = append(viewerUsersIDs, int64(elem.ID.Value))
