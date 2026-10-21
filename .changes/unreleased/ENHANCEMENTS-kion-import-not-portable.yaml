@@ -1,0 +1,8 @@
+kind: ENHANCEMENTS
+body: >-
+  kion-import: flags records whose generated configuration will not apply to
+  another install as-is (built-in permission schemes, the Administrators group,
+  system- custom variables, and funding sources with no OU). They are listed in
+  the report under "Will not apply to another install as-is", and each gets a
+  "# not portable:" comment above its import block.
+time: 2026-10-21T18:58:26Z

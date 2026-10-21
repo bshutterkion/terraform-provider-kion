@@ -396,6 +396,24 @@ output records what it could not reach rather than quietly omitting it.
 If every read fails -- a rejected API key, the wrong `--url` or `--api-prefix` --
 the run exits non-zero and writes nothing, `--probe` included.
 
+## Applying to another install
+
+Imported configuration recreates its records when you apply it to an install
+that does not already hold them. Some records cannot be recreated as they are.
+The report lists them under `Will not apply to another install as-is`, and the
+generated file puts a `# not portable:` comment above each one's import block:
+
+| record | why it fails elsewhere | what to do |
+|---|---|---|
+| `kion_permission_scheme` with `system_managed` | every install has its own built-in schemes | reference the target's scheme (ids 1 to 4) |
+| `kion_user_group` "Administrators" | every install has one: "User Group name already in use" | reference the target's group |
+| `kion_custom_variable` named `system-…` | the prefix is reserved for Kion | drop it |
+| `kion_funding_source` with no `ou_id` | Kion refuses to create one without an OU | set `ou_id` |
+
+The check uses only the payload already read, so it cannot see everything. A
+foreign key to a user or IDMS that exists only on the source install also fails;
+`rewrite-refs` leaves those as literals and reports them.
+
 ## Other flags
 
 | flag | |

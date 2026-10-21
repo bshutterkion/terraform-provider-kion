@@ -38,6 +38,11 @@ func RenderImports(results []Result, providerVersion string) string {
 	// every other block in the run. Dedup here implements the labeler's
 	// stated intent instead of only half-applying it, and the dropped count
 	// is surfaced below as a caveat rather than silently disappearing.
+	warn := map[string]string{} // tfType + "\x00" + id -> NotPortable message
+	for _, w := range NotPortable(sorted) {
+		warn[w.TFType+"\x00"+w.ID] = w.Msg
+	}
+
 	var labeler Labeler
 	emitted := map[string]bool{}  // tfType + "\x00" + id -> already rendered
 	dupCounts := map[string]int{} // tfType -> duplicate records skipped
@@ -54,6 +59,9 @@ func RenderImports(results []Result, providerVersion string) string {
 			}
 			emitted[key] = true
 			label := labeler.Allocate(res.TFType, rec.Name, rec.ID)
+			if msg := warn[key]; msg != "" {
+				fmt.Fprintf(&blocks, "# not portable: this record %s\n", msg)
+			}
 			fmt.Fprintf(&blocks, "import {\n  to = %s.%s\n  id = %q\n}\n", res.TFType, label, escapeHCLTemplate(rec.ID))
 		}
 		if blocks.Len() == 0 {
