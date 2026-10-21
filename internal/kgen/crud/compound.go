@@ -143,6 +143,9 @@ type archetype struct {
 	// resource gets no sweeper at all.
 	SweepParent      string `yaml:"sweep_parent"`       // parent resource name, e.g. "ou"
 	SweepParentParam string `yaml:"sweep_parent_param"` // list param taking the parent id, e.g. "ID"
+	// SweepParentMatch keeps only parents whose integer field equals the value,
+	// e.g. {idms_type_id: "3"}: a child list that fails on other parents.
+	SweepParentMatch map[string]string `yaml:"sweep_parent_match"`
 	// ResourceTemplate (kind: entity) names a verbatim template in
 	// resourceTemplates that replaces the derived <name>.go. Everything else the
 	// entity path produces -- data source, sweeper, acceptance tests -- stays

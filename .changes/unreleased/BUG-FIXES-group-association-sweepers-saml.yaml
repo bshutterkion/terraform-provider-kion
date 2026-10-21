@@ -1,0 +1,6 @@
+kind: BUG FIXES
+body: >-
+  make sweep no longer stops at the IDMS group association sweepers on an
+  install with any non-SAML IDMS. Kion's association list serves SAML only and
+  crashes on other IDMS types, so both sweepers now walk SAML IDMSs only.
+time: 2026-10-21T15:11:12Z

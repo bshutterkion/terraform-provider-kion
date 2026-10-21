@@ -126,11 +126,15 @@ idms_group_association:
   kind: entity
   sweep_parent: idms
   sweep_parent_param: ID
+  # The association list serves SAML IDMSs only and crashes on the rest (#48).
+  sweep_parent_match: { idms_type_id: "3" }
 
 saml_group_association:
   kind: entity
   sweep_parent: idms
   sweep_parent_param: ID
+  # The association list serves SAML IDMSs only and crashes on the rest (#48).
+  sweep_parent_match: { idms_type_id: "3" }
 
 global_permission_mapping:
   kind: association

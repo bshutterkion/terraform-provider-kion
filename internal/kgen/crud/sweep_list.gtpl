@@ -173,14 +173,20 @@ func sweep{{.Pascal}}ParentIDs(ctx context.Context, conn *conns.KionClient) ([]i
 		{{- if .ItemsGuard}}
 		if {{.ItemsGuard}} {
 			for _, item := range {{.ItemsSlice}} {
-				{{if .IDOpt}}if item.{{.IDGo}}.Set {
+				{{if .Match}}if !({{.Match}}) {
+					continue
+				}
+				{{end}}{{if .IDOpt}}if item.{{.IDGo}}.Set {
 					ids = append(ids, int64(item.{{.IDGo}}.Value))
 				}{{else}}ids = append(ids, int64(item.{{.IDGo}})){{end}}
 			}
 		}
 		{{- else}}
 		for _, item := range {{.ItemsSlice}} {
-			{{if .IDOpt}}if item.{{.IDGo}}.Set {
+			{{if .Match}}if !({{.Match}}) {
+				continue
+			}
+			{{end}}{{if .IDOpt}}if item.{{.IDGo}}.Set {
 				ids = append(ids, int64(item.{{.IDGo}}.Value))
 			}{{else}}ids = append(ids, int64(item.{{.IDGo}})){{end}}
 		}
@@ -209,14 +215,20 @@ func sweep{{.Pascal}}ParentIDs(ctx context.Context, conn *conns.KionClient) ([]i
 		{{- if .ItemsGuard}}
 		if {{.ItemsGuard}} {
 			for _, item := range {{.ItemsSlice}} {
-				{{if .IDOpt}}if item.{{.IDGo}}.Set {
+				{{if .Match}}if !({{.Match}}) {
+					continue
+				}
+				{{end}}{{if .IDOpt}}if item.{{.IDGo}}.Set {
 					ids = append(ids, int64(item.{{.IDGo}}.Value))
 				}{{else}}ids = append(ids, int64(item.{{.IDGo}})){{end}}
 			}
 		}
 		{{- else}}
 		for _, item := range {{.ItemsSlice}} {
-			{{if .IDOpt}}if item.{{.IDGo}}.Set {
+			{{if .Match}}if !({{.Match}}) {
+				continue
+			}
+			{{end}}{{if .IDOpt}}if item.{{.IDGo}}.Set {
 				ids = append(ids, int64(item.{{.IDGo}}.Value))
 			}{{else}}ids = append(ids, int64(item.{{.IDGo}})){{end}}
 		}

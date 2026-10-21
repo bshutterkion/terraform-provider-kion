@@ -4,6 +4,8 @@ import (
 	_ "embed"
 	"fmt"
 	"slices"
+	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -81,6 +83,7 @@ type parentSweep struct {
 	IDOpt      bool   // that field is Opt-wrapped
 	Param      string // child list param taking the parent id, e.g. "ID"
 	ParamType  string // that param's Go type, e.g. "int64"
+	Match      string // Go condition a parent item must meet; "" keeps all
 }
 
 type realSweepData struct {
@@ -202,6 +205,18 @@ func (g *generator) bindSweepParent(rm *ResourceModel, ds dsOps, idx sdkIndex, a
 	if err != nil {
 		return err
 	}
+	if len(arch.SweepParentMatch) > 0 {
+		var plm *listModel
+		if plm, err = resolveListWith(parentDS.Read, idx, OpModel{}, listOpts{AcceptElem: func(elem string) bool {
+			_, ok := parentIDField(elem, idx)
+			return ok
+		}}); err != nil {
+			return err
+		}
+		if ps.Match, err = sweepMatchExpr(plm.ElemType, arch.SweepParentMatch, idx); err != nil {
+			return fmt.Errorf("sweep_parent_match: %w", err)
+		}
+	}
 	rm.SweepList, rm.SweepParent = lm, ps
 	return nil
 }
@@ -253,6 +268,48 @@ func resolveSweepParent(parent string, ref *opRef, idx sdkIndex, childList *list
 		Param:      param,
 		ParamType:  paramType,
 	}, nil
+}
+
+// sweepMatchExpr renders match ({json field: integer}) as a Go condition on a
+// parent list element named item. Every field must be an integer on elem.
+func sweepMatchExpr(elem string, match map[string]string, idx sdkIndex) (string, error) {
+	st, ok := idx.structs[elem]
+	if !ok {
+		return "", fmt.Errorf("parent element %s not found in SDK", elem)
+	}
+	keys := make([]string, 0, len(match))
+	for k := range match {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var conds []string
+	for _, k := range keys {
+		v := match[k]
+		if _, err := strconv.ParseInt(v, 10, 64); err != nil {
+			return "", fmt.Errorf("%s: value %q is not an integer", k, v)
+		}
+		var f *Field
+		for i := range st.Fields {
+			if st.Fields[i].JSONName == k {
+				f = &st.Fields[i]
+			}
+		}
+		if f == nil {
+			return "", fmt.Errorf("parent element %s has no field %q", elem, k)
+		}
+		x := "item." + f.GoName
+		switch f.Type {
+		case "OptNilUint64", "OptNilInt64":
+			conds = append(conds, fmt.Sprintf("%s.Set && !%s.Null && %s.Value == %s", x, x, x, v))
+		case "OptUint64", "OptInt64":
+			conds = append(conds, fmt.Sprintf("%s.Set && %s.Value == %s", x, x, v))
+		case "uint64", "int64":
+			conds = append(conds, fmt.Sprintf("%s == %s", x, v))
+		default:
+			return "", fmt.Errorf("%s: type %s is not an integer", k, f.Type)
+		}
+	}
+	return strings.Join(conds, " && "), nil
 }
 
 // parentIDField reports the Go type of elem's ID field when it is one a sweeper

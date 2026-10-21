@@ -83,6 +83,9 @@ func sweepSamlGroupAssociationParentIDs(ctx context.Context, conn *conns.KionCli
 	if resp, ok := out.(*generated.IDMSListResponse); ok {
 		items := resp.Data
 		for _, item := range items {
+			if !(item.IdmsTypeID.Set && !item.IdmsTypeID.Null && item.IdmsTypeID.Value == 3) {
+				continue
+			}
 			if item.ID.Set {
 				ids = append(ids, int64(item.ID.Value))
 			}
