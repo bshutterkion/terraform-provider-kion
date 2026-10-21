@@ -541,6 +541,8 @@ type idProjFlat struct {
 	IDOpt   bool   // element id field is an Opt-wrapper (guard on .Set, read .Value)
 	IDExpr  string // per-element int64 expression, "int64(elem.ID.Value)"
 	Coll    string // "List" | "Set" (the model collection kind)
+	TFSDK   string // model attribute, matched against empty_collections
+	OrEmpty bool   // flatten no ids as an empty collection, not null
 }
 
 // objIDProjFlat flattens a single nested-object response field into the model's
@@ -681,7 +683,7 @@ func resolveNestedFlatten(src Source, schemaGen string, fields []Field, byTF map
 						}
 						res.IDProjs = append(res.IDProjs, idProjFlat{
 							ModelGo: mf.GoName, Var: lowerFirst(f.GoName) + "IDs", SrcPath: srcPath,
-							IDGo: idf.GoName, IDOpt: opt, IDExpr: expr, Coll: coll,
+							IDGo: idf.GoName, IDOpt: opt, IDExpr: expr, Coll: coll, TFSDK: mf.TFSDK,
 						})
 						res.Names[f.JSONName] = true
 					}
