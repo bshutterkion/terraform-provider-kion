@@ -1266,6 +1266,9 @@ func planModifierImport(call string) (string, error) {
 	if dot <= 0 {
 		return "", fmt.Errorf("plan modifier %q must be of the form pkg.Func()", call)
 	}
+	if call[:dot] == "framework" {
+		return "terraform-provider-kion/internal/framework", nil // the provider's own modifiers
+	}
 	return planModifierBase + call[:dot], nil
 }
 

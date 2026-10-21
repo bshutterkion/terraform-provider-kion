@@ -403,10 +403,39 @@ resources:
   account_cache:
     description: "Manages a cached account in Kion. This resource represents an account that lives in the account cache (not yet assigned to a project). To assign a cached account to a project, use kion_aws_account with project_id set."
     attributes:
+      # Create-time inputs Kion cannot change afterwards; replacing would
+      # drop the cache entry and create a different AWS account, so a change
+      # is warned about instead of dropped in silence (#75).
+      account_type_id:
+        plan_modifiers:
+          - int64planmodifier.UseStateForUnknown()
+          - framework.CreateOnlyInt64()
+      organizational_unit:
+        plan_modifiers:
+          - objectplanmodifier.UseStateForUnknown()
+          - framework.CreateOnlyObject()
+      commercial_account_name:
+        plan_modifiers:
+          - stringplanmodifier.UseStateForUnknown()
+          - framework.CreateOnlyString()
+      create_govcloud:
+        plan_modifiers:
+          - boolplanmodifier.UseStateForUnknown()
+          - framework.CreateOnlyBool()
+      gov_account_name:
+        plan_modifiers:
+          - stringplanmodifier.UseStateForUnknown()
+          - framework.CreateOnlyString()
+      payer_id:
+        plan_modifiers:
+          - framework.CreateOnlyInt64()
       account_number:
         type: string
         computed_optional_required: computed_optional
         description: The account number.
+        plan_modifiers:
+          - stringplanmodifier.UseStateForUnknown()
+          - framework.CreateOnlyString()
       car_external_id:
         type: string
         computed_optional_required: computed

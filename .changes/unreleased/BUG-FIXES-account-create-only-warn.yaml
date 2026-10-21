@@ -1,0 +1,9 @@
+kind: BUG FIXES
+body: >-
+  Changing an account's create-time settings after creation now produces a
+  plan warning instead of a silent no-op. On kion_account, kion_aws_account and
+  kion_account_cache: account_type_id, payer_id, commercial_account_name,
+  gov_account_name, create_govcloud and the AWS organizational unit (plus
+  account_number on the cache). Kion has no way to change these on an existing
+  account, and replacing the resource would create a different AWS account.
+time: 2026-10-21T15:25:18Z
