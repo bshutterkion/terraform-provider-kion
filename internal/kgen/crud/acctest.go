@@ -242,11 +242,13 @@ type acctestData struct {
 	ReadMethod, ReadParams    string
 	ReadIDParam               string
 	IDParamType               string // "int64" | "uint64" | "string"
-	IDFormat                  string // "%d" | "%s"
-	AttrNames                 []string
-	CreateAttrs               []acctestAttr
-	UpdateAttrs               []acctestAttr
-	HasUpdate                 bool
+	// ConfirmListed/ConfirmListedTF: see ResourceModel.ConfirmListed.
+	ConfirmListed, ConfirmListedTF string
+	IDFormat                       string // "%d" | "%s"
+	AttrNames                      []string
+	CreateAttrs                    []acctestAttr
+	UpdateAttrs                    []acctestAttr
+	HasUpdate                      bool
 	// BasicUsesRName is whether the inline HCL has a verb to interpolate, so it
 	// must go through Sprintf; NeedsRName is whether the function takes rName at
 	// all, which a fixture call needs even with nothing to interpolate.
@@ -297,6 +299,9 @@ func buildAcctestData(rm ResourceModel, tv testValues) (acctestData, error) {
 		ReadIDParam:  readIDParam,
 		IDParamType:  readIDType,
 		IDFormat:     idFormat(readIDType),
+
+		ConfirmListed:   rm.ConfirmListed,
+		ConfirmListedTF: rm.ConfirmListedTF,
 	}
 	d.CreateAttrs = sortAttrs(tv.Create, rm)
 	d.UpdateAttrs = sortAttrs(tv.Update, rm)

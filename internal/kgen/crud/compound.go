@@ -65,6 +65,14 @@ type archetype struct {
 	// record by its own id (e.g. idms open-id access-rule / group-association).
 	CreateParentParam string `yaml:"create_parent_param"` // SDK create-params field naming the parent id
 	CreateParentField string `yaml:"create_parent_field"` // model attribute holding the parent id
+	// ConfirmListed (kind: entity) is a parent collection path, "{id}" being
+	// create_parent_field's value. A record the by-id read returns but this list
+	// omits is treated as deleted: for by-id reads that serve soft-deleted rows.
+	ConfirmListed string `yaml:"confirm_listed"`
+	// ConfirmParents lists every possible parent. On import the parent id is
+	// unknown, so the read finds the one whose confirm_listed list holds the
+	// record and sets create_parent_field from it.
+	ConfirmParents string `yaml:"confirm_parents"`
 	// CreateViaUpdate (kind: parent_list) lists attributes only the update body
 	// carries; a configured value is applied by an update right after create.
 	CreateViaUpdate []string `yaml:"create_via_update"`

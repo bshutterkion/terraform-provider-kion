@@ -190,7 +190,7 @@ func (g *generator) resolveParentList(name string, ops resOps, idx sdkIndex, arc
 		return d, fmt.Errorf("%s record nested: %w", name, err)
 	}
 	d.RespObjIDProjs = nested.ObjIDProjs
-	if d.RespBinds, d.RespSliceBinds, err = respBinds(recStruct.Fields, byTF, "id", "rec.", nested.Names, nil, false); err != nil {
+	if d.RespBinds, d.RespSliceBinds, err = respBinds(recStruct.Fields, byTF, "id", "rec.", nested.Names, nil, false, nil); err != nil {
 		return d, fmt.Errorf("%s record flatten: %w", name, err)
 	}
 	d.HasRespSlices = len(d.RespSliceBinds) > 0

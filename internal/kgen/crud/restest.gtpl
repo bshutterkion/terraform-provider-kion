@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	{{if ne .IDParamType "string"}}"strconv"
+	{{end}}{{if .ConfirmListed}}"strings"
 	{{end}}"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -177,6 +178,13 @@ func testAccCheck{{.Pascal}}Destroy(_ context.Context) resource.TestCheckFunc {
 			if err != nil {
 				return fmt.Errorf("reading {{.ResourceType}} ({{.IDFormat}}): %w", id, err)
 			}
+			{{- if .ConfirmListed}}
+			// The by-id read serves soft-deleted records; the parent list does not.
+			path := strings.Replace("{{.ConfirmListed}}", "{id}", rs.Primary.Attributes["{{.ConfirmListedTF}}"], 1)
+			if listed, lerr := conn.RawIDListed(ctx, path, id); lerr == nil && !listed {
+				continue
+			}
+			{{- end}}
 
 			return fmt.Errorf("{{.ResourceType}} ({{.IDFormat}}) still exists", id)
 		}

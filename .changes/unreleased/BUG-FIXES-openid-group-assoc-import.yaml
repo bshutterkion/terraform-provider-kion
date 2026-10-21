@@ -1,0 +1,6 @@
+kind: BUG FIXES
+body: >-
+  An imported kion_idms_open_id_group_association keeps open_id_id and
+  update_on_login. Import previously left both unset, so the next plan
+  wanted to replace the association.
+time: 2026-10-21T14:55:10Z
