@@ -197,6 +197,11 @@ type ResourceModel struct {
 	CreateParentParam string
 	CreateParentField string
 	CreateParentCast  string
+	// ConfirmListed: see the archetype field. ConfirmListedTF is the parent
+	// attribute's tfsdk name, for the acceptance test's destroy check.
+	ConfirmListed   string
+	ConfirmListedTF string
+	ConfirmParents  string
 	// Nested-object fields: create/update body objects expanded to SDK structs,
 	// read-payload objects flattened into tfplugingen Value types.
 	CreateNested nestedResult

@@ -498,6 +498,9 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 		}
 		rm.CreateParentParam = entityArch.CreateParentParam
 		rm.CreateParentField = mf.GoName
+		rm.ConfirmListed = entityArch.ConfirmListed
+		rm.ConfirmListedTF = entityArch.CreateParentField
+		rm.ConfirmParents = entityArch.ConfirmParents
 		if rm.Create.Params != nil {
 			for _, f := range rm.Create.Params.Fields {
 				if f.GoName == entityArch.CreateParentParam && f.Type != "int64" && f.Type != "" {

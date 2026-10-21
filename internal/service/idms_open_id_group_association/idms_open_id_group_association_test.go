@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
@@ -156,6 +157,11 @@ func testAccCheckIdmsOpenIdGroupAssociationDestroy(_ context.Context) resource.T
 			}
 			if err != nil {
 				return fmt.Errorf("reading kion_idms_open_id_group_association (%d): %w", id, err)
+			}
+			// The by-id read serves soft-deleted records; the parent list does not.
+			path := strings.Replace("/v4/idms/open-id/{id}/group-association", "{id}", rs.Primary.Attributes["open_id_id"], 1)
+			if listed, lerr := conn.RawIDListed(ctx, path, id); lerr == nil && !listed {
+				continue
 			}
 
 			return fmt.Errorf("kion_idms_open_id_group_association (%d) still exists", id)

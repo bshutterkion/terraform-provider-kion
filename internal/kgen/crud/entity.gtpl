@@ -10,7 +10,7 @@ import (
 	{{end}}"fmt"
 	{{if .RespSums}}"math"
 	{{end}}{{if ne .IDParamType "string"}}"strconv"
-	{{end}}{{if or .RawDeletePath .ImportParentTF .HasRawMove}}"strings"
+	{{end}}{{if or .RawDeletePath .ImportParentTF .HasRawMove .ConfirmListed}}"strings"
 	{{end}}
 	{{if or .RawValueHelpers .RespRawValues}}"github.com/go-faster/jx"
 	{{end}}{{if .HasNestedFlat}}"github.com/hashicorp/terraform-plugin-framework/attr"
@@ -365,6 +365,42 @@ func (r *{{.Pkg}}Resource) Read(ctx context.Context, req resource.ReadRequest, r
 		resp.State.RemoveResource(ctx)
 		return
 	}
+{{- if .ConfirmListed}}
+
+	// The by-id read serves soft-deleted records; the parent list does not.
+	{{- if .ConfirmParents}}
+	// On import the parent is unknown and the read does not return it, so find
+	// the parent whose list holds the record; none means it was deleted.
+	if state.{{.CreateParentField}}.IsNull() || state.{{.CreateParentField}}.IsUnknown() {
+		parents, perr := r.Meta().RawListIDs(ctx, "{{.ConfirmParents}}")
+		if perr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("finding the parent of %s (ID: %d)", {{.ResConst}}, idInt), perr.Error())
+			return
+		}
+		for _, pid := range parents {
+			if listed, lerr := r.Meta().RawIDListed(ctx, strings.Replace("{{.ConfirmListed}}", "{id}", strconv.FormatInt(pid, 10), 1), idInt); lerr == nil && listed {
+				state.{{.CreateParentField}} = types.Int64Value(pid)
+				break
+			}
+		}
+		if state.{{.CreateParentField}}.IsNull() || state.{{.CreateParentField}}.IsUnknown() {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+	}
+	{{- end}}
+	if parent := state.{{.CreateParentField}}; !parent.IsNull() && !parent.IsUnknown() {
+		listed, lerr := r.Meta().RawIDListed(ctx, strings.Replace("{{.ConfirmListed}}", "{id}", strconv.FormatInt(parent.ValueInt64(), 10), 1), idInt)
+		if lerr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("listing %s (ID: %d)", {{.ResConst}}, idInt), lerr.Error())
+			return
+		}
+		if !listed {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+	}
+{{- end}}
 
 {{- range .Rewritten}}
 	prior{{.}} := state.{{.}}

@@ -49,3 +49,22 @@ func TestRawIDListed_errorsAreNotAbsence(t *testing.T) {
 	_, err = listClient(t, http.StatusOK, `{"data":"nope"}`).RawIDListed(t.Context(), "/v3/app-role", 1)
 	assert.Error(t, err)
 }
+
+// A 404 on the list means its owner is gone (an OpenID group-association list
+// whose IDMS was deleted), so nothing under it is listed.
+func TestRawIDListed_listNotFoundIsAbsent(t *testing.T) {
+	t.Parallel()
+	got, err := listClient(t, http.StatusNotFound, `{"status":404,"message":"IDMS not found"}`).RawIDListed(t.Context(), "/v4/idms/open-id/6/group-association", 5)
+	require.NoError(t, err)
+	assert.False(t, got)
+}
+
+func TestRawListIDs(t *testing.T) {
+	t.Parallel()
+	got, err := listClient(t, http.StatusOK, `{"data":[{"id":1},{"id":6}]}`).RawListIDs(t.Context(), "/v3/idms")
+	require.NoError(t, err)
+	assert.Equal(t, []int64{1, 6}, got)
+	got, err = listClient(t, http.StatusOK, `{"data":{"total":1,"items":[{"id":4}]}}`).RawListIDs(t.Context(), "/v3/idms")
+	require.NoError(t, err)
+	assert.Equal(t, []int64{4}, got)
+}

@@ -102,6 +102,8 @@ type entityData struct {
 	CreateParentParam string
 	CreateParentField string
 	CreateParentCast  string
+	ConfirmListed     string // see ResourceModel.ConfirmListed
+	ConfirmParents    string // see ResourceModel.ConfirmParents
 	// Create id source: "created" uses errs.CreatedID (a *CreatedResponse);
 	// "envelope" reads the id from the create response payload (a returned record).
 	CreateIDMode       string
@@ -291,6 +293,8 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		d.CreateParams = rm.Create.Method.ParamsType
 		d.CreateParentParam = rm.CreateParentParam
 		d.CreateParentField = rm.CreateParentField
+		d.ConfirmListed = rm.ConfirmListed
+		d.ConfirmParents = rm.ConfirmParents
 		d.CreateParentCast = rm.CreateParentCast
 	} else if rm.Create.Method.ParamsType != "" && !strings.Contains(rm.Create.Method.Path, qsPathMarker) {
 		// Params struct with no discriminator and no parent id. Its fields are
@@ -432,7 +436,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 			topPrefix = "v.Data."
 		}
 		flattenSkip := createOnlySkip(rm.CreateOnly, rm.ReadNested.Names)
-		if d.RespBinds, d.RespSliceBinds, err = respBinds(rm.Read.RespFields, byTF, rm.IDField.TFSDK, topPrefix, flattenSkip, emptyColl, stringID); err != nil {
+		if d.RespBinds, d.RespSliceBinds, err = respBinds(rm.Read.RespFields, byTF, rm.IDField.TFSDK, topPrefix, flattenSkip, emptyColl, stringID, rm.Renames); err != nil {
 			return d, fmt.Errorf("%s flatten: %w", rm.Name, err)
 		}
 		// Record-wrapper: the payload nests the bulk of the record under a
@@ -443,7 +447,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 			if rm.Read.RespWrapperOpt {
 				wrapPrefix += "Value."
 			}
-			wb, wsb, werr := respBinds(rm.Read.RespWrapperFields, byTF, rm.IDField.TFSDK, wrapPrefix, flattenSkip, emptyColl, stringID)
+			wb, wsb, werr := respBinds(rm.Read.RespWrapperFields, byTF, rm.IDField.TFSDK, wrapPrefix, flattenSkip, emptyColl, stringID, rm.Renames)
 			if werr != nil {
 				return d, fmt.Errorf("%s flatten (wrapper %s): %w", rm.Name, rm.Read.RespWrapperGo, werr)
 			}
@@ -691,11 +695,18 @@ func stringIDOptKind(t string) (opt, ok bool) {
 // emptyColl names attributes whose empty value the API returns as null; their
 // flatten uses the OrEmpty converter so a configured empty collection does not
 // come back null and diff for ever. stringID expects the id as an OptString.
-func respBinds(fields []Field, byTF map[string]ModelField, idTF, prefix string, skip map[string]bool, emptyColl map[string]bool, stringID bool) ([]respBind, []sliceRespBind, error) {
+func respBinds(fields []Field, byTF map[string]ModelField, idTF, prefix string, skip map[string]bool, emptyColl map[string]bool, stringID bool, renames map[string]string) ([]respBind, []sliceRespBind, error) {
 	var out []respBind
 	var sliceOut []sliceRespBind
 	for _, f := range fields {
 		mf, ok := byTF[f.JSONName]
+		if !ok {
+			// As in bodyBinds: a renamed attribute is keyed under its provider
+			// name, and the read may spell it differently from the body.
+			if tf, renamed := renames[f.JSONName]; renamed {
+				mf, ok = byTF[tf]
+			}
+		}
 		if !ok || skip[f.JSONName] {
 			continue
 		}

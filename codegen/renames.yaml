@@ -53,3 +53,8 @@ account: *cloud_account_renames
 # generator (and Terraform convention) want a plain string `id`.
 custom_variable:
   custom_variable_id: id
+
+# The body and model say update_on_login; the read payload says
+# should_update_on_login. Mapped so the read sets it, and import keeps it.
+idms_open_id_group_association:
+  should_update_on_login: update_on_login

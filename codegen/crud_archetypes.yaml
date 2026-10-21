@@ -364,6 +364,11 @@ idms_open_id_group_association:
   kind: entity
   create_parent_param: ID
   create_parent_field: open_id_id
+  # GET /v4/idms/open-id/group-association/{id} serves soft-deleted records
+  # (#105); the parent list filters them.
+  confirm_listed: /v4/idms/open-id/{id}/group-association
+  # Import knows only the association id; the read finds its IDMS here.
+  confirm_parents: /v3/idms
 
 # Bespoke archetypes: resource + data source bodies emitted verbatim from
 # dedicated templates (internal/kgen/crud/*.gtpl) because their CRUD control
