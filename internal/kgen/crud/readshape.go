@@ -90,6 +90,10 @@ func kindWire(kind string) (string, error) {
 		return "float64", nil
 	case "bool":
 		return "bool", nil
+	case "opt_int":
+		return "*int64", nil
+	case "opt_string":
+		return "*string", nil
 	}
 	return "", fmt.Errorf("unknown read_shape kind %q", kind)
 }
@@ -118,6 +122,11 @@ func kindConv(kind, expr string) (string, error) {
 		return "types.Float64Value(" + expr + ")", nil
 	case "bool":
 		return "types.BoolValue(" + expr + ")", nil
+	case "opt_int":
+		// A plain JSON null (a *uint on the API side) stays null, not 0.
+		return "types.Int64PointerValue(" + expr + ")", nil
+	case "opt_string":
+		return "types.StringPointerValue(" + expr + ")", nil
 	}
 	return "", fmt.Errorf("unknown read_shape kind %q", kind)
 }

@@ -347,6 +347,72 @@ resources:
   # The service-account key is not modelled: Sanitize replaces
   # ServiceAccount.Key.KeyData with "REDACTED" and the
   # create body references the key by service_account_id rather than inline.
+  # Azure billing source (#53). Nothing public: create is the shared POST
+  # /v1/payer/standalone, read and update the private /v1/payer/{id}, delete the
+  # public /v3/billing-source/{id}. Built by the bespoke `payer` kind: create
+  # merges write_shape into create_seed, update merges it into the record it
+  # reads first (the PUT overwrites every column), read uses read_shape.
+  #
+  # Verified on a local install: skip_validation is honored on both POST and
+  # PUT; client_secret comes back "REDACTED" and sending that back keeps the
+  # stored secret; the report flags are read from the top-level payer, the
+  # nested copies under azure_csp_customer are ignored.
+  billing_source_azure:
+    reason: no public spec surface; every billing source type creates through /v1/payer/standalone
+    create: { method: POST,   path: "/v1/payer/standalone",    spec: private }
+    read:   { method: GET,    path: "/v1/payer/{id}",          spec: private }
+    update: { method: PUT,    path: "/v1/payer/{id}",          spec: private }
+    delete: { method: DELETE, path: "/v3/billing-source/{id}", spec: public }
+    create_seed: '{}'
+    read_shape:
+      scalars:
+        - { tf: id, from: "id", kind: id }
+        - { tf: name, from: "azure_csp_customer.name", kind: string }
+        - { tf: billing_start_date, from: "azure_csp_customer.billing_start_date", kind: datecode }
+        - { tf: customer_id, from: "azure_csp_customer.customer_id", kind: string }
+        - { tf: azure_csp_id, from: "azure_csp_customer.azure_csp_id", kind: opt_int }
+        - { tf: app_id, from: "azure_csp_customer.app_id", kind: string }
+        - { tf: domain, from: "azure_csp_customer.domain", kind: string }
+        - { tf: primary_management_group_azure_id, from: "azure_csp_customer.primary_management_group_azure_id", kind: opt_string }
+        - { tf: resource_group_creation, from: "azure_csp_customer.resource_group_creation", kind: bool }
+        - { tf: subscription_creation, from: "azure_csp_customer.subscription_creation", kind: bool }
+        - { tf: tenant_level_charge_attribution_account_id, from: "azure_csp_customer.tenant_level_charge_attribution_account_id", kind: opt_int }
+        - { tf: storage_container, from: "azure_csp_customer.storage_container", kind: string }
+        - { tf: storage_prefix, from: "azure_csp_customer.storage_prefix", kind: string }
+        - { tf: storage_primary_endpoint, from: "azure_csp_customer.storage_primary_endpoint", kind: string }
+        - { tf: focus_storage_container, from: "azure_csp_customer.focus_storage_container", kind: string }
+        - { tf: focus_storage_prefix, from: "azure_csp_customer.focus_storage_prefix", kind: string }
+        - { tf: focus_storage_primary_endpoint, from: "azure_csp_customer.focus_storage_primary_endpoint", kind: string }
+        - { tf: account_type_id, from: "account_type_id", kind: int }
+        - { tf: account_creation, from: "account_creation", kind: bool }
+        - { tf: use_proprietary_reports, from: "use_proprietary_reports", kind: bool }
+        - { tf: use_focus_reports, from: "use_focus_reports", kind: bool }
+        - { tf: client_secret, from: "azure_csp_customer.client_secret", kind: string, write_only: true }
+        - { tf: skip_validation, from: "skip_validation", kind: bool, write_only: true }
+    write_shape:
+      - { tf: name, to: "azure_csp_customer.name", kind: string }
+      - { tf: billing_start_date, to: "azure_csp_customer.billing_start_date", kind: datecode }
+      - { tf: customer_id, to: "azure_csp_customer.customer_id", kind: string }
+      - { tf: azure_csp_id, to: "azure_csp_customer.azure_csp_id", kind: int }
+      - { tf: app_id, to: "azure_csp_customer.app_id", kind: string }
+      - { tf: domain, to: "azure_csp_customer.domain", kind: string }
+      - { tf: primary_management_group_azure_id, to: "azure_csp_customer.primary_management_group_azure_id", kind: string }
+      - { tf: resource_group_creation, to: "azure_csp_customer.resource_group_creation", kind: bool }
+      - { tf: subscription_creation, to: "azure_csp_customer.subscription_creation", kind: bool }
+      - { tf: tenant_level_charge_attribution_account_id, to: "azure_csp_customer.tenant_level_charge_attribution_account_id", kind: int }
+      - { tf: storage_container, to: "azure_csp_customer.storage_container", kind: string }
+      - { tf: storage_prefix, to: "azure_csp_customer.storage_prefix", kind: string }
+      - { tf: storage_primary_endpoint, to: "azure_csp_customer.storage_primary_endpoint", kind: string }
+      - { tf: focus_storage_container, to: "azure_csp_customer.focus_storage_container", kind: string }
+      - { tf: focus_storage_prefix, to: "azure_csp_customer.focus_storage_prefix", kind: string }
+      - { tf: focus_storage_primary_endpoint, to: "azure_csp_customer.focus_storage_primary_endpoint", kind: string }
+      - { tf: account_type_id, to: "account_type_id", kind: int }
+      - { tf: account_creation, to: "account_creation", kind: bool }
+      - { tf: use_proprietary_reports, to: "use_proprietary_reports", kind: bool }
+      - { tf: use_focus_reports, to: "use_focus_reports", kind: bool }
+      - { tf: client_secret, to: "azure_csp_customer.client_secret", kind: string }
+      - { tf: skip_validation, to: "skip_validation", kind: bool }
+
   billing_source_gcp:
     reason: no public by-id read and no public update; private /v1/payer nests under gcp_billing_account
     create: { method: POST,   path: "/v3/billing-source/gcp",  spec: public }

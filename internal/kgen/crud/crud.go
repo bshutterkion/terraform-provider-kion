@@ -354,6 +354,8 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 			return g.generateDatasourceOnly(dir, name, force)
 		case automationPolicyKind:
 			return g.generateAutomationPolicy(dir, name, force)
+		case payerKind:
+			return g.generatePayer(dir, name, tvPath, gated, force)
 		}
 	}
 

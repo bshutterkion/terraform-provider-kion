@@ -118,6 +118,19 @@ resources:
         plan_modifiers:
           - stringplanmodifier.UseStateForUnknown()
 
+  billing_source_azure:
+    description: "Manages an Azure billing source (CSP, EA or MCA) in Kion."
+    attributes:
+      account_type_id:
+        plan_modifiers:
+          - int64planmodifier.RequiresReplace()
+      client_secret:
+        sensitive: true
+        description: "Client secret of the Azure service principal. Kion never returns it, so it is not read back: a change made outside Terraform is not detected."
+      billing_start_date:
+        description: "First month Kion reads billing data for, as YYYY-MM."
+      skip_validation:
+        description: "Create or update without first testing the Azure credentials and storage access. Kion still stores the values as given."
   billing_source_gcp:
     description: Manages a Kion GCP Billing Source.
     attributes:

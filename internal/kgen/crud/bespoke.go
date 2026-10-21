@@ -40,6 +40,9 @@ var automationPolicyResourceTmpl string
 //go:embed automation_policy_ds.gtpl
 var automationPolicyDataSourceTmpl string
 
+//go:embed payer.gtpl
+var payerResourceTmpl string
+
 //go:embed cloud_account_ds_account.gtpl
 var cloudAccountDSAccountTmpl string
 
@@ -170,6 +173,12 @@ const (
 	// and a list of objects (cloud_provider_policies) that itself carries two
 	// string lists, each an array of one-key objects on the wire.
 	automationPolicyKind = "automation_policy"
+
+	// payerKind is a billing source type with no public surface (#53): created
+	// through the shared private POST /v1/payer/standalone, its fields nested
+	// under a per-type key, read and updated (read-modify-write) at
+	// /v1/payer/{id}. No derived archetype has a private create.
+	payerKind = "payer"
 )
 
 // datasourceOnlyTemplates maps a datasource_only package to its verbatim data
@@ -196,7 +205,7 @@ var resourceTemplates = map[string]string{
 // `resources`), so the generate loop merges them in explicitly.
 func isBespokeKind(kind string) bool {
 	switch kind {
-	case singletonKind, cloudAccountKind, cvOverrideKind, datasourceOnlyKind, automationPolicyKind:
+	case singletonKind, cloudAccountKind, cvOverrideKind, datasourceOnlyKind, automationPolicyKind, payerKind:
 		return true
 	default:
 		return false

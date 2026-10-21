@@ -253,6 +253,21 @@ resources:
       method: DELETE
     schema:
       ignores: [status, record_id, data, count, page, sort_method, sort_order]
+  billing_source_azure:
+    create:
+      path: /v1/payer/standalone/azure
+      method: POST
+    read:
+      path: /v1/payer/{id}/azure
+      method: GET
+    update:
+      path: /v1/payer/{id}
+      method: PUT
+    delete:
+      path: /v3/billing-source/{id}
+      method: DELETE
+    schema:
+      ignores: [status, record_id, data]
   billing_source_gcp:
     create:
       path: /v3/billing-source/gcp
@@ -1439,4 +1454,4 @@ data_sources:
     schema:
       ignores: [status, record_id]
 
-# summary: 72 generatable (26 implemented, 46 stub), 0 incomplete; 65 data sources
+# summary: 73 generatable (26 implemented, 47 stub), 0 incomplete; 65 data sources

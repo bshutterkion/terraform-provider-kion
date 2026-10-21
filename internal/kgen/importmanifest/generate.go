@@ -154,6 +154,7 @@ var requireValidOverrides = map[string]string{
 	"kion_billing_source_aws":       "aws_payer",
 	"kion_billing_source_gcp":       "gcp_payer",
 	"kion_billing_source_oci":       "oci_payer",
+	"kion_billing_source_azure":     "azure_payer",
 }
 
 // multiParentOverrides corrects resources enumerable under more than one
@@ -214,8 +215,13 @@ var explicitParentOverrides = map[string]Parent{
 // (private_endpoints.yaml records the by-id read at private /v1/dashboard/{id}
 // for that reason) but the plural collection, /v1/dashboards, returns every
 // dashboard fully typed and is not recorded anywhere in either codegen input.
+//
+// kion_billing_source_azure's generator_config read is a schema-only key, not a
+// route (see spec_additions.yaml); like the other typed billing sources it is
+// listed from the polymorphic /v4/billing-source and filtered by azure_payer.
 var explicitFlatListOverrides = map[string]string{
-	"kion_dashboard": "/v1/dashboards",
+	"kion_dashboard":            "/v1/dashboards",
+	"kion_billing_source_azure": "/v4/billing-source",
 }
 
 // Build assembles the manifest from already-loaded inputs. Pure: no I/O, so the

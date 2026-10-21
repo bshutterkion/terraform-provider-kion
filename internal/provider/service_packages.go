@@ -19,6 +19,7 @@ import (
 	"terraform-provider-kion/internal/service/billing_rule"
 	"terraform-provider-kion/internal/service/billing_source"
 	"terraform-provider-kion/internal/service/billing_source_aws"
+	"terraform-provider-kion/internal/service/billing_source_azure"
 	"terraform-provider-kion/internal/service/billing_source_gcp"
 	"terraform-provider-kion/internal/service/billing_source_govcloud"
 	"terraform-provider-kion/internal/service/billing_source_oci"
@@ -98,6 +99,7 @@ func ServicePackages() []conns.ServicePackage {
 		billing_rule.NewServicePackage(),
 		billing_source.NewServicePackage(),
 		billing_source_aws.NewServicePackage(),
+		billing_source_azure.NewServicePackage(),
 		billing_source_gcp.NewServicePackage(),
 		billing_source_govcloud.NewServicePackage(),
 		billing_source_oci.NewServicePackage(),

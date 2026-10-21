@@ -53,7 +53,8 @@ func TestAccKion{{.Pascal}}_basic(t *testing.T) {
 			{
 				ResourceName:      resourceName,
 				ImportState:       true,
-				ImportStateVerify: true,
+				ImportStateVerify: true,{{if .ImportVerifyIgnore}}
+				ImportStateVerifyIgnore: []string{ {{- range $i, $a := .ImportVerifyIgnore}}{{if $i}}, {{end}}{{printf "%q" $a}}{{end -}} },{{end}}
 			},
 		},
 	})
@@ -104,7 +105,8 @@ func TestAccKion{{.Pascal}}_update(t *testing.T) {
 			{
 				ResourceName:      resourceName,
 				ImportState:       true,
-				ImportStateVerify: true,
+				ImportStateVerify: true,{{if .ImportVerifyIgnore}}
+				ImportStateVerifyIgnore: []string{ {{- range $i, $a := .ImportVerifyIgnore}}{{if $i}}, {{end}}{{printf "%q" $a}}{{end -}} },{{end}}
 			},
 		},
 	})

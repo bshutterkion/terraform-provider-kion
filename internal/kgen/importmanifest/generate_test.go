@@ -832,10 +832,11 @@ func TestBuildOverridesGovcloudParent(t *testing.T) {
 func TestBuildDiscriminatesBillingSourceKinds(t *testing.T) {
 	t.Parallel()
 	want := map[string]string{
-		"kion_billing_source":     "custom_billing_source",
-		"kion_billing_source_aws": "aws_payer",
-		"kion_billing_source_gcp": "gcp_payer",
-		"kion_billing_source_oci": "oci_payer",
+		"kion_billing_source":       "custom_billing_source",
+		"kion_billing_source_aws":   "aws_payer",
+		"kion_billing_source_gcp":   "gcp_payer",
+		"kion_billing_source_oci":   "oci_payer",
+		"kion_billing_source_azure": "azure_payer",
 	}
 	read := map[string]string{}
 	var types []string
@@ -848,4 +849,18 @@ func TestBuildDiscriminatesBillingSourceKinds(t *testing.T) {
 	for tf, field := range want {
 		assert.Equal(t, field, byType(m, tf).RequireValidField, tf)
 	}
+}
+
+// kion_billing_source_azure is read through the polymorphic /v4/billing-source
+// like the other typed billing sources; its generator_config read path is a
+// schema-only key, not a route, so it must not derive a parent read from it.
+func TestBuildAzureBillingSourceListsV4(t *testing.T) {
+	t.Parallel()
+	m := Build(map[string]string{"billing_source_azure": "/v1/payer/{id}/azure"}, map[string]string{}, map[string]string{}, map[string]string{},
+		map[string]archetypeInfo{}, []string{"kion_billing_source_azure"}, map[string]bool{})
+	r := byType(m, "kion_billing_source_azure")
+	assert.Equal(t, "/v4/billing-source", r.ListPath)
+	assert.Nil(t, r.Parent)
+	assert.Equal(t, ShapeGeneric, r.ReadShape)
+	assert.Equal(t, "azure_payer", r.RequireValidField)
 }

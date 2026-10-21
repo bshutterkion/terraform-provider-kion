@@ -75,6 +75,9 @@ type rawResourceOps struct {
 	// anything but a 404: an id the list omits is treated as deleted. For
 	// private reads that answer a missing record with a 500.
 	MissingViaList string `yaml:"missing_via_list"`
+	// CreateSeed is the JSON object a payer-kind create merges write_shape into,
+	// for the constants a type's create body needs (e.g. its account_type_id).
+	CreateSeed string `yaml:"create_seed"`
 	// CreateID declares where to recover the id of a record whose create
 	// response does not carry one; see createID.
 	CreateID *createID `yaml:"create_id"`
