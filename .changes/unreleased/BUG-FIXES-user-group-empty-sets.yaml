@@ -1,7 +1,0 @@
-kind: BUG FIXES
-body: >-
-  kion_user_group: setting user_ids, viewer_user_ids or owner_user_ids to an
-  empty set no longer fails the apply with "inconsistent result after apply:
-  was cty.SetValEmpty, but now null". Kion returns an empty membership as null;
-  the read now treats null as an empty set (#147).
-time: 2026-10-21T18:35:39Z
