@@ -416,6 +416,9 @@ funding_source_note:
 billing_source_azure:
   kind: payer
 
+billing_source_anthropic:
+  kind: payer
+
 # Fully-private automation policy, all CRUD over raw HTTP against /v1. Its own
 # kind rather than raw_http: that archetype takes scalar attributes only, and
 # this body is an envelope (the policy's scalars nest under "automation_policy",

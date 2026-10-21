@@ -413,6 +413,33 @@ resources:
       - { tf: client_secret, to: "azure_csp_customer.client_secret", kind: string }
       - { tf: skip_validation, to: "skip_validation", kind: bool }
 
+  # Anthropic billing source (#53), the same `payer` kind as Azure. Kion calls
+  # Anthropic on every create to resolve the organization from the Admin key, so
+  # a real key is required even with skip_validation; organization_id is read
+  # only. Both keys come back "REDACTED" (or "" when unset) and sending that back
+  # keeps the stored key. Anthropic billing sources exist from Kion 3.16.
+  billing_source_anthropic:
+    reason: no public spec surface; every billing source type creates through /v1/payer/standalone
+    create: { method: POST,   path: "/v1/payer/standalone",    spec: private }
+    read:   { method: GET,    path: "/v1/payer/{id}",          spec: private }
+    update: { method: PUT,    path: "/v1/payer/{id}",          spec: private }
+    delete: { method: DELETE, path: "/v3/billing-source/{id}", spec: public }
+    create_seed: '{"account_type_id": 30, "skip_validation": true}'
+    min_kion_version: "3.16.0"
+    read_shape:
+      scalars:
+        - { tf: id,                 from: "id",                                          kind: id }
+        - { tf: name,               from: "anthropic_billing_source.name",               kind: string }
+        - { tf: billing_start_date, from: "anthropic_billing_source.billing_start_date", kind: datecode }
+        - { tf: organization_id,    from: "anthropic_billing_source.organization_id",    kind: string }
+        - { tf: admin_api_key,      from: "anthropic_billing_source.admin_api_key",      kind: string, write_only: true }
+        - { tf: analytics_api_key,  from: "anthropic_billing_source.analytics_api_key",  kind: string, write_only: true }
+    write_shape:
+      - { tf: name,               to: "anthropic_billing_source.name",               kind: string }
+      - { tf: billing_start_date, to: "anthropic_billing_source.billing_start_date", kind: datecode }
+      - { tf: admin_api_key,      to: "anthropic_billing_source.admin_api_key",      kind: string }
+      - { tf: analytics_api_key,  to: "anthropic_billing_source.analytics_api_key",  kind: string }
+
   billing_source_gcp:
     reason: no public by-id read and no public update; private /v1/payer nests under gcp_billing_account
     create: { method: POST,   path: "/v3/billing-source/gcp",  spec: public }

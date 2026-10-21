@@ -213,6 +213,19 @@
       }
     },
     {
+      "tf_type": "kion_billing_source_anthropic",
+      "kind": "billing_source_anthropic",
+      "archetype": "payer",
+      "read_shape": "generic",
+      "readable": true,
+      "list_path": "/v4/billing-source",
+      "name_field": "name",
+      "require_valid_field": "anthropic_billing_source",
+      "import_id": {
+        "format": "id"
+      }
+    },
+    {
       "tf_type": "kion_billing_source_aws",
       "kind": "billing_source_aws",
       "archetype": "blended",

@@ -118,6 +118,23 @@ resources:
         plan_modifiers:
           - stringplanmodifier.UseStateForUnknown()
 
+  billing_source_anthropic:
+    description: "Manages an Anthropic billing source (an Anthropic organization) in Kion. Requires Kion 3.16 or later."
+    attributes:
+      admin_api_key:
+        sensitive: true
+        description: "Anthropic Admin API key (sk-ant-admin...). Kion uses it to read the organization's usage and validates it with Anthropic on create. Kion never returns it, so it is not read back."
+      analytics_api_key:
+        sensitive: true
+        description: "Anthropic Enterprise Analytics API key, provisioned at claude.ai with the read:analytics scope. Kion never returns it, so it is not read back."
+      billing_start_date:
+        description: "First month Kion reads billing data for, as YYYY-MM."
+      organization_id:
+        type: string
+        computed_optional_required: computed
+        description: "The Anthropic organization the Admin API key belongs to, resolved by Kion when the billing source is created."
+        plan_modifiers:
+          - stringplanmodifier.UseStateForUnknown()
   billing_source_azure:
     description: "Manages an Azure billing source (CSP, EA or MCA) in Kion."
     attributes:

@@ -78,6 +78,10 @@ type rawResourceOps struct {
 	// CreateSeed is the JSON object a payer-kind create merges write_shape into,
 	// for the constants a type's create body needs (e.g. its account_type_id).
 	CreateSeed string `yaml:"create_seed"`
+	// MinKionVersion gates a payer-kind resource, for a type Kion added after
+	// the oldest tracked release. version_support cannot derive it: the routes
+	// are private, so no SDK version carries them.
+	MinKionVersion string `yaml:"min_kion_version"`
 	// CreateID declares where to recover the id of a record whose create
 	// response does not carry one; see createID.
 	CreateID *createID `yaml:"create_id"`

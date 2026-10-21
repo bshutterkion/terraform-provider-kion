@@ -84,6 +84,7 @@ EOF
 | `kion_azure_role` | `KION_ACC_AZURE_PAYER_ID` |
 | `kion_billing_rule` | `KION_ACC_BILLING_SOURCE_ID` |
 | `kion_billing_source` | `KION_ACC_AWS_ACCOUNT_NUMBER`, `KION_ACC_AWS_BILLING_ROLE`, `KION_ACC_AWS_BILLING_BUCKET`, `KION_ACC_AWS_REGION` |
+| `kion_billing_source_anthropic` | `KION_ACC_ANTHROPIC_ADMIN_KEY` (a real Anthropic Admin API key: Kion validates it with Anthropic) |
 | `kion_billing_source_aws` | `KION_ACC_AWS_ACCOUNT_NUMBER`, `KION_ACC_AWS_BILLING_ROLE` |
 | `kion_billing_source_gcp` | `KION_ACC_GCP_BILLING_ACCOUNT_ID`, `KION_ACC_GCP_SERVICE_ACCOUNT_ID` |
 | `kion_billing_source_govcloud` | `KION_ACC_PAYER_ID`, `KION_ACC_AWS_ACCOUNT_NUMBER` |

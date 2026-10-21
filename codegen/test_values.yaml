@@ -1084,6 +1084,18 @@ resources:
   # out to the provider during the test where the schema allows it.
   # Placeholder Azure identifiers: skip_validation creates the record without
   # contacting Azure, so this runs against any install (#53).
+  # Kion validates the Admin key with Anthropic on create, so this needs a real
+  # one; the test skips without it (#53).
+  billing_source_anthropic:
+    env_args: [KION_ACC_ANTHROPIC_ADMIN_KEY]
+    create:
+      name: "test-acc-%[1]s"
+      billing_start_date: "2026-01"
+      admin_api_key: "%[2]s"
+    update:
+      name: "test-acc-%[1]s-upd"
+      billing_start_date: "2026-02"
+      admin_api_key: "%[2]s"
   billing_source_azure:
     create:
       name: "test-acc-%[1]s"

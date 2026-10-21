@@ -26,7 +26,7 @@ make lint                     # golangci-lint run (config: .golangci.yml)
 
 # CI
 make ci-quick                 # Fast inner loop: fmt, vet, lint, test (same four checks as the pre-push hook)
-make ci                       # Every ci.yml job that can run locally: the docs drift gate, and modules drift + terraform init/validate/test over all 75 (slow)
+make ci                       # Every ci.yml job that can run locally: the docs drift gate, and modules drift + terraform init/validate/test over all 76 (slow)
 
 # Code generation (see codegen/README.md first)
 make generate                 # Regenerate the full generatable surface: version gates + schemas + CRUD + import manifest
@@ -155,7 +155,7 @@ wrappers, and `no_read` resources that import as empty shells).
 ## Key Conventions
 
 - Resource names use `kion_` prefix (e.g., `kion_cloud_rule`, `kion_project`)
-- 74 service packages in `internal/service/` (plus the `accounthelper` helper package)
+- 75 service packages in `internal/service/` (plus the `accounthelper` helper package)
 - Linting via golangci-lint v2 (`.golangci.yml`)
 - Generated `*_gen.go` files excluded from all linters
 - `kion-import` enumerates a live install into import blocks; see [docs/IMPORTING.md](docs/IMPORTING.md) and [docs/import-tooling-validation.md](docs/import-tooling-validation.md)
@@ -171,7 +171,7 @@ GitHub Actions only; there is no `.gitlab-ci.yml`. `.github/workflows/ci.yml` ru
 
 Acceptance tests are generated from `codegen/test_values.yaml` (see its header
 for `env_args`/`require_env`/`known_issues`/`prereqs`/`fixtures`/`extra_args`/`hcl:`). Every resource that
-can have one has one — 73 of 74, `gcp_regions` being data-source-only. The
+can have one has one — 74 of 75, `gcp_regions` being data-source-only. The
 entity, parent_list, blended, association, raw_http and no_read archetypes
 derive them, each probing the API the way that archetype reads (get by id,
 list the parent and match, scan the collection, call the private route); what

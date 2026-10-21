@@ -26,7 +26,27 @@ var (
 	_ resource.Resource                = &{{.Pkg}}Resource{}
 	_ resource.ResourceWithConfigure   = &{{.Pkg}}Resource{}
 	_ resource.ResourceWithImportState = &{{.Pkg}}Resource{}
+{{- if .MinKionVersion}}
+	_ resource.ResourceWithModifyPlan  = &{{.Pkg}}Resource{}
+{{- end}}
 )
+{{if .MinKionVersion}}
+// The billing source type arrived in Kion {{.MinKionVersion}} (private_endpoints.yaml
+// min_kion_version; its routes are private, so version_support cannot derive it).
+var (
+	minKionVersion = conns.MustParseKionVersion("{{.MinKionVersion}}")
+	maxKionVersion = conns.KionVersion{} // unbounded
+)
+
+// ModifyPlan reports an unsupported Kion version during plan. A destroy plan is
+// exempt: refusing it would strand the resource in state.
+func (r *{{.Pkg}}Resource) ModifyPlan(_ context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() {
+		return
+	}
+	resp.Diagnostics.Append(framework.RequireKionVersionInRange(r.Meta(), minKionVersion, maxKionVersion, "{{.TypeName}}")...)
+}
+{{end}}
 
 // New{{.Pascal}}Resource returns a new instance of the resource.
 func New{{.Pascal}}Resource() resource.Resource {
@@ -83,7 +103,7 @@ func mergeFields(plan *{{.Model}}) []flex.MergeField {
 }
 
 func (r *{{.Pkg}}Resource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	{{- if .Gated}}
+	{{- if or .Gated .MinKionVersion}}
 	resp.Diagnostics.Append(framework.RequireKionVersionInRange(r.Meta(), minKionVersion, maxKionVersion, "{{.TypeName}}")...)
 	if resp.Diagnostics.HasError() {
 		return
