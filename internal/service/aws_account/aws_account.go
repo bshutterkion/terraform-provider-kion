@@ -98,6 +98,7 @@ func (r *awsAccountResource) Schema(_ context.Context, _ resource.SchemaRequest,
 				Computed:    true,
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.UseStateForUnknown(),
+					framework.CreateOnlyInt64(),
 				},
 			},
 			"car_external_id": schema.StringAttribute{
@@ -110,10 +111,18 @@ func (r *awsAccountResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			"commercial_account_name": schema.StringAttribute{
 				Description: "The name used when creating new commercial account.",
 				Optional:    true,
+				// Create-time only; see framework.CreateOnlyString (#75).
+				PlanModifiers: []planmodifier.String{
+					framework.CreateOnlyString(),
+				},
 			},
 			"create_govcloud": schema.BoolAttribute{
 				Description: "True to create an AWS GovCloud account.",
 				Optional:    true,
+				// Create-time only; see framework.CreateOnlyBool (#75).
+				PlanModifiers: []planmodifier.Bool{
+					framework.CreateOnlyBool(),
+				},
 			},
 			"created_at": schema.StringAttribute{
 				Computed: true,
@@ -132,6 +141,10 @@ func (r *awsAccountResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			"gov_account_name": schema.StringAttribute{
 				Description: "The name used when creating new GovCloud account.",
 				Optional:    true,
+				// Create-time only; see framework.CreateOnlyString (#75).
+				PlanModifiers: []planmodifier.String{
+					framework.CreateOnlyString(),
+				},
 			},
 			"id": schema.Int64Attribute{
 				Computed: true,
@@ -184,6 +197,10 @@ func (r *awsAccountResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			"payer_id": schema.Int64Attribute{
 				Description: "The ID of the billing source containing billing data for this account.",
 				Required:    true,
+				// No update route changes an account's payer (#75).
+				PlanModifiers: []planmodifier.Int64{
+					framework.CreateOnlyInt64(),
+				},
 			},
 			"project_id": schema.Int64Attribute{
 				Description: "The ID of the Kion project to place this account within. If empty, the account will be placed within the account cache.",
@@ -224,6 +241,9 @@ func (r *awsAccountResource) Schema(_ context.Context, _ resource.SchemaRequest,
 		Blocks: map[string]schema.Block{
 			"aws_organizational_unit": schema.SingleNestedBlock{
 				Description: "Where to place this account within AWS Organization when creating an account.",
+				PlanModifiers: []planmodifier.Object{
+					framework.CreateOnlyObject(),
+				},
 				Attributes: map[string]schema.Attribute{
 					"name": schema.StringAttribute{
 						Description: "Name of the organizational unit in AWS.",

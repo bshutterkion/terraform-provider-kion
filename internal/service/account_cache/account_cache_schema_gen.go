@@ -18,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"strings"
+	"terraform-provider-kion/internal/framework"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 )
@@ -58,6 +59,7 @@ func AccountCacheResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "The account number.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					framework.CreateOnlyString(),
 				},
 			},
 			"account_type_id": schema.Int64Attribute{
@@ -67,6 +69,7 @@ func AccountCacheResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "AccountTypeID is used to specify the AWS Account Type being created. If not explicitly set, the partition that Kion is running in will be used.\nFor AWS Commercial accounts, this value is 1.\nFor AWS Government accounts, this value is 2.\nFor AWS C2S accounts, this value is 4.\nFor AWS SC2S accounts, this value is 5.",
 				PlanModifiers: []planmodifier.Int64{
 					int64planmodifier.UseStateForUnknown(),
+					framework.CreateOnlyInt64(),
 				},
 			},
 			"car_external_id": schema.StringAttribute{
@@ -84,6 +87,7 @@ func AccountCacheResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "Name of the Commercial Account in the application. If none is provided, a default value of\n\"{Name} - Commercial\" will be used instead. If include_linked_account_spend is set to true,\nthis value will be ignored.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					framework.CreateOnlyString(),
 				},
 			},
 			"create_govcloud": schema.BoolAttribute{
@@ -93,6 +97,7 @@ func AccountCacheResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "CreateGovcloud determines if this account should be created in govcloud. The default value is false.",
 				PlanModifiers: []planmodifier.Bool{
 					boolplanmodifier.UseStateForUnknown(),
+					framework.CreateOnlyBool(),
 				},
 			},
 			"created_at": schema.StringAttribute{
@@ -110,6 +115,7 @@ func AccountCacheResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "Name of the GovCloud Account in the application.\nIf no value is provided, \"{Name} - GovCloud\" will be used if create_govcloud is true",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					framework.CreateOnlyString(),
 				},
 			},
 			"id": schema.StringAttribute{
@@ -181,12 +187,16 @@ func AccountCacheResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "PayerOrganizationalUnit represents an organizational unit in an AWS payer's organization.",
 				PlanModifiers: []planmodifier.Object{
 					objectplanmodifier.UseStateForUnknown(),
+					framework.CreateOnlyObject(),
 				},
 			},
 			"payer_id": schema.Int64Attribute{
 				Required:            true,
 				Description:         "ID of the payer where the application can find the billing data for the account.",
 				MarkdownDescription: "ID of the payer where the application can find the billing data for the account.",
+				PlanModifiers: []planmodifier.Int64{
+					framework.CreateOnlyInt64(),
+				},
 			},
 			"service_external_id": schema.StringAttribute{
 				Computed:            true,
