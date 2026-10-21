@@ -220,7 +220,12 @@ var explicitParentOverrides = map[string]Parent{
 // kion_billing_source_azure's and _anthropic's generator_config reads are schema-only keys, not a
 // route (see spec_additions.yaml); like the other typed billing sources it is
 // listed from the polymorphic /v4/billing-source and filtered by azure_payer.
+//
+// kion_billing_rule's /v3/billing-rule answers 400 "invalid rule type" for the
+// whole page once any rule is an allocation or custom line item, which the v3
+// shape cannot carry. The filter lists only the types the resource manages.
 var explicitFlatListOverrides = map[string]string{
+	"kion_billing_rule":             "/v3/billing-rule?rule_type_ids=1&rule_type_ids=2&rule_type_ids=3",
 	"kion_dashboard":                "/v1/dashboards",
 	"kion_billing_source_azure":     "/v4/billing-source",
 	"kion_billing_source_anthropic": "/v4/billing-source",

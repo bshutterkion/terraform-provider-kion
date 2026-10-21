@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -25,6 +26,25 @@ func TestListBareArray(t *testing.T) {
 	got, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v3/ou")
 	require.NoError(t, err)
 	assert.Len(t, got, 2)
+}
+
+// A list path may carry its own filter (kion_billing_rule's rule_type_ids);
+// paging adds to it rather than replacing it or appending a second "?".
+func TestListKeepsPathQuery(t *testing.T) {
+	t.Parallel()
+	var got url.Values
+	var path string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got, path = r.URL.Query(), r.URL.Path
+		fmt.Fprint(w, `[]`)
+	}))
+	defer srv.Close()
+
+	_, err := NewClient(srv.URL, "k", false, "").List(context.Background(), "/v3/billing-rule?rule_type_ids=1&rule_type_ids=2")
+	require.NoError(t, err)
+	assert.Equal(t, "/v3/billing-rule", path)
+	assert.Equal(t, []string{"1", "2"}, got["rule_type_ids"])
+	assert.Equal(t, "1", got.Get("page"))
 }
 
 func TestListDataEnvelope(t *testing.T) {

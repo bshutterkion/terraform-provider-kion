@@ -99,11 +99,15 @@ func joinAPIPrefix(baseURL, prefix string) string {
 }
 
 func (c *Client) get(ctx context.Context, path string, page int) (json.RawMessage, error) {
-	u := c.baseURL + path
-	q := url.Values{}
+	// A path may carry its own filter (kion_billing_rule's rule_type_ids).
+	path, rawQuery, _ := strings.Cut(path, "?")
+	q, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		return nil, fmt.Errorf("list path %q: %w", path, err)
+	}
 	q.Set("page", fmt.Sprint(page))
 	q.Set("count", fmt.Sprint(pageSize))
-	u += "?" + q.Encode()
+	u := c.baseURL + path + "?" + q.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {

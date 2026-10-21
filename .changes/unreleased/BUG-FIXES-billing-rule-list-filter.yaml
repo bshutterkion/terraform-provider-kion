@@ -1,0 +1,8 @@
+kind: BUG FIXES
+body: >-
+  kion-import: kion_billing_rule no longer fails to list with 400 "invalid rule
+  type" on an install that has allocation or custom line item billing rules.
+  Kion's v3 list rejects the whole page when it holds a rule type the v3 shape
+  cannot carry, so kion-import now lists only the adjustment types
+  kion_billing_rule manages (#149).
+time: 2026-10-21T18:52:39Z
