@@ -193,7 +193,7 @@
       "archetype": "blended",
       "read_shape": "generic",
       "readable": true,
-      "list_path": "/v3/billing-rule",
+      "list_path": "/v3/billing-rule?rule_type_ids=1\u0026rule_type_ids=2\u0026rule_type_ids=3",
       "name_field": "name",
       "import_id": {
         "format": "id"
