@@ -66,5 +66,12 @@ func FormatReport(results []Result) string {
 		}
 	}
 
+	if ws := NotPortable(results); len(ws) > 0 {
+		fmt.Fprintf(&b, "\nWill not apply to another install as-is (%d):\n", len(ws))
+		for _, w := range ws {
+			fmt.Fprintf(&b, "  %s %q (%s) %s\n", w.TFType, w.Name, w.ID, w.Msg)
+		}
+	}
+
 	return b.String()
 }
