@@ -15,6 +15,7 @@ type payerData struct {
 	CreatePath, ReadPath, UpdatePath       string
 	DeletePath                             string
 	CreateSeed                             string // JSON object literal
+	MinKionVersion                         string // "" means ungated
 	WireStructGo, FlattenGo, MergeGo       string
 }
 
@@ -73,6 +74,10 @@ func (g *generator) generatePayer(dir, name, tvPath string, gated, force bool) (
 		TypeName: "kion_" + name, Gated: gated,
 		CreatePath: pe.Create.Path, ReadPath: pe.Read.Path, UpdatePath: pe.Update.Path, DeletePath: pe.Delete.Path,
 		CreateSeed: seed, WireStructGo: wireGo, FlattenGo: flattenGo, MergeGo: mergeGo,
+		MinKionVersion: pe.MinKionVersion,
+	}
+	if data.MinKionVersion != "" && data.Gated {
+		return 0, fmt.Errorf("%s: min_kion_version and a version_support gate both apply; keep one", name)
 	}
 	if _, ok := g.upgrades["kion_"+name]; ok {
 		data.SchemaVersion = 1

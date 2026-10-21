@@ -832,11 +832,12 @@ func TestBuildOverridesGovcloudParent(t *testing.T) {
 func TestBuildDiscriminatesBillingSourceKinds(t *testing.T) {
 	t.Parallel()
 	want := map[string]string{
-		"kion_billing_source":       "custom_billing_source",
-		"kion_billing_source_aws":   "aws_payer",
-		"kion_billing_source_gcp":   "gcp_payer",
-		"kion_billing_source_oci":   "oci_payer",
-		"kion_billing_source_azure": "azure_payer",
+		"kion_billing_source":           "custom_billing_source",
+		"kion_billing_source_aws":       "aws_payer",
+		"kion_billing_source_gcp":       "gcp_payer",
+		"kion_billing_source_oci":       "oci_payer",
+		"kion_billing_source_azure":     "azure_payer",
+		"kion_billing_source_anthropic": "anthropic_billing_source",
 	}
 	read := map[string]string{}
 	var types []string

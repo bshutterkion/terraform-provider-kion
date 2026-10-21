@@ -18,6 +18,7 @@ import (
 	"terraform-provider-kion/internal/service/azure_role"
 	"terraform-provider-kion/internal/service/billing_rule"
 	"terraform-provider-kion/internal/service/billing_source"
+	"terraform-provider-kion/internal/service/billing_source_anthropic"
 	"terraform-provider-kion/internal/service/billing_source_aws"
 	"terraform-provider-kion/internal/service/billing_source_azure"
 	"terraform-provider-kion/internal/service/billing_source_gcp"
@@ -98,6 +99,7 @@ func ServicePackages() []conns.ServicePackage {
 		azure_role.NewServicePackage(),
 		billing_rule.NewServicePackage(),
 		billing_source.NewServicePackage(),
+		billing_source_anthropic.NewServicePackage(),
 		billing_source_aws.NewServicePackage(),
 		billing_source_azure.NewServicePackage(),
 		billing_source_gcp.NewServicePackage(),

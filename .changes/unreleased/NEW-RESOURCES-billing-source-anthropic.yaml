@@ -1,0 +1,9 @@
+kind: NEW RESOURCES
+body: >-
+  kion_billing_source_anthropic: manage Anthropic billing sources (Kion 3.16 or
+  later). Kion validates the Admin API key with Anthropic when the billing
+  source is created, so it must be a real sk-ant-admin key; organization_id is
+  read back from Kion. Neither key is ever returned, so neither is read back.
+  kion-import imports existing Anthropic billing sources, and rewrite-refs
+  resolves payer_id references to them.
+time: 2026-10-21T16:43:59Z

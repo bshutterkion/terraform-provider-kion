@@ -238,6 +238,21 @@ resources:
       method: DELETE
     schema:
       ignores: [status, record_id, data, count, page, sort_method, sort_order]
+  billing_source_anthropic:
+    create:
+      path: /v1/payer/standalone/anthropic
+      method: POST
+    read:
+      path: /v1/payer/{id}/anthropic
+      method: GET
+    update:
+      path: /v1/payer/{id}
+      method: PUT
+    delete:
+      path: /v3/billing-source/{id}
+      method: DELETE
+    schema:
+      ignores: [status, record_id, data]
   billing_source_aws:
     create:
       path: /v3/billing-source/aws
@@ -1454,4 +1469,4 @@ data_sources:
     schema:
       ignores: [status, record_id]
 
-# summary: 73 generatable (26 implemented, 47 stub), 0 incomplete; 65 data sources
+# summary: 74 generatable (26 implemented, 48 stub), 0 incomplete; 65 data sources

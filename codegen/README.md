@@ -203,7 +203,9 @@ Its schema comes from `spec_additions.yaml` under schema-only path keys (e.g.
 type and one OpenAPI path cannot carry two bodies. Those keys are not routes.
 kion-import lists these resources from `/v4/billing-source`
 (`explicitFlatListOverrides`), filtered by the type's key. `billing_source_azure`
-is the first.
+and `billing_source_anthropic` use it; a type Kion added after the oldest
+tracked release declares `min_kion_version`, since version_support cannot
+derive a gate from a private route.
 
 ## A verbatim resource body
 

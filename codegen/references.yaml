@@ -173,3 +173,4 @@ families:
     - kion_billing_source_gcp
     - kion_billing_source_oci
     - kion_billing_source_azure
+    - kion_billing_source_anthropic

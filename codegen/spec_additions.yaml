@@ -297,11 +297,64 @@ paths:
               schema:
                 $ref: "#/components/schemas/BillingSourceAzureResponse"
 
+  # billing_source_anthropic: schema-only keys, as for billing_source_azure above.
+  /v1/payer/standalone/anthropic:
+    post:
+      operationId: PostBillingSourceAnthropic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BillingSourceAnthropicCreate"
+      responses:
+        "200":
+          description: OK
+  /v1/payer/{id}/anthropic:
+    get:
+      operationId: GetBillingSourceAnthropic
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingSourceAnthropicResponse"
+
 components:
   schemas:
     # billing_source_azure: the FLATTENED view the practitioner writes. On the
     # wire most fields nest under "azure_csp_customer"; the payer template's
     # write_shape and read_shape own that mapping.
+    # billing_source_anthropic: FLATTENED view; on the wire the fields nest under
+    # "anthropic_billing_source" and account_type_id is fixed (create_seed).
+    BillingSourceAnthropicCreate:
+      type: object
+      required: [name, billing_start_date, admin_api_key]
+      properties:
+        name: { type: string, description: Name of the billing source. }
+        billing_start_date: { type: string, description: First month Kion reads billing data for (YYYY-MM). }
+        admin_api_key: { type: string, description: Anthropic Admin API key (sk-ant-admin...). }
+        analytics_api_key: { type: string, description: Anthropic Enterprise Analytics API key. }
+    BillingSourceAnthropicResponse:
+      type: object
+      properties:
+        data: { $ref: "#/components/schemas/BillingSourceAnthropic" }
+    BillingSourceAnthropic:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string, description: Name of the billing source. }
+        billing_start_date: { type: string, description: First month Kion reads billing data for (YYYY-MM). }
+        admin_api_key: { type: string, description: Anthropic Admin API key (sk-ant-admin...). }
+        analytics_api_key: { type: string, description: Anthropic Enterprise Analytics API key. }
+        organization_id: { type: string, description: Anthropic organization the Admin API key belongs to. }
     BillingSourceAzureCreate:
       type: object
       required: [name, account_type_id, billing_start_date]

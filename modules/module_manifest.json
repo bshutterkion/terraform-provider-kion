@@ -940,6 +940,32 @@
       ]
     },
     {
+      "tf_type": "kion_billing_source_anthropic",
+      "path": "terraform-kion-billing-source-anthropic",
+      "variables": [
+        {
+          "attr": "admin_api_key",
+          "var": "admin_api_key",
+          "block": false
+        },
+        {
+          "attr": "analytics_api_key",
+          "var": "analytics_api_key",
+          "block": false
+        },
+        {
+          "attr": "billing_start_date",
+          "var": "billing_start_date",
+          "block": false
+        },
+        {
+          "attr": "name",
+          "var": "name",
+          "block": false
+        }
+      ]
+    },
+    {
       "tf_type": "kion_billing_source_aws",
       "path": "terraform-kion-billing-source-aws",
       "variables": [
