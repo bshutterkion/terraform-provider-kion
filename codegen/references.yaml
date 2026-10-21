@@ -41,6 +41,8 @@ references:
   account_ids: kion_account
   # "The ID of the billing source containing billing data for this account."
   payer_id: kion_billing_source
+  # The Kion account an Azure billing source attributes tenant-level charges to.
+  tenant_level_charge_attribution_account_id: kion_account
   billing_source_ids: kion_billing_source
   scope_id: kion_scope
   category_id: kion_category
@@ -112,6 +114,12 @@ references:
 # Listed with the reason, because the next person will wonder. The value is
 # free text; only presence matters to the completeness test.
 not_references:
+  # kion_billing_source_azure (#53): Azure's own ids, plus one Kion record the
+  # provider has no resource for.
+  app_id: "the Azure service principal's application (client) id, an Azure identifier"
+  customer_id: "the Azure customer or enrollment id, an Azure identifier"
+  primary_management_group_azure_id: "an Azure management group id"
+  azure_csp_id: "a Kion Azure CSP record, which no provider resource manages"
   # Enumerations and lookup-table ids. These are stable integers with fixed
   # meanings, not records this provider manages.
   account_type_id: enum of Kion account types
@@ -164,3 +172,4 @@ families:
     - kion_billing_source_aws
     - kion_billing_source_gcp
     - kion_billing_source_oci
+    - kion_billing_source_azure

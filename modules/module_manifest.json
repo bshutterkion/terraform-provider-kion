@@ -1076,6 +1076,122 @@
       ]
     },
     {
+      "tf_type": "kion_billing_source_azure",
+      "path": "terraform-kion-billing-source-azure",
+      "variables": [
+        {
+          "attr": "account_creation",
+          "var": "account_creation",
+          "block": false
+        },
+        {
+          "attr": "account_type_id",
+          "var": "account_type_id",
+          "block": false
+        },
+        {
+          "attr": "app_id",
+          "var": "app_id",
+          "block": false
+        },
+        {
+          "attr": "azure_csp_id",
+          "var": "azure_csp_id",
+          "block": false
+        },
+        {
+          "attr": "billing_start_date",
+          "var": "billing_start_date",
+          "block": false
+        },
+        {
+          "attr": "client_secret",
+          "var": "client_secret",
+          "block": false
+        },
+        {
+          "attr": "customer_id",
+          "var": "customer_id",
+          "block": false
+        },
+        {
+          "attr": "domain",
+          "var": "domain",
+          "block": false
+        },
+        {
+          "attr": "focus_storage_container",
+          "var": "focus_storage_container",
+          "block": false
+        },
+        {
+          "attr": "focus_storage_prefix",
+          "var": "focus_storage_prefix",
+          "block": false
+        },
+        {
+          "attr": "focus_storage_primary_endpoint",
+          "var": "focus_storage_primary_endpoint",
+          "block": false
+        },
+        {
+          "attr": "name",
+          "var": "name",
+          "block": false
+        },
+        {
+          "attr": "primary_management_group_azure_id",
+          "var": "primary_management_group_azure_id",
+          "block": false
+        },
+        {
+          "attr": "resource_group_creation",
+          "var": "resource_group_creation",
+          "block": false
+        },
+        {
+          "attr": "skip_validation",
+          "var": "skip_validation",
+          "block": false
+        },
+        {
+          "attr": "storage_container",
+          "var": "storage_container",
+          "block": false
+        },
+        {
+          "attr": "storage_prefix",
+          "var": "storage_prefix",
+          "block": false
+        },
+        {
+          "attr": "storage_primary_endpoint",
+          "var": "storage_primary_endpoint",
+          "block": false
+        },
+        {
+          "attr": "subscription_creation",
+          "var": "subscription_creation",
+          "block": false
+        },
+        {
+          "attr": "tenant_level_charge_attribution_account_id",
+          "var": "tenant_level_charge_attribution_account_id",
+          "block": false
+        },
+        {
+          "attr": "use_focus_reports",
+          "var": "use_focus_reports",
+          "block": false
+        },
+        {
+          "attr": "use_proprietary_reports",
+          "var": "use_proprietary_reports",
+          "block": false
+        }
+      ]
+    },
+    {
       "tf_type": "kion_billing_source_gcp",
       "path": "terraform-kion-billing-source-gcp",
       "variables": [

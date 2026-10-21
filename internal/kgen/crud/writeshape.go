@@ -123,9 +123,9 @@ func objectSubExpr(sf Field, vf ModelField, prefix string) (string, bool) {
 // kindModelType is the framework type a read_shape kind flattens to.
 func kindModelType(kind string) string {
 	switch kind {
-	case "id", "string", "int_string", "datecode", "null_string":
+	case "id", "string", "int_string", "datecode", "null_string", "opt_string":
 		return "types.String"
-	case "int", "null_int":
+	case "int", "null_int", "opt_int":
 		return "types.Int64"
 	case "bool":
 		return "types.Bool"

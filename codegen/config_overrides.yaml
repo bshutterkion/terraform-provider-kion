@@ -566,6 +566,16 @@ resources:
       path: /v1/automation-policy/{id}
       method: GET
 
+  # Private, and shares POST /v1/payer/standalone with every other billing
+  # source type; these are the schema-only paths spec_additions.yaml adds.
+  billing_source_azure:
+    create:
+      path: /v1/payer/standalone/azure
+      method: POST
+    read:
+      path: /v1/payer/{id}/azure
+      method: GET
+
 data_sources:
   gcp_regions:
     # GetGCPRegionsList doesn't match Get<Name>; the `data` list is renamed to

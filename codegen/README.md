@@ -187,6 +187,24 @@ declare, and a data source whose manifest row has no single parent.
 Check a derived path before trusting it: it must exist in the spec with a GET,
 and it must be the collection rather than the by-id route.
 
+## Billing sources with no public API (`kind: payer`)
+
+Kion creates every billing source type through one private route, `POST
+/v1/payer/standalone`, with the type's fields nested under a per-type key, and
+reads and updates them all as a whole payer at `/v1/payer/{id}`. No derived
+archetype has a private create, so `kind: payer` emits the resource from
+`payer.gtpl`, driven entirely by its `private_endpoints.yaml` entry: create
+merges `write_shape` into `create_seed`, update merges it into the record it
+reads first (the `PUT` overwrites every column), read uses `read_shape`, and a
+`write_only` scalar is neither read back nor import-verified.
+
+Its schema comes from `spec_additions.yaml` under schema-only path keys (e.g.
+`/v1/payer/standalone/azure`), because the real create path is shared by every
+type and one OpenAPI path cannot carry two bodies. Those keys are not routes.
+kion-import lists these resources from `/v4/billing-source`
+(`explicitFlatListOverrides`), filtered by the type's key. `billing_source_azure`
+is the first.
+
 ## A verbatim resource body
 
 `crud_archetypes.yaml` entries of `kind: entity` may carry

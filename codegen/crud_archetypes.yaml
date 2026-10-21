@@ -409,6 +409,13 @@ gcp_regions:
 funding_source_note:
   kind: raw_http
 
+# Fully-private billing source (#53): create is the shared POST
+# /v1/payer/standalone, read/update the private /v1/payer/{id}, delete the public
+# /v3/billing-source/{id}. Bespoke because the body nests under a per-type key
+# and the create is private, which no derived archetype supports.
+billing_source_azure:
+  kind: payer
+
 # Fully-private automation policy, all CRUD over raw HTTP against /v1. Its own
 # kind rather than raw_http: that archetype takes scalar attributes only, and
 # this body is an envelope (the policy's scalars nest under "automation_policy",

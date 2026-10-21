@@ -262,8 +262,101 @@ paths:
               schema:
                 $ref: "#/components/schemas/AutomationPolicyResponse"
 
+  # billing_source_azure: no public surface. Kion creates every billing source
+  # type through one private route (POST /v1/payer/standalone) and reads them all
+  # at GET /v1/payer/{id}, so Azure and Anthropic would share these paths with
+  # different bodies. These two keys exist only to give tfplugingen a FLATTENED
+  # Azure schema; they are not routes. The bespoke `payer` template calls the
+  # real ones, declared in codegen/private_endpoints.yaml.
+  /v1/payer/standalone/azure:
+    post:
+      operationId: PostBillingSourceAzure
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BillingSourceAzureCreate"
+      responses:
+        "200":
+          description: OK
+  /v1/payer/{id}/azure:
+    get:
+      operationId: GetBillingSourceAzure
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingSourceAzureResponse"
+
 components:
   schemas:
+    # billing_source_azure: the FLATTENED view the practitioner writes. On the
+    # wire most fields nest under "azure_csp_customer"; the payer template's
+    # write_shape and read_shape own that mapping.
+    BillingSourceAzureCreate:
+      type: object
+      required: [name, account_type_id, billing_start_date]
+      properties:
+        name: { type: string, description: Name of the billing source. }
+        account_type_id: { type: integer, description: "Kion account type of the billing source: 3 Azure CSP, 6 Azure EA, 16 Azure MCA, or their Government and Secret variants." }
+        billing_start_date: { type: string, description: First month Kion reads billing data for (YYYY-MM). }
+        customer_id: { type: string, description: The Azure customer or enrollment id. }
+        azure_csp_id: { type: integer, description: ID of the parent Azure CSP record, for a CSP customer. }
+        app_id: { type: string, description: Application (client) ID of the Azure service principal. }
+        client_secret: { type: string, description: Client secret of the Azure service principal. }
+        domain: { type: string, description: Azure AD tenant domain. }
+        primary_management_group_azure_id: { type: string, description: Azure id of the management group new subscriptions are placed under. }
+        resource_group_creation: { type: boolean, description: Whether Kion may create resource groups under this billing source. }
+        subscription_creation: { type: boolean, description: Whether Kion may create subscriptions under this billing source. }
+        tenant_level_charge_attribution_account_id: { type: integer, description: ID of the account tenant-level charges are attributed to. }
+        storage_container: { type: string, description: Storage container holding the billing export. }
+        storage_prefix: { type: string, description: Path prefix of the billing export in the container. }
+        storage_primary_endpoint: { type: string, description: Primary blob endpoint of the billing export storage account. }
+        focus_storage_container: { type: string, description: Storage container holding the FOCUS export. }
+        focus_storage_prefix: { type: string, description: Path prefix of the FOCUS export in the container. }
+        focus_storage_primary_endpoint: { type: string, description: Primary blob endpoint of the FOCUS export storage account. }
+        use_proprietary_reports: { type: boolean, description: Whether Kion reads the Azure cost export. }
+        use_focus_reports: { type: boolean, description: Whether Kion reads the FOCUS export. }
+        account_creation: { type: boolean, description: Whether accounts can be created under this billing source. }
+        skip_validation: { type: boolean, description: Create or update without testing the Azure credentials and storage access first. }
+    BillingSourceAzureResponse:
+      type: object
+      properties:
+        data: { $ref: "#/components/schemas/BillingSourceAzure" }
+    BillingSourceAzure:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string, description: Name of the billing source. }
+        account_type_id: { type: integer, description: "Kion account type of the billing source: 3 Azure CSP, 6 Azure EA, 16 Azure MCA, or their Government and Secret variants." }
+        billing_start_date: { type: string, description: First month Kion reads billing data for (YYYY-MM). }
+        customer_id: { type: string, description: The Azure customer or enrollment id. }
+        azure_csp_id: { type: integer, description: ID of the parent Azure CSP record, for a CSP customer. }
+        app_id: { type: string, description: Application (client) ID of the Azure service principal. }
+        client_secret: { type: string, description: Client secret of the Azure service principal. }
+        domain: { type: string, description: Azure AD tenant domain. }
+        primary_management_group_azure_id: { type: string, description: Azure id of the management group new subscriptions are placed under. }
+        resource_group_creation: { type: boolean, description: Whether Kion may create resource groups under this billing source. }
+        subscription_creation: { type: boolean, description: Whether Kion may create subscriptions under this billing source. }
+        tenant_level_charge_attribution_account_id: { type: integer, description: ID of the account tenant-level charges are attributed to. }
+        storage_container: { type: string, description: Storage container holding the billing export. }
+        storage_prefix: { type: string, description: Path prefix of the billing export in the container. }
+        storage_primary_endpoint: { type: string, description: Primary blob endpoint of the billing export storage account. }
+        focus_storage_container: { type: string, description: Storage container holding the FOCUS export. }
+        focus_storage_prefix: { type: string, description: Path prefix of the FOCUS export in the container. }
+        focus_storage_primary_endpoint: { type: string, description: Primary blob endpoint of the FOCUS export storage account. }
+        use_proprietary_reports: { type: boolean, description: Whether Kion reads the Azure cost export. }
+        use_focus_reports: { type: boolean, description: Whether Kion reads the FOCUS export. }
+        account_creation: { type: boolean, description: Whether accounts can be created under this billing source. }
     DashboardCreate:
       type: object
       properties:

@@ -1082,6 +1082,35 @@ resources:
   # install-specific value is an env_arg: the test skips when it is unset rather
   # than sending an empty attribute. skip_validation keeps the API from calling
   # out to the provider during the test where the schema allows it.
+  # Placeholder Azure identifiers: skip_validation creates the record without
+  # contacting Azure, so this runs against any install (#53).
+  billing_source_azure:
+    create:
+      name: "test-acc-%[1]s"
+      account_type_id: "6"
+      billing_start_date: "2026-01"
+      customer_id: "00000000-0000-0000-0000-000000000001"
+      app_id: "00000000-0000-0000-0000-000000000002"
+      client_secret: "test-acc-placeholder"
+      domain: "test-acc.onmicrosoft.com"
+      storage_container: "test-acc"
+      storage_prefix: "exports"
+      storage_primary_endpoint: "https://testacc.blob.core.windows.net/"
+      use_proprietary_reports: "true"
+      skip_validation: "true"
+    update:
+      name: "test-acc-%[1]s-upd"
+      account_type_id: "6"
+      billing_start_date: "2026-01"
+      customer_id: "00000000-0000-0000-0000-000000000001"
+      app_id: "00000000-0000-0000-0000-000000000002"
+      client_secret: "test-acc-placeholder"
+      domain: "test-acc.onmicrosoft.com"
+      storage_container: "test-acc"
+      storage_prefix: "exports-2"
+      storage_primary_endpoint: "https://testacc.blob.core.windows.net/"
+      use_proprietary_reports: "true"
+      skip_validation: "true"
   billing_source_aws:
     env_args: [KION_ACC_AWS_ACCOUNT_NUMBER, KION_ACC_AWS_BILLING_ROLE]
     create:

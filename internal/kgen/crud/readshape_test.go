@@ -180,3 +180,22 @@ func TestReadShape_nestedObjectSub(t *testing.T) {
 		t.Errorf("nested leaf missing from the wire struct\n%s", emitStruct(tree))
 	}
 }
+
+// A plain JSON null (Go *uint / *string on the API side) must read as a null
+// attribute: an int64 wire field turns it into 0, which diffs against an unset
+// config for ever. Azure's azure_csp_id is the case.
+func TestReadShape_optKinds(t *testing.T) {
+	for kind, want := range map[string][2]string{
+		"opt_int":    {"*int64", "types.Int64PointerValue(x)"},
+		"opt_string": {"*string", "types.StringPointerValue(x)"},
+	} {
+		w, err := kindWire(kind)
+		if err != nil || w != want[0] {
+			t.Errorf("kindWire(%s) = %q, %v; want %q", kind, w, err, want[0])
+		}
+		c, err := kindConv(kind, "x")
+		if err != nil || c != want[1] {
+			t.Errorf("kindConv(%s) = %q, %v; want %q", kind, c, err, want[1])
+		}
+	}
+}
