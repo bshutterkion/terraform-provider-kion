@@ -42,6 +42,7 @@ func AccountResourceSchema(ctx context.Context) schema.Schema {
 				MarkdownDescription: "The AWS account number.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
 			"account_type_id": schema.Int64Attribute{

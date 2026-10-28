@@ -646,10 +646,16 @@ resources:
     # attributes the spec yields and silently disagreed with the schema its own
     # template declares.
     attributes: &cloud_account_attributes
+      # Neither PATCH body has account_number: a different number is a
+      # different AWS account. UseStateForUnknown first, or an unconfigured
+      # (AWS-assigned) number plans unknown and forces replacement. #75.
       account_number:
         type: string
         computed_optional_required: computed_optional
         description: The AWS account number.
+        plan_modifiers:
+          - stringplanmodifier.UseStateForUnknown()
+          - stringplanmodifier.RequiresReplace()
       car_external_id:
         type: string
         computed_optional_required: computed
