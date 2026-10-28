@@ -349,6 +349,11 @@ func (g *generator) generateResource(root, name string, ops resOps, ds dsOps, id
 	}
 	if entityArch != nil {
 		rm.ReadCompanion = entityArch.ReadCompanion
+		if entityArch.ListedIn != nil {
+			if rm.ListedIn, err = bindListedIn(*entityArch.ListedIn, model); err != nil {
+				return 0, fmt.Errorf("%s: %w", name, err)
+			}
+		}
 		if rc := entityArch.RawCreate; rc != nil {
 			verb, err := rawVerb(rc.Method)
 			if err != nil {

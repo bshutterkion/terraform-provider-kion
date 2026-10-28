@@ -93,6 +93,9 @@ type archetype struct {
 	// permission scheme). Which endpoints those are, and how to read an
 	// attribute back out of them, is knowledge no spec carries.
 	ReadCompanion string `yaml:"read_companion"`
+	// ListedIn (kind: entity): Read also requires the record in its parent's
+	// list, for a by-id GET that serves soft-deleted records. See listedInDecl.
+	ListedIn *listedInDecl `yaml:"listed_in"`
 	// RawCreate (kind: entity) routes ONLY the create over raw HTTP, leaving
 	// read, update and delete on the SDK.
 	//

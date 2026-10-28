@@ -167,8 +167,11 @@ type acctestData struct {
 	// Parent-list fields: these resources have no by-id GET, so Exists and
 	// Destroy list the parent's children and look for the record.
 	ParentParam, ParentCast, ParentIDTF string
-	ResponseType, RecordIDGo            string
-	RecordIDOpt                         bool
+	// ListedIn: Exists and Destroy also require the record in its parent's
+	// list, as Read does; see listedInDecl.
+	ListedIn                 *listedInBind
+	ResponseType, RecordIDGo string
+	RecordIDOpt              bool
 	// EnvArgs are environment variables whose VALUES the config interpolates,
 	// in order, as %[2]s, %[3]s, ... A value the API requires but the schema
 	// marks optional (kion_category's payer_id) is install-specific, so it
@@ -194,6 +197,7 @@ func buildAcctestData(rm ResourceModel, tv testValues) (acctestData, error) {
 		ReadParams:   rm.Read.Method.ParamsType,
 		ReadIDParam:  readIDParam,
 		IDParamType:  readIDType,
+		ListedIn:     rm.ListedIn,
 	}
 	d.CreateAttrs = sortAttrs(tv.Create, rm)
 	d.UpdateAttrs = sortAttrs(tv.Update, rm)

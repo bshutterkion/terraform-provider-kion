@@ -156,6 +156,7 @@ type entityData struct {
 	// ReadCompanion is a hand-authored function called after every flatten, for
 	// attributes the by-id read does not return at all (see archetype).
 	ReadCompanion string
+	ListedIn      *listedInBind
 	// RawCreate routes only the create over raw HTTP; see the archetype key.
 	RawCreate *rawCreateData
 	// Rewritten holds the model field names of attributes the API canonicalizes
@@ -263,6 +264,7 @@ func buildEntityData(rm ResourceModel) (entityData, error) {
 		ImportParentTF:   rm.ImportParentTF,
 		SchemaVersion:    rm.SchemaVersion,
 		ReadCompanion:    rm.ReadCompanion,
+		ListedIn:         rm.ListedIn,
 		Rewritten:        rm.Rewritten,
 		RawCreate:        rm.RawCreate,
 	}

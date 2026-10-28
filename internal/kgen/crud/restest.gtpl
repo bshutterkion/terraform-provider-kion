@@ -139,6 +139,22 @@ func testAccCheck{{.Pascal}}Exists(_ context.Context, name string) resource.Test
 		if errs.IsNotFound(out) {
 			return fmt.Errorf("{{.ResourceType}} (%d) not found", id)
 		}
+{{- with .ListedIn}}
+		// The by-id GET serves soft-deleted records; the parent's list is the authority.
+		if p := rs.Primary.Attributes["{{.ParentTF}}"]; p != "" {
+			parent, err := strconv.ParseInt(p, 10, 64)
+			if err != nil {
+				return fmt.Errorf("parsing {{.ParentTF}}: %w", err)
+			}
+			listed, err := conn.RawListContainsID(ctx, fmt.Sprintf("{{.PathFmt}}", parent), rs.Primary.ID)
+			if err != nil {
+				return fmt.Errorf("listing {{$.ResourceType}} (%d) under its parent: %w", id, err)
+			}
+			if !listed {
+				return fmt.Errorf("{{$.ResourceType}} (%d) is not listed under its parent", id)
+			}
+		}
+{{- end}}
 
 		return nil
 	}
@@ -169,6 +185,22 @@ func testAccCheck{{.Pascal}}Destroy(_ context.Context) resource.TestCheckFunc {
 			if err != nil {
 				return fmt.Errorf("reading {{.ResourceType}} (%d): %w", id, err)
 			}
+{{- with .ListedIn}}
+			// A soft-deleted record still reads by id; gone from the parent's list is destroyed.
+			if p := rs.Primary.Attributes["{{.ParentTF}}"]; p != "" {
+				parent, err := strconv.ParseInt(p, 10, 64)
+				if err != nil {
+					return fmt.Errorf("parsing {{.ParentTF}}: %w", err)
+				}
+				listed, err := conn.RawListContainsID(ctx, fmt.Sprintf("{{.PathFmt}}", parent), rs.Primary.ID)
+				if err != nil {
+					return fmt.Errorf("listing {{$.ResourceType}} (%d) under its parent: %w", id, err)
+				}
+				if !listed {
+					continue
+				}
+			}
+{{- end}}
 
 			return fmt.Errorf("{{.ResourceType}} (%d) still exists", id)
 		}

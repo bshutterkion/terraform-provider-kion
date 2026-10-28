@@ -361,6 +361,22 @@ func (r *{{.Pkg}}Resource) Read(ctx context.Context, req resource.ReadRequest, r
 		resp.State.RemoveResource(ctx)
 		return
 	}
+{{- with .ListedIn}}
+
+	// The by-id GET also serves soft-deleted records; the parent's list does
+	// not, so a record it no longer lists is gone. Unknown after an import.
+	if !state.{{.ParentGo}}.IsNull() && !state.{{.ParentGo}}.IsUnknown() {
+		listed, listErr := r.Meta().RawListContainsID(ctx, fmt.Sprintf("{{.PathFmt}}", state.{{.ParentGo}}.ValueInt64()), state.{{$.IDGo}}.ValueString())
+		if listErr != nil {
+			resp.Diagnostics.AddError(fmt.Sprintf("reading %s (ID: %d)", {{$.ResConst}}, idInt), listErr.Error())
+			return
+		}
+		if !listed {
+			resp.State.RemoveResource(ctx)
+			return
+		}
+	}
+{{- end}}
 
 {{- range .Rewritten}}
 	prior{{.}} := state.{{.}}
